@@ -40,7 +40,15 @@ public sealed class Service
     public static bool IsDev = true;
 
     public static Lumina.GameData? LuminaGameData;
-    public static Lumina.Excel.ExcelSheet<T>? LuminaSheet<T>() where T : struct, Lumina.Excel.IExcelRow<T> => LuminaGameData?.GetExcelSheet<T>(Lumina.Data.Language.English);
+    public static Lumina.Excel.ExcelSheet<T>? LuminaSheet<T>() where T : struct, Lumina.Excel.IExcelRow<T>
+    {
+        // Prefer English data for deterministic behavior, but fall back to the active client language.
+        var gd = LuminaGameData;
+        if (gd == null)
+            return null;
+
+        return gd.GetExcelSheet<T>(Lumina.Data.Language.English) ?? gd.GetExcelSheet<T>();
+    }
     public static T? LuminaRow<T>(uint row) where T : struct, Lumina.Excel.IExcelRow<T> => LuminaSheet<T>()?.GetRowOrDefault(row);
     public static ConcurrentDictionary<Lumina.Text.ReadOnly.ReadOnlySeString, Lumina.Text.ReadOnly.ReadOnlySeString> LuminaRSV = []; // TODO: reconsider
 
