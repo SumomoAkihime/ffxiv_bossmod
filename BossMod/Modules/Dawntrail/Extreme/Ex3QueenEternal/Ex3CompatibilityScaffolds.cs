@@ -29,3 +29,4 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
 
 [ModuleInfo(BossModuleInfo.Maturity.WIP, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1030, NameID = 0)]
 public class Ex3QueenEternal(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(20));
+
