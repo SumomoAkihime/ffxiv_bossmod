@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
 
-[ConfigDisplay(Parent = typeof(DawntrailConfig))]
+[ConfigDisplay(Order = 0x140, Parent = typeof(DawntrailConfig))]
 public class Ex4ZeleniaConfig : ConfigNode
 {
     [PropertyDisplay("Show AOE hints for Holy Hazard (Bloom 6)", tooltip: "This mechanic can be ignored using tank LB or mit. Disable if you want less clutter on the minimap.")]
