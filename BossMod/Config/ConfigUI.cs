@@ -39,10 +39,10 @@ public sealed class ConfigUI : IDisposable
         _mv = new(rotationDB?.Plans, ws);
         _presets = rotationDB != null ? new(rotationDB) : null;
 
-        _tabs.Add("About", _about.Draw);
-        _tabs.Add("Settings", DrawSettings);
-        _tabs.Add("Supported Bosses", () => _mv.Draw(_tree, _ws));
-        _tabs.Add("Autorotation Presets", () => _presets?.Draw());
+        _tabs.Add("关于", _about.Draw);
+        _tabs.Add("设置", DrawSettings);
+        _tabs.Add("支持的 Boss", () => _mv.Draw(_tree, _ws));
+        _tabs.Add("自动循环预设", () => _presets?.Draw());
 
         Dictionary<Type, UINode> nodes = [];
         foreach (var n in config.Nodes)
@@ -92,12 +92,12 @@ public sealed class ConfigUI : IDisposable
     private void DrawSettings()
     {
         ImGui.SetNextItemWidth(300);
-        if (ImGui.InputTextEx("", "Search for a setting...", ref _searchText))
+        if (ImGui.InputTextEx("", "搜索设置项...", ref _searchText))
             FilterNodes();
 
         ImGui.SameLine();
         using (ImRaii.Disabled(_searchText.Length == 0))
-            if (ImGui.Button("Clear"))
+            if (ImGui.Button("清空"))
             {
                 _searchText = "";
                 FilterNodes();

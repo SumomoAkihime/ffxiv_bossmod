@@ -18,46 +18,46 @@ public sealed class AboutTab(DirectoryInfo? replayDir)
     {
         using var wrap = ImRaii.TextWrapPos(0);
 
-        ImGui.TextUnformatted("Boss Mod (vbm) provides boss fight radar, auto-rotation, cooldown planning, and AI. All of its modules can be toggled individually. Support for it can be found in the Discord server linked at the bottom of this tab.");
+        ImGui.TextUnformatted("Boss Mod (vbm) 提供 Boss 战雷达、自动循环、爆发规划和 AI 功能。所有模块都可单独开关。支持渠道见本页底部链接。");
         ImGui.Spacing();
-        DrawSection("Radar",
+        DrawSection("雷达",
         [
-            "Provides an on-screen window that contains an area mini-map showing player positions, boss position(s), various imminent AoEs, and other mechanics.",
-            "Useful because you don't have to remember what ability names mean.",
-            "See exactly whether you're getting clipped by incoming AoE or not.",
-            "Enabled for supported bosses, visible in the \"Supported Bosses\" tab.",
+            "在屏幕上显示区域小地图，包含玩家位置、Boss 位置、即将出现的 AoE 和其他机制信息。",
+            "不需要强记技能名也能快速判断机制。",
+            "可以直观看到自己是否会吃到即将命中的 AoE。",
+            "仅在已支持的 Boss 中生效，可在“支持的 Boss”页查看。",
         ]);
         ImGui.Spacing();
-        DrawSection("Autorotation",
+        DrawSection("自动循环",
         [
-            "Executes fully optimal rotations to the best of its ability.",
-            "Go to the \"Autorotation Presets\" tab to create a preset.",
-            "Maturity of each rotation module is present in a tooltip.",
-            "Guide for using this feature can be found on the project's GitHub wiki.",
+            "尽可能执行最优输出循环。",
+            "可在“自动循环预设”页创建和管理预设。",
+            "每个循环模块的成熟度可在提示中查看。",
+            "详细使用说明见项目 GitHub Wiki。",
         ]);
         ImGui.Spacing();
-        DrawSection("CD Planner",
+        DrawSection("爆发规划",
         [
-            "Creates a CD plan for supported bosses.",
-            "Replaces autorotations in specific fights.",
-            "Allows you to time specific abilities to cast at specific times.",
-            "Guide for using this feature can be found on the project's GitHub wiki.",
+            "为已支持的 Boss 创建技能规划方案。",
+            "可在特定战斗中覆盖默认自动循环行为。",
+            "按时间轴精确安排关键技能释放时机。",
+            "详细使用说明见项目 GitHub Wiki。",
         ]);
         ImGui.Spacing();
         DrawSection("AI",
         [
-            "Automates movement during boss fights.",
-            "Automatically moves your character based on safe zones determined by a boss's module, visible on the radar.",
-            "Should not be used in any group content.",
-            "Can be hooked by other plugins to automate entire duties.",
+            "在 Boss 战中自动执行走位。",
+            "根据模块判定的安全区自动移动（可在雷达中看到）。",
+            "不建议在任何组队内容中使用。",
+            "可被其他插件调用用于流程自动化。",
         ]);
         ImGui.Spacing();
-        DrawSection("Replays",
+        DrawSection("回放",
         [
-            "Useful for creating boss modules, analyzing problems with them, and making CD plans.",
-            "When asking for help, make sure to provide a replay! Please note that replays will contain your player name!",
-            "Enabled in Settings > Show replay management UI (or enable auto recording).",
-            $"Files are located in '{replayDir}'.",
+            "用于制作模块、排查机制问题和编排技能时间轴。",
+            "反馈问题时请尽量附带回放；注意回放中会包含你的角色名。",
+            "可在 设置 > 显示回放管理界面（或启用自动录制）中开启。",
+            $"文件位置：'{replayDir}'。",
         ]);
         ImGui.Spacing();
         ImGui.Spacing();
@@ -66,13 +66,13 @@ public sealed class AboutTab(DirectoryInfo? replayDir)
             if (ImGui.Button("Puni.sh Discord", new(180, 0)))
                 _lastErrorMessage = OpenLink("https://discord.gg/Zzrcc8kmvy");
         ImGui.SameLine();
-        if (ImGui.Button("Boss Mod Repository", new(180, 0)))
+        if (ImGui.Button("Boss Mod 仓库", new(180, 0)))
             _lastErrorMessage = OpenLink("https://github.com/awgil/ffxiv_bossmod");
         ImGui.SameLine();
-        if (ImGui.Button("Boss Mod Wiki Tutorials", new(180, 0)))
+        if (ImGui.Button("Boss Mod Wiki 教程", new(180, 0)))
             _lastErrorMessage = OpenLink("https://github.com/awgil/ffxiv_bossmod/wiki");
         ImGui.SameLine();
-        if (ImGui.Button("Open Replay Folder", new(180, 0)) && replayDir != null)
+        if (ImGui.Button("打开回放文件夹", new(180, 0)) && replayDir != null)
             _lastErrorMessage = OpenDirectory(replayDir);
 
         if (_lastErrorMessage.Length > 0)
@@ -115,14 +115,14 @@ public sealed class AboutTab(DirectoryInfo? replayDir)
         catch (Exception e)
         {
             Service.Log($"Error opening link {link}: {e}");
-            return $"Failed to open link '{link}', open it manually in the browser.";
+            return $"无法打开链接 '{link}'，请手动在浏览器打开。";
         }
     }
 
     private string OpenDirectory(DirectoryInfo dir)
     {
         if (!dir.Exists)
-            return $"Directory '{dir}' not found.";
+            return $"目录 '{dir}' 不存在。";
 
         try
         {
@@ -132,7 +132,7 @@ public sealed class AboutTab(DirectoryInfo? replayDir)
         catch (Exception e)
         {
             Service.Log($"Error opening directory {dir}: {e}");
-            return $"Failed to open folder '{dir}', open it manually.";
+            return $"无法打开目录 '{dir}'，请手动打开。";
         }
     }
 }

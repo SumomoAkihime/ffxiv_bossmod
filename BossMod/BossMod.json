@@ -2,8 +2,8 @@
   "Author": "veyn",
   "Name": "Boss Mod",
   "InternalName": "BossMod",
-  "Punchline": "Don't fail at raid mechanics anymore",
-  "Description": "A bunch of utilities to simplify bosses.",
+  "Punchline": "用更直观的方式处理 Boss 机制",
+  "Description": "提供雷达、机制提示与战斗辅助的一体化 Boss 工具集。",
   "RepoUrl": "https://github.com/awgil/ffxiv_bossmod",
   "IconUrl": "https://raw.githubusercontent.com/awgil/ffxiv_bossmod/f4efcb5dc279d21ee16185d5a9f2d09a3a2bc58b/Data/icon.png",
   "ImageUrls": [
