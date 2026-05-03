@@ -3,7 +3,6 @@
 // Compatibility scaffolds for incremental upstream sync.
 // Keep these until each mechanic file is ported with full behavior.
 
-sealed class ArenaChanges(BossModule module) : BossComponent(module);
 sealed class VirtualShiftEarth(BossModule module) : BossComponent(module);
 sealed class VirtualShiftIce(BossModule module) : BossComponent(module);
 sealed class VirtualShiftWind(BossModule module) : BossComponent(module);
@@ -17,6 +16,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         _module = module;
 
         SimplePhase(0, Phase1, "P1")
+            .ActivateOnEnter<ArenaChanges>()
             .Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed || Module.PrimaryActor.HPMP.CurHP == 1 && (Module.PrimaryActor.CastInfo?.IsSpell(AID.AuthorityEternal) ?? false);
         SimplePhase(1, Phase2, "P2")
             .Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed && (_module.BossP2()?.IsDeadOrDestroyed ?? true);
