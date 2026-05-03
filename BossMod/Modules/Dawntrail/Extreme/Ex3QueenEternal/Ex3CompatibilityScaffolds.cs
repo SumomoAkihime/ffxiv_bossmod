@@ -7,7 +7,6 @@ sealed class AbsoluteAuthority(BossModule module) : BossComponent(module);
 sealed class ArenaChanges(BossModule module) : BossComponent(module);
 sealed class Coronation(BossModule module) : BossComponent(module);
 sealed class DimensionalDistortion(BossModule module) : BossComponent(module);
-sealed class LegitimateForce(BossModule module) : BossComponent(module);
 sealed class RadicalShift(BossModule module) : BossComponent(module);
 sealed class RoyalBanishment(BossModule module) : BossComponent(module);
 sealed class TyrannysGrasp(BossModule module) : BossComponent(module);
@@ -47,7 +46,12 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         ComponentCondition<DivideAndConquerAOE>(id + 0x130, 4.0f, c => c.NumCasts > 0, "Lines")
             .DeactivateOnExit<DivideAndConquerAOE>();
 
-        Cast(id + 0x200, AID.RoyalDomain, 3.0f, 5.0f, "Raidwide")
+        CastMulti(id + 0x180, [AID.LegitimateForceFirstR, AID.LegitimateForceFirstL], 3.0f, 8.0f, "Side 1")
+            .ActivateOnEnter<LegitimateForce>();
+        ComponentCondition<LegitimateForce>(id + 0x190, 3.1f, c => c.NumCasts > 1, "Side 2")
+            .DeactivateOnExit<LegitimateForce>();
+
+        Cast(id + 0x200, AID.RoyalDomain, 2.0f, 5.0f, "Raidwide")
             .SetHint(StateMachine.StateHint.Raidwide);
 
         Cast(id + 0x300, AID.AuthorityEternal, 8.0f, 10.0f, "Phase transition");
