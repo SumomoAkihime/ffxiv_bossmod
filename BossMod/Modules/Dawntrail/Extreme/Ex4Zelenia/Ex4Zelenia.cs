@@ -5,6 +5,9 @@ public class Ex4ZeleniaConfig : ConfigNode
 {
     [PropertyDisplay("Show AOE hints for Holy Hazard (Bloom 6)", tooltip: "This mechanic can be ignored using tank LB or mit. Disable if you want less clutter on the minimap.")]
     public bool ShowHolyHazard = true;
+
+    [PropertyDisplay("Dangerous rose tile color:")]
+    public Color RoseTileColor = new(0x80008080);
 }
 
 class ThornedCatharsis : Components.RaidwideCast
