@@ -3,7 +3,6 @@
 // Compatibility scaffolds for incremental upstream sync.
 // Keep these until each mechanic file is ported with full behavior.
 
-sealed class AbsoluteAuthority(BossModule module) : BossComponent(module);
 sealed class ArenaChanges(BossModule module) : BossComponent(module);
 sealed class Coronation(BossModule module) : BossComponent(module);
 sealed class DimensionalDistortion(BossModule module) : BossComponent(module);
@@ -45,6 +44,20 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<DivideAndConquerBait>();
         ComponentCondition<DivideAndConquerAOE>(id + 0x130, 4.0f, c => c.NumCasts > 0, "Lines")
             .DeactivateOnExit<DivideAndConquerAOE>();
+
+        Cast(id + 0x140, AID.AbsoluteAuthorityPuddles, 3.0f, 10.0f)
+            .ActivateOnEnter<AbsoluteAuthorityPuddles>();
+        ComponentCondition<AbsoluteAuthorityPuddles>(id + 0x150, 0.1f, c => c.Casters.Count > 0, "Puddles bait");
+        ComponentCondition<AbsoluteAuthorityExpansionBoot>(id + 0x160, 10.0f, c => c.NumCasts > 0, "Spread/stack")
+            .ActivateOnEnter<AbsoluteAuthorityExpansionBoot>()
+            .ActivateOnEnter<AbsoluteAuthorityHeel>()
+            .DeactivateOnExit<AbsoluteAuthorityPuddles>()
+            .DeactivateOnExit<AbsoluteAuthorityExpansionBoot>();
+        ComponentCondition<AbsoluteAuthorityHeel>(id + 0x170, 4.0f, c => c.NumCasts > 0, "Stack")
+            .DeactivateOnExit<AbsoluteAuthorityHeel>();
+        ComponentCondition<AbsoluteAuthorityKnockback>(id + 0x175, 6.9f, c => c.NumCasts > 0, "Knockback")
+            .ActivateOnEnter<AbsoluteAuthorityKnockback>()
+            .DeactivateOnExit<AbsoluteAuthorityKnockback>();
 
         CastMulti(id + 0x180, [AID.LegitimateForceFirstR, AID.LegitimateForceFirstL], 3.0f, 8.0f, "Side 1")
             .ActivateOnEnter<LegitimateForce>();
