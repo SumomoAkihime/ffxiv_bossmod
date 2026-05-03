@@ -99,3 +99,8 @@ Generated from module path comparison between:
 - Pilot succeeded: added `Dawntrail/Extreme/Ex3QueenEternal/Ex3QueenEternalConfig.cs`.
 - Type: low-risk config-only merge from Reborn.
 - Validation: Release build passes after import.
+
+## Compatibility Probe (2026-05-03, Phase 7)
+- Pilot succeeded: added `Dawntrail/Chaotic/Ch01CloudOfDarkness/Ch01CloudOfDarknessConfig.cs`.
+- Type: low-risk config-only merge from Reborn.
+- Validation: Release build passes after import.
