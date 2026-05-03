@@ -4,7 +4,6 @@
 // Keep these until each mechanic file is ported with full behavior.
 
 sealed class AbsoluteAuthority(BossModule module) : BossComponent(module);
-sealed class Aethertithe(BossModule module) : BossComponent(module);
 sealed class ArenaChanges(BossModule module) : BossComponent(module);
 sealed class Coronation(BossModule module) : BossComponent(module);
 sealed class DimensionalDistortion(BossModule module) : BossComponent(module);
