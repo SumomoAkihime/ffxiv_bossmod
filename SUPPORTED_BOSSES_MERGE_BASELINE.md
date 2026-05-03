@@ -69,3 +69,16 @@ Generated from module path comparison between:
 - Heavensward/Quest: 7
 - RealmReborn/Dungeon: 6
 - RealmReborn/Novice: 5
+
+## Compatibility Probe (2026-05-03, Phase 3)
+- Result: direct module import remains blocked by framework API drift.
+- Verified blockers:
+  - `GenericAOEs` signature mismatch (`ReadOnlySpan`-style modules vs current `IEnumerable` base).
+  - Reborn-only helper/component usage and geometry types not present in current fork.
+  - state/helper API differences in module utility calls.
+- Stable action taken:
+  - added lightweight compatibility adapters in `BossMod/Components/CompatReborn.cs`.
+  - added `BossModuleInfo.Maturity.AISupport` compatibility alias.
+- Scope safety:
+  - attempted Dawntrail Alliance `A10Trash` / `A20Trash` import was rolled back after compile validation.
+  - repository remains buildable after rollback.
