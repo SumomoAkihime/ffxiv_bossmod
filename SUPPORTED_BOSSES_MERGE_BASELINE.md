@@ -89,3 +89,8 @@ Generated from module path comparison between:
   - replaced Reborn-only `ReadOnlySpan` pattern with current `IEnumerable<AOEInstance>`.
   - replaced Reborn-only square helper usage with `AOEShapeCustom` + `RelPolygonWithHoles`.
 - Validation: Release build passes after adding this module.
+
+## Compatibility Probe (2026-05-03, Phase 5)
+- Pilot succeeded: added `Dawntrail/Extreme/Ex6GuardianArkveld/Ex6GuardianArkveldConfig.cs`.
+- Type: low-risk config-only merge from Reborn.
+- Validation: Release build passes after import.
