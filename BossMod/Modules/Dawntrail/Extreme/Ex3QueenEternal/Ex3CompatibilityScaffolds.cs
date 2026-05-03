@@ -1,7 +1,7 @@
 ﻿namespace BossMod.Dawntrail.Extreme.Ex3QueenEternal;
 
 // Compatibility scaffolds for incremental upstream sync.
-// These are placeholders to keep type/file parity and compile stability.
+// Keep these until each mechanic file is ported with full behavior.
 
 sealed class AbsoluteAuthority(BossModule module) : BossComponent(module);
 sealed class Aethertithe(BossModule module) : BossComponent(module);
@@ -17,8 +17,6 @@ sealed class VirtualShiftEarth(BossModule module) : BossComponent(module);
 sealed class VirtualShiftIce(BossModule module) : BossComponent(module);
 sealed class VirtualShiftWind(BossModule module) : BossComponent(module);
 
-static class Ex3QueenEternalEnums;
-
 sealed class Ex3QueenEternalStates : StateMachineBuilder
 {
     public Ex3QueenEternalStates(BossModule module) : base(module)
@@ -26,7 +24,3 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         TrivialPhase();
     }
 }
-
-[ModuleInfo(BossModuleInfo.Maturity.WIP, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1030, NameID = 0)]
-public class Ex3QueenEternal(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(20));
-
