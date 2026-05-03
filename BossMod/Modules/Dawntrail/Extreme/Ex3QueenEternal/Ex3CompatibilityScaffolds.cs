@@ -7,7 +7,6 @@ sealed class ArenaChanges(BossModule module) : BossComponent(module);
 sealed class Coronation(BossModule module) : BossComponent(module);
 sealed class DimensionalDistortion(BossModule module) : BossComponent(module);
 sealed class RadicalShift(BossModule module) : BossComponent(module);
-sealed class RoyalBanishment(BossModule module) : BossComponent(module);
 sealed class TyrannysGrasp(BossModule module) : BossComponent(module);
 sealed class VirtualShiftEarth(BossModule module) : BossComponent(module);
 sealed class VirtualShiftIce(BossModule module) : BossComponent(module);
@@ -83,6 +82,15 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .ActivateOnEnter<DyingMemoryLast>()
             .DeactivateOnExit<DyingMemory>()
             .DeactivateOnExit<DyingMemoryLast>()
+            .SetHint(StateMachine.StateHint.Raidwide);
+
+        ActorCastStart(id + 0x120, _module.BossP2, AID.RoyalBanishment, 3.1f, true)
+            .ActivateOnEnter<RoyalBanishment>();
+        ActorCastEnd(id + 0x121, _module.BossP2, 5.0f, true);
+        ComponentCondition<RoyalBanishment>(id + 0x130, 0.8f, c => c.NumCasts > 0, "Line stack 1");
+        ComponentCondition<RoyalBanishment>(id + 0x140, 6.0f, c => c.NumCasts >= 7);
+        ComponentCondition<RoyalBanishment>(id + 0x150, 3.0f, c => c.NumCasts >= 8, "Line stack 8")
+            .DeactivateOnExit<RoyalBanishment>()
             .SetHint(StateMachine.StateHint.Raidwide);
 
         ActorCast(id + 0x200, _module.BossP2, AID.Preservation, 9.0f, 14.0f, true, "Enrage");
