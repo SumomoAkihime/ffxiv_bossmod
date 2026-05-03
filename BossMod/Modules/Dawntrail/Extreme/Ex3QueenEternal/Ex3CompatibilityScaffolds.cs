@@ -7,7 +7,6 @@ sealed class AbsoluteAuthority(BossModule module) : BossComponent(module);
 sealed class ArenaChanges(BossModule module) : BossComponent(module);
 sealed class Coronation(BossModule module) : BossComponent(module);
 sealed class DimensionalDistortion(BossModule module) : BossComponent(module);
-sealed class DivideAndConquer(BossModule module) : BossComponent(module);
 sealed class LegitimateForce(BossModule module) : BossComponent(module);
 sealed class RadicalShift(BossModule module) : BossComponent(module);
 sealed class RoyalBanishment(BossModule module) : BossComponent(module);
@@ -39,11 +38,20 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<ProsecutionOfWar>()
             .SetHint(StateMachine.StateHint.Tankbuster);
 
-        Cast(id + 0x100, AID.RoyalDomain, 7.0f, 5.0f, "Raidwide")
+        Cast(id + 0x100, AID.DivideAndConquer, 5.0f, 7.5f)
+            .ActivateOnEnter<DivideAndConquerBait>()
+            .ActivateOnEnter<DivideAndConquerAOE>();
+        ComponentCondition<DivideAndConquerBait>(id + 0x110, 0.1f, c => c.NumCasts > 0, "Protean 1");
+        ComponentCondition<DivideAndConquerBait>(id + 0x120, 7.0f, c => c.NumCasts >= 8, "Protean 8")
+            .DeactivateOnExit<DivideAndConquerBait>();
+        ComponentCondition<DivideAndConquerAOE>(id + 0x130, 4.0f, c => c.NumCasts > 0, "Lines")
+            .DeactivateOnExit<DivideAndConquerAOE>();
+
+        Cast(id + 0x200, AID.RoyalDomain, 3.0f, 5.0f, "Raidwide")
             .SetHint(StateMachine.StateHint.Raidwide);
 
-        Cast(id + 0x200, AID.AuthorityEternal, 8.0f, 10.0f, "Phase transition");
-        Targetable(id + 0x210, false, 0.2f, "Boss disappears")
+        Cast(id + 0x300, AID.AuthorityEternal, 8.0f, 10.0f, "Phase transition");
+        Targetable(id + 0x310, false, 0.2f, "Boss disappears")
             .SetHint(StateMachine.StateHint.DowntimeStart);
     }
 
