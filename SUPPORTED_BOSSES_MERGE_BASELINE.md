@@ -104,3 +104,8 @@ Generated from module path comparison between:
 - Pilot succeeded: added `Dawntrail/Chaotic/Ch01CloudOfDarkness/Ch01CloudOfDarknessConfig.cs`.
 - Type: low-risk config-only merge from Reborn.
 - Validation: Release build passes after import.
+
+## Compatibility Probe (2026-05-03, Phase 8)
+- Pilot succeeded: added `Dawntrail/Savage/M05SDancingGreen/M05SDancingGreenConfig.cs`.
+- Type: low-risk config-only merge from Reborn.
+- Validation: Release build passes after import.
