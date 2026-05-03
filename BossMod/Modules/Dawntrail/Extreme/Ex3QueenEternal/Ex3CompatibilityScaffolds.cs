@@ -5,7 +5,6 @@
 
 sealed class VirtualShiftEarth(BossModule module) : BossComponent(module);
 sealed class VirtualShiftIce(BossModule module) : BossComponent(module);
-sealed class VirtualShiftWind(BossModule module) : BossComponent(module);
 
 sealed class Ex3QueenEternalStates : StateMachineBuilder
 {
