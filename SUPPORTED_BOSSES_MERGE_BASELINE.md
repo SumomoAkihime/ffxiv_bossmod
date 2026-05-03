@@ -94,3 +94,8 @@ Generated from module path comparison between:
 - Pilot succeeded: added `Dawntrail/Extreme/Ex6GuardianArkveld/Ex6GuardianArkveldConfig.cs`.
 - Type: low-risk config-only merge from Reborn.
 - Validation: Release build passes after import.
+
+## Compatibility Probe (2026-05-03, Phase 6)
+- Pilot succeeded: added `Dawntrail/Extreme/Ex3QueenEternal/Ex3QueenEternalConfig.cs`.
+- Type: low-risk config-only merge from Reborn.
+- Validation: Release build passes after import.
