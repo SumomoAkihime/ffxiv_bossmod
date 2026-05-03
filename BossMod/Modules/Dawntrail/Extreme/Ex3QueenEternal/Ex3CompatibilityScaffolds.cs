@@ -4,7 +4,6 @@
 // Keep these until each mechanic file is ported with full behavior.
 
 sealed class ArenaChanges(BossModule module) : BossComponent(module);
-sealed class Coronation(BossModule module) : BossComponent(module);
 sealed class RadicalShift(BossModule module) : BossComponent(module);
 sealed class VirtualShiftEarth(BossModule module) : BossComponent(module);
 sealed class VirtualShiftIce(BossModule module) : BossComponent(module);
@@ -63,6 +62,17 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
 
         Cast(id + 0x200, AID.RoyalDomain, 2.0f, 5.0f, "Raidwide")
             .SetHint(StateMachine.StateHint.Raidwide);
+
+        Cast(id + 0x210, AID.Coronation, 3.1f, 3.0f)
+            .ActivateOnEnter<Coronation>();
+        ComponentCondition<Coronation>(id + 0x211, 2.1f, c => c.Groups.Count > 0);
+        Cast(id + 0x212, AID.AtomicRay, 1.1f, 3.0f);
+        ComponentCondition<AtomicRay>(id + 0x213, 1.2f, c => c.Active)
+            .ActivateOnEnter<AtomicRay>();
+        ComponentCondition<Coronation>(id + 0x214, 4.9f, c => c.NumCasts > 0, "Coronation")
+            .DeactivateOnExit<Coronation>();
+        ComponentCondition<AtomicRay>(id + 0x215, 1.1f, c => c.NumFinishedSpreads > 0, "Spread")
+            .DeactivateOnExit<AtomicRay>();
 
         Cast(id + 0x300, AID.AuthorityEternal, 8.0f, 10.0f, "Phase transition");
         Targetable(id + 0x310, false, 0.2f, "Boss disappears")
