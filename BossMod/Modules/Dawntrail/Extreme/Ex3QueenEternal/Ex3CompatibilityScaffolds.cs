@@ -5,7 +5,6 @@
 
 sealed class ArenaChanges(BossModule module) : BossComponent(module);
 sealed class Coronation(BossModule module) : BossComponent(module);
-sealed class DimensionalDistortion(BossModule module) : BossComponent(module);
 sealed class RadicalShift(BossModule module) : BossComponent(module);
 sealed class TyrannysGrasp(BossModule module) : BossComponent(module);
 sealed class VirtualShiftEarth(BossModule module) : BossComponent(module);
@@ -75,6 +74,9 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
     {
         ActorCast(id, _module.BossP2, AID.RadicalShift, 4.0f, 11.0f, true, "Raidwide")
             .SetHint(StateMachine.StateHint.Raidwide);
+        ActorCast(id + 0x80, _module.BossP2, AID.DimensionalDistortion, 7.2f, 5.0f, true)
+            .ActivateOnEnter<DimensionalDistortion>();
+        ComponentCondition<DimensionalDistortion>(id + 0x81, 1.0f, c => c.NumCasts > 0, "Exaflares start");
         ComponentCondition<DyingMemory>(id + 0x100, 10.0f, c => c.NumCasts > 0, "Memory 1")
             .ActivateOnEnter<DyingMemory>()
             .SetHint(StateMachine.StateHint.Raidwide);
