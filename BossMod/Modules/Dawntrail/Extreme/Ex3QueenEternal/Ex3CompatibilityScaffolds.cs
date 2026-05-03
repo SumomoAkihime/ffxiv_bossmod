@@ -6,7 +6,6 @@
 sealed class ArenaChanges(BossModule module) : BossComponent(module);
 sealed class Coronation(BossModule module) : BossComponent(module);
 sealed class RadicalShift(BossModule module) : BossComponent(module);
-sealed class TyrannysGrasp(BossModule module) : BossComponent(module);
 sealed class VirtualShiftEarth(BossModule module) : BossComponent(module);
 sealed class VirtualShiftIce(BossModule module) : BossComponent(module);
 sealed class VirtualShiftWind(BossModule module) : BossComponent(module);
@@ -77,6 +76,16 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         ActorCast(id + 0x80, _module.BossP2, AID.DimensionalDistortion, 7.2f, 5.0f, true)
             .ActivateOnEnter<DimensionalDistortion>();
         ComponentCondition<DimensionalDistortion>(id + 0x81, 1.0f, c => c.NumCasts > 0, "Exaflares start");
+        ActorCast(id + 0x90, _module.BossP2, AID.TyrannysGrasp, 5.2f, 5.0f, true, "Front half cleave")
+            .ActivateOnEnter<TyrannysGraspAOE>()
+            .ActivateOnEnter<TyrannysGraspTowers>()
+            .DeactivateOnExit<DimensionalDistortion>()
+            .DeactivateOnExit<TyrannysGraspAOE>();
+        ComponentCondition<TyrannysGraspTowers>(id + 0x91, 1.2f, c => c.NumCasts >= 1, "Tankbuster tower 1")
+            .SetHint(StateMachine.StateHint.Tankbuster);
+        ComponentCondition<TyrannysGraspTowers>(id + 0x92, 2.7f, c => c.NumCasts >= 2, "Tankbuster tower 2")
+            .DeactivateOnExit<TyrannysGraspTowers>()
+            .SetHint(StateMachine.StateHint.Tankbuster);
         ComponentCondition<DyingMemory>(id + 0x100, 10.0f, c => c.NumCasts > 0, "Memory 1")
             .ActivateOnEnter<DyingMemory>()
             .SetHint(StateMachine.StateHint.Raidwide);
