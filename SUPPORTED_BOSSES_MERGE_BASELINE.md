@@ -82,3 +82,10 @@ Generated from module path comparison between:
 - Scope safety:
   - attempted Dawntrail Alliance `A10Trash` / `A20Trash` import was rolled back after compile validation.
   - repository remains buildable after rollback.
+
+## Compatibility Probe (2026-05-03, Phase 4)
+- Pilot succeeded: added `Dawntrail/Extreme/Ex2ZoraalJa/DawnOfAnAgeArenaChange.cs` in current-framework style.
+- Implementation notes:
+  - replaced Reborn-only `ReadOnlySpan` pattern with current `IEnumerable<AOEInstance>`.
+  - replaced Reborn-only square helper usage with `AOEShapeCustom` + `RelPolygonWithHoles`.
+- Validation: Release build passes after adding this module.
