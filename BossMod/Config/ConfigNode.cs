@@ -48,6 +48,13 @@ public sealed class PropertySliderAttribute(float min, float max) : Attribute
     public bool Logarithmic { get; set; }
 }
 
+// compatibility attribute used by some imported config UIs to provide fixed ordering labels
+[AttributeUsage(AttributeTargets.Field)]
+public sealed class PropertyStringOrderAttribute(string[] values) : Attribute
+{
+    public string[] Values { get; } = values;
+}
+
 // base class for configuration nodes
 public abstract class ConfigNode
 {

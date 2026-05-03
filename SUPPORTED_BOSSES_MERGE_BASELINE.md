@@ -109,3 +109,8 @@ Generated from module path comparison between:
 - Pilot succeeded: added `Dawntrail/Savage/M05SDancingGreen/M05SDancingGreenConfig.cs`.
 - Type: low-risk config-only merge from Reborn.
 - Validation: Release build passes after import.
+
+## Compatibility Probe (2026-05-03, Phase 9)
+- Pilot succeeded: added `Dawntrail/Savage/M06SSugarRiot/M06SSugarRiotConfig.cs`.
+- Type: low-risk config merge with compatibility simplification (removed Reborn-only custom config UI hooks).
+- Validation: Release build passes after import.
