@@ -4,7 +4,6 @@
 // Keep these until each mechanic file is ported with full behavior.
 
 sealed class ArenaChanges(BossModule module) : BossComponent(module);
-sealed class RadicalShift(BossModule module) : BossComponent(module);
 sealed class VirtualShiftEarth(BossModule module) : BossComponent(module);
 sealed class VirtualShiftIce(BossModule module) : BossComponent(module);
 sealed class VirtualShiftWind(BossModule module) : BossComponent(module);
@@ -82,7 +81,11 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
     private void Phase2(uint id)
     {
         ActorCast(id, _module.BossP2, AID.RadicalShift, 4.0f, 11.0f, true, "Raidwide")
+            .ActivateOnEnter<RadicalShift>()
+            .ActivateOnEnter<RadicalShiftAOE>()
             .SetHint(StateMachine.StateHint.Raidwide);
+        ComponentCondition<RadicalShiftAOE>(id + 0x01, 5.2f, c => c.NumFinishedSpreads > 0, "Spread")
+            .DeactivateOnExit<RadicalShiftAOE>();
         ActorCast(id + 0x80, _module.BossP2, AID.DimensionalDistortion, 7.2f, 5.0f, true)
             .ActivateOnEnter<DimensionalDistortion>();
         ComponentCondition<DimensionalDistortion>(id + 0x81, 1.0f, c => c.NumCasts > 0, "Exaflares start");
