@@ -179,6 +179,21 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         ComponentCondition<AtomicRay>(id + 0x215, 1.1f, c => c.NumFinishedSpreads > 0, "Spread")
             .DeactivateOnExit<AtomicRay>();
 
+        Cast(id + 0x250, AID.ProsecutionOfWar, 8.1f, 5.0f, "Tankbuster")
+            .ActivateOnEnter<ProsecutionOfWar>()
+            .SetHint(StateMachine.StateHint.Tankbuster);
+        ComponentCondition<ProsecutionOfWar>(id + 0x251, 3.2f, c => c.NumCasts > 1)
+            .DeactivateOnExit<ProsecutionOfWar>()
+            .SetHint(StateMachine.StateHint.Tankbuster);
+        Cast(id + 0x260, AID.RoyalDomain, 8.2f, 5.0f, "Raidwide")
+            .SetHint(StateMachine.StateHint.Raidwide);
+        CastMulti(id + 0x270, [AID.LegitimateForceFirstR, AID.LegitimateForceFirstL], 6.3f, 8.0f, "Side 1")
+            .ActivateOnEnter<LegitimateForce>();
+        ComponentCondition<LegitimateForce>(id + 0x271, 3.1f, c => c.NumCasts > 1, "Side 2")
+            .DeactivateOnExit<LegitimateForce>();
+        Cast(id + 0x280, AID.RoyalDomain, 3.1f, 5.0f, "Raidwide")
+            .SetHint(StateMachine.StateHint.Raidwide);
+
         Cast(id + 0x300, AID.AuthorityEternal, 8.0f, 10.0f, "Phase transition");
         Targetable(id + 0x310, false, 0.2f, "Boss disappears")
             .SetHint(StateMachine.StateHint.DowntimeStart);
