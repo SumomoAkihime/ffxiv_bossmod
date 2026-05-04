@@ -51,6 +51,28 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         ComponentCondition<AeroquellTwister>(id + 0x4A, 2.6f, c => !c.Sources(Module).Any())
             .DeactivateOnExit<AeroquellTwister>();
 
+        Cast(id + 0x80, AID.VirtualShiftEarth, 4.0f, 5.0f, "Raidwide (earth platform)")
+            .SetHint(StateMachine.StateHint.Raidwide);
+        CastStart(id + 0x81, AID.LawsOfEarth, 5.2f)
+            .ActivateOnEnter<VirtualShiftEarth>();
+        CastEnd(id + 0x82, 4.0f);
+        CastMulti(id + 0x83, [AID.LegitimateForceFirstR, AID.LegitimateForceFirstL], 3.2f, 8.0f, "Side 1")
+            .ActivateOnEnter<LegitimateForce>();
+        ComponentCondition<LegitimateForce>(id + 0x84, 3.1f, c => c.NumCasts > 1, "Side 2")
+            .DeactivateOnExit<LegitimateForce>();
+        ComponentCondition<LawsOfEarthBurst>(id + 0x85, 5.0f, c => c.NumCasts > 0, "Towers")
+            .ActivateOnEnter<LawsOfEarthBurst1>()
+            .DeactivateOnExit<LawsOfEarthBurst>();
+        Cast(id + 0x86, AID.GravitationalEmpire, 5.2f, 7.0f)
+            .ActivateOnEnter<GravityPillar>()
+            .ActivateOnEnter<GravityRay>()
+            .ActivateOnEnter<LawsOfEarthBurst2>();
+        ComponentCondition<GravityRay>(id + 0x87, 1.0f, c => c.NumCasts > 0, "Defamations + Cones")
+            .DeactivateOnExit<GravityPillar>()
+            .DeactivateOnExit<GravityRay>();
+        ComponentCondition<LawsOfEarthBurst>(id + 0x88, 0.8f, c => c.NumCasts > 0, "Towers")
+            .DeactivateOnExit<LawsOfEarthBurst>();
+
         Cast(id + 0x100, AID.DivideAndConquer, 5.0f, 7.5f)
             .ActivateOnEnter<DivideAndConquerBait>()
             .ActivateOnEnter<DivideAndConquerAOE>();
