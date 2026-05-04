@@ -73,6 +73,39 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         ComponentCondition<LawsOfEarthBurst>(id + 0x88, 0.8f, c => c.NumCasts > 0, "Towers")
             .DeactivateOnExit<LawsOfEarthBurst>();
 
+        Cast(id + 0x90, AID.VirtualShiftIce, 3.0f, 5.0f, "Raidwide (ice platform)")
+            .ActivateOnEnter<VirtualShiftIce>()
+            .SetHint(StateMachine.StateHint.Raidwide);
+        CastStart(id + 0x91, AID.LawsOfIce, 5.2f);
+        CastEnd(id + 0x92, 4.0f)
+            .ActivateOnEnter<LawsOfIce>();
+        ComponentCondition<LawsOfIce>(id + 0x93, 1.0f, c => c.NumCasts > 0, "Move");
+        ComponentCondition<Rush>(id + 0x94, 4.3f, c => c.Activation != default)
+            .ActivateOnEnter<Rush>()
+            .DeactivateOnExit<LawsOfIce>();
+        CastStartMulti(id + 0x95, [AID.LegitimateForceFirstR, AID.LegitimateForceFirstL], 11.9f);
+        ComponentCondition<Rush>(id + 0x96, 0.3f, c => c.NumCasts > 0, "Stretch tethers")
+            .DeactivateOnExit<Rush>();
+        CastEnd(id + 0x97, 7.7f, "Side 1")
+            .ActivateOnEnter<LegitimateForce>();
+        ComponentCondition<LegitimateForce>(id + 0x98, 3.1f, c => c.NumCasts > 1, "Side 2")
+            .DeactivateOnExit<LegitimateForce>();
+        Cast(id + 0x99, AID.LawsOfIce, 6.1f, 4.0f)
+            .ActivateOnEnter<LawsOfIce>();
+        ComponentCondition<LawsOfIce>(id + 0x9A, 1.0f, c => c.NumCasts > 0, "Move")
+            .ActivateOnEnter<IceDart>()
+            .ActivateOnEnter<RaisedTribute>();
+        ComponentCondition<IceDart>(id + 0x9B, 6.1f, c => c.NumCasts > 0, "Tethers + Line stack 1")
+            .DeactivateOnExit<LawsOfIce>();
+        ComponentCondition<IceDart>(id + 0x9C, 7.1f, c => c.NumCasts > 2, "Tethers + Line stack 2");
+        ComponentCondition<IceDart>(id + 0x9D, 7.1f, c => c.NumCasts > 4, "Tethers + Line stack 3");
+        ComponentCondition<IceDart>(id + 0x9E, 7.1f, c => c.NumCasts > 6, "Tethers + Line stack 4")
+            .DeactivateOnExit<IceDart>()
+            .DeactivateOnExit<RaisedTribute>();
+        Cast(id + 0x9F, AID.WorldShatterP1, 3.1f, 5.0f, "Raidwide + platform end")
+            .DeactivateOnExit<VirtualShiftIce>()
+            .SetHint(StateMachine.StateHint.Raidwide);
+
         Cast(id + 0x100, AID.DivideAndConquer, 5.0f, 7.5f)
             .ActivateOnEnter<DivideAndConquerBait>()
             .ActivateOnEnter<DivideAndConquerAOE>();
