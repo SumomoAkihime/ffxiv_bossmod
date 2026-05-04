@@ -238,11 +238,11 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         ComponentCondition<TyrannysGraspTowers>(id + 0x92, 2.7f, c => c.NumCasts >= 2, "Tankbuster tower 2")
             .DeactivateOnExit<TyrannysGraspTowers>()
             .SetHint(StateMachine.StateHint.Tankbuster);
-        ComponentCondition<DyingMemory>(id + 0x100, 1.3f, c => c.NumCasts > 0, "Memory 1")
+        ComponentCondition<DyingMemory>(id + 0x100, 1.3f, c => c.NumCasts > 0, "Raidwide 1")
             .ActivateOnEnter<DyingMemory>()
             .DeactivateOnExit<DyingMemory>()
             .SetHint(StateMachine.StateHint.Raidwide);
-        ComponentCondition<DyingMemoryLast>(id + 0x110, 7.8f, c => c.NumCasts > 0, "Memory end")
+        ComponentCondition<DyingMemoryLast>(id + 0x110, 7.8f, c => c.NumCasts > 0, "Raidwide 8")
             .ActivateOnEnter<DyingMemoryLast>()
             .DeactivateOnExit<DyingMemoryLast>()
             .SetHint(StateMachine.StateHint.Raidwide);
