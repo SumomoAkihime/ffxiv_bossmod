@@ -244,7 +244,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<DyingMemoryLast>()
             .SetHint(StateMachine.StateHint.Raidwide);
 
-        ActorCastStart(id + 0x120, _module.BossP2, AID.RoyalBanishment, 3.1f, true)
+        ActorCastStart(id + 0x120, _module.BossP2, AID.RoyalBanishment, 3.0f, true)
             .ActivateOnEnter<RoyalBanishment>();
         ActorCastEnd(id + 0x121, _module.BossP2, 5.0f, true);
         ComponentCondition<RoyalBanishment>(id + 0x130, 0.8f, c => c.NumCasts > 0, "Line stack 1");
