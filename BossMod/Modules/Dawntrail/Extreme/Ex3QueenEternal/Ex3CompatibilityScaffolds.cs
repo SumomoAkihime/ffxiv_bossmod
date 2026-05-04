@@ -1,8 +1,5 @@
 ﻿namespace BossMod.Dawntrail.Extreme.Ex3QueenEternal;
 
-// Compatibility scaffolds for incremental upstream sync.
-// Keep these until each mechanic file is ported with full behavior.
-
 sealed class Ex3QueenEternalStates : StateMachineBuilder
 {
     private readonly Ex3QueenEternal _module;
