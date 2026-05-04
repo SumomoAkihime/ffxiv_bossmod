@@ -87,7 +87,20 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<GravityRay>();
         ComponentCondition<LawsOfEarthBurst>(id + 0x88, 0.8f, c => c.NumCasts > 0, "Towers")
             .DeactivateOnExit<LawsOfEarthBurst>();
-        Cast(id + 0x89, AID.WorldShatterP1, 0.7f, 5.0f, "Raidwide + platform end")
+        ComponentCondition<MeteorImpact>(id + 0x89, 5.5f, c => c.Active)
+            .ActivateOnEnter<MeteorImpact>();
+        ComponentCondition<MeteorImpact>(id + 0x8A, 6.1f, c => c.NumCasts > 0, "Meteors 1")
+            .ActivateOnEnter<WeightyBlow>();
+        ComponentCondition<MeteorImpact>(id + 0x8B, 1.0f, c => c.Active);
+        ComponentCondition<MeteorImpact>(id + 0x8C, 6.1f, c => c.NumCasts > 0, "Meteors 2")
+            .DeactivateOnExit<MeteorImpact>();
+        Cast(id + 0x8D, AID.WeightyBlow, 2.0f, 5.0f);
+        ComponentCondition<WeightyBlow>(id + 0x8E, 0.1f, c => c.NumCasts > 0, "LOS 1");
+        ComponentCondition<WeightyBlow>(id + 0x8F, 3.1f, c => c.NumCasts > 2, "LOS 2");
+        ComponentCondition<WeightyBlow>(id + 0xA0, 3.1f, c => c.NumCasts > 4, "LOS 3");
+        ComponentCondition<WeightyBlow>(id + 0xA1, 3.1f, c => c.NumCasts > 6, "LOS 4")
+            .DeactivateOnExit<WeightyBlow>();
+        Cast(id + 0xA2, AID.WorldShatterP1, 0.7f, 5.0f, "Raidwide + platform end")
             .DeactivateOnExit<VirtualShiftEarth>()
             .SetHint(StateMachine.StateHint.Raidwide);
 
