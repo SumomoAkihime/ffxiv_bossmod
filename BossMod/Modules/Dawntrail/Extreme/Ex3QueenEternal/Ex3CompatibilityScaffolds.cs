@@ -27,6 +27,21 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<ProsecutionOfWar>()
             .SetHint(StateMachine.StateHint.Tankbuster);
 
+        Cast(id + 0x20, AID.Aethertithe, 1.0f, 3.0f);
+        ComponentCondition<Aethertithe>(id + 0x21, 5.0f, c => c.AOE != null)
+            .ActivateOnEnter<Aethertithe>();
+        ComponentCondition<Aethertithe>(id + 0x22, 5.1f, c => c.NumCasts >= 1, "Cone 1")
+            .ActivateOnEnter<Retribute>();
+        ComponentCondition<Retribute>(id + 0x23, 2.9f, c => c.NumCasts > 0, "Line stacks 1");
+        ComponentCondition<Aethertithe>(id + 0x24, 1.2f, c => c.AOE != null);
+        ComponentCondition<Aethertithe>(id + 0x25, 5.1f, c => c.NumCasts >= 2, "Cone 2");
+        ComponentCondition<Retribute>(id + 0x26, 2.9f, c => c.NumCasts > 2, "Line stacks 2");
+        ComponentCondition<Aethertithe>(id + 0x27, 1.2f, c => c.AOE != null);
+        ComponentCondition<Aethertithe>(id + 0x28, 5.1f, c => c.NumCasts >= 3, "Cone 3")
+            .DeactivateOnExit<Aethertithe>();
+        ComponentCondition<Retribute>(id + 0x29, 2.9f, c => c.NumCasts > 4, "Line stacks 3")
+            .DeactivateOnExit<Retribute>();
+
         Cast(id + 0x40, AID.VirtualShiftWind, 2.0f, 5.0f, "Raidwide (wind platform)")
             .SetHint(StateMachine.StateHint.Raidwide);
         Cast(id + 0x41, AID.LawsOfWind, 5.2f, 4.0f);
