@@ -62,6 +62,17 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<ProsecutionOfWar>()
             .SetHint(StateMachine.StateHint.Tankbuster);
 
+        Cast(id + 0x60, AID.DivideAndConquer, 3.1f, 7.5f)
+            .ActivateOnEnter<DivideAndConquerBait>()
+            .ActivateOnEnter<DivideAndConquerAOE>();
+        ComponentCondition<DivideAndConquerBait>(id + 0x61, 0.1f, c => c.NumCasts > 0, "Protean 1");
+        ComponentCondition<DivideAndConquerBait>(id + 0x62, 7.0f, c => c.NumCasts >= 8, "Protean 8")
+            .DeactivateOnExit<DivideAndConquerBait>();
+        ComponentCondition<DivideAndConquerAOE>(id + 0x63, 4.0f, c => c.NumCasts > 0, "Lines")
+            .DeactivateOnExit<DivideAndConquerAOE>();
+        Cast(id + 0x70, AID.RoyalDomain, 3.0f, 5.0f, "Raidwide")
+            .SetHint(StateMachine.StateHint.Raidwide);
+
         Cast(id + 0x80, AID.VirtualShiftEarth, 8.2f, 5.0f, "Raidwide (earth platform)")
             .SetHint(StateMachine.StateHint.Raidwide);
         CastStart(id + 0x81, AID.LawsOfEarth, 5.2f)
@@ -133,15 +144,6 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<VirtualShiftIce>()
             .SetHint(StateMachine.StateHint.Raidwide);
 
-        Cast(id + 0x100, AID.DivideAndConquer, 3.1f, 7.5f)
-            .ActivateOnEnter<DivideAndConquerBait>()
-            .ActivateOnEnter<DivideAndConquerAOE>();
-        ComponentCondition<DivideAndConquerBait>(id + 0x110, 0.1f, c => c.NumCasts > 0, "Protean 1");
-        ComponentCondition<DivideAndConquerBait>(id + 0x120, 7.0f, c => c.NumCasts >= 8, "Protean 8")
-            .DeactivateOnExit<DivideAndConquerBait>();
-        ComponentCondition<DivideAndConquerAOE>(id + 0x130, 4.0f, c => c.NumCasts > 0, "Lines")
-            .DeactivateOnExit<DivideAndConquerAOE>();
-
         Cast(id + 0x140, AID.AbsoluteAuthorityPuddles, 3.0f, 10.0f)
             .ActivateOnEnter<AbsoluteAuthorityPuddles>();
         ComponentCondition<AbsoluteAuthorityPuddles>(id + 0x150, 0.1f, c => c.Casters.Count > 0, "Puddles bait");
@@ -161,7 +163,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         ComponentCondition<LegitimateForce>(id + 0x190, 3.1f, c => c.NumCasts > 1, "Side 2")
             .DeactivateOnExit<LegitimateForce>();
 
-        Cast(id + 0x200, AID.RoyalDomain, 3.0f, 5.0f, "Raidwide")
+        Cast(id + 0x200, AID.RoyalDomain, 2.0f, 5.0f, "Raidwide")
             .SetHint(StateMachine.StateHint.Raidwide);
 
         Cast(id + 0x205, AID.ProsecutionOfWar, 7.2f, 5.0f, "Tankbuster")
