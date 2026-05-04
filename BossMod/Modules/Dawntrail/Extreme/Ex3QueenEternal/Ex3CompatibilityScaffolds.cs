@@ -42,7 +42,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         ComponentCondition<Retribute>(id + 0x29, 2.9f, c => c.NumCasts > 4, "Line stacks 3")
             .DeactivateOnExit<Retribute>();
 
-        Cast(id + 0x40, AID.VirtualShiftWind, 2.0f, 5.0f, "Raidwide (wind platform)")
+        Cast(id + 0x40, AID.VirtualShiftWind, 7.5f, 5.0f, "Raidwide (wind platform)")
             .SetHint(StateMachine.StateHint.Raidwide);
         Cast(id + 0x41, AID.LawsOfWind, 5.2f, 4.0f);
         ComponentCondition<Aeroquell>(id + 0x42, 0.1f, c => c.Active)
