@@ -3,7 +3,6 @@
 // Compatibility scaffolds for incremental upstream sync.
 // Keep these until each mechanic file is ported with full behavior.
 
-sealed class VirtualShiftEarth(BossModule module) : BossComponent(module);
 sealed class VirtualShiftIce(BossModule module) : BossComponent(module);
 
 sealed class Ex3QueenEternalStates : StateMachineBuilder
