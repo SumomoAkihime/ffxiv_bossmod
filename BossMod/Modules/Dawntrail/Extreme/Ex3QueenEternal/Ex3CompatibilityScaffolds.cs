@@ -165,7 +165,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         ActorTargetable(id - 0x0E, _module.BossP2, true, 24.8f, "Boss appears")
             .SetHint(StateMachine.StateHint.DowntimeEnd);
 
-        ActorCast(id, _module.BossP2, AID.RadicalShift, 4.0f, 11.0f, true, "Raidwide")
+        ActorCast(id, _module.BossP2, AID.RadicalShift, 4.1f, 11.0f, true, "Raidwide")
             .ActivateOnEnter<RadicalShift>()
             .ActivateOnEnter<VirtualShiftIce>()
             .ActivateOnEnter<RadicalShiftAOE>()
