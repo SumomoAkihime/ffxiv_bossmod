@@ -72,6 +72,9 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<GravityRay>();
         ComponentCondition<LawsOfEarthBurst>(id + 0x88, 0.8f, c => c.NumCasts > 0, "Towers")
             .DeactivateOnExit<LawsOfEarthBurst>();
+        Cast(id + 0x89, AID.WorldShatterP1, 0.7f, 5.0f, "Raidwide + platform end")
+            .DeactivateOnExit<VirtualShiftEarth>()
+            .SetHint(StateMachine.StateHint.Raidwide);
 
         Cast(id + 0x90, AID.VirtualShiftIce, 3.0f, 5.0f, "Raidwide (ice platform)")
             .ActivateOnEnter<VirtualShiftIce>()
