@@ -3,8 +3,6 @@
 // Compatibility scaffolds for incremental upstream sync.
 // Keep these until each mechanic file is ported with full behavior.
 
-sealed class VirtualShiftIce(BossModule module) : BossComponent(module);
-
 sealed class Ex3QueenEternalStates : StateMachineBuilder
 {
     private readonly Ex3QueenEternal _module;
