@@ -158,7 +158,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
 
     private void Phase2(uint id)
     {
-        Cast(id - 0x10, AID.AuthorityEternal, 0.1f, 10.0f, "Intermission")
+        Cast(id - 0x10, AID.AuthorityEternal, 0.0f, 10.0f, "Intermission")
             .SetHint(StateMachine.StateHint.Raidwide);
         Targetable(id - 0x0F, false, 0.2f, "Boss disappears")
             .SetHint(StateMachine.StateHint.DowntimeStart);
