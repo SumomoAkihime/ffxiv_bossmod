@@ -155,6 +155,13 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
 
     private void Phase2(uint id)
     {
+        Cast(id - 0x10, AID.AuthorityEternal, 0.1f, 10.0f, "Intermission")
+            .SetHint(StateMachine.StateHint.Raidwide);
+        Targetable(id - 0x0F, false, 0.2f, "Boss disappears")
+            .SetHint(StateMachine.StateHint.DowntimeStart);
+        ActorTargetable(id - 0x0E, _module.BossP2, true, 24.8f, "Boss appears")
+            .SetHint(StateMachine.StateHint.DowntimeEnd);
+
         ActorCast(id, _module.BossP2, AID.RadicalShift, 4.0f, 11.0f, true, "Raidwide")
             .ActivateOnEnter<RadicalShift>()
             .ActivateOnEnter<RadicalShiftAOE>()
