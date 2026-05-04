@@ -143,7 +143,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<VirtualShiftIce>()
             .SetHint(StateMachine.StateHint.Raidwide);
 
-        Cast(id + 0x100, AID.DivideAndConquer, 5.0f, 7.5f)
+        Cast(id + 0x100, AID.DivideAndConquer, 3.1f, 7.5f)
             .ActivateOnEnter<DivideAndConquerBait>()
             .ActivateOnEnter<DivideAndConquerAOE>();
         ComponentCondition<DivideAndConquerBait>(id + 0x110, 0.1f, c => c.NumCasts > 0, "Protean 1");
@@ -171,8 +171,15 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         ComponentCondition<LegitimateForce>(id + 0x190, 3.1f, c => c.NumCasts > 1, "Side 2")
             .DeactivateOnExit<LegitimateForce>();
 
-        Cast(id + 0x200, AID.RoyalDomain, 2.0f, 5.0f, "Raidwide")
+        Cast(id + 0x200, AID.RoyalDomain, 3.0f, 5.0f, "Raidwide")
             .SetHint(StateMachine.StateHint.Raidwide);
+
+        Cast(id + 0x205, AID.ProsecutionOfWar, 7.2f, 5.0f, "Tankbuster")
+            .ActivateOnEnter<ProsecutionOfWar>()
+            .SetHint(StateMachine.StateHint.Tankbuster);
+        ComponentCondition<ProsecutionOfWar>(id + 0x206, 3.2f, c => c.NumCasts > 1)
+            .DeactivateOnExit<ProsecutionOfWar>()
+            .SetHint(StateMachine.StateHint.Tankbuster);
 
         Cast(id + 0x210, AID.Coronation, 3.1f, 3.0f)
             .ActivateOnEnter<Coronation>();
