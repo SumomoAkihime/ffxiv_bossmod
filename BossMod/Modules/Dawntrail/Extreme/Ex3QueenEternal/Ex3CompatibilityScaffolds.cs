@@ -210,6 +210,6 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<RoyalBanishment>()
             .SetHint(StateMachine.StateHint.Raidwide);
 
-        ActorCast(id + 0x200, _module.BossP2, AID.Preservation, 9.0f, 14.0f, true, "Enrage");
+        ActorCast(id + 0x200, _module.BossP2, AID.Preservation, 7.3f, 14.0f, true, "Enrage");
     }
 }
