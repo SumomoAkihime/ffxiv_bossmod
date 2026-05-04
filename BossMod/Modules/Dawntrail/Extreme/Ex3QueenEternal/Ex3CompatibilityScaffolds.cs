@@ -72,7 +72,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<ProsecutionOfWar>()
             .SetHint(StateMachine.StateHint.Tankbuster);
 
-        Cast(id + 0x80, AID.VirtualShiftEarth, 4.0f, 5.0f, "Raidwide (earth platform)")
+        Cast(id + 0x80, AID.VirtualShiftEarth, 8.2f, 5.0f, "Raidwide (earth platform)")
             .SetHint(StateMachine.StateHint.Raidwide);
         CastStart(id + 0x81, AID.LawsOfEarth, 5.2f)
             .ActivateOnEnter<VirtualShiftEarth>();
@@ -110,7 +110,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<VirtualShiftEarth>()
             .SetHint(StateMachine.StateHint.Raidwide);
 
-        Cast(id + 0x90, AID.VirtualShiftIce, 3.0f, 5.0f, "Raidwide (ice platform)")
+        Cast(id + 0x90, AID.VirtualShiftIce, 12.3f, 5.0f, "Raidwide (ice platform)")
             .ActivateOnEnter<VirtualShiftIce>()
             .SetHint(StateMachine.StateHint.Raidwide);
         CastStart(id + 0x91, AID.LawsOfIce, 5.2f);
@@ -200,7 +200,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         Cast(id + 0x280, AID.RoyalDomain, 3.1f, 5.0f, "Raidwide")
             .SetHint(StateMachine.StateHint.Raidwide);
 
-        Cast(id + 0x300, AID.AuthorityEternal, 8.0f, 10.0f, "Phase transition");
+        Cast(id + 0x300, AID.AuthorityEternal, 3.2f, 10.0f, "Phase transition");
         Targetable(id + 0x310, false, 0.2f, "Boss disappears")
             .SetHint(StateMachine.StateHint.DowntimeStart);
     }
