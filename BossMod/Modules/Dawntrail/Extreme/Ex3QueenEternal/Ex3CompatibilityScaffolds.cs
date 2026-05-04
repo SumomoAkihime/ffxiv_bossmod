@@ -65,6 +65,12 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .SetHint(StateMachine.StateHint.Raidwide);
         ComponentCondition<AeroquellTwister>(id + 0x4A, 2.6f, c => !c.Sources(Module).Any())
             .DeactivateOnExit<AeroquellTwister>();
+        Cast(id + 0x4B, AID.ProsecutionOfWar, 4.5f, 5.0f, "Tankbuster")
+            .ActivateOnEnter<ProsecutionOfWar>()
+            .SetHint(StateMachine.StateHint.Tankbuster);
+        ComponentCondition<ProsecutionOfWar>(id + 0x4C, 3.2f, c => c.NumCasts > 1)
+            .DeactivateOnExit<ProsecutionOfWar>()
+            .SetHint(StateMachine.StateHint.Tankbuster);
 
         Cast(id + 0x80, AID.VirtualShiftEarth, 4.0f, 5.0f, "Raidwide (earth platform)")
             .SetHint(StateMachine.StateHint.Raidwide);
