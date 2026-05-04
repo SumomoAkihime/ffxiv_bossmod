@@ -27,6 +27,30 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<ProsecutionOfWar>()
             .SetHint(StateMachine.StateHint.Tankbuster);
 
+        Cast(id + 0x40, AID.VirtualShiftWind, 2.0f, 5.0f, "Raidwide (wind platform)")
+            .SetHint(StateMachine.StateHint.Raidwide);
+        Cast(id + 0x41, AID.LawsOfWind, 5.2f, 4.0f);
+        ComponentCondition<Aeroquell>(id + 0x42, 0.1f, c => c.Active)
+            .ActivateOnEnter<Aeroquell>();
+        ComponentCondition<Aeroquell>(id + 0x43, 5.0f, c => !c.Active, "Party stacks")
+            .DeactivateOnExit<Aeroquell>();
+        CastStartMulti(id + 0x44, [AID.LegitimateForceFirstR, AID.LegitimateForceFirstL], 5.1f)
+            .ActivateOnEnter<AeroquellTwister>();
+        ComponentCondition<MissingLink>(id + 0x45, 0.8f, c => c.TethersAssigned, "Chains")
+            .ActivateOnEnter<MissingLink>()
+            .ActivateOnEnter<LegitimateForce>();
+        CastEnd(id + 0x46, 7.2f, "Side 1");
+        ComponentCondition<LegitimateForce>(id + 0x47, 3.1f, c => c.NumCasts > 1, "Side 2")
+            .DeactivateOnExit<LegitimateForce>();
+        ComponentCondition<WindOfChange>(id + 0x48, 3.2f, c => c.NumCasts > 0, "Knockback")
+            .ActivateOnEnter<WindOfChange>()
+            .DeactivateOnExit<WindOfChange>()
+            .DeactivateOnExit<MissingLink>();
+        Cast(id + 0x49, AID.WorldShatterP1, 3.0f, 5.0f, "Raidwide + platform end")
+            .SetHint(StateMachine.StateHint.Raidwide);
+        ComponentCondition<AeroquellTwister>(id + 0x4A, 2.6f, c => !c.Sources(Module).Any())
+            .DeactivateOnExit<AeroquellTwister>();
+
         Cast(id + 0x100, AID.DivideAndConquer, 5.0f, 7.5f)
             .ActivateOnEnter<DivideAndConquerBait>()
             .ActivateOnEnter<DivideAndConquerAOE>();
