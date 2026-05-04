@@ -216,12 +216,12 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
     {
         Cast(id - 0x10, AID.AuthorityEternal, 0.0f, 10.0f, "Intermission")
             .SetHint(StateMachine.StateHint.Raidwide);
-        Targetable(id - 0x0F, false, 0.2f, "Boss disappears")
+        Targetable(id - 0x0F, false, 0.2f, "Boss disappears + Raidwide")
             .SetHint(StateMachine.StateHint.DowntimeStart);
         ActorTargetable(id - 0x0E, _module.BossP2, true, 24.8f, "Boss appears")
             .SetHint(StateMachine.StateHint.DowntimeEnd);
 
-        ActorCast(id, _module.BossP2, AID.RadicalShift, 4.1f, 11.0f, true, "Raidwide")
+        ActorCast(id, _module.BossP2, AID.RadicalShift, 4.1f, 11.0f, true, "Raidwide (platform change)")
             .ActivateOnEnter<RadicalShift>()
             .ActivateOnEnter<VirtualShiftIce>()
             .ActivateOnEnter<RadicalShiftAOE>()
@@ -266,7 +266,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<RoyalBanishment>()
             .SetHint(StateMachine.StateHint.Raidwide);
 
-        ActorCast(id + 0x180, _module.BossP2, AID.RadicalShift, 11.4f, 11.0f, true, "Raidwide")
+        ActorCast(id + 0x180, _module.BossP2, AID.RadicalShift, 11.4f, 11.0f, true, "Raidwide (platform change)")
             .ActivateOnEnter<RadicalShift>()
             .ActivateOnEnter<VirtualShiftIce>()
             .ActivateOnEnter<RadicalShiftAOE>()
