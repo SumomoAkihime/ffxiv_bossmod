@@ -164,10 +164,18 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
 
         ActorCast(id, _module.BossP2, AID.RadicalShift, 4.0f, 11.0f, true, "Raidwide")
             .ActivateOnEnter<RadicalShift>()
+            .ActivateOnEnter<VirtualShiftIce>()
             .ActivateOnEnter<RadicalShiftAOE>()
             .SetHint(StateMachine.StateHint.Raidwide);
-        ComponentCondition<RadicalShiftAOE>(id + 0x01, 5.2f, c => c.NumFinishedSpreads > 0, "Spread")
+        ComponentCondition<RadicalShiftAOE>(id + 0x01, 5.2f, c => c.NumFinishedSpreads > 0, "Spread 1");
+        ActorCast(id + 0x02, _module.BossP2, AID.RadicalShift, 3.0f, 11.0f, true, "Raidwide (platform change)")
+            .SetHint(StateMachine.StateHint.Raidwide);
+        ComponentCondition<RadicalShiftAOE>(id + 0x03, 5.2f, c => c.NumFinishedSpreads > 1, "Spread 2")
             .DeactivateOnExit<RadicalShiftAOE>();
+        ActorCast(id + 0x04, _module.BossP2, AID.WorldShatterP2, 3.0f, 5.0f, true, "Raidwide + platform end")
+            .DeactivateOnExit<RadicalShift>()
+            .DeactivateOnExit<VirtualShiftIce>()
+            .SetHint(StateMachine.StateHint.Raidwide);
         ActorCast(id + 0x80, _module.BossP2, AID.DimensionalDistortion, 7.2f, 5.0f, true)
             .ActivateOnEnter<DimensionalDistortion>();
         ComponentCondition<DimensionalDistortion>(id + 0x81, 1.0f, c => c.NumCasts > 0, "Exaflares start");
