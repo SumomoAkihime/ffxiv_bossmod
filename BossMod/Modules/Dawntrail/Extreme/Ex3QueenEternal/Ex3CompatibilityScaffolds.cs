@@ -179,7 +179,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<RadicalShift>()
             .DeactivateOnExit<VirtualShiftIce>()
             .SetHint(StateMachine.StateHint.Raidwide);
-        ActorCast(id + 0x80, _module.BossP2, AID.DimensionalDistortion, 7.2f, 5.0f, true)
+        ActorCast(id + 0x80, _module.BossP2, AID.DimensionalDistortion, 7.2f, 4.0f, true)
             .ActivateOnEnter<DimensionalDistortion>();
         ComponentCondition<DimensionalDistortion>(id + 0x81, 1.0f, c => c.NumCasts > 0, "Exaflares start");
         ActorCast(id + 0x90, _module.BossP2, AID.TyrannysGrasp, 5.2f, 5.0f, true, "Front half cleave")
