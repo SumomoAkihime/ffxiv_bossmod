@@ -259,6 +259,21 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<RoyalBanishment>()
             .SetHint(StateMachine.StateHint.Raidwide);
 
-        ActorCast(id + 0x200, _module.BossP2, AID.Preservation, 7.3f, 14.0f, true, "Enrage");
+        ActorCast(id + 0x180, _module.BossP2, AID.RadicalShift, 11.4f, 11.0f, true, "Raidwide")
+            .ActivateOnEnter<RadicalShift>()
+            .ActivateOnEnter<VirtualShiftIce>()
+            .ActivateOnEnter<RadicalShiftAOE>()
+            .SetHint(StateMachine.StateHint.Raidwide);
+        ComponentCondition<RadicalShiftAOE>(id + 0x181, 5.2f, c => c.NumFinishedSpreads > 0, "Spread 1");
+        ActorCast(id + 0x182, _module.BossP2, AID.RadicalShift, 3.0f, 11.0f, true, "Raidwide (platform change)")
+            .SetHint(StateMachine.StateHint.Raidwide);
+        ComponentCondition<RadicalShiftAOE>(id + 0x183, 5.2f, c => c.NumFinishedSpreads > 1, "Spread 2")
+            .DeactivateOnExit<RadicalShiftAOE>();
+        ActorCast(id + 0x184, _module.BossP2, AID.WorldShatterP2, 3.0f, 5.0f, true, "Raidwide + platform end")
+            .DeactivateOnExit<RadicalShift>()
+            .DeactivateOnExit<VirtualShiftIce>()
+            .SetHint(StateMachine.StateHint.Raidwide);
+
+        ActorCast(id + 0x220, _module.BossP2, AID.Preservation, 7.3f, 14.0f, true, "Enrage");
     }
 }
