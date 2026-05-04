@@ -27,7 +27,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<ProsecutionOfWar>()
             .SetHint(StateMachine.StateHint.Tankbuster);
 
-        Cast(id + 0x20, AID.Aethertithe, 1.0f, 3.0f);
+        Cast(id + 0x20, AID.Aethertithe, 12.2f, 3.0f);
         ComponentCondition<Aethertithe>(id + 0x21, 5.0f, c => c.AOE != null)
             .ActivateOnEnter<Aethertithe>();
         ComponentCondition<Aethertithe>(id + 0x22, 5.1f, c => c.NumCasts >= 1, "Cone 1")
