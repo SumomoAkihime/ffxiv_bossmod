@@ -20,13 +20,6 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
 
     private void Phase1(uint id)
     {
-        Cast(id, AID.ProsecutionOfWar, 8.0f, 5.0f, "Tankbuster")
-            .ActivateOnEnter<ProsecutionOfWar>()
-            .SetHint(StateMachine.StateHint.Tankbuster);
-        ComponentCondition<ProsecutionOfWar>(id + 0x10, 3.2f, c => c.NumCasts > 1)
-            .DeactivateOnExit<ProsecutionOfWar>()
-            .SetHint(StateMachine.StateHint.Tankbuster);
-
         Cast(id + 0x20, AID.Aethertithe, 12.2f, 3.0f);
         ComponentCondition<Aethertithe>(id + 0x21, 5.0f, c => c.AOE != null)
             .ActivateOnEnter<Aethertithe>();
