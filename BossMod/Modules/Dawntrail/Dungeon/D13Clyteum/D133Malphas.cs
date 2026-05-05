@@ -73,7 +73,7 @@ class StringUp(BossModule module) : Components.StayMove(module)
             Array.Fill(PlayerStates, default);
     }
 }
-class GluttonousWire(BossModule module) : Components.StackWithCastTargets(module, AID.GluttonousWire, 6);
+class GluttonousWire(BossModule module) : Components.StackWithCastTargets(module, AID.GluttonousWire, 6, 4);
 class WrathfulWire(BossModule module) : Components.SpreadFromCastTargets(module, AID.WrathfulWire, 5);
 class ShadowPlay(BossModule module) : Components.SpreadFromCastTargets(module, AID.ShadowPlay, 6);
 
