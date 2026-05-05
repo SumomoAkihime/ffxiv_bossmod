@@ -81,5 +81,9 @@ sealed class RadicalShift(BossModule module) : BossComponent(module)
 
 sealed class RadicalShiftAOE(BossModule module) : Components.SpreadFromCastTargets(module, AID.RadicalShiftAOE, 5)
 {
-    public void Reset() => NumFinishedSpreads = 0;
+    public void Reset()
+    {
+        NumFinishedSpreads = 0;
+        Spreads.Clear();
+    }
 }
