@@ -211,7 +211,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .ActivateOnEnter<RadicalShiftAOE>()
             .ExecOnEnter<RadicalShiftAOE>(c => c.Reset())
             .SetHint(StateMachine.StateHint.Raidwide);
-        ComponentCondition<RadicalShiftAOE>(id + 0x01, 5.2f, c => c.NumFinishedSpreads > 0, "Spread 1");
+        ComponentCondition<RadicalShiftAOE>(id + 0x01, 5.2f, c => c.NumFinishedSpreads >= 1, "Spread 1");
         ActorCast(id + 0x02, _module.BossP2, AID.RadicalShift, 3.0f, 11.0f, true, "Raidwide (platform change)")
             .SetHint(StateMachine.StateHint.Raidwide);
         ComponentCondition<RadicalShiftAOE>(id + 0x03, 5.2f, c => c.NumFinishedSpreads >= 2, "Spread 2")
@@ -257,7 +257,7 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .ActivateOnEnter<RadicalShiftAOE>()
             .ExecOnEnter<RadicalShiftAOE>(c => c.Reset())
             .SetHint(StateMachine.StateHint.Raidwide);
-        ComponentCondition<RadicalShiftAOE>(id + 0x181, 5.2f, c => c.NumFinishedSpreads > 0, "Spread 1");
+        ComponentCondition<RadicalShiftAOE>(id + 0x181, 5.2f, c => c.NumFinishedSpreads >= 1, "Spread 1");
         ActorCast(id + 0x182, _module.BossP2, AID.RadicalShift, 3.0f, 11.0f, true, "Raidwide (platform change)")
             .SetHint(StateMachine.StateHint.Raidwide);
         ComponentCondition<RadicalShiftAOE>(id + 0x183, 5.2f, c => c.NumFinishedSpreads >= 2, "Spread 2")
