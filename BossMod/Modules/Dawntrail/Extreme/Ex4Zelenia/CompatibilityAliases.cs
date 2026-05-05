@@ -11,3 +11,5 @@ sealed class ShockAOE(BossModule module) : ShockAOEs(module);
 sealed class ShockSpread(BossModule module) : ShockCircleBait(module);
 sealed class AlexandrianThunderIIIAOE(BossModule module) : Bloom4AlexandrianThunderIIIAOE(module);
 sealed class AlexandrianThunderIIISpread(BossModule module) : Bloom4AlexandrianThunderIII(module);
+sealed class FloorTiles(BossModule module) : Tiles(module);
+sealed class ActiveTiles(BossModule module) : Voidzone(module);
