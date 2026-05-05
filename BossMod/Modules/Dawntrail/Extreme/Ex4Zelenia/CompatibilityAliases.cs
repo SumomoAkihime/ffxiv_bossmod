@@ -2,6 +2,7 @@
 
 // Compatibility wrappers for Reborn split-file naming.
 sealed class AlexandrianBanishIII(BossModule module) : BanishIII(module);
+sealed class AlexandrianBanishIIITargetHint(BossModule module) : BanishIII(module);
 sealed class ValorousAscension(BossModule module) : ValorousAscensionRaidwide(module);
 sealed class SpearpointPushAOE(BossModule module) : SpearpointAOE(module);
 sealed class SpearpointPushBait(BossModule module) : SpearpointBait(module);
