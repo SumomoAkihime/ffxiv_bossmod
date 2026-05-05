@@ -45,7 +45,7 @@ class MotionScanner(BossModule module) : Components.StayMove(module)
     public override void OnStatusGain(Actor actor, ActorStatus status)
     {
         if ((SID)status.ID == SID.MotionTracker && Raid.TryFindSlot(actor, out var slot))
-            SetState(slot, new(Requirement.Stay, WorldState.CurrentTime));
+            SetState(slot, new(Requirement.Stay, status.ExpireAt));
     }
 
     public override void OnStatusLose(Actor actor, ActorStatus status)
