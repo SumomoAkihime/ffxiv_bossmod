@@ -83,6 +83,7 @@ sealed class RadicalShiftAOE(BossModule module) : Components.SpreadFromCastTarge
 {
     public void Reset()
     {
+        NumFinishedStacks = 0;
         NumFinishedSpreads = 0;
         Spreads.Clear();
     }
