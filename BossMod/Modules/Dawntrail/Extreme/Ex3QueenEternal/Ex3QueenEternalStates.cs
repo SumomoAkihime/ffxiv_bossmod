@@ -111,6 +111,38 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
             .DeactivateOnExit<VirtualShiftEarth>()
             .SetHint(StateMachine.StateHint.Raidwide);
 
+        Cast(id + 0x205, AID.ProsecutionOfWar, 7.2f, 5.0f, "Tankbuster")
+            .ActivateOnEnter<ProsecutionOfWar>()
+            .SetHint(StateMachine.StateHint.Tankbuster);
+        ComponentCondition<ProsecutionOfWar>(id + 0x206, 3.2f, c => c.NumCasts > 1)
+            .DeactivateOnExit<ProsecutionOfWar>()
+            .SetHint(StateMachine.StateHint.Tankbuster);
+
+        Cast(id + 0x210, AID.Coronation, 3.1f, 3.0f)
+            .ActivateOnEnter<Coronation>();
+        ComponentCondition<Coronation>(id + 0x211, 2.1f, c => c.Groups.Count > 0);
+        Cast(id + 0x212, AID.AtomicRay, 1.1f, 3.0f);
+        ComponentCondition<AtomicRay>(id + 0x213, 1.2f, c => c.Active)
+            .ActivateOnEnter<AtomicRay>();
+        ComponentCondition<Coronation>(id + 0x214, 4.9f, c => c.NumCasts > 0, "Coronation")
+            .DeactivateOnExit<Coronation>();
+        ComponentCondition<AtomicRay>(id + 0x215, 1.1f, c => c.NumFinishedSpreads > 0, "Spread")
+            .DeactivateOnExit<AtomicRay>();
+
+        Cast(id + 0x140, AID.AbsoluteAuthorityPuddles, 6.2f, 10.0f)
+            .ActivateOnEnter<AbsoluteAuthorityPuddles>();
+        ComponentCondition<AbsoluteAuthorityPuddles>(id + 0x150, 0.1f, c => c.Casters.Count > 0, "Puddles bait");
+        ComponentCondition<AbsoluteAuthorityExpansionBoot>(id + 0x160, 10.0f, c => c.NumCasts > 0, "Spread/stack")
+            .ActivateOnEnter<AbsoluteAuthorityExpansionBoot>()
+            .ActivateOnEnter<AbsoluteAuthorityHeel>()
+            .DeactivateOnExit<AbsoluteAuthorityPuddles>()
+            .DeactivateOnExit<AbsoluteAuthorityExpansionBoot>();
+        ComponentCondition<AbsoluteAuthorityHeel>(id + 0x170, 4.0f, c => c.NumCasts > 0, "Stack")
+            .DeactivateOnExit<AbsoluteAuthorityHeel>();
+        ComponentCondition<AbsoluteAuthorityKnockback>(id + 0x175, 6.9f, c => c.NumCasts > 0, "Knockback")
+            .ActivateOnEnter<AbsoluteAuthorityKnockback>()
+            .DeactivateOnExit<AbsoluteAuthorityKnockback>();
+
         Cast(id + 0x90, AID.VirtualShiftIce, 12.3f, 5.0f, "Raidwide (ice platform)")
             .ActivateOnEnter<VirtualShiftIce>()
             .SetHint(StateMachine.StateHint.Raidwide);
@@ -143,46 +175,6 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         Cast(id + 0x9F, AID.WorldShatterP1, 3.1f, 5.0f, "Raidwide + platform end")
             .DeactivateOnExit<VirtualShiftIce>()
             .SetHint(StateMachine.StateHint.Raidwide);
-
-        Cast(id + 0x140, AID.AbsoluteAuthorityPuddles, 3.0f, 10.0f)
-            .ActivateOnEnter<AbsoluteAuthorityPuddles>();
-        ComponentCondition<AbsoluteAuthorityPuddles>(id + 0x150, 0.1f, c => c.Casters.Count > 0, "Puddles bait");
-        ComponentCondition<AbsoluteAuthorityExpansionBoot>(id + 0x160, 10.0f, c => c.NumCasts > 0, "Spread/stack")
-            .ActivateOnEnter<AbsoluteAuthorityExpansionBoot>()
-            .ActivateOnEnter<AbsoluteAuthorityHeel>()
-            .DeactivateOnExit<AbsoluteAuthorityPuddles>()
-            .DeactivateOnExit<AbsoluteAuthorityExpansionBoot>();
-        ComponentCondition<AbsoluteAuthorityHeel>(id + 0x170, 4.0f, c => c.NumCasts > 0, "Stack")
-            .DeactivateOnExit<AbsoluteAuthorityHeel>();
-        ComponentCondition<AbsoluteAuthorityKnockback>(id + 0x175, 6.9f, c => c.NumCasts > 0, "Knockback")
-            .ActivateOnEnter<AbsoluteAuthorityKnockback>()
-            .DeactivateOnExit<AbsoluteAuthorityKnockback>();
-
-        CastMulti(id + 0x180, [AID.LegitimateForceFirstR, AID.LegitimateForceFirstL], 3.0f, 8.0f, "Side 1")
-            .ActivateOnEnter<LegitimateForce>();
-        ComponentCondition<LegitimateForce>(id + 0x190, 3.1f, c => c.NumCasts > 1, "Side 2")
-            .DeactivateOnExit<LegitimateForce>();
-
-        Cast(id + 0x200, AID.RoyalDomain, 2.0f, 5.0f, "Raidwide")
-            .SetHint(StateMachine.StateHint.Raidwide);
-
-        Cast(id + 0x205, AID.ProsecutionOfWar, 7.2f, 5.0f, "Tankbuster")
-            .ActivateOnEnter<ProsecutionOfWar>()
-            .SetHint(StateMachine.StateHint.Tankbuster);
-        ComponentCondition<ProsecutionOfWar>(id + 0x206, 3.2f, c => c.NumCasts > 1)
-            .DeactivateOnExit<ProsecutionOfWar>()
-            .SetHint(StateMachine.StateHint.Tankbuster);
-
-        Cast(id + 0x210, AID.Coronation, 3.1f, 3.0f)
-            .ActivateOnEnter<Coronation>();
-        ComponentCondition<Coronation>(id + 0x211, 2.1f, c => c.Groups.Count > 0);
-        Cast(id + 0x212, AID.AtomicRay, 1.1f, 3.0f);
-        ComponentCondition<AtomicRay>(id + 0x213, 1.2f, c => c.Active)
-            .ActivateOnEnter<AtomicRay>();
-        ComponentCondition<Coronation>(id + 0x214, 4.9f, c => c.NumCasts > 0, "Coronation")
-            .DeactivateOnExit<Coronation>();
-        ComponentCondition<AtomicRay>(id + 0x215, 1.1f, c => c.NumFinishedSpreads > 0, "Spread")
-            .DeactivateOnExit<AtomicRay>();
 
         Cast(id + 0x250, AID.ProsecutionOfWar, 8.1f, 5.0f, "Tankbuster")
             .ActivateOnEnter<ProsecutionOfWar>()
