@@ -75,7 +75,7 @@ class StringUp(BossModule module) : Components.StayMove(module)
 }
 class GluttonousWire(BossModule module) : Components.StackWithCastTargets(module, AID.GluttonousWire, 6);
 class WrathfulWire(BossModule module) : Components.SpreadFromCastTargets(module, AID.WrathfulWire, 5);
-class ShadowPlay(BossModule module) : Components.BaitAwayCast(module, AID.ShadowPlay, new AOEShapeCircle(6), true);
+class ShadowPlay(BossModule module) : Components.SpreadFromCastTargets(module, AID.ShadowPlay, 6);
 
 class D133MalphasStates : StateMachineBuilder
 {

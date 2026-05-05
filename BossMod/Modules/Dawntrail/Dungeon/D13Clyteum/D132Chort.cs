@@ -48,7 +48,7 @@ class BodyweightExorcismKnockback(BossModule module) : Components.KnockbackFromC
     }
 }
 class BodyweightExorcismTower(BossModule module) : Components.CastTowers(module, AID.BodyweightExorcismTower, 4, minSoakers: 4, maxSoakers: 4);
-class EvilEmission(BossModule module) : Components.SpreadFromCastTargets(module, AID.EvilEmission, 5);
+class EvilEmission(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.Spread, AID.EvilEmission, 4, 5);
 class ProfanePressure(BossModule module) : Components.StackWithCastTargets(module, AID.ProfanePressure, 6);
 
 class D132ChortStates : StateMachineBuilder
