@@ -15,3 +15,4 @@ sealed class WyvernsRadianceRush(BossModule module) : Rush(module);
 sealed class WyvernsRadianceConcentric(BossModule module) : WyvernsRadianceQuake(module);
 sealed class WyvernsRadianceCrackedCrystal(BossModule module) : WyvernsRadianceCrystal(module);
 sealed class WyvernsWealAOE(BossModule module) : WyvernsWealCast(module);
+sealed class WyvernsRadianceChainbladeCharge(BossModule module) : ChainbladeCharge(module);
