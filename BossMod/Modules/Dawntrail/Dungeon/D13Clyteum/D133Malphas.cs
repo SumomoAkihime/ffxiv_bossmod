@@ -67,7 +67,7 @@ class StringUp(BossModule module) : Components.StayMove(module)
             Array.Fill(PlayerStates, new(Requirement.Move, Module.CastFinishAt(spell)));
     }
 
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
         if ((AID)spell.Action.ID == AID.StringUp)
             Array.Fill(PlayerStates, default);
