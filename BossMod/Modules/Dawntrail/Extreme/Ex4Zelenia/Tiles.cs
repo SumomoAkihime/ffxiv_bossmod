@@ -129,7 +129,7 @@ class Tiles(BossModule module) : BossComponent(module)
     }
 }
 
-abstract class Emblazon(BossModule module) : Components.CastCounter(module, AID.Emblazon)
+class Emblazon(BossModule module) : Components.CastCounter(module, AID.Emblazon)
 {
     public BitMask Baiters;
     public DateTime Activation { get; private set; }
