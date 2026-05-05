@@ -83,9 +83,11 @@ sealed class RadicalShiftAOE(BossModule module) : Components.SpreadFromCastTarge
 {
     public void Reset()
     {
-        NumFinishedStacks = 0;
-        NumFinishedSpreads = 0;
+        // Defensive full reset between radical-shift cycles.
+        // Keep this centralized so state-machine hooks don't need to manage individual fields.
         Stacks.Clear();
         Spreads.Clear();
+        NumFinishedStacks = 0;
+        NumFinishedSpreads = 0;
     }
 }
