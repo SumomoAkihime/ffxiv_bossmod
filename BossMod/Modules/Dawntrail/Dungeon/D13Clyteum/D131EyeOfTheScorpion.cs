@@ -38,7 +38,7 @@ public enum IconID : uint
 class EyesOnMe(BossModule module) : Components.RaidwideCast(module, AID.EyesOnMe);
 class PetrifyingBeam(BossModule module) : Components.GroupedAOEs(module, [AID.PetrifyingBeam1, AID.PetrifyingBeam2], new AOEShapeCone(70, 50.Degrees()));
 class SurfaceMissile(BossModule module) : Components.StandardAOEs(module, AID.SurfaceMissile, 5);
-class PenetratorMissile(BossModule module) : Components.StackWithCastTargets(module, AID.PenetratorMissile, 5);
+class PenetratorMissile(BossModule module) : Components.StackWithCastTargets(module, AID.PenetratorMissile, 6);
 class AntiPersonnelMissile(BossModule module) : Components.SpreadFromCastTargets(module, AID.AntiPersonnelMissile, 6);
 class MotionScanner(BossModule module) : Components.StayMove(module)
 {
