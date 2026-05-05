@@ -1,6 +1,7 @@
 ﻿namespace BossMod.Dawntrail.Extreme.Ex6GuardianArkveld;
 
 // Compatibility wrappers for Reborn split-file naming.
+sealed class Roar(BossModule module) : Components.CastCounterMulti(module, [AID.Roar1, AID.Roar2, AID.Roar3]);
 sealed class ClamorousChase(BossModule module) : ClamorousBait(module);
 sealed class ClamorousChaseBait(BossModule module) : ClamorousBait(module);
 sealed class ClamorousChaseAOE(BossModule module) : ClamorousCleave(module);
