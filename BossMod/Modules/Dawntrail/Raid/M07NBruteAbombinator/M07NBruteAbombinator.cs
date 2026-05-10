@@ -95,6 +95,9 @@ sealed class Slaminator(BossModule module) : Components.CastTowers(module, AID.S
 sealed class PulpSmash(BossModule module) : Components.StackWithIcon(module, (uint)IconID.PulpSmash, AID.PulpSmash, 6f, 5.2f, minStackSize: 8, maxStackSize: 8);
 sealed class AbominableBlink(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCircle(24f), (uint)IconID.AbominableBlink, AID.AbominableBlink, 6.3f, centerAtTarget: true);
 sealed class RevengeOfTheVines(BossModule module) : Components.RaidwideCast(module, AID.RevengeOfTheVines1);
+// Compatibility aliases to keep parity with Reborn split naming.
+sealed class BrutishSwingCone(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BrutishSwingCone1, (uint)AID.BrutishSwingCone2], new AOEShapeCone(25f, 90f.Degrees()));
+sealed class BrutishSwingDonutSegment(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BrutishSwingDonutSegment1, (uint)AID.BrutishSwingDonutSegment2], new AOEShapeDonutSector(22f, 88f, 90f.Degrees()));
 
 sealed class M07NBruteAbombinatorStates : StateMachineBuilder
 {

@@ -98,3 +98,6 @@
   - Added `FellSpark` tether warning and `CurseOfCompanionshipSolitude` status-driven stack/spread hints.
   - Added compatibility aliases for `FireFlight` / `FireFlightFactOrFiction` / `DoubleFableFlight` mapped to local grouped telegraph components.
   - Build check passed on local fork API; release intentionally deferred per workflow change (publish only after full instance completion or explicit instruction).
+- M07 follow-up pass (unreleased working batch):
+  - Added compatibility class-name coverage for `BrutishSwingCone` and `BrutishSwingDonutSegment` using local grouped AOE components.
+  - Build passed; release deferred by workflow policy.
