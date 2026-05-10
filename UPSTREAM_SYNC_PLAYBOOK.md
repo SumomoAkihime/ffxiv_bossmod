@@ -136,3 +136,7 @@
   - Included: core telegraphs, raidwides, interrupts, adds visibility, tankbuster/flare/towers, LOS handling, targeting hints, and compatibility-name shims.
   - Added broad `OID/AID` data parity constants from Reborn enums (including visual/driver actions) without changing local behavior model.
   - Excluded by design: direct Reborn arena-shared-bounds framework hooks not present in this fork.
+- T08 completion pass (7.5.0.329):
+  - Added `T08EnuoCompatibilityAliases.cs` to map Reborn/Ex8 naming onto the local T08 implementation without framework changes.
+  - Implemented aliases with top-level fully-qualified `using` directives to satisfy this fork's IDE0065 style-as-error rule.
+  - Release build verified with 0 errors.
