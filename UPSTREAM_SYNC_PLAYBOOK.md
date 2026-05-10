@@ -121,3 +121,9 @@
     - `BrutalImpactRevengeOfTheVines1NeoBombarianSpecial` -> local `BrutalImpact`
     - `BrutishSwingCircle2` -> local `BrutishSwingCircle`
   - Kept behavior unchanged and verified build success.
+- Ad011 state-name closure (unreleased working batch):
+  - Added compatibility activations to match Reborn state names:
+    - `FireFlight`
+    - `FireFlightFactOrFiction`
+    - `DoubleFableFlight`
+  - No behavior expansion; these map to existing local grouped implementations.
