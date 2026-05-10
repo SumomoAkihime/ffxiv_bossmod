@@ -108,3 +108,10 @@
 - Ad011 minor parity pass (unreleased working batch):
   - Added `SID.DarkResistanceDown` enum mapping to support further FellSpark logic alignment.
   - Build check passed; no release performed.
+- Ad011 FellSpark logic pass (unreleased working batch):
+  - Replaced basic `TankbusterTether` with status/timing-aware `BossComponent` logic:
+    - tracks `DarkResistanceDown` remaining duration by slot
+    - tracks tether target slot via `TetherID.FellSpark`
+    - provides pass/take tether hints based on upcoming resolve timing
+    - draws boss->target guidance line with safe/danger color based on debuff window
+  - Build check passed; release deferred.

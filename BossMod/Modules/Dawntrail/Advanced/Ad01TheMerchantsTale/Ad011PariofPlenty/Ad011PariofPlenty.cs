@@ -75,7 +75,71 @@ sealed class SimpleFableFlight(BossModule module) : Components.SimpleAOEGroups(m
 class DoubleFableFlightLines(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFableflight1, (uint)AID.RightFableflight1], new AOEShapeRect(40f, 2f));
 sealed class DoubleFableFlight(BossModule module) : DoubleFableFlightLines(module);
 sealed class FireOfVictory(BossModule module) : Components.BaitAwayCast(module, AID.FireOfVictory, new AOEShapeCircle(4f), centerAtTarget: true, endsOnCastEvent: true);
-sealed class FellSpark(BossModule module) : Components.TankbusterTether(module, AID.FellSpark, (uint)TetherID.FellSpark, 6f);
+sealed class FellSpark(BossModule module) : BossComponent(module)
+{
+    DateTime _next;
+    readonly DateTime[] _debuffLeft = new DateTime[PartyState.MaxPartySize];
+    int _target = -1;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if ((AID)spell.Action.ID is AID.RightFireflightFourLongNights or AID.LeftFireflightFourLongNights)
+            _next = Module.CastFinishAt(spell, 2.2f);
+    }
+
+    public override void OnStatusGain(Actor actor, ActorStatus status)
+    {
+        if ((SID)status.ID == SID.DarkResistanceDown && Raid.TryFindSlot(actor, out var slot))
+            _debuffLeft[slot] = status.ExpireAt;
+    }
+
+    public override void OnStatusLose(Actor actor, ActorStatus status)
+    {
+        if ((SID)status.ID == SID.DarkResistanceDown && Raid.TryFindSlot(actor, out var slot))
+            _debuffLeft[slot] = default;
+    }
+
+    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    {
+        if ((TetherID)tether.ID != TetherID.FellSpark)
+            return;
+
+        if (WorldState.Actors.Find(tether.Target) is { } target && Raid.TryFindSlot(target, out var slot))
+            _target = slot;
+    }
+
+    public override void OnUntethered(Actor source, ActorTetherInfo tether)
+    {
+        if ((TetherID)tether.ID == TetherID.FellSpark)
+            _target = -1;
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if ((AID)spell.Action.ID == AID.FellSpark)
+            _next = WorldState.FutureTime(4.5f);
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        if (Raid[_target] is not { } target)
+            return;
+
+        var color = _debuffLeft[pcSlot] > _next ? ArenaColor.Danger : ArenaColor.Safe;
+        Arena.AddLine(Module.PrimaryActor.Position, target.Position, color, 1);
+    }
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (_target < 0 || _target >= _debuffLeft.Length || _debuffLeft[_target] <= _next)
+            return;
+
+        if (_target == slot)
+            hints.Add("Pass tether!");
+        else if (_debuffLeft[slot] <= _next)
+            hints.Add("Take tether!");
+    }
+}
 sealed class ParisCurse(BossModule module) : Components.RaidwideCast(module, AID.ParisCurse);
 sealed class CurseOfCompanionshipSolitude(BossModule module) : Components.UniformStackSpread(module, 15f, 15f, alwaysShowSpreads: true)
 {
