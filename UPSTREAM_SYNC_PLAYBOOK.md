@@ -45,4 +45,8 @@
   - `Dawntrail/Raid/M07NBruteAbombinator`
   - `Dawntrail/Advanced/Ad01TheMerchantsTale/Ad011PariofPlenty`
   - `Dawntrail/Savage/M12SP1Lindwurm` (local equivalent remains `RM12S1TheLindwurm`)
-- Release target for this batch: `7.5.0.312` (sequential local versioning per current branch policy).
+- Skeleton-first completion batch:
+  - Added minimal compile-safe modules for `Ad011PariofPlenty`, `M07NBruteAbombinator`, and `T08Enuo`.
+  - Strategy was intentionally downgraded to clean local skeletons plus stable radar-visible mechanics only, instead of direct multi-file Reborn parity.
+  - This fork now has these module entrypoints present and publishable; deeper mechanic parity remains future follow-up work.
+- Release target for this batch: `7.5.0.313` (sequential local versioning per current branch policy).

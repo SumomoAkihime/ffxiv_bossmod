@@ -1,0 +1,65 @@
+namespace BossMod.Dawntrail.Raid.M07NBruteAbombinator;
+
+public enum OID : uint
+{
+    Boss = 0x4781,
+    Helper = 0x233C,
+}
+
+public enum AID : uint
+{
+    BrutalImpact = 42265,
+    Powerslam = 42312,
+    SporeSac = 42282,
+    Pollen = 42283,
+    TheUnpotted = 42280,
+    CrossingCrosswinds = 43276,
+    WindingWildwinds = 43275,
+    GlowerPower = 43339,
+    ElectrogeneticForce = 42311,
+    LashingLariat1 = 42322,
+    LashingLariat2 = 42324,
+    Slaminator = 42328,
+    PulpSmash = 42278,
+}
+
+public enum IconID : uint
+{
+    PulpSmash = 161,
+}
+
+sealed class BrutalImpact(BossModule module) : Components.RaidwideCast(module, AID.BrutalImpact);
+sealed class Powerslam(BossModule module) : Components.RaidwideCast(module, AID.Powerslam);
+sealed class SporeSac(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SporeSac, 8f);
+sealed class Pollen(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Pollen, 8f);
+sealed class TheUnpotted(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TheUnpotted, new AOEShapeCone(60f, 15f.Degrees()));
+sealed class CrossingCrosswinds(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CrossingCrosswinds, new AOEShapeCross(50f, 5f));
+sealed class WindingWildwinds(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WindingWildwinds, new AOEShapeDonut(5f, 60f));
+sealed class GlowerPower(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GlowerPower, new AOEShapeRect(65f, 7f));
+sealed class ElectrogeneticForce(BossModule module) : Components.SpreadFromCastTargets(module, AID.ElectrogeneticForce, 6f);
+sealed class LashingLariat(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LashingLariat1, (uint)AID.LashingLariat2], new AOEShapeRect(70f, 16f));
+sealed class Slaminator(BossModule module) : Components.CastTowers(module, AID.Slaminator, 8f, maxSoakers: 8);
+sealed class PulpSmash(BossModule module) : Components.StackWithIcon(module, (uint)IconID.PulpSmash, AID.PulpSmash, 6f, 5.2f, minStackSize: 8, maxStackSize: 8);
+
+sealed class M07NBruteAbombinatorStates : StateMachineBuilder
+{
+    public M07NBruteAbombinatorStates(BossModule module) : base(module)
+    {
+        TrivialPhase()
+            .ActivateOnEnter<BrutalImpact>()
+            .ActivateOnEnter<Powerslam>()
+            .ActivateOnEnter<SporeSac>()
+            .ActivateOnEnter<Pollen>()
+            .ActivateOnEnter<TheUnpotted>()
+            .ActivateOnEnter<CrossingCrosswinds>()
+            .ActivateOnEnter<WindingWildwinds>()
+            .ActivateOnEnter<GlowerPower>()
+            .ActivateOnEnter<ElectrogeneticForce>()
+            .ActivateOnEnter<LashingLariat>()
+            .ActivateOnEnter<Slaminator>()
+            .ActivateOnEnter<PulpSmash>();
+    }
+}
+
+[ModuleInfo(BossModuleInfo.Maturity.Contributed, StatesType = typeof(M07NBruteAbombinatorStates), ObjectIDType = typeof(OID), ActionIDType = typeof(AID), IconIDType = typeof(IconID), PrimaryActorOID = (uint)OID.Boss, Contributors = "The Combat Reborn Team (Malediktus)", Expansion = BossModuleInfo.Expansion.Dawntrail, Category = BossModuleInfo.Category.Raid, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1023, NameID = 13756, SortOrder = 1, PlanLevel = 0)]
+public sealed class M07NBruteAbombinator(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 100f), new ArenaBoundsSquare(20f));
