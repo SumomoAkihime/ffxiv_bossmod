@@ -1,4 +1,5 @@
 ﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
@@ -53,10 +54,10 @@ public sealed class Service
     public static ConcurrentDictionary<Lumina.Text.ReadOnly.ReadOnlySeString, Lumina.Text.ReadOnly.ReadOnlySeString> LuminaRSV = []; // TODO: reconsider
 
     public static WindowSystem? WindowSystem;
-
-    // TODO: remove this and use UiBuilder.IconFont once we switch to dalamock
-    public static ImFontPtr IconFont = ImFontPtr.Null;
+    public static ImFontPtr IconFontDev = ImFontPtr.Null;
 #pragma warning restore CA2211
+
+    public static ImFontPtr IconFont => IconFontDev.IsNull ? UiBuilder.IconFont : IconFontDev;
 
     public static bool IsUIDev => PluginInterface == null;
 
