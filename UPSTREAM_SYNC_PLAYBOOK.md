@@ -87,3 +87,5 @@
     - `ParisCurse` (`RaidwideCast`)
     - `FirePowder` + `HighFirePowder` (grouped 15y circle AOEs)
   - Added required AID mappings and state activations only.
+- Accelerated low-risk batch (7.5.0.325):
+  - `Ad011PariofPlenty`: added `SparkPuddle` persistent voidzone tracking (`OID.SparkPuddle` eventobj + `PersistentVoidzoneAtCastTarget` on `AID.BurningPillar`).

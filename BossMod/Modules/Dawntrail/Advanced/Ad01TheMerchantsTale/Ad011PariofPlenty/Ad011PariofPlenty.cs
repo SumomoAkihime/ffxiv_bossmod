@@ -7,6 +7,7 @@ public enum OID : uint
     FalseFlame = 0x4A6E,
     FieryBauble = 0x4A6F,
     FlyingCarpet = 0x4A74,
+    SparkPuddle = 0x1EBF20,
 }
 
 public enum AID : uint
@@ -59,6 +60,7 @@ sealed class FirePowder(BossModule module) : Components.SimpleAOEGroups(module, 
 sealed class SpurningFlames(BossModule module) : Components.RaidwideCast(module, AID.SpurningFlames);
 sealed class ImpassionedSpark(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ImpassionedSparks3, 8f);
 sealed class BurningPillar(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BurningPillar, 10f);
+sealed class SparkPuddle(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 10f, AID.BurningPillar, m => m.Enemies((uint)OID.SparkPuddle).Where(e => e.EventState != 7), 0.8f);
 sealed class FireWell(BossModule module) : Components.StackWithIcon(module, (uint)IconID.Stack, AID.FireWell, 6f, 3f);
 sealed class ScouringScorn(BossModule module) : Components.RaidwideCast(module, AID.ScouringScorn);
 sealed class FalseFlameDisplay(BossModule module) : Components.AddsPointless(module, (uint)OID.FalseFlame);
@@ -133,6 +135,7 @@ sealed class PariOfPlentyStates : StateMachineBuilder
             .ActivateOnEnter<SpurningFlames>()
             .ActivateOnEnter<ImpassionedSpark>()
             .ActivateOnEnter<BurningPillar>()
+            .ActivateOnEnter<SparkPuddle>()
             .ActivateOnEnter<FireWell>()
             .ActivateOnEnter<ScouringScorn>()
             .ActivateOnEnter<FalseFlameDisplay>()
