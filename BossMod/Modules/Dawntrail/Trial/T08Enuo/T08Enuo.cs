@@ -17,6 +17,9 @@ public enum AID : uint
 {
     Meteorain = 49971,
     NaughtGrowsAOE = 49933,
+    NaughtHunts = 49939,
+    EndlessChaseFirst = 48474,
+    EndlessChaseRest = 49940,
     GazeOfTheVoid1 = 49952,
     GazeOfTheVoidCones = 49953,
     DeepFreeze = 49966,
@@ -39,12 +42,14 @@ public enum AID : uint
 public enum IconID : uint
 {
     DeepFreezeFlareIcon = 327,
+    EndlessChaseIcon = 172,
     ShroudedHolyStackIcon = 161,
     DimensionZeroIcon = 719,
 }
 
 sealed class Meteorain(BossModule module) : Components.RaidwideCast(module, AID.Meteorain);
 sealed class NaughtGrowsAOE(BossModule module) : Components.SimpleAOEs(module, (uint)AID.NaughtGrowsAOE, new AOEShapeCircle(40f));
+sealed class NaughtHunts(BossModule module) : Components.StandardChasingAOEs(module, new AOEShapeCircle(6f), AID.EndlessChaseFirst, AID.EndlessChaseRest, 2.9f, 0.7f, 13);
 sealed class GazeOfTheVoidCones(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.GazeOfTheVoidCones, (uint)AID.GazeOfTheVoid1], new AOEShapeCone(20f, 22.5f.Degrees()), 10);
 sealed class DeepFreeze(BossModule module) : Components.BaitAwayCast(module, AID.DeepFreeze, new AOEShapeCircle(8f), true, true);
 sealed class ShroudedHoly(BossModule module) : Components.StackWithCastTargets(module, AID.ShroudedHolyStack, 7f, minStackSize: 4);
@@ -100,6 +105,7 @@ sealed class T08EnuoStates : StateMachineBuilder
         TrivialPhase()
             .ActivateOnEnter<Meteorain>()
             .ActivateOnEnter<NaughtGrowsAOE>()
+            .ActivateOnEnter<NaughtHunts>()
             .ActivateOnEnter<GazeOfTheVoidCones>()
             .ActivateOnEnter<DeepFreeze>()
             .ActivateOnEnter<ShroudedHoly>()

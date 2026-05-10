@@ -49,4 +49,7 @@
   - Added minimal compile-safe modules for `Ad011PariofPlenty`, `M07NBruteAbombinator`, and `T08Enuo`.
   - Strategy was intentionally downgraded to clean local skeletons plus stable radar-visible mechanics only, instead of direct multi-file Reborn parity.
   - This fork now has these module entrypoints present and publishable; deeper mechanic parity remains future follow-up work.
-- Release target for this batch: `7.5.0.313` (sequential local versioning per current branch policy).
+- Follow-up parity batch on top of the skeletons:
+  - `T08Enuo`: restored `NaughtHunts` chasing AOE visibility using the fork's native `StandardChasingAOEs`.
+  - `M07NBruteAbombinator`: added `NeoBombarianSpecial` knockback, `BrutalSmash` shared tankbuster, and `AbominableBlink` flare visibility using local stable components.
+- Release target for this batch: `7.5.0.314` (sequential local versioning per current branch policy).

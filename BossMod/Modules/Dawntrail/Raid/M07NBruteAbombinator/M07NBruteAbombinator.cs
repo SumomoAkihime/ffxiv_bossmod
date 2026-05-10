@@ -9,6 +9,9 @@ public enum OID : uint
 public enum AID : uint
 {
     BrutalImpact = 42265,
+    NeoBombarianSpecial = 42287,
+    BrutalSmashTB1 = 42272,
+    BrutalSmashTB2 = 42273,
     Powerslam = 42312,
     SporeSac = 42282,
     Pollen = 42283,
@@ -21,14 +24,36 @@ public enum AID : uint
     LashingLariat2 = 42324,
     Slaminator = 42328,
     PulpSmash = 42278,
+    AbominableBlink = 43154,
 }
 
 public enum IconID : uint
 {
+    BrutalSmashTB = 600,
     PulpSmash = 161,
+    AbominableBlink = 327,
 }
 
 sealed class BrutalImpact(BossModule module) : Components.RaidwideCast(module, AID.BrutalImpact);
+sealed class NeoBombarianSpecialKB(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.NeoBombarianSpecial, 58f, stopAtWall: true);
+sealed class BrutalSmashTB(BossModule module) : Components.GenericSharedTankbuster(module, default, 6f)
+{
+    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
+    {
+        if (iconID == (uint)IconID.BrutalSmashTB)
+        {
+            Source = Module.PrimaryActor;
+            Target = actor;
+            Activation = WorldState.FutureTime(5.9f);
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if ((AID)spell.Action.ID is AID.BrutalSmashTB1 or AID.BrutalSmashTB2)
+            Source = Target = null;
+    }
+}
 sealed class Powerslam(BossModule module) : Components.RaidwideCast(module, AID.Powerslam);
 sealed class SporeSac(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SporeSac, 8f);
 sealed class Pollen(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Pollen, 8f);
@@ -40,6 +65,7 @@ sealed class ElectrogeneticForce(BossModule module) : Components.SpreadFromCastT
 sealed class LashingLariat(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LashingLariat1, (uint)AID.LashingLariat2], new AOEShapeRect(70f, 16f));
 sealed class Slaminator(BossModule module) : Components.CastTowers(module, AID.Slaminator, 8f, maxSoakers: 8);
 sealed class PulpSmash(BossModule module) : Components.StackWithIcon(module, (uint)IconID.PulpSmash, AID.PulpSmash, 6f, 5.2f, minStackSize: 8, maxStackSize: 8);
+sealed class AbominableBlink(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCircle(24f), (uint)IconID.AbominableBlink, AID.AbominableBlink, 6.3f, centerAtTarget: true);
 
 sealed class M07NBruteAbombinatorStates : StateMachineBuilder
 {
@@ -47,6 +73,8 @@ sealed class M07NBruteAbombinatorStates : StateMachineBuilder
     {
         TrivialPhase()
             .ActivateOnEnter<BrutalImpact>()
+            .ActivateOnEnter<NeoBombarianSpecialKB>()
+            .ActivateOnEnter<BrutalSmashTB>()
             .ActivateOnEnter<Powerslam>()
             .ActivateOnEnter<SporeSac>()
             .ActivateOnEnter<Pollen>()
@@ -57,7 +85,8 @@ sealed class M07NBruteAbombinatorStates : StateMachineBuilder
             .ActivateOnEnter<ElectrogeneticForce>()
             .ActivateOnEnter<LashingLariat>()
             .ActivateOnEnter<Slaminator>()
-            .ActivateOnEnter<PulpSmash>();
+            .ActivateOnEnter<PulpSmash>()
+            .ActivateOnEnter<AbominableBlink>();
     }
 }
 
