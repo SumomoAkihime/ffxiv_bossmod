@@ -4,6 +4,7 @@ public enum OID : uint
 {
     PariOfPlenty = 0x4A6D,
     Helper = 0x233C,
+    FalseFlame = 0x4A6E,
 }
 
 public enum AID : uint
@@ -43,6 +44,7 @@ sealed class ImpassionedSpark(BossModule module) : Components.SimpleAOEs(module,
 sealed class BurningPillar(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BurningPillar, 10f);
 sealed class FireWell(BossModule module) : Components.StackWithIcon(module, (uint)IconID.Stack, AID.FireWell, 6f, 3f);
 sealed class ScouringScorn(BossModule module) : Components.RaidwideCast(module, AID.ScouringScorn);
+sealed class FalseFlameDisplay(BossModule module) : Components.AddsPointless(module, (uint)OID.FalseFlame);
 
 sealed class PariOfPlentyStates : StateMachineBuilder
 {
@@ -58,7 +60,8 @@ sealed class PariOfPlentyStates : StateMachineBuilder
             .ActivateOnEnter<ImpassionedSpark>()
             .ActivateOnEnter<BurningPillar>()
             .ActivateOnEnter<FireWell>()
-            .ActivateOnEnter<ScouringScorn>();
+            .ActivateOnEnter<ScouringScorn>()
+            .ActivateOnEnter<FalseFlameDisplay>();
     }
 }
 

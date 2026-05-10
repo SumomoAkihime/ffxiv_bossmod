@@ -56,3 +56,6 @@
   - `T08Enuo`: added `NaughtHuntsJumps` tether-line visualization for player pass links.
   - `M07NBruteAbombinator`: added `Sporesplosion` and `Explosion` AOE visibility components.
 - Release target for this batch: `7.5.0.315` (sequential local versioning per current branch policy).
+- Additional downgrade batch (7.5.0.316):
+  - Attempted direct multi-file Reborn port for `Ad011PariofPlenty` (`Enums/States/FireFlight/LongNights`) but hit broad API/analyzer incompatibility on this fork (GenericAOEs signature drift and style-as-errors).
+  - Applied compatibility fallback instead: kept local minimal module model and added low-risk radar support `FalseFlameDisplay` (`OID.FalseFlame` + `AddsPointless` state activation) to improve mechanic visibility without framework changes.
