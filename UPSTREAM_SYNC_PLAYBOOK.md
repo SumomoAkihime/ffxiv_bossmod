@@ -101,3 +101,7 @@
 - M07 follow-up pass (unreleased working batch):
   - Added compatibility class-name coverage for `BrutishSwingCone` and `BrutishSwingDonutSegment` using local grouped AOE components.
   - Build passed; release deferred by workflow policy.
+- Ad011 behavior-alignment pass (unreleased working batch):
+  - Tuned `CharmedChains` to parity-like parameters (`chainLength: 22`, `activationDelay: 5`).
+  - Switched `FireOfVictory` to `BaitAwayCast` style targeting (4y, center-at-target, ends-on-cast-event) consistent with validated variant implementation.
+  - Build check passed; release intentionally deferred.

@@ -66,14 +66,14 @@ public enum IconID : uint
 
 sealed class HeatBurst(BossModule module) : Components.RaidwideCast(module, AID.HeatBurst);
 sealed class BurningGleam(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BurningGleam, (uint)AID.BurningGleam1, (uint)AID.BurningGleam2], new AOEShapeCross(40f, 5f));
-sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)TetherID.CharmedChain);
+sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)TetherID.CharmedChain, chainLength: 22f, activationDelay: 5f);
 class FireflightLines(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFireflight, (uint)AID.RightFireflight, (uint)AID.LeftFireflightFactAndFiction, (uint)AID.RightFireflightFactAndFiction], new AOEShapeRect(40f, 2f));
 sealed class FireFlight(BossModule module) : FireflightLines(module);
 sealed class FireFlightFactOrFiction(BossModule module) : FireflightLines(module);
 sealed class SimpleFableFlight(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFableflight, (uint)AID.RightFableflight], new AOEShapeCone(60f, 90f.Degrees()));
 class DoubleFableFlightLines(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFableflight1, (uint)AID.RightFableflight1], new AOEShapeRect(40f, 2f));
 sealed class DoubleFableFlight(BossModule module) : DoubleFableFlightLines(module);
-sealed class FireOfVictory(BossModule module) : Components.SpreadFromCastTargets(module, AID.FireOfVictory, 4f);
+sealed class FireOfVictory(BossModule module) : Components.BaitAwayCast(module, AID.FireOfVictory, new AOEShapeCircle(4f), centerAtTarget: true, endsOnCastEvent: true);
 sealed class FellSpark(BossModule module) : Components.TankbusterTether(module, AID.FellSpark, (uint)TetherID.FellSpark, 6f);
 sealed class ParisCurse(BossModule module) : Components.RaidwideCast(module, AID.ParisCurse);
 sealed class CurseOfCompanionshipSolitude(BossModule module) : Components.UniformStackSpread(module, 15f, 15f, alwaysShowSpreads: true)
