@@ -3,6 +3,7 @@ namespace BossMod.Dawntrail.Raid.M07NBruteAbombinator;
 public enum OID : uint
 {
     Boss = 0x4781,
+    BloomingAbomination = 0x4782,
     Helper = 0x233C,
 }
 
@@ -16,6 +17,7 @@ public enum AID : uint
     SporeSac = 42282,
     Pollen = 42283,
     TheUnpotted = 42280,
+    QuarrySwamp = 42285,
     CrossingCrosswinds = 43276,
     WindingWildwinds = 43275,
     GlowerPower = 43339,
@@ -60,6 +62,10 @@ sealed class Powerslam(BossModule module) : Components.RaidwideCast(module, AID.
 sealed class SporeSac(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SporeSac, 8f);
 sealed class Pollen(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Pollen, 8f);
 sealed class TheUnpotted(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TheUnpotted, new AOEShapeCone(60f, 15f.Degrees()));
+sealed class QuarrySwamp(BossModule module) : Components.CastLineOfSightAOE(module, AID.QuarrySwamp, 60f, false)
+{
+    public override IEnumerable<Actor> BlockerActors() => Module.Enemies((uint)OID.BloomingAbomination);
+}
 sealed class CrossingCrosswinds(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CrossingCrosswinds, new AOEShapeCross(50f, 5f));
 sealed class WindingWildwinds(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WindingWildwinds, new AOEShapeDonut(5f, 60f));
 sealed class GlowerPower(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GlowerPower, new AOEShapeRect(65f, 7f));
@@ -83,6 +89,7 @@ sealed class M07NBruteAbombinatorStates : StateMachineBuilder
             .ActivateOnEnter<SporeSac>()
             .ActivateOnEnter<Pollen>()
             .ActivateOnEnter<TheUnpotted>()
+            .ActivateOnEnter<QuarrySwamp>()
             .ActivateOnEnter<CrossingCrosswinds>()
             .ActivateOnEnter<WindingWildwinds>()
             .ActivateOnEnter<GlowerPower>()

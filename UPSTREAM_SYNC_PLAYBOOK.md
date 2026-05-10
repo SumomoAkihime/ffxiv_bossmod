@@ -59,3 +59,6 @@
 - Additional downgrade batch (7.5.0.316):
   - Attempted direct multi-file Reborn port for `Ad011PariofPlenty` (`Enums/States/FireFlight/LongNights`) but hit broad API/analyzer incompatibility on this fork (GenericAOEs signature drift and style-as-errors).
   - Applied compatibility fallback instead: kept local minimal module model and added low-risk radar support `FalseFlameDisplay` (`OID.FalseFlame` + `AddsPointless` state activation) to improve mechanic visibility without framework changes.
+- Additional low-risk batch (7.5.0.317):
+  - `M07NBruteAbombinator`: added LOS mechanic visibility for `QuarrySwamp` using local `CastLineOfSightAOE` API (`OID.BloomingAbomination` blockers + state activation).
+  - Deferred `ArenaChanges.cs` direct port: Reborn version depends on shared arena-bound helpers not present in this fork; keep current local arena model to avoid framework-side drift.
