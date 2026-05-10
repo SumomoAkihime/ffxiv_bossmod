@@ -144,3 +144,8 @@
   - Added `RM12S1CompatibilityAliases.cs` to map Reborn `M12SP1Lindwurm` naming to local `RM12S1TheLindwurm` components.
   - Kept scope to naming compatibility only (no framework/state-machine rewrites, no parallel module import).
   - Release build verified with 0 errors.
+- M08N completion bootstrap pass (7.5.0.331):
+  - Local `M08NHowlingBlade` directory was present but empty; replaced with a compile-safe minimal module skeleton.
+  - Added foundational radar/visibility mechanics on fork-stable APIs: `ExtraplanarPursuit`, `RavenousSaber`, `GreatDivide`, `TargetedQuake`, `TrackingTremors`.
+  - Deferred advanced behaviors (`ArenaChanges`, WolvesReign/Towerfall dynamic sequencing) to future parity passes due current API-shape drift.
+  - Release build verified with 0 errors.
