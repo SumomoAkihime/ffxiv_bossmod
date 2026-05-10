@@ -65,3 +65,6 @@
 - Additional low-risk batch (7.5.0.318):
   - `Ad011PariofPlenty`: added Long-Nights fireflight visibility subset on local APIs (`LeftRightFireflight` + `WheelOfFireflight` icon-driven cone sequence), including required AID/Icon mappings and state activation.
   - Kept migration scoped to radar/telegraph visibility only; no framework-side behavior ports.
+- Additional low-risk batch (7.5.0.319):
+  - `M07NBruteAbombinator`: added `BloomingAbomination` adds visibility and `ItCameFromTheDirt` AOE telegraph support (radius 6), plus state activation.
+  - Kept scope to independent radar/telegraph components; no arena-framework synchronization changes.

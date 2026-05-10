@@ -16,6 +16,7 @@ public enum AID : uint
     Powerslam = 42312,
     SporeSac = 42282,
     Pollen = 42283,
+    ItCameFromTheDirt = 42279,
     TheUnpotted = 42280,
     QuarrySwamp = 42285,
     CrossingCrosswinds = 43276,
@@ -59,8 +60,10 @@ sealed class BrutalSmashTB(BossModule module) : Components.GenericSharedTankbust
     }
 }
 sealed class Powerslam(BossModule module) : Components.RaidwideCast(module, AID.Powerslam);
+sealed class BloomingAbominationAdds(BossModule module) : Components.Adds(module, (uint)OID.BloomingAbomination);
 sealed class SporeSac(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SporeSac, 8f);
 sealed class Pollen(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Pollen, 8f);
+sealed class ItCameFromTheDirt(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ItCameFromTheDirt, 6f);
 sealed class TheUnpotted(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TheUnpotted, new AOEShapeCone(60f, 15f.Degrees()));
 sealed class QuarrySwamp(BossModule module) : Components.CastLineOfSightAOE(module, AID.QuarrySwamp, 60f, false)
 {
@@ -86,8 +89,10 @@ sealed class M07NBruteAbombinatorStates : StateMachineBuilder
             .ActivateOnEnter<NeoBombarianSpecialKB>()
             .ActivateOnEnter<BrutalSmashTB>()
             .ActivateOnEnter<Powerslam>()
+            .ActivateOnEnter<BloomingAbominationAdds>()
             .ActivateOnEnter<SporeSac>()
             .ActivateOnEnter<Pollen>()
+            .ActivateOnEnter<ItCameFromTheDirt>()
             .ActivateOnEnter<TheUnpotted>()
             .ActivateOnEnter<QuarrySwamp>()
             .ActivateOnEnter<CrossingCrosswinds>()
