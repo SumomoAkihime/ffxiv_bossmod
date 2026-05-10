@@ -52,4 +52,7 @@
 - Follow-up parity batch on top of the skeletons:
   - `T08Enuo`: restored `NaughtHunts` chasing AOE visibility using the fork's native `StandardChasingAOEs`.
   - `M07NBruteAbombinator`: added `NeoBombarianSpecial` knockback, `BrutalSmash` shared tankbuster, and `AbominableBlink` flare visibility using local stable components.
-- Release target for this batch: `7.5.0.314` (sequential local versioning per current branch policy).
+- Additional fast parity batch:
+  - `T08Enuo`: added `NaughtHuntsJumps` tether-line visualization for player pass links.
+  - `M07NBruteAbombinator`: added `Sporesplosion` and `Explosion` AOE visibility components.
+- Release target for this batch: `7.5.0.315` (sequential local versioning per current branch policy).

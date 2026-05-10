@@ -20,6 +20,8 @@ public enum AID : uint
     WindingWildwinds = 43275,
     GlowerPower = 43339,
     ElectrogeneticForce = 42311,
+    Sporesplosion = 42309,
+    Explosion = 42286,
     LashingLariat1 = 42322,
     LashingLariat2 = 42324,
     Slaminator = 42328,
@@ -62,6 +64,8 @@ sealed class CrossingCrosswinds(BossModule module) : Components.SimpleAOEs(modul
 sealed class WindingWildwinds(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WindingWildwinds, new AOEShapeDonut(5f, 60f));
 sealed class GlowerPower(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GlowerPower, new AOEShapeRect(65f, 7f));
 sealed class ElectrogeneticForce(BossModule module) : Components.SpreadFromCastTargets(module, AID.ElectrogeneticForce, 6f);
+sealed class Sporesplosion(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Sporesplosion, 8f, maxCasts: 12);
+sealed class Explosion(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Explosion, 25f, maxCasts: 2);
 sealed class LashingLariat(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LashingLariat1, (uint)AID.LashingLariat2], new AOEShapeRect(70f, 16f));
 sealed class Slaminator(BossModule module) : Components.CastTowers(module, AID.Slaminator, 8f, maxSoakers: 8);
 sealed class PulpSmash(BossModule module) : Components.StackWithIcon(module, (uint)IconID.PulpSmash, AID.PulpSmash, 6f, 5.2f, minStackSize: 8, maxStackSize: 8);
@@ -83,6 +87,8 @@ sealed class M07NBruteAbombinatorStates : StateMachineBuilder
             .ActivateOnEnter<WindingWildwinds>()
             .ActivateOnEnter<GlowerPower>()
             .ActivateOnEnter<ElectrogeneticForce>()
+            .ActivateOnEnter<Sporesplosion>()
+            .ActivateOnEnter<Explosion>()
             .ActivateOnEnter<LashingLariat>()
             .ActivateOnEnter<Slaminator>()
             .ActivateOnEnter<PulpSmash>()

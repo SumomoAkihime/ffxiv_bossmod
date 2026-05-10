@@ -26,6 +26,7 @@ public enum AID : uint
     ShroudedHolyStack = 49968,
     MeltdownAOE = 49963,
     MeltdownSpread = 49964,
+    NaughtHuntsAnother = 49941,
     SilentTorrentSmall = 49946,
     SilentTorrentMedium = 49947,
     SilentTorrentLarge = 49948,
@@ -47,9 +48,48 @@ public enum IconID : uint
     DimensionZeroIcon = 719,
 }
 
+public enum TetherID : uint
+{
+    NaughtHuntsAnotherTether = 405,
+}
+
 sealed class Meteorain(BossModule module) : Components.RaidwideCast(module, AID.Meteorain);
 sealed class NaughtGrowsAOE(BossModule module) : Components.SimpleAOEs(module, (uint)AID.NaughtGrowsAOE, new AOEShapeCircle(40f));
 sealed class NaughtHunts(BossModule module) : Components.StandardChasingAOEs(module, new AOEShapeCircle(6f), AID.EndlessChaseFirst, AID.EndlessChaseRest, 2.9f, 0.7f, 13);
+sealed class NaughtHuntsJumps(BossModule module) : BossComponent(module)
+{
+    readonly List<(Actor Source, Actor Target)> _jumps = [];
+
+    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    {
+        if ((TetherID)tether.ID != TetherID.NaughtHuntsAnotherTether || WorldState.Actors.Find(tether.Target) is not { } target)
+            return;
+
+        _jumps.RemoveAll(j => j.Source == source);
+        _jumps.Add((source, target));
+    }
+
+    public override void OnUntethered(Actor source, ActorTetherInfo tether)
+    {
+        if ((TetherID)tether.ID == TetherID.NaughtHuntsAnotherTether)
+            _jumps.RemoveAll(j => j.Source == source);
+    }
+
+    public override void OnActorDestroyed(Actor actor)
+    {
+        _jumps.RemoveAll(j => j.Source == actor || j.Target == actor);
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        foreach (var (source, target) in _jumps)
+        {
+            if (Arena.Config.ShowOutlinesAndShadows)
+                Arena.AddLine(source.Position, target.Position, 0xFF000000, 2);
+            Arena.AddLine(source.Position, target.Position, ArenaColor.Danger);
+        }
+    }
+}
 sealed class GazeOfTheVoidCones(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.GazeOfTheVoidCones, (uint)AID.GazeOfTheVoid1], new AOEShapeCone(20f, 22.5f.Degrees()), 10);
 sealed class DeepFreeze(BossModule module) : Components.BaitAwayCast(module, AID.DeepFreeze, new AOEShapeCircle(8f), true, true);
 sealed class ShroudedHoly(BossModule module) : Components.StackWithCastTargets(module, AID.ShroudedHolyStack, 7f, minStackSize: 4);
@@ -106,6 +146,7 @@ sealed class T08EnuoStates : StateMachineBuilder
             .ActivateOnEnter<Meteorain>()
             .ActivateOnEnter<NaughtGrowsAOE>()
             .ActivateOnEnter<NaughtHunts>()
+            .ActivateOnEnter<NaughtHuntsJumps>()
             .ActivateOnEnter<GazeOfTheVoidCones>()
             .ActivateOnEnter<DeepFreeze>()
             .ActivateOnEnter<ShroudedHoly>()
