@@ -140,3 +140,7 @@
   - Added `T08EnuoCompatibilityAliases.cs` to map Reborn/Ex8 naming onto the local T08 implementation without framework changes.
   - Implemented aliases with top-level fully-qualified `using` directives to satisfy this fork's IDE0065 style-as-error rule.
   - Release build verified with 0 errors.
+- RM12S1 equivalence-sync pass (7.5.0.330):
+  - Added `RM12S1CompatibilityAliases.cs` to map Reborn `M12SP1Lindwurm` naming to local `RM12S1TheLindwurm` components.
+  - Kept scope to naming compatibility only (no framework/state-machine rewrites, no parallel module import).
+  - Release build verified with 0 errors.
