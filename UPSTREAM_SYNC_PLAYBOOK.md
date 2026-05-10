@@ -68,3 +68,6 @@
 - Additional low-risk batch (7.5.0.319):
   - `M07NBruteAbombinator`: added `BloomingAbomination` adds visibility and `ItCameFromTheDirt` AOE telegraph support (radius 6), plus state activation.
   - Kept scope to independent radar/telegraph components; no arena-framework synchronization changes.
+- Additional low-risk batch (7.5.0.320):
+  - `Ad011PariofPlenty`: added non-invasive battlefield entity visibility for `FieryBauble` and `FlyingCarpet` via `AddsPointless` components and state activation.
+  - No timeline/state sequencing behavior changed.

@@ -5,6 +5,8 @@ public enum OID : uint
     PariOfPlenty = 0x4A6D,
     Helper = 0x233C,
     FalseFlame = 0x4A6E,
+    FieryBauble = 0x4A6F,
+    FlyingCarpet = 0x4A74,
 }
 
 public enum AID : uint
@@ -55,6 +57,8 @@ sealed class BurningPillar(BossModule module) : Components.SimpleAOEs(module, (u
 sealed class FireWell(BossModule module) : Components.StackWithIcon(module, (uint)IconID.Stack, AID.FireWell, 6f, 3f);
 sealed class ScouringScorn(BossModule module) : Components.RaidwideCast(module, AID.ScouringScorn);
 sealed class FalseFlameDisplay(BossModule module) : Components.AddsPointless(module, (uint)OID.FalseFlame);
+sealed class FieryBaubleDisplay(BossModule module) : Components.AddsPointless(module, (uint)OID.FieryBauble);
+sealed class FlyingCarpetDisplay(BossModule module) : Components.AddsPointless(module, (uint)OID.FlyingCarpet);
 sealed class LeftRightFireflight(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFireflightFourLongNights, (uint)AID.RightFireflightFourLongNights], new AOEShapeRect(40f, 2f));
 sealed class WheelOfFireflight(BossModule module) : Components.GenericAOEs(module)
 {
@@ -125,6 +129,8 @@ sealed class PariOfPlentyStates : StateMachineBuilder
             .ActivateOnEnter<FireWell>()
             .ActivateOnEnter<ScouringScorn>()
             .ActivateOnEnter<FalseFlameDisplay>()
+            .ActivateOnEnter<FieryBaubleDisplay>()
+            .ActivateOnEnter<FlyingCarpetDisplay>()
             .ActivateOnEnter<LeftRightFireflight>()
             .ActivateOnEnter<WheelOfFireflight>();
     }
