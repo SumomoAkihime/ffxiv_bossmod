@@ -149,3 +149,7 @@
   - Added foundational radar/visibility mechanics on fork-stable APIs: `ExtraplanarPursuit`, `RavenousSaber`, `GreatDivide`, `TargetedQuake`, `TrackingTremors`.
   - Deferred advanced behaviors (`ArenaChanges`, WolvesReign/Towerfall dynamic sequencing) to future parity passes due current API-shape drift.
   - Release build verified with 0 errors.
+- M09 completion bootstrap pass (7.5.0.332):
+  - Added compile-safe `M09NVampFatale` module skeleton with core visibility mechanics (raidwides, cone/rect/circle AOEs, spread/stack, towers).
+  - Intentionally deferred higher-risk dynamic voidzone/arena behavior details for follow-up parity work on this fork API.
+  - Release build target: 0-error verification before publish.
