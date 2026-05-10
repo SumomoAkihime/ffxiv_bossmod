@@ -20,7 +20,6 @@ sealed class LoomingShadowAdd(BossModule module) : LoomingShadow(module);
 sealed class NaughtGrowsBossCircle(BossModule module) : NaughtGrowsCircle(module);
 sealed class NaughtGrowsBossDonut(BossModule module) : NaughtGrowsDonut(module);
 sealed class NaughtHunts(BossModule module) : EndlessChase(module);
-sealed class NaughtHuntsJumps(BossModule module) : PassageOfNaught(module);
 sealed class SupportShadowAdds(BossModule module) : Shadows(module);
 sealed class VacuumAOE(BossModule module) : Vacuum(module);
 sealed class VacuumArc1(BossModule module) : SilentTorrentSmall(module);

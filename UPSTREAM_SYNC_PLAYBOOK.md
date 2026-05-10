@@ -36,4 +36,13 @@
 - Applied compatibility downgrade strategy:
   - `Dawntrail/Extreme/Ex8Enuo`: added alias coverage for newly introduced Reborn mechanic names instead of framework-level rewrites.
   - `Dawntrail/Dungeon/D13Clyteum`: preserved existing local behavior model and continued parameter/icon-driven alignment.
-- Release target for this batch: `7.5.0.311` (sequential local versioning per current branch policy).
+- Additional low-risk behavior parity applied on current fork APIs:
+  - `RealmReborn/Trial/T08ThornmarchH/PomMeteor.cs`: switched tower offset initialization to helper generation, matching Reborn's static-init-safe path.
+  - `Endwalker/Extreme/Ex4Barbariccia/WindingGale.cs`: normalized donut-sector parameters and action-id matching to the newer implementation style without changing local API shape.
+  - `Dawntrail/Extreme/Ex8Enuo`: widened intermission radar bounds and added explicit `NaughtHuntsJumps` tether-line visualization while keeping the existing local `EndlessChase`/state-machine model.
+- Deferred after review because they still require non-trivial framework/module scaffolding in this fork:
+  - `Dawntrail/Trial/T08Enuo`
+  - `Dawntrail/Raid/M07NBruteAbombinator`
+  - `Dawntrail/Advanced/Ad01TheMerchantsTale/Ad011PariofPlenty`
+  - `Dawntrail/Savage/M12SP1Lindwurm` (local equivalent remains `RM12S1TheLindwurm`)
+- Release target for this batch: `7.5.0.312` (sequential local versioning per current branch policy).

@@ -311,8 +311,9 @@ class ArenaSwitcher : BossComponent
     public override void OnMapEffect(byte index, uint state)
     {
         if (index == 0 && state == 0x00020001)
-            // intermission arena is actually a 500x500 square
-            Arena.Bounds = new ArenaBoundsSquare(30);
+            // Intermission movement extends well outside the main ring; keep radar bounds large enough
+            // to avoid clipping shadow/add positioning during parity sync with Reborn callouts.
+            Arena.Bounds = new ArenaBoundsSquare(80);
 
         if (index == 0 && state == 0x00080004)
             Arena.Bounds = new ArenaBoundsCircle(20);
@@ -537,6 +538,41 @@ class EndlessChase(BossModule module) : Components.GenericChasingAOEs(module, AI
                 var nextTarget = pass[ix].To;
                 Chasers.Add(new(new AOEShapeCircle(6), nextTarget, pos, Distance, 12, WorldState.FutureTime(0.9f), 0.9f, Distance));
             }
+        }
+    }
+}
+
+class NaughtHuntsJumps(BossModule module) : BossComponent(module)
+{
+    readonly List<(Actor Source, Actor Target)> _jumps = [];
+
+    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    {
+        if ((TetherID)tether.ID != TetherID.PlayerChasePlayer || WorldState.Actors.Find(tether.Target) is not { } target)
+            return;
+
+        _jumps.RemoveAll(j => j.Source == source);
+        _jumps.Add((source, target));
+    }
+
+    public override void OnUntethered(Actor source, ActorTetherInfo tether)
+    {
+        if ((TetherID)tether.ID == TetherID.PlayerChasePlayer)
+            _jumps.RemoveAll(j => j.Source == source);
+    }
+
+    public override void OnActorDestroyed(Actor actor)
+    {
+        _jumps.RemoveAll(j => j.Source == actor || j.Target == actor);
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        foreach (var (source, target) in _jumps)
+        {
+            if (Arena.Config.ShowOutlinesAndShadows)
+                Arena.AddLine(source.Position, target.Position, 0xFF000000, 2);
+            Arena.AddLine(source.Position, target.Position, ArenaColor.Danger);
         }
     }
 }

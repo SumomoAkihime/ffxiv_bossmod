@@ -5,7 +5,7 @@ class WindingGale(BossModule module) : Components.GenericAOEs(module, AID.Windin
 {
     private readonly List<Actor> _casters = [];
 
-    private static readonly AOEShapeDonutSector _shape = new(9, 11, 90.Degrees());
+    private static readonly AOEShapeDonutSector _shape = new(9f, 11f, 90f.Degrees());
 
     public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
@@ -15,13 +15,13 @@ class WindingGale(BossModule module) : Components.GenericAOEs(module, AID.Windin
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction.ID)
             _casters.Add(caster);
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction.ID)
             _casters.Remove(caster);
     }
 }

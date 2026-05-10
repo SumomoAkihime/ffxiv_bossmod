@@ -281,6 +281,7 @@ class Ex8EnuoStates : StateMachineBuilder
     {
         CastStart(id, AID.NaughtHunts, delay)
             .ActivateOnEnter<PassageOfNaught>()
+            .ActivateOnEnter<NaughtHuntsJumps>()
             .ActivateOnEnter<EndlessChase>();
 
         ComponentCondition<PassageOfNaught>(id + 0x10, 7, p => p.NumCasts > 0, "Safe diamond + chasers start")
@@ -289,6 +290,7 @@ class Ex8EnuoStates : StateMachineBuilder
         ComponentCondition<EndlessChase>(id + 0x30, 8.3f, c => c.NumCasts >= 50, "Chasers end")
             .ActivateOnEnter<PassageOfNaught>()
             .ExecOnEnter<PassageOfNaught>(p => p.Risky = false)
+            .DeactivateOnExit<NaughtHuntsJumps>()
             .DeactivateOnExit<EndlessChase>();
         ComponentCondition<PassageOfNaught>(id + 0x40, 4.6f, p => p.NumCasts > 0, "Safe corners")
             .ExecOnEnter<PassageOfNaught>(p => p.Risky = true)
