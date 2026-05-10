@@ -62,3 +62,6 @@
 - Additional low-risk batch (7.5.0.317):
   - `M07NBruteAbombinator`: added LOS mechanic visibility for `QuarrySwamp` using local `CastLineOfSightAOE` API (`OID.BloomingAbomination` blockers + state activation).
   - Deferred `ArenaChanges.cs` direct port: Reborn version depends on shared arena-bound helpers not present in this fork; keep current local arena model to avoid framework-side drift.
+- Additional low-risk batch (7.5.0.318):
+  - `Ad011PariofPlenty`: added Long-Nights fireflight visibility subset on local APIs (`LeftRightFireflight` + `WheelOfFireflight` icon-driven cone sequence), including required AID/Icon mappings and state activation.
+  - Kept migration scoped to radar/telegraph visibility only; no framework-side behavior ports.
