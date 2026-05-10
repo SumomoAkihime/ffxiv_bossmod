@@ -83,7 +83,9 @@ sealed class QuarrySwamp(BossModule module) : Components.CastLineOfSightAOE(modu
     public override IEnumerable<Actor> BlockerActors() => Module.Enemies((uint)OID.BloomingAbomination);
 }
 sealed class CrossingCrosswinds(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CrossingCrosswinds, new AOEShapeCross(50f, 5f));
+sealed class CrossingCrosswindsHint(BossModule module) : Components.CastInterruptHint(module, AID.CrossingCrosswinds, showNameInHint: true);
 sealed class WindingWildwinds(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WindingWildwinds, new AOEShapeDonut(5f, 60f));
+sealed class WindingWildwindsHint(BossModule module) : Components.CastInterruptHint(module, AID.WindingWildwinds, showNameInHint: true);
 sealed class GlowerPower(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GlowerPower, new AOEShapeRect(65f, 7f));
 sealed class ElectrogeneticForce(BossModule module) : Components.SpreadFromCastTargets(module, AID.ElectrogeneticForce, 6f);
 sealed class Sporesplosion(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Sporesplosion, 8f, maxCasts: 12);
@@ -116,7 +118,9 @@ sealed class M07NBruteAbombinatorStates : StateMachineBuilder
             .ActivateOnEnter<TheUnpotted>()
             .ActivateOnEnter<QuarrySwamp>()
             .ActivateOnEnter<CrossingCrosswinds>()
+            .ActivateOnEnter<CrossingCrosswindsHint>()
             .ActivateOnEnter<WindingWildwinds>()
+            .ActivateOnEnter<WindingWildwindsHint>()
             .ActivateOnEnter<GlowerPower>()
             .ActivateOnEnter<ElectrogeneticForce>()
             .ActivateOnEnter<Sporesplosion>()
@@ -130,4 +134,21 @@ sealed class M07NBruteAbombinatorStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, StatesType = typeof(M07NBruteAbombinatorStates), ObjectIDType = typeof(OID), ActionIDType = typeof(AID), IconIDType = typeof(IconID), PrimaryActorOID = (uint)OID.Boss, Contributors = "The Combat Reborn Team (Malediktus)", Expansion = BossModuleInfo.Expansion.Dawntrail, Category = BossModuleInfo.Category.Raid, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1023, NameID = 13756, SortOrder = 1, PlanLevel = 0)]
-public sealed class M07NBruteAbombinator(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 100f), new ArenaBoundsSquare(20f));
+public sealed class M07NBruteAbombinator(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 100f), new ArenaBoundsSquare(20f))
+{
+    protected override void DrawEnemies(int pcSlot, Actor pc)
+    {
+        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
+        Arena.Actors(Enemies((uint)OID.BloomingAbomination), ArenaColor.Enemy);
+    }
+
+    protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            ref var e = ref hints.PotentialTargets.Ref(i);
+            e.Priority = e.Actor.OID == (uint)OID.BloomingAbomination ? 1 : 0;
+        }
+    }
+}

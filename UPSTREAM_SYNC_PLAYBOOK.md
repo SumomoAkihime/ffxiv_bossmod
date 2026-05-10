@@ -79,3 +79,6 @@
     - `BrutishSwingDonutSegment1`, `BrutishSwingDonutSegment2`
     - `RevengeOfTheVines` raidwide cast
   - Scope kept to local `SimpleAOEs`/`RaidwideCast` components and state activation only.
+- Accelerated low-risk batch (7.5.0.323):
+  - `M07NBruteAbombinator`: added interrupt hint coverage (`CrossingCrosswindsHint`, `WindingWildwindsHint`), enemy draw visibility for boss/adds, and AI target priority preferring `BloomingAbomination`.
+  - Adapted draw calls to this fork's arena API signature (`Arena.Actor(..., color)` / `Arena.Actors(..., color)`).
