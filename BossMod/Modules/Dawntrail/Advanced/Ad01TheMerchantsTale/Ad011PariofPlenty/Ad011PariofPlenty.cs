@@ -18,6 +18,10 @@ public enum AID : uint
     BurningGleam2 = 45043,
     LeftFireflightFourLongNights = 45462,
     RightFireflightFourLongNights = 45461,
+    LeftFireflight = 45427,
+    RightFireflight = 45426,
+    LeftFireflightFactAndFiction = 47026,
+    RightFireflightFactAndFiction = 47025,
     WheelOfFireflight = 45463,
     WheelOfFireflight1 = 45466,
     WheelOfFireflight2 = 45465,
@@ -25,6 +29,8 @@ public enum AID : uint
     CharmdChains = 45199,
     LeftFableflight = 45429,
     RightFableflight = 45428,
+    LeftFableflight1 = 46947,
+    RightFableflight1 = 46946,
     FireOfVictory = 45518,
     ParisCurse = 45520,
     FirePowder = 45521,
@@ -53,7 +59,9 @@ public enum IconID : uint
 sealed class HeatBurst(BossModule module) : Components.RaidwideCast(module, AID.HeatBurst);
 sealed class BurningGleam(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BurningGleam, (uint)AID.BurningGleam1, (uint)AID.BurningGleam2], new AOEShapeCross(40f, 5f));
 sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)TetherID.CharmedChain);
+sealed class FireflightLines(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFireflight, (uint)AID.RightFireflight, (uint)AID.LeftFireflightFactAndFiction, (uint)AID.RightFireflightFactAndFiction], new AOEShapeRect(40f, 2f));
 sealed class SimpleFableFlight(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFableflight, (uint)AID.RightFableflight], new AOEShapeCone(60f, 90f.Degrees()));
+sealed class DoubleFableFlightLines(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFableflight1, (uint)AID.RightFableflight1], new AOEShapeRect(40f, 2f));
 sealed class FireOfVictory(BossModule module) : Components.SpreadFromCastTargets(module, AID.FireOfVictory, 4f);
 sealed class ParisCurse(BossModule module) : Components.RaidwideCast(module, AID.ParisCurse);
 sealed class FirePowder(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.FirePowder, (uint)AID.HighFirePowder], 15f);
@@ -128,7 +136,9 @@ sealed class PariOfPlentyStates : StateMachineBuilder
             .ActivateOnEnter<HeatBurst>()
             .ActivateOnEnter<BurningGleam>()
             .ActivateOnEnter<CharmedChains>()
+            .ActivateOnEnter<FireflightLines>()
             .ActivateOnEnter<SimpleFableFlight>()
+            .ActivateOnEnter<DoubleFableFlightLines>()
             .ActivateOnEnter<FireOfVictory>()
             .ActivateOnEnter<ParisCurse>()
             .ActivateOnEnter<FirePowder>()

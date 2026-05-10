@@ -89,3 +89,8 @@
   - Added required AID mappings and state activations only.
 - Accelerated low-risk batch (7.5.0.325):
   - `Ad011PariofPlenty`: added `SparkPuddle` persistent voidzone tracking (`OID.SparkPuddle` eventobj + `PersistentVoidzoneAtCastTarget` on `AID.BurningPillar`).
+- Accelerated low-risk batch (7.5.0.326):
+  - `Ad011PariofPlenty`: merged additional independent line telegraphs via grouped components:
+    - `FireflightLines` for `Left/RightFireflight` + `FactAndFiction` variants
+    - `DoubleFableFlightLines` for `Left/RightFableflight1`
+  - Added required AID mappings and state activations only.
