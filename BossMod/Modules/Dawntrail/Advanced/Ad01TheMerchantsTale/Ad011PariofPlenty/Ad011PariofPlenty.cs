@@ -32,6 +32,7 @@ public enum AID : uint
     LeftFableflight1 = 46947,
     RightFableflight1 = 46946,
     FireOfVictory = 45518,
+    FellSpark = 45475,
     ParisCurse = 45520,
     FirePowder = 45521,
     HighFirePowder = 45522,
@@ -45,6 +46,13 @@ public enum AID : uint
 public enum TetherID : uint
 {
     CharmedChain = 9,
+    FellSpark = 84,
+}
+
+public enum SID : uint
+{
+    CurseOfSolitude = 4615,
+    CurseOfCompanionship = 4616,
 }
 
 public enum IconID : uint
@@ -59,11 +67,39 @@ public enum IconID : uint
 sealed class HeatBurst(BossModule module) : Components.RaidwideCast(module, AID.HeatBurst);
 sealed class BurningGleam(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BurningGleam, (uint)AID.BurningGleam1, (uint)AID.BurningGleam2], new AOEShapeCross(40f, 5f));
 sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)TetherID.CharmedChain);
-sealed class FireflightLines(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFireflight, (uint)AID.RightFireflight, (uint)AID.LeftFireflightFactAndFiction, (uint)AID.RightFireflightFactAndFiction], new AOEShapeRect(40f, 2f));
+class FireflightLines(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFireflight, (uint)AID.RightFireflight, (uint)AID.LeftFireflightFactAndFiction, (uint)AID.RightFireflightFactAndFiction], new AOEShapeRect(40f, 2f));
+sealed class FireFlight(BossModule module) : FireflightLines(module);
+sealed class FireFlightFactOrFiction(BossModule module) : FireflightLines(module);
 sealed class SimpleFableFlight(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFableflight, (uint)AID.RightFableflight], new AOEShapeCone(60f, 90f.Degrees()));
-sealed class DoubleFableFlightLines(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFableflight1, (uint)AID.RightFableflight1], new AOEShapeRect(40f, 2f));
+class DoubleFableFlightLines(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFableflight1, (uint)AID.RightFableflight1], new AOEShapeRect(40f, 2f));
+sealed class DoubleFableFlight(BossModule module) : DoubleFableFlightLines(module);
 sealed class FireOfVictory(BossModule module) : Components.SpreadFromCastTargets(module, AID.FireOfVictory, 4f);
+sealed class FellSpark(BossModule module) : Components.TankbusterTether(module, AID.FellSpark, (uint)TetherID.FellSpark, 6f);
 sealed class ParisCurse(BossModule module) : Components.RaidwideCast(module, AID.ParisCurse);
+sealed class CurseOfCompanionshipSolitude(BossModule module) : Components.UniformStackSpread(module, 15f, 15f, alwaysShowSpreads: true)
+{
+    public override void OnStatusGain(Actor actor, ActorStatus status)
+    {
+        switch ((SID)status.ID)
+        {
+            case SID.CurseOfCompanionship:
+                AddStack(actor, status.ExpireAt);
+                break;
+            case SID.CurseOfSolitude:
+                AddSpread(actor, status.ExpireAt);
+                break;
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if ((AID)spell.Action.ID is AID.HighFirePowder or AID.FirePowder)
+        {
+            Stacks.Clear();
+            Spreads.Clear();
+        }
+    }
+}
 sealed class FirePowder(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.FirePowder, (uint)AID.HighFirePowder], 15f);
 sealed class SpurningFlames(BossModule module) : Components.RaidwideCast(module, AID.SpurningFlames);
 sealed class ImpassionedSpark(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ImpassionedSparks3, 8f);
@@ -140,7 +176,9 @@ sealed class PariOfPlentyStates : StateMachineBuilder
             .ActivateOnEnter<SimpleFableFlight>()
             .ActivateOnEnter<DoubleFableFlightLines>()
             .ActivateOnEnter<FireOfVictory>()
+            .ActivateOnEnter<FellSpark>()
             .ActivateOnEnter<ParisCurse>()
+            .ActivateOnEnter<CurseOfCompanionshipSolitude>()
             .ActivateOnEnter<FirePowder>()
             .ActivateOnEnter<SpurningFlames>()
             .ActivateOnEnter<ImpassionedSpark>()

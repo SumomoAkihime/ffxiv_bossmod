@@ -94,3 +94,7 @@
     - `FireflightLines` for `Left/RightFireflight` + `FactAndFiction` variants
     - `DoubleFableFlightLines` for `Left/RightFableflight1`
   - Added required AID mappings and state activations only.
+- Ad011 completion pass (unreleased working batch):
+  - Added `FellSpark` tether warning and `CurseOfCompanionshipSolitude` status-driven stack/spread hints.
+  - Added compatibility aliases for `FireFlight` / `FireFlightFactOrFiction` / `DoubleFableFlight` mapped to local grouped telegraph components.
+  - Build check passed on local fork API; release intentionally deferred per workflow change (publish only after full instance completion or explicit instruction).
