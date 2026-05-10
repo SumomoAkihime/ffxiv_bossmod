@@ -131,3 +131,8 @@
   - `Ad011PariofPlenty` now considered migration-complete on this fork's supported API surface.
   - Included: line telegraphs, long-nights wheel sequence, stacks/spreads, raidwides, puddle tracking, chain timing, FellSpark pass/take tether logic, and compatibility-name activations.
   - Excluded by design: direct Reborn GenericAOEs/advanced helper internals that require framework/API extensions not present in this fork.
+- M07 completion milestone (release batch):
+  - `M07NBruteAbombinator` now considered migration-complete on this fork's supported API surface.
+  - Included: core telegraphs, raidwides, interrupts, adds visibility, tankbuster/flare/towers, LOS handling, targeting hints, and compatibility-name shims.
+  - Added broad `OID/AID` data parity constants from Reborn enums (including visual/driver actions) without changing local behavior model.
+  - Excluded by design: direct Reborn arena-shared-bounds framework hooks not present in this fork.
