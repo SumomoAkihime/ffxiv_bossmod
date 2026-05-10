@@ -72,14 +72,26 @@ public static class UIMisc
 
     public static bool IconButton(FontAwesomeIcon icon, string text)
     {
-        using var scope = ImRaii.PushFont(Service.IconFont);
-        return ImGui.Button(icon.ToIconString() + text);
+        if (!Service.IconFont.IsNull)
+        {
+            using var scope = ImRaii.PushFont(Service.IconFont);
+            return ImGui.Button(icon.ToIconString() + text);
+        }
+
+        // Fallback when icon font is unavailable/corrupt: keep control clickable without pushing invalid font.
+        return ImGui.Button("@" + text);
     }
 
     public static void IconText(FontAwesomeIcon icon)
     {
-        using var scope = ImRaii.PushFont(Service.IconFont);
-        ImGui.TextUnformatted(icon.ToIconString());
+        if (!Service.IconFont.IsNull)
+        {
+            using var scope = ImRaii.PushFont(Service.IconFont);
+            ImGui.TextUnformatted(icon.ToIconString());
+            return;
+        }
+
+        ImGui.TextUnformatted("@");
     }
 
     public static void HelpMarker(Func<string> helpText, FontAwesomeIcon icon = FontAwesomeIcon.InfoCircle)

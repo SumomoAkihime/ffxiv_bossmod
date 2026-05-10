@@ -153,3 +153,7 @@
   - Added compile-safe `M09NVampFatale` module skeleton with core visibility mechanics (raidwides, cone/rect/circle AOEs, spread/stack, towers).
   - Intentionally deferred higher-risk dynamic voidzone/arena behavior details for follow-up parity work on this fork API.
   - Release build target: 0-error verification before publish.
+- UI crash hotfix pass (7.5.0.333):
+  - Fixed a crash path in supported-boss list rendering (`ModuleViewer` -> `UIMisc.IconButton` -> `ImRaii.PushFont`) by guarding icon-font push and adding safe fallback rendering when icon font handle is invalid.
+  - Scope is UI-only stability fix; no combat-mechanic behavior changes.
+  - Release build verified with 0 errors.
