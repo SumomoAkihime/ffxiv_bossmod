@@ -25,6 +25,9 @@ public enum AID : uint
     LeftFableflight = 45429,
     RightFableflight = 45428,
     FireOfVictory = 45518,
+    ParisCurse = 45520,
+    FirePowder = 45521,
+    HighFirePowder = 45522,
     SpurningFlames = 45481,
     ImpassionedSparks3 = 45487,
     BurningPillar = 45526,
@@ -51,6 +54,8 @@ sealed class BurningGleam(BossModule module) : Components.SimpleAOEGroups(module
 sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)TetherID.CharmedChain);
 sealed class SimpleFableFlight(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFableflight, (uint)AID.RightFableflight], new AOEShapeCone(60f, 90f.Degrees()));
 sealed class FireOfVictory(BossModule module) : Components.SpreadFromCastTargets(module, AID.FireOfVictory, 4f);
+sealed class ParisCurse(BossModule module) : Components.RaidwideCast(module, AID.ParisCurse);
+sealed class FirePowder(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.FirePowder, (uint)AID.HighFirePowder], 15f);
 sealed class SpurningFlames(BossModule module) : Components.RaidwideCast(module, AID.SpurningFlames);
 sealed class ImpassionedSpark(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ImpassionedSparks3, 8f);
 sealed class BurningPillar(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BurningPillar, 10f);
@@ -123,6 +128,8 @@ sealed class PariOfPlentyStates : StateMachineBuilder
             .ActivateOnEnter<CharmedChains>()
             .ActivateOnEnter<SimpleFableFlight>()
             .ActivateOnEnter<FireOfVictory>()
+            .ActivateOnEnter<ParisCurse>()
+            .ActivateOnEnter<FirePowder>()
             .ActivateOnEnter<SpurningFlames>()
             .ActivateOnEnter<ImpassionedSpark>()
             .ActivateOnEnter<BurningPillar>()

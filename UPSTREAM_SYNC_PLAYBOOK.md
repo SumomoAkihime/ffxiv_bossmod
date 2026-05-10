@@ -82,3 +82,8 @@
 - Accelerated low-risk batch (7.5.0.323):
   - `M07NBruteAbombinator`: added interrupt hint coverage (`CrossingCrosswindsHint`, `WindingWildwindsHint`), enemy draw visibility for boss/adds, and AI target priority preferring `BloomingAbomination`.
   - Adapted draw calls to this fork's arena API signature (`Arena.Actor(..., color)` / `Arena.Actors(..., color)`).
+- Accelerated low-risk batch (7.5.0.324):
+  - `Ad011PariofPlenty`: added independent mechanic visibility components:
+    - `ParisCurse` (`RaidwideCast`)
+    - `FirePowder` + `HighFirePowder` (grouped 15y circle AOEs)
+  - Added required AID mappings and state activations only.
