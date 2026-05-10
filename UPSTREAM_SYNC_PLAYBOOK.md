@@ -71,3 +71,5 @@
 - Additional low-risk batch (7.5.0.320):
   - `Ad011PariofPlenty`: added non-invasive battlefield entity visibility for `FieryBauble` and `FlyingCarpet` via `AddsPointless` components and state activation.
   - No timeline/state sequencing behavior changed.
+- Additional low-risk batch (7.5.0.321):
+  - `M07NBruteAbombinator`: added `BrutishSwing` circle/donut telegraphs (`AID.BrutishSwingCircle2`, `AID.BrutishSwingDonut`) with local `SimpleAOEs` components and state activation.

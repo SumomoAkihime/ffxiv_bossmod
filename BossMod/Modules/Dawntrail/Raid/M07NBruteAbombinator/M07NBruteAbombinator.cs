@@ -13,6 +13,8 @@ public enum AID : uint
     NeoBombarianSpecial = 42287,
     BrutalSmashTB1 = 42272,
     BrutalSmashTB2 = 42273,
+    BrutishSwingCircle2 = 42270,
+    BrutishSwingDonut = 42271,
     Powerslam = 42312,
     SporeSac = 42282,
     Pollen = 42283,
@@ -41,6 +43,8 @@ public enum IconID : uint
 
 sealed class BrutalImpact(BossModule module) : Components.RaidwideCast(module, AID.BrutalImpact);
 sealed class NeoBombarianSpecialKB(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.NeoBombarianSpecial, 58f, stopAtWall: true);
+sealed class BrutishSwingCircle(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BrutishSwingCircle2, 12f);
+sealed class BrutishSwingDonut(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BrutishSwingDonut, new AOEShapeDonut(9f, 60f));
 sealed class BrutalSmashTB(BossModule module) : Components.GenericSharedTankbuster(module, default, 6f)
 {
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
@@ -87,6 +91,8 @@ sealed class M07NBruteAbombinatorStates : StateMachineBuilder
         TrivialPhase()
             .ActivateOnEnter<BrutalImpact>()
             .ActivateOnEnter<NeoBombarianSpecialKB>()
+            .ActivateOnEnter<BrutishSwingCircle>()
+            .ActivateOnEnter<BrutishSwingDonut>()
             .ActivateOnEnter<BrutalSmashTB>()
             .ActivateOnEnter<Powerslam>()
             .ActivateOnEnter<BloomingAbominationAdds>()
