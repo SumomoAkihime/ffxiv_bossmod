@@ -51,6 +51,7 @@ public enum TetherID : uint
 
 public enum SID : uint
 {
+    DarkResistanceDown = 3619,
     CurseOfSolitude = 4615,
     CurseOfCompanionship = 4616,
 }

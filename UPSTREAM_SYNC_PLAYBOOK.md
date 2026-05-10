@@ -105,3 +105,6 @@
   - Tuned `CharmedChains` to parity-like parameters (`chainLength: 22`, `activationDelay: 5`).
   - Switched `FireOfVictory` to `BaitAwayCast` style targeting (4y, center-at-target, ends-on-cast-event) consistent with validated variant implementation.
   - Build check passed; release intentionally deferred.
+- Ad011 minor parity pass (unreleased working batch):
+  - Added `SID.DarkResistanceDown` enum mapping to support further FellSpark logic alignment.
+  - Build check passed; no release performed.
