@@ -73,3 +73,9 @@
   - No timeline/state sequencing behavior changed.
 - Additional low-risk batch (7.5.0.321):
   - `M07NBruteAbombinator`: added `BrutishSwing` circle/donut telegraphs (`AID.BrutishSwingCircle2`, `AID.BrutishSwingDonut`) with local `SimpleAOEs` components and state activation.
+- Accelerated low-risk batch (7.5.0.322):
+  - `M07NBruteAbombinator`: merged multiple independent telegraph components in one pass:
+    - `BrutishSwingCone1`, `BrutishSwingCone2`
+    - `BrutishSwingDonutSegment1`, `BrutishSwingDonutSegment2`
+    - `RevengeOfTheVines` raidwide cast
+  - Scope kept to local `SimpleAOEs`/`RaidwideCast` components and state activation only.

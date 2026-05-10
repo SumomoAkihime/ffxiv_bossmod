@@ -15,6 +15,11 @@ public enum AID : uint
     BrutalSmashTB2 = 42273,
     BrutishSwingCircle2 = 42270,
     BrutishSwingDonut = 42271,
+    BrutishSwingCone1 = 42293,
+    BrutishSwingCone2 = 42317,
+    BrutishSwingDonutSegment1 = 42303,
+    BrutishSwingDonutSegment2 = 42319,
+    RevengeOfTheVines1 = 42307,
     Powerslam = 42312,
     SporeSac = 42282,
     Pollen = 42283,
@@ -45,6 +50,10 @@ sealed class BrutalImpact(BossModule module) : Components.RaidwideCast(module, A
 sealed class NeoBombarianSpecialKB(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.NeoBombarianSpecial, 58f, stopAtWall: true);
 sealed class BrutishSwingCircle(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BrutishSwingCircle2, 12f);
 sealed class BrutishSwingDonut(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BrutishSwingDonut, new AOEShapeDonut(9f, 60f));
+sealed class BrutishSwingCone1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BrutishSwingCone1, new AOEShapeCone(25f, 90f.Degrees()));
+sealed class BrutishSwingCone2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BrutishSwingCone2, new AOEShapeCone(25f, 90f.Degrees()));
+sealed class BrutishSwingDonutSegment1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BrutishSwingDonutSegment1, new AOEShapeDonutSector(22f, 88f, 90f.Degrees()));
+sealed class BrutishSwingDonutSegment2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BrutishSwingDonutSegment2, new AOEShapeDonutSector(22f, 88f, 90f.Degrees()));
 sealed class BrutalSmashTB(BossModule module) : Components.GenericSharedTankbuster(module, default, 6f)
 {
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
@@ -83,6 +92,7 @@ sealed class LashingLariat(BossModule module) : Components.SimpleAOEGroups(modul
 sealed class Slaminator(BossModule module) : Components.CastTowers(module, AID.Slaminator, 8f, maxSoakers: 8);
 sealed class PulpSmash(BossModule module) : Components.StackWithIcon(module, (uint)IconID.PulpSmash, AID.PulpSmash, 6f, 5.2f, minStackSize: 8, maxStackSize: 8);
 sealed class AbominableBlink(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCircle(24f), (uint)IconID.AbominableBlink, AID.AbominableBlink, 6.3f, centerAtTarget: true);
+sealed class RevengeOfTheVines(BossModule module) : Components.RaidwideCast(module, AID.RevengeOfTheVines1);
 
 sealed class M07NBruteAbombinatorStates : StateMachineBuilder
 {
@@ -93,6 +103,10 @@ sealed class M07NBruteAbombinatorStates : StateMachineBuilder
             .ActivateOnEnter<NeoBombarianSpecialKB>()
             .ActivateOnEnter<BrutishSwingCircle>()
             .ActivateOnEnter<BrutishSwingDonut>()
+            .ActivateOnEnter<BrutishSwingCone1>()
+            .ActivateOnEnter<BrutishSwingCone2>()
+            .ActivateOnEnter<BrutishSwingDonutSegment1>()
+            .ActivateOnEnter<BrutishSwingDonutSegment2>()
             .ActivateOnEnter<BrutalSmashTB>()
             .ActivateOnEnter<Powerslam>()
             .ActivateOnEnter<BloomingAbominationAdds>()
@@ -110,7 +124,8 @@ sealed class M07NBruteAbombinatorStates : StateMachineBuilder
             .ActivateOnEnter<LashingLariat>()
             .ActivateOnEnter<Slaminator>()
             .ActivateOnEnter<PulpSmash>()
-            .ActivateOnEnter<AbominableBlink>();
+            .ActivateOnEnter<AbominableBlink>()
+            .ActivateOnEnter<RevengeOfTheVines>();
     }
 }
 
