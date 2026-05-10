@@ -46,9 +46,9 @@ public enum IconID : uint
     AbominableBlink = 327,
 }
 
-sealed class BrutalImpact(BossModule module) : Components.RaidwideCast(module, AID.BrutalImpact);
+class BrutalImpact(BossModule module) : Components.RaidwideCast(module, AID.BrutalImpact);
 sealed class NeoBombarianSpecialKB(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.NeoBombarianSpecial, 58f, stopAtWall: true);
-sealed class BrutishSwingCircle(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BrutishSwingCircle2, 12f);
+class BrutishSwingCircle(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BrutishSwingCircle2, 12f);
 sealed class BrutishSwingDonut(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BrutishSwingDonut, new AOEShapeDonut(9f, 60f));
 sealed class BrutishSwingCone1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BrutishSwingCone1, new AOEShapeCone(25f, 90f.Degrees()));
 sealed class BrutishSwingCone2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BrutishSwingCone2, new AOEShapeCone(25f, 90f.Degrees()));
@@ -96,6 +96,9 @@ sealed class PulpSmash(BossModule module) : Components.StackWithIcon(module, (ui
 sealed class AbominableBlink(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCircle(24f), (uint)IconID.AbominableBlink, AID.AbominableBlink, 6.3f, centerAtTarget: true);
 sealed class RevengeOfTheVines(BossModule module) : Components.RaidwideCast(module, AID.RevengeOfTheVines1);
 // Compatibility aliases to keep parity with Reborn split naming.
+sealed class ArenaChanges(BossModule module) : BossComponent(module);
+sealed class BrutalImpactRevengeOfTheVines1NeoBombarianSpecial(BossModule module) : BrutalImpact(module);
+sealed class BrutishSwingCircle2(BossModule module) : BrutishSwingCircle(module);
 sealed class BrutishSwingCone(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BrutishSwingCone1, (uint)AID.BrutishSwingCone2], new AOEShapeCone(25f, 90f.Degrees()));
 sealed class BrutishSwingDonutSegment(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BrutishSwingDonutSegment1, (uint)AID.BrutishSwingDonutSegment2], new AOEShapeDonutSector(22f, 88f, 90f.Degrees()));
 

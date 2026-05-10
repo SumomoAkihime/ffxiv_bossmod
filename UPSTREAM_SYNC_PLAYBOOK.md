@@ -115,3 +115,9 @@
     - provides pass/take tether hints based on upcoming resolve timing
     - draws boss->target guidance line with safe/danger color based on debuff window
   - Build check passed; release deferred.
+- M07 compatibility-name closure (unreleased working batch):
+  - Added low-risk compatibility aliases for Reborn split naming:
+    - `ArenaChanges` (no-op compatibility shim)
+    - `BrutalImpactRevengeOfTheVines1NeoBombarianSpecial` -> local `BrutalImpact`
+    - `BrutishSwingCircle2` -> local `BrutishSwingCircle`
+  - Kept behavior unchanged and verified build success.
