@@ -157,3 +157,8 @@
   - Fixed a crash path in supported-boss list rendering (`ModuleViewer` -> `UIMisc.IconButton` -> `ImRaii.PushFont`) by guarding icon-font push and adding safe fallback rendering when icon font handle is invalid.
   - Scope is UI-only stability fix; no combat-mechanic behavior changes.
   - Release build verified with 0 errors.
+- M08 behavior visibility pass (7.5.0.334):
+  - Expanded `M08NHowlingBlade` from minimal skeleton to practical mechanic visibility set on current fork APIs.
+  - Added/activated: `Heavensearth1/2`, `Gust`, `WolvesReignRect1/2`, `WolvesReignCircle`, `WolvesReignCone`, `RoaringWindShadowchase`, `GrowlingWindWealofStone`, `FangedCharge`, `TerrestrialTitans`, `Towerfall`.
+  - Kept implementation on compile-safe local signatures; no framework-level refactors.
+  - Release build verified with 0 errors.
