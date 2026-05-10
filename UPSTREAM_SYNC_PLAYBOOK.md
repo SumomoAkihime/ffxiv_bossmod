@@ -6,7 +6,9 @@
 
 ## Versioning Rule
 - Use four-part AssemblyVersion.
-- Current local rule: increment by +1 on last part each release.
+- After each upstream merge, reset local version base from upstream version.
+- Formula: if upstream is `a.b.c.d`, first local release is `a.b.c.(d*100+1)`, then increment by `+1` each local release.
+- Example: upstream `7.5.0.5` -> local `7.5.0.501`, `7.5.0.502`, `7.5.0.503`...
 
 ## Files Added As Compatibility (Not Full Behavior Parity)
 - Ex5/Ex6/Ex7/Ex4 alias and scaffold files under `BossMod/Modules/Dawntrail/Extreme/*`.
@@ -27,3 +29,11 @@
 - Recompute normalized missing list before each port batch.
 - Treat `EX_MISSING_AFTER_PHASE4.txt` as advisory only; verify class/file coverage in current fork.
 - If a Reborn class references missing framework APIs, fallback to scaffold + TODO marker instead of forcing a risky bulk port.
+
+## Latest Batch (2026-05-10)
+- Reborn source window reviewed: `30308ae43..69bc2b2ea` (up to tag `7.5.0.28`).
+- Scope kept to module-facing radar/mechanic compatibility, excluding autorotation/framework/network/data/submodule updates.
+- Applied compatibility downgrade strategy:
+  - `Dawntrail/Extreme/Ex8Enuo`: added alias coverage for newly introduced Reborn mechanic names instead of framework-level rewrites.
+  - `Dawntrail/Dungeon/D13Clyteum`: preserved existing local behavior model and continued parameter/icon-driven alignment.
+- Release target for this batch: `7.5.0.311` (sequential local versioning per current branch policy).
