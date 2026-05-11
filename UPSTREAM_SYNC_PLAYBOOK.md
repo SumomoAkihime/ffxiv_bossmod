@@ -162,3 +162,7 @@
   - Added/activated: `Heavensearth1/2`, `Gust`, `WolvesReignRect1/2`, `WolvesReignCircle`, `WolvesReignCone`, `RoaringWindShadowchase`, `GrowlingWindWealofStone`, `FangedCharge`, `TerrestrialTitans`, `Towerfall`.
   - Kept implementation on compile-safe local signatures; no framework-level refactors.
   - Release build verified with 0 errors.
+- M10 completion bootstrap pass (7.5.0.335):
+  - Added compile-safe `M10NDaringDevils` module from previously empty local directory.
+  - Included core mechanic visibility set on fork-stable APIs: tankbusters (`HotImpact`, `DeepImpact`), raidwides (`DiversDare`, `XtremeSpectacular`), key AOEs (`CutbackBlaze`, `AlleyOopInferno`, `DeepVarial`, `SickestTakeOff`, `SteamBurst`, `InsaneAir` snaps), stack/spread (`PyrotationStack`), and knockback (`SickSwellKB`).
+  - Deferred high-risk persistence/stateful helpers to later parity passes.
