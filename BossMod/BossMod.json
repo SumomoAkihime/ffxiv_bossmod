@@ -4,11 +4,11 @@
   "InternalName": "BossMod",
   "Punchline": "Boss encounter helper with radar and mechanic hints",
   "Description": "Integrated Boss encounter toolkit with radar, mechanic hints, and combat assistance.",
-  "RepoUrl": "https://github.com/awgil/ffxiv_bossmod",
-  "IconUrl": "https://raw.githubusercontent.com/awgil/ffxiv_bossmod/f4efcb5dc279d21ee16185d5a9f2d09a3a2bc58b/Data/icon.png",
+  "RepoUrl": "https://github.com/SumomoAkihime/ffxiv_bossmod",
+  "IconUrl": "https://raw.githubusercontent.com/SumomoAkihime/ffxiv_bossmod/master/Data/icon.png",
   "ImageUrls": [
-    "https://raw.githubusercontent.com/awgil/ffxiv_bossmod/master/Data/image1.png",
-    "https://raw.githubusercontent.com/awgil/ffxiv_bossmod/master/Data/image2.png",
-    "https://raw.githubusercontent.com/awgil/ffxiv_bossmod/master/Data/image3.png"
+    "https://raw.githubusercontent.com/SumomoAkihime/ffxiv_bossmod/master/Data/image1.png",
+    "https://raw.githubusercontent.com/SumomoAkihime/ffxiv_bossmod/master/Data/image2.png",
+    "https://raw.githubusercontent.com/SumomoAkihime/ffxiv_bossmod/master/Data/image3.png"
   ]
 }
