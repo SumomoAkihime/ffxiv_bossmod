@@ -208,3 +208,5 @@
 - 2026-05-11: Ad012DaryaTheSeaMaid added as minimal compilable module skeleton (core visible mechanics + state machine); bumped to 7.5.0.351.
 
 - 2026-05-11: Ad013LoneSwordmaster added as minimal compilable module skeleton (core visible mechanics + state machine, with fork-compatible downgrades for complex debuff-driven behavior); bumped to 7.5.0.352.
+
+- 2026-05-11: D07TenderValley completed as compatibility port (D071-D074 added with fork-stable visibility components; unsupported Reborn geometry/API sections downgraded to compile-safe mechanics); bumped to 7.5.0.353.
