@@ -206,3 +206,5 @@
 - 2026-05-11: T08Enuo visibility sync (draw LoomingShadow enemies on arena like Ex8); bumped to 7.5.0.350.
 
 - 2026-05-11: Ad012DaryaTheSeaMaid added as minimal compilable module skeleton (core visible mechanics + state machine); bumped to 7.5.0.351.
+
+- 2026-05-11: Ad013LoneSwordmaster added as minimal compilable module skeleton (core visible mechanics + state machine, with fork-compatible downgrades for complex debuff-driven behavior); bumped to 7.5.0.352.
