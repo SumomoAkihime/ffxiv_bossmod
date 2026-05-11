@@ -182,3 +182,5 @@
   - Filled empty local `M02NHoneyBLovely` module with compile-safe core visibility coverage.
   - Added key mechanics: CallMeHoney, TemptingTwist, HoneyBeeline, HoneyedBreeze TB bait, HoneyBLive raidwide, Heartsore/Heartsick, Loveseeker, BlowKiss, HoneyBFinale, Venom stack/spread, BlindingLove, HeartStruck, Fracture towers, Splinter.
   - Kept implementation on local stable component signatures.
+
+- 2026-05-11: M03NBruteBomber completed (core mechanics port: towers+knockback, rotating cones, lariat combo, lit fuse AOEs); bumped to 7.5.0.340.
