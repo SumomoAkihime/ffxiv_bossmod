@@ -166,3 +166,7 @@
   - Added compile-safe `M10NDaringDevils` module from previously empty local directory.
   - Included core mechanic visibility set on fork-stable APIs: tankbusters (`HotImpact`, `DeepImpact`), raidwides (`DiversDare`, `XtremeSpectacular`), key AOEs (`CutbackBlaze`, `AlleyOopInferno`, `DeepVarial`, `SickestTakeOff`, `SteamBurst`, `InsaneAir` snaps), stack/spread (`PyrotationStack`), and knockback (`SickSwellKB`).
   - Deferred high-risk persistence/stateful helpers to later parity passes.
+- M11 completion pass (7.5.0.336):
+  - Filled previously empty local `M11NTheTyrant` directory with a compile-safe, high-coverage module implementation.
+  - Added broad mechanic visibility set (Crown/Smashdowns, Void Stardust + Cometite, Assault Evolved set, Raw Steel TB + spreads, Charybdistopia, LOS mechanics, knockback/towers, avalanche/wall/fury meteor patterns).
+  - Kept implementation on current fork API signatures; no framework changes.
