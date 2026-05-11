@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>7.5.0.360</Version>
+    <Version>7.5.0.361</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -57,3 +57,4 @@
     </None>
   </ItemGroup>
 </Project>
+
