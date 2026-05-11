@@ -178,3 +178,7 @@
   - Filled empty local `M01NBIackCat` module with compile-safe core mechanic visibility.
   - Added mechanics: BloodyScratch, BiscuitMaker, Clawful, GrimalkinGale, Overshadow line-stack, Shockwave knockback, OneTwoPaw, BlackCatCrossing, Mouser telegraph/hit, PredaceousPounce circles/charges.
   - Implemented on current fork signatures with no framework changes.
+- M02 completion pass (7.5.0.339):
+  - Filled empty local `M02NHoneyBLovely` module with compile-safe core visibility coverage.
+  - Added key mechanics: CallMeHoney, TemptingTwist, HoneyBeeline, HoneyedBreeze TB bait, HoneyBLive raidwide, Heartsore/Heartsick, Loveseeker, BlowKiss, HoneyBFinale, Venom stack/spread, BlindingLove, HeartStruck, Fracture towers, Splinter.
+  - Kept implementation on local stable component signatures.
