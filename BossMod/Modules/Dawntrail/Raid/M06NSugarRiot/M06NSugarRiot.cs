@@ -49,8 +49,9 @@ public enum IconID : uint
 
 sealed class SprayPain(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SprayPain, 10f);
 sealed class LightningBolt(BossModule module) : Components.SimpleAOEs(module, (uint)AID.LightningBolt, 4f);
-sealed class WarmBomb(BossModule module) : Components.BaitAwayCast(module, AID.WarmBomb, new AOEShapeCircle(4f), true);
-sealed class CoolBomb(BossModule module) : Components.BaitAwayCast(module, AID.CoolBomb, new AOEShapeCircle(4f), true);
+abstract class ColorRiot(BossModule module, AID aid) : Components.BaitAwayCast(module, aid, new AOEShapeCircle(4f), true);
+sealed class WarmBomb(BossModule module) : ColorRiot(module, AID.WarmBomb);
+sealed class CoolBomb(BossModule module) : ColorRiot(module, AID.CoolBomb);
 sealed class MousseTouchUp(BossModule module) : Components.SpreadFromCastTargets(module, AID.MousseTouchUp, 6f);
 sealed class TasteOfThunder(BossModule module) : Components.SpreadFromCastTargets(module, AID.TasteOfThunder, 6f);
 sealed class TasteOfFire(BossModule module) : Components.StackWithCastTargets(module, AID.TasteOfFire, 6f, 4, 4);

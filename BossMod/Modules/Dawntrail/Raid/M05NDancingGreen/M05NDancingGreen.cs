@@ -86,6 +86,8 @@ sealed class CelebrateGoodTimes(BossModule module) : Components.RaidwideCast(mod
 sealed class DiscoInfernal(BossModule module) : Components.RaidwideCast(module, AID.DiscoInfernal);
 sealed class LetsPose1(BossModule module) : Components.RaidwideCast(module, AID.LetsPose1);
 sealed class LetsPose2(BossModule module) : Components.RaidwideCast(module, AID.LetsPose2);
+// Compatibility class for Reborn split naming; this fork exposes the four raidwides separately.
+sealed class CelebrateGoodTimesDiscoInfernalLetsPose(BossModule module) : BossComponent(module);
 sealed class EighthBeats(BossModule module) : Components.SpreadFromCastTargets(module, AID.EighthBeats, 5f);
 sealed class Moonburn(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.Moonburn1, (uint)AID.Moonburn2], new AOEShapeRect(40f, 7.5f));
 
