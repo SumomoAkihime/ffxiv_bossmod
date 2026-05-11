@@ -196,3 +196,5 @@
 - 2026-05-11: M08NHowlingBlade behavior sync (ArenaChanges shrink warning+switch, TrackingTremors 5-hit stack handling); bumped to 7.5.0.345.
 
 - 2026-05-11: M09NVampFatale behavior sync (ArenaChanges + Hardcore split spread handling); bumped to 7.5.0.346.
+
+- 2026-05-11: M10NDaringDevils behavior sync (persistent puddle display for AlleyOopInferno + HotAerial); bumped to 7.5.0.347.

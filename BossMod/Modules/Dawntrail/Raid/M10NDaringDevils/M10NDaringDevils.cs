@@ -17,6 +17,7 @@ public enum AID : uint
     DiversDareBlue = 46467,
     AlleyOopInferno1 = 46471,
     Pyrotation1 = 46473,
+    HotAerial1 = 46475,
     HotAerial2 = 46476,
     CutbackBlaze1 = 46479,
     SickSwell1 = 46481,
@@ -43,9 +44,51 @@ sealed class DiversDare(BossModule module) : Components.RaidwideCast(module, AID
 sealed class DiversDareBlue(BossModule module) : Components.RaidwideCast(module, AID.DiversDareBlue);
 sealed class CutbackBlaze(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CutbackBlaze1, new AOEShapeCone(60f, 90f.Degrees()));
 sealed class AlleyOopInferno(BossModule module) : Components.SpreadFromCastTargets(module, AID.AlleyOopInferno1, 5f);
+sealed class AlleyOopInfernoPuddles(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly List<AOEInstance> _puddles = [];
+    private static readonly AOEShapeCircle Shape = new(5f);
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _puddles;
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        switch (spell.Action.ID)
+        {
+            case (uint)AID.AlleyOopInferno1:
+                _puddles.Add(new(Shape, spell.TargetXZ, default, WorldState.CurrentTime));
+                break;
+            case (uint)AID.DiversDare:
+            case (uint)AID.DiversDareBlue:
+                _puddles.Clear();
+                break;
+        }
+    }
+}
 sealed class AlleyOopMaelstrom(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.AlleyOopMaelstrom, (uint)AID.AlleyOopMaelstrom2], new AOEShapeCone(60f, 30f.Degrees()));
 sealed class PyrotationStack(BossModule module) : Components.StackWithIcon(module, (uint)IconID.FireStack, AID.Pyrotation1, 6f, 5f, minStackSize: 2, maxStackSize: 8);
 sealed class HotAerial(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HotAerial2, 6f);
+sealed class HotAerialFirePuddles(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly List<AOEInstance> _puddles = [];
+    private static readonly AOEShapeCircle Shape = new(6f);
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _puddles;
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        switch (spell.Action.ID)
+        {
+            case (uint)AID.HotAerial1:
+                _puddles.Add(new(Shape, spell.TargetXZ, default, WorldState.FutureTime(1.5f)));
+                break;
+            case (uint)AID.DiversDare:
+            case (uint)AID.DiversDareBlue:
+                _puddles.Clear();
+                break;
+        }
+    }
+}
 sealed class DeepVarialCone(BossModule module) : Components.SimpleAOEs(module, (uint)AID.DeepVarial1, new AOEShapeCone(60f, 60f.Degrees()));
 sealed class SickestTakeOff(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SickestTakeOff1, new AOEShapeRect(50f, 7.5f));
 sealed class SickSwellKB(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.SickSwell1, 10f, kind: Components.SimpleKnockbacks.Kind.DirForward, stopAtWall: false);
@@ -65,9 +108,11 @@ sealed class M10NDaringDevilsStates : StateMachineBuilder
             .ActivateOnEnter<DiversDareBlue>()
             .ActivateOnEnter<CutbackBlaze>()
             .ActivateOnEnter<AlleyOopInferno>()
+            .ActivateOnEnter<AlleyOopInfernoPuddles>()
             .ActivateOnEnter<AlleyOopMaelstrom>()
             .ActivateOnEnter<PyrotationStack>()
             .ActivateOnEnter<HotAerial>()
+            .ActivateOnEnter<HotAerialFirePuddles>()
             .ActivateOnEnter<DeepVarialCone>()
             .ActivateOnEnter<SickestTakeOff>()
             .ActivateOnEnter<SickSwellKB>()
