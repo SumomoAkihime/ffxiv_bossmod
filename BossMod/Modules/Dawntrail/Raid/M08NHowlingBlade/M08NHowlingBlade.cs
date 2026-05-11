@@ -52,6 +52,34 @@ public enum IconID : uint
     TrackingTremors = 316,
 }
 
+sealed class ArenaChanges(BossModule module) : Components.GenericAOEs(module)
+{
+    private static readonly AOEShapeDonut ShrinkWarning = new(12f, 17f);
+    private readonly List<AOEInstance> _aoes = [];
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+
+    public override void OnMapEffect(byte index, uint state)
+    {
+        if (index != 0x00)
+            return;
+
+        // 0x00200010: warning before arena shrink
+        if (state == 0x00200010u)
+        {
+            _aoes.Clear();
+            _aoes.Add(new(ShrinkWarning, Arena.Center, default, WorldState.FutureTime(11.2f)));
+        }
+        // 0x00020001: shrink applied
+        else if (state == 0x00020001u)
+        {
+            _aoes.Clear();
+            Arena.Bounds = M08NHowlingBlade.EndArena;
+            Arena.Center = M08NHowlingBlade.ArenaCenter;
+        }
+    }
+}
+
 sealed class ExtraplanarTitanicPursuit(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.ExtraplanarPursuit, (uint)AID.TitanicPursuit], 40f);
 sealed class RavenousSaber(BossModule module) : Components.RaidwideCast(module, AID.RavenousSaber5, "Raidwide x5");
 sealed class GreatDivide(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GreatDivide, new AOEShapeRect(60f, 3f));
@@ -117,13 +145,32 @@ sealed class Towerfall(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-sealed class TrackingTremors(BossModule module) : Components.StackWithIcon(module, (uint)IconID.TrackingTremors, AID.TrackingTremors, 6f, 5f, minStackSize: 8, maxStackSize: 8);
+sealed class TrackingTremors(BossModule module) : Components.UniformStackSpread(module, 6f, 0, 8, 8)
+{
+    private int _numCasts;
+
+    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
+    {
+        if (iconID == (uint)IconID.TrackingTremors)
+            AddStack(actor, WorldState.FutureTime(5f));
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == (uint)AID.TrackingTremors && ++_numCasts == 5)
+        {
+            Stacks.Clear();
+            _numCasts = 0;
+        }
+    }
+}
 
 sealed class M08NHowlingBladeStates : StateMachineBuilder
 {
     public M08NHowlingBladeStates(BossModule module) : base(module)
     {
         TrivialPhase()
+            .ActivateOnEnter<ArenaChanges>()
             .ActivateOnEnter<ExtraplanarTitanicPursuit>()
             .ActivateOnEnter<RavenousSaber>()
             .ActivateOnEnter<GreatDivide>()
@@ -146,4 +193,9 @@ sealed class M08NHowlingBladeStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, StatesType = typeof(M08NHowlingBladeStates), ObjectIDType = typeof(OID), ActionIDType = typeof(AID), IconIDType = typeof(IconID), PrimaryActorOID = (uint)OID.Boss, Contributors = "The Combat Reborn Team (Malediktus)", Expansion = BossModuleInfo.Expansion.Dawntrail, Category = BossModuleInfo.Category.Raid, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1025, NameID = 13843, SortOrder = 1, PlanLevel = 0)]
-public sealed class M08NHowlingBlade(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 100f), new ArenaBoundsCircle(17f));
+public sealed class M08NHowlingBlade(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, StartingArena)
+{
+    public static readonly WPos ArenaCenter = new(100f, 100f);
+    private static readonly ArenaBoundsCircle StartingArena = new(17f);
+    public static readonly ArenaBoundsCircle EndArena = new(12f);
+}

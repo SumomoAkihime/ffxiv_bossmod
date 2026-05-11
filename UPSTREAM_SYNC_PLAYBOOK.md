@@ -192,3 +192,5 @@
 - 2026-05-11: M06NSugarRiot completed (compatibility core visibility: arena river, style tethers, stacks/spreads, quicksand, highlightning); bumped to 7.5.0.343.
 
 - 2026-05-11: M07NBruteAbombinator arena phase behavior synced (replaced ArenaChanges placeholder with runtime bounds switching); bumped to 7.5.0.344.
+
+- 2026-05-11: M08NHowlingBlade behavior sync (ArenaChanges shrink warning+switch, TrackingTremors 5-hit stack handling); bumped to 7.5.0.345.
