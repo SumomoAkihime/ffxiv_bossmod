@@ -204,3 +204,5 @@
 - 2026-05-11: M12NLindwurm arena phase behavior synced (map-effect-driven lane compression/reset via ArenaChanges); bumped to 7.5.0.349.
 
 - 2026-05-11: T08Enuo visibility sync (draw LoomingShadow enemies on arena like Ex8); bumped to 7.5.0.350.
+
+- 2026-05-11: Ad012DaryaTheSeaMaid added as minimal compilable module skeleton (core visible mechanics + state machine); bumped to 7.5.0.351.
