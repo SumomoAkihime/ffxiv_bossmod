@@ -194,3 +194,5 @@
 - 2026-05-11: M07NBruteAbombinator arena phase behavior synced (replaced ArenaChanges placeholder with runtime bounds switching); bumped to 7.5.0.344.
 
 - 2026-05-11: M08NHowlingBlade behavior sync (ArenaChanges shrink warning+switch, TrackingTremors 5-hit stack handling); bumped to 7.5.0.345.
+
+- 2026-05-11: M09NVampFatale behavior sync (ArenaChanges + Hardcore split spread handling); bumped to 7.5.0.346.

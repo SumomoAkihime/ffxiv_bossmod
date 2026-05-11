@@ -47,7 +47,8 @@ public enum IconID : uint
 sealed class KillerVoice(BossModule module) : Components.RaidwideCast(module, AID.KillerVoice);
 sealed class HalfMoon(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.HalfMoon1, (uint)AID.HalfMoon2, (uint)AID.HalfMoon3, (uint)AID.HalfMoon4, (uint)AID.HalfMoon5, (uint)AID.HalfMoon6, (uint)AID.HalfMoon7, (uint)AID.HalfMoon8], new AOEShapeCone(64f, 90f.Degrees()));
 sealed class VampStomp(BossModule module) : Components.SimpleAOEs(module, (uint)AID.VampStomp1, 10f);
-sealed class Hardcore(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.Hardcore1, (uint)AID.Hardcore2], 6f);
+sealed class Hardcore1(BossModule module) : Components.SpreadFromCastTargets(module, AID.Hardcore1, 6f);
+sealed class Hardcore2(BossModule module) : Components.SpreadFromCastTargets(module, AID.Hardcore2, 15f);
 sealed class FlayingFry(BossModule module) : Components.SpreadFromCastTargets(module, AID.FlayingFry1, 5f);
 sealed class CoffinFiller(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.Coffinfiller, (uint)AID.Coffinfiller2, (uint)AID.Coffinfiller3], new AOEShapeRect(32f, 2.5f));
 sealed class BlastBeat(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BlastBeat, 8f);
@@ -61,15 +62,87 @@ sealed class AetherlettingCross(BossModule module) : Components.SimpleAOEs(modul
 sealed class InsatiableThirst(BossModule module) : Components.RaidwideCast(module, AID.InsatiableThirst);
 sealed class Plummet(BossModule module) : Components.CastTowers(module, AID.Plummet, 3f);
 
+sealed class ArenaChanges(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly List<AOEInstance> _aoes = [];
+    private static readonly AOEShapeRect SideDanger = new(50f, 5f);
+    private static readonly WPos Left = new(85f, 80f);
+    private static readonly WPos Right = new(115f, 80f);
+    private float _halfLength = 20f;
+    private float _centerZ = 100f;
+    private int _wakeCount;
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        // SadisticScreech visuals are unstable across logs; DeadWake still drives arena shrink below.
+        if (spell.Action.ID == 45890)
+        {
+            _aoes.Clear();
+            _aoes.Add(new(SideDanger, Left, default, WorldState.FutureTime(7f)));
+            _aoes.Add(new(SideDanger, Right, default, WorldState.FutureTime(7f)));
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.DeadWake1)
+        {
+            ++_wakeCount;
+            if (_wakeCount < 4)
+            {
+                _halfLength -= 5f;
+                _centerZ += 5f;
+                Arena.Bounds = new ArenaBoundsRect(10f, _halfLength);
+                Arena.Center = new WPos(100f, _centerZ);
+            }
+        }
+    }
+
+    public override void OnMapEffect(byte index, uint state)
+    {
+        // Restore / enter transitions.
+        if (index == 0x00 && state == 0x00020001u)
+        {
+            Arena.Bounds = new ArenaBoundsRect(10f, 20f);
+            Arena.Center = new WPos(100f, 100f);
+            ResetWake();
+            _aoes.Clear();
+        }
+        else if ((index == 0x00 || index == 0x10) && state == 0x00080004u)
+        {
+            Arena.Bounds = new ArenaBoundsSquare(20f);
+            Arena.Center = new WPos(100f, 100f);
+            ResetWake();
+            _aoes.Clear();
+        }
+        else if (index == 0x10 && state == 0x00020001u)
+        {
+            Arena.Bounds = new ArenaBoundsCircle(20f);
+            Arena.Center = new WPos(100f, 100f);
+        }
+    }
+
+    private void ResetWake()
+    {
+        _halfLength = 20f;
+        _centerZ = 100f;
+        _wakeCount = 0;
+    }
+}
+
 sealed class M09NVampFataleStates : StateMachineBuilder
 {
     public M09NVampFataleStates(BossModule module) : base(module)
     {
         TrivialPhase()
+            .ActivateOnEnter<ArenaChanges>()
             .ActivateOnEnter<KillerVoice>()
             .ActivateOnEnter<HalfMoon>()
             .ActivateOnEnter<VampStomp>()
-            .ActivateOnEnter<Hardcore>()
+            .ActivateOnEnter<Hardcore1>()
+            .ActivateOnEnter<Hardcore2>()
             .ActivateOnEnter<FlayingFry>()
             .ActivateOnEnter<CoffinFiller>()
             .ActivateOnEnter<BlastBeat>()
