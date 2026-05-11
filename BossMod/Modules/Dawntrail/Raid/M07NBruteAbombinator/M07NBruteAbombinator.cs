@@ -134,7 +134,33 @@ sealed class PulpSmash(BossModule module) : Components.StackWithIcon(module, (ui
 sealed class AbominableBlink(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCircle(24f), (uint)IconID.AbominableBlink, AID.AbominableBlink, 6.3f, centerAtTarget: true);
 sealed class RevengeOfTheVines(BossModule module) : Components.RaidwideCast(module, AID.RevengeOfTheVines1);
 // Compatibility aliases to keep parity with Reborn split naming.
-sealed class ArenaChanges(BossModule module) : BossComponent(module);
+sealed class ArenaChanges(BossModule module) : BossComponent(module)
+{
+    private static readonly ArenaBoundsSquare DefaultBounds = new(20f);
+    private static readonly ArenaBoundsRect KnockbackBounds = new(30f, 7f);
+    private static readonly WPos DefaultCenter = new(100f, 100f);
+    private static readonly WPos KnockbackCenter = new(100f, 107f);
+
+    public override void OnMapEffect(byte index, uint state)
+    {
+        // Simplified parity: switch to long narrow lane during NeoBombarianSpecial and restore afterwards.
+        if (index != 0x05)
+            return;
+
+        switch (state)
+        {
+            case 0x00020001u:
+                Arena.Bounds = KnockbackBounds;
+                Arena.Center = KnockbackCenter;
+                break;
+            case 0x00800004u:
+            case 0x08000004u:
+                Arena.Bounds = DefaultBounds;
+                Arena.Center = DefaultCenter;
+                break;
+        }
+    }
+}
 sealed class BrutalImpactRevengeOfTheVines1NeoBombarianSpecial(BossModule module) : BrutalImpact(module);
 sealed class BrutishSwingCircle2(BossModule module) : BrutishSwingCircle(module);
 sealed class BrutishSwingCone(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BrutishSwingCone1, (uint)AID.BrutishSwingCone2], new AOEShapeCone(25f, 90f.Degrees()));
@@ -145,6 +171,7 @@ sealed class M07NBruteAbombinatorStates : StateMachineBuilder
     public M07NBruteAbombinatorStates(BossModule module) : base(module)
     {
         TrivialPhase()
+            .ActivateOnEnter<ArenaChanges>()
             .ActivateOnEnter<BrutalImpact>()
             .ActivateOnEnter<NeoBombarianSpecialKB>()
             .ActivateOnEnter<BrutishSwingCircle>()
