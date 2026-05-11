@@ -171,4 +171,11 @@ sealed class T08EnuoStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, StatesType = typeof(T08EnuoStates), ObjectIDType = typeof(OID), ActionIDType = typeof(AID), IconIDType = typeof(IconID), PrimaryActorOID = (uint)OID.Enuo, Contributors = "Wen", Expansion = BossModuleInfo.Expansion.Dawntrail, Category = BossModuleInfo.Category.Trial, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1115u, NameID = 14749u, SortOrder = 1, PlanLevel = 0)]
-public sealed class T08Enuo(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 100f), new ArenaBoundsCircle(20f));
+public sealed class T08Enuo(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 100f), new ArenaBoundsCircle(20f))
+{
+    protected override void DrawEnemies(int pcSlot, Actor pc)
+    {
+        base.DrawEnemies(pcSlot, pc);
+        Arena.Actors(Enemies((uint)OID.LoomingShadow), ArenaColor.Enemy);
+    }
+}
