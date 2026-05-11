@@ -45,7 +45,29 @@ public enum AID : uint
     GreatWallOfFire = 46077,
 }
 
-sealed class CrownOfArcadia(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CrownOfArcadia, new AOEShapeCircle(60f));
+sealed class CrownOfArcadia(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly List<AOEInstance> _aoes = [];
+    private static readonly AOEShapeRect Shape = new(20f, 6f, 20f);
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.CrownOfArcadia)
+        {
+            _aoes.Clear();
+            _aoes.Add(new(Shape, new WPos(74f, 100f)));
+            _aoes.Add(new(Shape, new WPos(126f, 100f)));
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.CrownOfArcadia)
+            _aoes.Clear();
+    }
+}
 sealed class Smashdown1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SmashdownScythe, new AOEShapeDonut(5f, 60f));
 sealed class Smashdown2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SmashdownAxe, 8f);
 sealed class Smashdown3(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SmashdownSword, new AOEShapeCross(40f, 5f));
