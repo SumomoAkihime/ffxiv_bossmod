@@ -174,3 +174,7 @@
   - Filled previously empty local `M12NLindwurm` with compile-safe high-coverage mechanic visibility.
   - Added core casts/aoes/raidwides/towers for: TheFixer, Serpentine/Ravenous patterns, Burst/Visceral, Splattershed, BringDown/Split/Venomous, GrandEntrance, MindlessFlesh, Constrictor/CruelCoil, Grotesquerie set, Maelstrom adds.
   - Implemented using fork-stable component signatures only.
+- M01 completion pass (7.5.0.338):
+  - Filled empty local `M01NBIackCat` module with compile-safe core mechanic visibility.
+  - Added mechanics: BloodyScratch, BiscuitMaker, Clawful, GrimalkinGale, Overshadow line-stack, Shockwave knockback, OneTwoPaw, BlackCatCrossing, Mouser telegraph/hit, PredaceousPounce circles/charges.
+  - Implemented on current fork signatures with no framework changes.
