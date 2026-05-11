@@ -186,3 +186,5 @@
 - 2026-05-11: M03NBruteBomber completed (core mechanics port: towers+knockback, rotating cones, lariat combo, lit fuse AOEs); bumped to 7.5.0.340.
 
 - 2026-05-11: M04NWickedThunder completed (arena changes, sidewise spark/burst, wicked cannon series, hypercannon lane, witch hunt); bumped to 7.5.0.341.
+
+- 2026-05-11: M05NDancingGreen completed (core mechanics visibility with compatibility downgrade); bumped to 7.5.0.342.
