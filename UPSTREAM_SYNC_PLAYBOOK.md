@@ -170,3 +170,7 @@
   - Filled previously empty local `M11NTheTyrant` directory with a compile-safe, high-coverage module implementation.
   - Added broad mechanic visibility set (Crown/Smashdowns, Void Stardust + Cometite, Assault Evolved set, Raw Steel TB + spreads, Charybdistopia, LOS mechanics, knockback/towers, avalanche/wall/fury meteor patterns).
   - Kept implementation on current fork API signatures; no framework changes.
+- M12 completion pass (7.5.0.337):
+  - Filled previously empty local `M12NLindwurm` with compile-safe high-coverage mechanic visibility.
+  - Added core casts/aoes/raidwides/towers for: TheFixer, Serpentine/Ravenous patterns, Burst/Visceral, Splattershed, BringDown/Split/Venomous, GrandEntrance, MindlessFlesh, Constrictor/CruelCoil, Grotesquerie set, Maelstrom adds.
+  - Implemented using fork-stable component signatures only.
