@@ -1,0 +1,118 @@
+namespace BossMod.Dawntrail.Trial.T06Arkveld;
+
+public enum OID : uint
+{
+    GuardianArkveld = 0x48E2,
+    Helper = 0x233C,
+    Actor1ea1a1 = 0x1EA1A1, // R2.000, x1, EventObj type
+    Exit = 0x1E850B, // R0.500, x1, EventObj type
+    CrackedCrystalSmall = 0x48E3, // R0.700, x0 (spawn during fight)
+    CrackedCrystalLarge = 0x48E4, // R1.200, x0 (spawn during fight)
+}
+
+public enum AID : uint
+{
+    Roar = 43886,
+    ChainbladeBlow = 43828,
+    ChainbladeBlow1 = 43830,
+    ChainbladeBlow2 = 43831,
+    WyvernsRadiance = 43832,
+    ChainbladeBlow3 = 43829,
+    ChainbladeBlow4 = 45050,
+    ChainbladeBlow5 = 45051,
+    WyvernsRadiance1 = 43833,
+    AutoAttack = 43341,
+    Weaponskill = 45175,
+    GuardianSiegeflight = 43834,
+    GuardianSiegeflight1 = 43835,
+    Weaponskill1 = 45123,
+    GuardianResonance = 43836,
+    WyvernsRattle = 43876,
+    WyvernsRadiance2 = 43877,
+    WyvernsRadiance3 = 43878,
+    WyvernsSiegeflight = 43837,
+    WyvernsSiegeflight1 = 43838,
+    Weaponskill2 = 45076,
+    WyvernsRadiance4 = 43839,
+    WyvernsRadiance5 = 43840,
+    Weaponskill3 = 43841,
+    Weaponskill4 = 45075,
+    Rush = 43842,
+    WyvernsRadiance6 = 43844,
+    Rush1 = 43843,
+    WyvernsRadiance7 = 43845,
+    WyvernsRadiance8 = 43846,
+    WyvernsRadiance9 = 43847,
+    ChainbladeCharge = 43883,
+    ChainbladeCharge1 = 43884,
+    ChainbladeCharge2 = 44811,
+    WyvernsOuroblade = 43848,
+    WyvernsOuroblade1 = 43849,
+    Weaponskill5 = 43827,
+    GuardianResonance1 = 43856,
+    AethericResonance = 43852,
+    GuardianResonance2 = 43853,
+    GuardianResonance3 = 43854,
+    Weaponskill6 = 43859,
+    WyvernsVengeance = 43860,
+    WyvernsVengeance1 = 43861,
+    WyvernsRadiance10 = 43857,
+    WyvernsRadiance11 = 43858,
+    WyvernsRadiance12 = 44807,
+    WyvernsRadiance13 = 44808,
+    WildEnergy = 43866,
+    ForgedFury = 43869,
+    ForgedFury1 = 43870,
+    ForgedFury2 = 44790,
+    ForgedFury3 = 44791,
+    Roar1 = 45201,
+    WyvernsWeal = 45047,
+    WyvernsWeal1 = 45049,
+    WyvernsWeal2 = 43875,
+    Weaponskill7 = 43873,
+    WyvernsSiegeflight2 = 45068,
+    WyvernsSiegeflight3 = 45071,
+    Weaponskill8 = 45074,
+    WyvernsRadiance14 = 45073,
+    WyvernsRadiance15 = 45072,
+    ChainbladeBlow6 = 45052,
+    ChainbladeBlow7 = 45054,
+    ChainbladeBlow8 = 45055,
+    WyvernsRadiance16 = 45056,
+    GuardianSiegeflight2 = 45067,
+    GuardianSiegeflight3 = 45069,
+    Weaponskill9 = 45124,
+    GuardianResonance4 = 45070,
+    ChainbladeBlow9 = 45053,
+    ChainbladeBlow10 = 45057,
+    ChainbladeBlow11 = 45058,
+    WyvernsRadiance17 = 45059,
+    WrathfulRattle = 43879,
+    WyvernsRadiance18 = 43880,
+    WyvernsRadiance19 = 43881,
+    WyvernsRadiance20 = 43882,
+    WyvernsOuroblade2 = 45060,
+    WyvernsOuroblade3 = 45061,
+    SteeltailThrust = 45064,
+    SteeltailThrust1 = 44804,
+    GreaterResonance = 43855,
+    WyvernsWeal3 = 45046,
+    WyvernsWeal4 = 45048,
+}
+
+public enum SID : uint
+{
+    VulnerabilityUp = 1789,
+    Status2193 = 2193,
+    MagicVulnerabilityUp = 2941,
+    GuardianWill = 4574,
+    Status2056 = 2056
+}
+
+public enum IconID : uint
+{
+    Share2 = 100,
+    Marker101 = 101,
+    TurnLeft = 502,
+    TurnRight = 501,
+}
