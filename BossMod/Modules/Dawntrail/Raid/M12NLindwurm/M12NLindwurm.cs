@@ -35,6 +35,40 @@ public enum AID : uint
 }
 
 sealed class TheFixer(BossModule module) : Components.RaidwideCast(module, AID.TheFixer);
+sealed class ArenaChanges(BossModule module) : BossComponent(module)
+{
+    public override void OnMapEffect(byte index, uint state)
+    {
+        if (index != 0x00)
+            return;
+
+        // Bring Down The House / phase transitions alter usable lanes.
+        switch (state)
+        {
+            // Diagonal tile breaks -> medium-height safe band.
+            case 0x00020001u:
+            case 0x02000100u:
+                Arena.Bounds = new ArenaBoundsRect(20f, 10f);
+                Arena.Center = M12NLindwurm.ArenaCenter;
+                break;
+            // Further compression to narrow middle strip.
+            case 0x00200010u:
+            case 0x08000400u:
+                Arena.Bounds = new ArenaBoundsRect(20f, 5f);
+                Arena.Center = M12NLindwurm.ArenaCenter;
+                break;
+            // Reset variants.
+            case 0x10000004u:
+            case 0x00080004u:
+            case 0x00800004u:
+            case 0x80000004u:
+                Arena.Bounds = M12NLindwurm.ArenaBounds;
+                Arena.Center = M12NLindwurm.ArenaCenter;
+                break;
+        }
+    }
+}
+
 sealed class SerpentineScourge(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SerpentineScourge, new AOEShapeRect(30f, 10f));
 sealed class RavenousReach(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RavenousReach, new AOEShapeCone(35f, 60f.Degrees()));
 sealed class Burst(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Burst, 12f);
@@ -58,6 +92,7 @@ sealed class M12NLindwurmStates : StateMachineBuilder
     public M12NLindwurmStates(BossModule module) : base(module)
     {
         TrivialPhase()
+            .ActivateOnEnter<ArenaChanges>()
             .ActivateOnEnter<TheFixer>()
             .ActivateOnEnter<SerpentineScourge>()
             .ActivateOnEnter<RavenousReach>()
@@ -80,4 +115,8 @@ sealed class M12NLindwurmStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, StatesType = typeof(M12NLindwurmStates), ObjectIDType = typeof(OID), ActionIDType = typeof(AID), PrimaryActorOID = (uint)OID.Lindwurm, Contributors = "The Combat Reborn Team (Malediktus), CN merge", Expansion = BossModuleInfo.Expansion.Dawntrail, Category = BossModuleInfo.Category.Raid, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1074u, NameID = 14378u, SortOrder = 1, PlanLevel = 0)]
-public sealed class M12NLindwurm(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 100f), new ArenaBoundsRect(20f, 15f));
+public sealed class M12NLindwurm(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, ArenaBounds)
+{
+    public static readonly WPos ArenaCenter = new(100f, 100f);
+    public static readonly ArenaBoundsRect ArenaBounds = new(20f, 15f);
+}
