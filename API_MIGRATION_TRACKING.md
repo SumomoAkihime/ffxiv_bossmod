@@ -4,8 +4,8 @@
 
 - Last Reborn sync checked: `49e17ab75d0959d1286586812f057a5cfbad4dd3`
 - Reborn component types after recount: `118`
-- Local component types after batch 3: `110`
-- Missing component API types after batch 3: `19`
+- Local component types after batch 4: `114`
+- Missing component API types after batch 4: `15`
 - Batch sizing rule: missing `10-24` => migrate `2-4` APIs per batch
 - Recount note: parser now includes indented public nested component types, which is more reliable than the earlier top-level-only count.
 
@@ -74,18 +74,35 @@ Verification:
 
 - `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
 
+## Batch 4 - Reborn compatibility adapters
+
+Implemented:
+
+- `CastHints`
+- `Dispel`
+- `ThinIce`
+- `InterceptTether`
+
+Notes:
+
+- `CastHints` adds a multi-AID cast-hint aggregator on top of this fork's existing `CastHint`.
+- `Dispel` is mapped to the local `DispelHint` implementation (target-name hint + AI dispel flagging) to keep behavior aligned with existing local systems.
+- `ThinIce` is implemented as a status-driven directional knockback compatibility base using this fork's `GenericKnockback`.
+- `InterceptTether` provides tether tracking, line visibility, and "grab tether" hinting; excluded-allies filtering is retained as a compatibility parameter.
+
+Verification:
+
+- `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
+
 ## Remaining Missing APIs
 
 - `ActionDrivenForcedMarch`
 - `BaitAwayChargeTether`
 - `CastGazes`
-- `CastHints`
 - `CastLineOfSightAOEComplex`
 - `CastTowersOpenWorld`
-- `Dispel`
 - `DonutStack`
 - `GenericBaitProximity`
-- `InterceptTether`
 - `InterceptTetherAOE`
 - `InterceptTetherStatus`
 - `InverseWildCharge`
@@ -93,16 +110,15 @@ Verification:
 - `SingleTargetCasts`
 - `SingleTargetDelayableCasts`
 - `SingleTargetEventDelay`
-- `ThinIce`
 - `VoidzoneAtCastTargetGroup`
 
 ## Next Batch Candidates
 
-Current missing count is `19`, so the next batch should target `2-4` APIs.
+Current missing count is `15`, so the next batch should target `2-4` APIs.
 
 Recommended next batch:
 
-- `ThinIce`
-- `Dispel`
-- `CastHints`
-- `InterceptTether`
+- `CastGazes`
+- `BaitAwayChargeTether`
+- `InterceptTetherAOE`
+- `InterceptTetherStatus`
