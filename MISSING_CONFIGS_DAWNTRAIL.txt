@@ -1,0 +1,9 @@
+Chaotic\Ch01CloudOfDarkness\Ch01CloudOfDarknessConfig.cs
+Extreme\Ex4Zelenia\Ex4ZeleniaConfig.cs
+Savage\M05SDancingGreen\M05SDancingGreenConfig.cs
+Savage\M06SSugarRiot\M06SSugarRiotConfig.cs
+Savage\M07SBruteAbombinator\M07SBruteAbombinatorConfig.cs
+Savage\M08SHowlingBlade\M08SHowlingBladeConfig.cs
+Savage\M09SVampFatale\M09SVampFataleConfig.cs
+Savage\M10STheXtremes\M10STheXtremesConfig.cs
+Savage\M12SP2Lindwurm\M12S2LindwurmConfig.cs
