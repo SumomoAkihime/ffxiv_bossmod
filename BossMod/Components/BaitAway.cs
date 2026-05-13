@@ -5,8 +5,16 @@
 // otherwise we show own bait as as outline (and warn if player is clipping someone) and other baits as filled (and warn if player is being clipped)
 public class GenericBaitAway(BossModule module, Enum? aid = default, bool alwaysDrawOtherBaits = true, bool centerAtTarget = false, AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.None) : CastCounter(module, aid)
 {
-    public record struct Bait(Actor Source, Actor Target, AOEShape Shape, DateTime Activation = default, bool IgnoreRotation = false)
+    public struct Bait(Actor Source, Actor Target, AOEShape Shape, DateTime Activation = default, bool IgnoreRotation = false, BitMask Forbidden = default, int MaxCasts = 1)
     {
+        public Actor Source = Source;
+        public Actor Target = Target;
+        public AOEShape Shape = Shape;
+        public DateTime Activation = Activation;
+        public bool IgnoreRotation = IgnoreRotation;
+        public BitMask Forbidden = Forbidden;
+        public int MaxCasts = MaxCasts;
+
         public readonly Angle Rotation => IgnoreRotation ? default : Source != Target ? Angle.FromDirection(Target.Position - Source.Position) : Source.Rotation;
     }
 
