@@ -266,6 +266,53 @@ public class SimpleAOEGroupsByTimewindow(BossModule module, uint[] aids, AOEShap
     }
 }
 
+public abstract class CastLineOfSightAOEComplex(BossModule module, uint aid, RelSimplifiedComplexPolygon blockerShape, int maxCasts = int.MaxValue, double riskyWithSecondsLeft = default, float maxRange = default)
+    : GenericAOEs(module, (Enum)Enum.ToObject(typeof(CompatAID), aid))
+{
+    public readonly RelSimplifiedComplexPolygon BlockerShape = blockerShape;
+    public int MaxCasts = maxCasts;
+    public uint Color;
+    public bool Risky = true;
+    public int? MaxDangerColor;
+    public int? MaxRisky;
+    public readonly double RiskyWithSecondsLeft = riskyWithSecondsLeft;
+    public readonly float MaxRange = maxRange;
+
+    private readonly List<(ulong ActorID, AOEInstance AOE)> _aoes = [];
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var now = WorldState.CurrentTime;
+        var count = Math.Min(_aoes.Count, MaxCasts);
+        for (var i = 0; i < count; ++i)
+        {
+            var aoe = _aoes[i].AOE;
+            var color = MaxDangerColor != null && i < MaxDangerColor ? ArenaColor.Danger : Color;
+            var risky = Risky && (MaxRisky == null || i < MaxRisky);
+            if (RiskyWithSecondsLeft != default)
+                risky &= aoe.Activation.AddSeconds(-RiskyWithSecondsLeft) <= now;
+            yield return aoe with { Color = color, Risky = risky };
+        }
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action != WatchedAction)
+            return;
+
+        // Reborn computes exact visibility polygons from blockers; here we keep a compatibility approximation.
+        var poly = BlockerShape.Transform(caster.Position - Arena.Center, caster.Rotation.ToDirection());
+        var shape = new AOEShapeCustom(poly);
+        _aoes.Add((caster.InstanceID, new(shape, Arena.Center, default, Module.CastFinishAt(spell))));
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action == WatchedAction)
+            _aoes.RemoveAll(a => a.ActorID == caster.InstanceID);
+    }
+}
+
 public class SimpleChargeAOEGroups(BossModule module, uint[] aids, float halfWidth, int maxCasts = int.MaxValue, int expectedNumCasters = 99, double riskyWithSecondsLeft = 0d, float extraLengthFront = 0f)
     : GenericAOEs(module)
 {

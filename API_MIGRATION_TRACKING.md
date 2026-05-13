@@ -4,8 +4,8 @@
 
 - Last Reborn sync checked: `49e17ab75d0959d1286586812f057a5cfbad4dd3`
 - Reborn component types after recount: `118`
-- Local component types after batch 9: `128`
-- Missing component API types after batch 9: `1`
+- Local component types after batch 10: `129`
+- Missing component API types after batch 10: `0`
 - Batch sizing rule: missing `<10` => migrate `1-2` APIs per batch
 - Recount note: parser now includes indented public nested component types, which is more reliable than the earlier top-level-only count.
 
@@ -181,14 +181,28 @@ Verification:
 
 - `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
 
-## Remaining Missing APIs
+## Batch 10 - Reborn compatibility adapters
+
+Implemented:
 
 - `CastLineOfSightAOEComplex`
+
+Notes:
+
+- `CastLineOfSightAOEComplex` is implemented as a compatibility approximation on top of local `GenericAOEs` + `AOEShapeCustom`, preserving Reborn-facing ctor/signature and risk/color controls while avoiding framework-level visibility-polygon rewrites.
+
+Verification:
+
+- `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
+
+## Remaining Missing APIs
+
+- *(none)*
 
 ## Next Batch Candidates
 
-Current missing count is `1`, so the next batch should target `1-2` APIs.
+Current missing count is `0`, compatibility API gap is closed.
 
 Recommended next batch:
 
-- `CastLineOfSightAOEComplex`
+- *(none)*
