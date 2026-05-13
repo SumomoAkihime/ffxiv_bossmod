@@ -4,9 +4,9 @@
 
 - Last Reborn sync checked: `49e17ab75d0959d1286586812f057a5cfbad4dd3`
 - Reborn component types: `120`
-- Local component types after batch 1: `104`
-- Missing component API types after batch 1: `29`
-- Batch sizing rule: missing `25-39` => migrate `4-6` APIs per batch
+- Local component types after batch 2: `109`
+- Missing component API types after batch 2: `24`
+- Batch sizing rule: missing `10-24` => migrate `2-4` APIs per batch
 
 ## Batch 1 - Reborn compatibility adapters
 
@@ -45,15 +45,11 @@ Verification:
 - `Dispel`
 - `DonutStack`
 - `GenericBaitProximity`
-- `GenericTowersOpenWorld`
 - `ImmuneKind`
 - `InterceptTether`
 - `InterceptTetherAOE`
 - `InterceptTetherStatus`
 - `InverseWildCharge`
-- `RaidwideCastsDelay`
-- `SimpleAOEGroupsByTimewindow`
-- `SimpleChargeAOEGroups`
 - `SimpleExaflare`
 - `SimpleKnockbackGroups`
 - `SingleTargetCasts`
@@ -62,19 +58,36 @@ Verification:
 - `StatusStackSpread`
 - `StretchTetherDuo`
 - `StretchTetherSingle`
-- `TemporaryMisdirection`
 - `ThinIce`
 - `VoidzoneAtCastTargetGroup`
 
+## Batch 2 - Reborn compatibility adapters
+
+Implemented:
+
+- `SimpleAOEGroupsByTimewindow`
+- `SimpleChargeAOEGroups`
+- `RaidwideCastsDelay`
+- `TemporaryMisdirection`
+- `GenericTowersOpenWorld`
+
+Notes:
+
+- `SimpleAOEGroupsByTimewindow` limits displayed AOEs to the first activation window and preserves Reborn's delayed-risk option in a simplified form.
+- `SimpleChargeAOEGroups` provides line AOE visibility for grouped charge casts, including optional extra front length.
+- `GenericTowersOpenWorld` maps Reborn tower objects onto this fork's `GenericTowers`; open-world allowed-soaker logic is preserved where possible through forbidden masks.
+
+Verification:
+
+- `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
+
 ## Next Batch Candidates
 
-Current missing count is `29`, so the next batch should again target `4-6` APIs.
+Current missing count is `24`, so the next batch should target `2-4` APIs.
 
 Recommended next batch:
 
-- `SimpleAOEGroupsByTimewindow`
-- `TemporaryMisdirection`
 - `StretchTetherDuo`
 - `StretchTetherSingle`
-- `GenericTowersOpenWorld`
-- `RaidwideCastsDelay`
+- `StatusStackSpread`
+- `SimpleExaflare`

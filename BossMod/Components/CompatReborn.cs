@@ -52,6 +52,117 @@ public class RaidwideCasts(BossModule module, uint[] aids, string hint = "Raidwi
     }
 }
 
+public class RaidwideCastsDelay(BossModule module, uint[] aidsVisual, uint[] aidsAOE, double delay, string hint = "Raidwide")
+    : RaidwideCastDelay(module, (Enum)Enum.ToObject(typeof(CompatAID), default(uint)), (Enum)Enum.ToObject(typeof(CompatAID), default(uint)), (float)delay, hint)
+{
+    private readonly ActionID[] _aidsVisual = [.. aidsVisual.Select(a => ActionID.MakeSpell((Enum)Enum.ToObject(typeof(CompatAID), a)))];
+    private readonly ActionID[] _aidsAOE = [.. aidsAOE.Select(a => ActionID.MakeSpell((Enum)Enum.ToObject(typeof(CompatAID), a)))];
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (_aidsVisual.Contains(spell.Action))
+            Activation = Module.CastFinishAt(spell, Delay);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (_aidsAOE.Contains(spell.Action))
+        {
+            ++NumCasts;
+            Activation = default;
+        }
+    }
+}
+
+public class SimpleAOEGroupsByTimewindow(BossModule module, uint[] aids, AOEShape shape, double timeWindowInSeconds = 1d, int expectedNumCasters = 99, double riskyWithSecondsLeft = default)
+    : SimpleAOEGroups(module, aids, shape, int.MaxValue)
+{
+    public SimpleAOEGroupsByTimewindow(BossModule module, uint[] aids, float radius, double timeWindowInSeconds = 1d, int expectedNumCasters = 99, double riskyWithSecondsLeft = default)
+        : this(module, aids, new AOEShapeCircle(radius), timeWindowInSeconds, expectedNumCasters, riskyWithSecondsLeft)
+    {
+    }
+
+    private readonly float _timeWindowInSeconds = (float)timeWindowInSeconds;
+    private readonly double _riskyWithSecondsLeft = riskyWithSecondsLeft;
+    private readonly int _expectedNumCasters = expectedNumCasters;
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        if (Casters.Count == 0)
+            return [];
+
+        _ = _expectedNumCasters;
+        var firstActivation = Module.CastFinishAt(Casters[0].CastInfo);
+        var deadline = firstActivation.AddSeconds(_timeWindowInSeconds);
+        var now = WorldState.CurrentTime;
+        return Casters
+            .TakeWhile(c => Module.CastFinishAt(c.CastInfo) < deadline)
+            .Select(c =>
+            {
+                var activation = Module.CastFinishAt(c.CastInfo);
+                var risky = _riskyWithSecondsLeft == default || activation.AddSeconds(-_riskyWithSecondsLeft) <= now;
+                return new AOEInstance(Shape, c.CastInfo!.LocXZ, c.CastInfo.Rotation, activation, Risky: risky);
+            });
+    }
+}
+
+public class SimpleChargeAOEGroups(BossModule module, uint[] aids, float halfWidth, int maxCasts = int.MaxValue, int expectedNumCasters = 99, double riskyWithSecondsLeft = 0d, float extraLengthFront = 0f)
+    : GenericAOEs(module)
+{
+    private readonly ActionID[] _aids = [.. aids.Select(a => ActionID.MakeSpell((Enum)Enum.ToObject(typeof(CompatAID), a)))];
+    private readonly List<AOEInstance> _aoes = [];
+    private readonly int _expectedNumCasters = expectedNumCasters;
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Take(maxCasts);
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (!_aids.Contains(spell.Action))
+            return;
+
+        _ = _expectedNumCasters;
+        var dir = spell.LocXZ - caster.Position;
+        _aoes.Add(new(new AOEShapeRect(dir.Length() + extraLengthFront, halfWidth), caster.Position, Angle.FromDirection(dir), Module.CastFinishAt(spell), Risky: riskyWithSecondsLeft == default));
+        _aoes.SortBy(a => a.Activation);
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (_aids.Contains(spell.Action))
+            _aoes.RemoveAll(a => a.Origin.AlmostEqual(caster.Position, 1));
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (_aids.Contains(spell.Action))
+            ++NumCasts;
+    }
+}
+
+public abstract class TemporaryMisdirection(BossModule module, uint aid, string hint = "Applies temporary misdirection")
+    : CastHint(module, (Enum)Enum.ToObject(typeof(CompatAID), aid), hint)
+{
+    private BitMask _mask;
+
+    public override void OnStatusGain(Actor actor, ActorStatus status)
+    {
+        if (status.ID is 1422u or 2936u or 3694u or 3909u && Raid.TryFindSlot(actor.InstanceID, out var slot))
+            _mask.Set(slot);
+    }
+
+    public override void OnStatusLose(Actor actor, ActorStatus status)
+    {
+        if (status.ID is 1422u or 2936u or 3694u or 3909u && Raid.TryFindSlot(actor.InstanceID, out var slot))
+            _mask.Clear(slot);
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (_mask[slot])
+            hints.AddSpecialMode(AIHints.SpecialMode.Misdirection, default);
+    }
+}
+
 public abstract class GenericKnockback(BossModule module, uint aid = default, int maxCasts = int.MaxValue, bool stopAtWall = false, bool stopAfterWall = false)
     : Knockback(module, aid == default ? null : (Enum)Enum.ToObject(typeof(CompatAID), aid), maxCasts: maxCasts, stopAtWall: stopAtWall || stopAfterWall)
 {
@@ -146,6 +257,73 @@ public abstract class GenericBaitStack(BossModule module, uint aid = default, bo
             hints.Add(HintStack, false);
         }
     }
+}
+
+public class GenericTowersOpenWorld(BossModule module, uint aid = default, bool prioritizeInsufficient = false, bool prioritizeEmpty = false)
+    : GenericTowers(module, aid == default ? null : (Enum)Enum.ToObject(typeof(CompatAID), aid))
+{
+    public new sealed class Tower(WPos position, float radius, int minSoakers = 1, int maxSoakers = 1, HashSet<Actor>? allowedSoakers = null, DateTime activation = default, ulong actorID = default)
+    {
+        public WPos Position = position;
+        public float Radius = radius;
+        public int MinSoakers = minSoakers;
+        public int MaxSoakers = maxSoakers;
+        public HashSet<Actor>? AllowedSoakers = allowedSoakers;
+        public DateTime Activation = activation;
+        public ulong ActorID = actorID;
+
+        public bool IsInside(WPos pos) => pos.InCircle(Position, Radius);
+        public bool IsInside(Actor actor) => IsInside(actor.Position);
+        public int NumInside(BossModule module) => Soakers(module, AllowedSoakers).Count(IsInside);
+        public bool CorrectAmountInside(BossModule module) => NumInside(module) is var count && count >= MinSoakers && count <= MaxSoakers;
+        public bool InsufficientAmountInside(BossModule module) => NumInside(module) < MaxSoakers;
+        public void InitializeAllowedSoakers(BossModule module) => AllowedSoakers ??= Soakers(module, null);
+    }
+
+    public readonly List<Tower> RebornTowers = [];
+    public bool PrioritizeInsufficient = prioritizeInsufficient;
+    public bool PrioritizeEmpty = prioritizeEmpty;
+
+    public virtual IEnumerable<Tower> ActiveTowers(int slot, Actor actor) => RebornTowers;
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        SyncTowers(slot, actor);
+        base.AddHints(slot, actor, hints);
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        SyncTowers(slot, actor);
+        base.AddAIHints(slot, actor, assignment, hints);
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        SyncTowers(pcSlot, pc);
+        base.DrawArenaForeground(pcSlot, pc);
+    }
+
+    private void SyncTowers(int slot, Actor actor)
+    {
+        Towers.Clear();
+        foreach (var t in ActiveTowers(slot, actor))
+            Towers.Add(new(t.Position, t.Radius, t.MinSoakers, t.MaxSoakers, ForbiddenMask(t), t.Activation));
+    }
+
+    private BitMask ForbiddenMask(Tower tower)
+    {
+        var mask = new BitMask();
+        if (tower.AllowedSoakers == null)
+            return mask;
+
+        foreach (var (slot, actor) in Raid.WithSlot())
+            if (!tower.AllowedSoakers.Contains(actor))
+                mask.Set(slot);
+        return mask;
+    }
+
+    private static HashSet<Actor> Soakers(BossModule module, HashSet<Actor>? allowed) => allowed ?? [.. module.Raid.WithoutSlot()];
 }
 
 public class LineStack(BossModule module, uint aidMarker, uint aidResolve, double activationDelay = 5.1d, float range = 50f, float halfWidth = 4f, int minStackSize = 4, int maxStackSize = int.MaxValue, int maxCasts = 1, bool markerIsFinalTarget = true, uint iconID = default)
