@@ -4,8 +4,8 @@
 
 - Last Reborn sync checked: `49e17ab75d0959d1286586812f057a5cfbad4dd3`
 - Reborn component types after recount: `118`
-- Local component types after batch 6: `122`
-- Missing component API types after batch 6: `7`
+- Local component types after batch 7: `124`
+- Missing component API types after batch 7: `5`
 - Batch sizing rule: missing `<10` => migrate `1-2` APIs per batch
 - Recount note: parser now includes indented public nested component types, which is more reliable than the earlier top-level-only count.
 
@@ -133,21 +133,35 @@ Verification:
 
 - `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
 
+## Batch 7 - Reborn compatibility adapters
+
+Implemented:
+
+- `CastTowersOpenWorld`
+- `DonutStack`
+
+Notes:
+
+- `CastTowersOpenWorld` is implemented on top of `GenericTowersOpenWorld` with cast-start add / cast-finish remove behavior keyed by caster instance.
+- `DonutStack` uses icon-driven stack targets plus cast-event resolution, while drawing donut telegraphs in arena background for visibility-first parity.
+
+Verification:
+
+- `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
+
 ## Remaining Missing APIs
 
 - `ActionDrivenForcedMarch`
 - `CastLineOfSightAOEComplex`
-- `CastTowersOpenWorld`
-- `DonutStack`
 - `GenericBaitProximity`
 - `InverseWildCharge`
 - `VoidzoneAtCastTargetGroup`
 
 ## Next Batch Candidates
 
-Current missing count is `7`, so the next batch should target `1-2` APIs.
+Current missing count is `5`, so the next batch should target `1-2` APIs.
 
 Recommended next batch:
 
-- `CastTowersOpenWorld`
-- `DonutStack`
+- `VoidzoneAtCastTargetGroup`
+- `ActionDrivenForcedMarch`

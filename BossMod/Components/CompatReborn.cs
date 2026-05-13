@@ -842,6 +842,28 @@ public class GenericTowersOpenWorld(BossModule module, uint aid = default, bool 
     private static HashSet<Actor> Soakers(BossModule module, HashSet<Actor>? allowed) => allowed ?? [.. module.Raid.WithoutSlot()];
 }
 
+public class CastTowersOpenWorld(BossModule module, uint aid, float radius, int minSoakers = 1, int maxSoakers = 1, bool prioritizeInsufficient = false, bool prioritizeEmpty = false)
+    : GenericTowersOpenWorld(module, aid, prioritizeInsufficient, prioritizeEmpty)
+{
+    public readonly float Radius = radius;
+    public readonly int MinSoakers = minSoakers;
+    public readonly int MaxSoakers = maxSoakers;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action != WatchedAction)
+            return;
+
+        RebornTowers.Add(new(spell.LocXZ, Radius, MinSoakers, MaxSoakers, activation: Module.CastFinishAt(spell), actorID: caster.InstanceID));
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action == WatchedAction)
+            RebornTowers.RemoveAll(t => t.ActorID == caster.InstanceID);
+    }
+}
+
 public class LineStack(BossModule module, uint aidMarker, uint aidResolve, double activationDelay = 5.1d, float range = 50f, float halfWidth = 4f, int minStackSize = 4, int maxStackSize = int.MaxValue, int maxCasts = 1, bool markerIsFinalTarget = true, uint iconID = default)
     : GenericBaitStack(module)
 {
@@ -916,6 +938,48 @@ public class LineStack(BossModule module, uint aidMarker, uint aidResolve, doubl
             CurrentBaits.RemoveAt(0);
             ++NumCasts;
         }
+    }
+}
+
+public class DonutStack(BossModule module, uint aid, uint icon, float innerRadius, float outerRadius, double activationDelay, int minStackSize = 2, int maxStackSize = int.MaxValue)
+    : UniformStackSpread(module, innerRadius / 3f, 0, minStackSize, maxStackSize)
+{
+    public readonly AOEShapeDonut Donut = new(innerRadius, outerRadius);
+    public readonly float ActivationDelay = (float)activationDelay;
+    public readonly uint Icon = icon;
+    public readonly uint Aid = aid;
+
+    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
+    {
+        if (iconID == Icon)
+            AddStack(actor, WorldState.FutureTime(ActivationDelay));
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID != Aid)
+            return;
+
+        var index = Stacks.FindIndex(s => s.Target.InstanceID == spell.MainTargetID);
+        if (index >= 0)
+            Stacks.RemoveAt(index);
+        else
+            Stacks.Clear();
+    }
+
+    public override void Update()
+    {
+        Stacks.RemoveAll(s => s.Target.IsDead);
+    }
+
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    {
+        foreach (var stack in Stacks)
+            Donut.Draw(Arena, stack.Target.Position);
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
     }
 }
 
