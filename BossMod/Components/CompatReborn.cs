@@ -19,6 +19,30 @@ public class SimpleKnockbacks(BossModule module, uint aid, float distance, AOESh
 {
 }
 
+public class SimpleKnockbackGroups(BossModule module, uint[] aids, float distance, bool ignoreImmunes = false, int maxCasts = int.MaxValue, AOEShape? shape = null, Knockback.Kind kind = Knockback.Kind.AwayFromOrigin, float minDistance = default, bool minDistanceBetweenHitboxes = false, bool stopAtWall = false, bool stopAfterWall = false)
+    : KnockbackFromCastTarget(module, (Enum)Enum.ToObject(typeof(CompatAID), default(uint)), distance, ignoreImmunes, maxCasts, shape, kind, minDistance, minDistanceBetweenHitboxes, stopAtWall || stopAfterWall)
+{
+    private readonly ActionID[] _aids = [.. aids.Select(a => ActionID.MakeSpell((Enum)Enum.ToObject(typeof(CompatAID), a)))];
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (_aids.Contains(spell.Action))
+            Casters.Add(caster);
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (_aids.Contains(spell.Action))
+            Casters.Remove(caster);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (_aids.Contains(spell.Action))
+            ++NumCasts;
+    }
+}
+
 public class Voidzone(BossModule module, float radius, Func<BossModule, IEnumerable<Actor>> sources, float moveHintLength = default)
     : PersistentVoidzone(module, radius, sources, moveHintLength)
 {
@@ -93,6 +117,69 @@ public class RaidwideCastsDelay(BossModule module, uint[] aidsVisual, uint[] aid
 
 public class Dispel(BossModule module, uint statusID, uint action = default) : DispelHint(module, statusID, action == default ? null : (Enum)Enum.ToObject(typeof(CompatAID), action), includeTargetName: true)
 {
+}
+
+public class SingleTargetCasts(BossModule module, uint[] aids, string hint = "Tankbuster") : SingleTargetCast(module, (Enum)Enum.ToObject(typeof(CompatAID), default(uint)), hint)
+{
+    private readonly ActionID[] _aids = [.. aids.Select(a => ActionID.MakeSpell((Enum)Enum.ToObject(typeof(CompatAID), a)))];
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (_aids.Contains(spell.Action))
+            Casters.Add(caster);
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (_aids.Contains(spell.Action))
+            Casters.Remove(caster);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (_aids.Contains(spell.Action))
+            ++NumCasts;
+    }
+}
+
+public class SingleTargetEventDelay(BossModule module, uint actionVisual, uint actionAOE, double delay, string hint = "Tankbuster")
+    : SingleTargetInstant(module, (Enum)Enum.ToObject(typeof(CompatAID), actionAOE), (float)delay, hint)
+{
+    public readonly ActionID ActionVisual = ActionID.MakeSpell((Enum)Enum.ToObject(typeof(CompatAID), actionVisual));
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        base.OnEventCast(caster, spell);
+        if (spell.Action != ActionVisual)
+            return;
+
+        var target = spell.MainTargetID != caster.InstanceID ? spell.MainTargetID : caster.TargetID;
+        Targets.Add((Raid.FindSlot(target), WorldState.FutureTime(Delay)));
+    }
+}
+
+public class SingleTargetDelayableCasts(BossModule module, uint[] aids, string hint = "Tankbuster", AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.Tankbuster)
+    : SingleTargetCastDelay(module, (Enum)Enum.ToObject(typeof(CompatAID), default(uint)), (Enum)Enum.ToObject(typeof(CompatAID), default(uint)), 0, hint, damageType)
+{
+    private readonly ActionID[] _aids = [.. aids.Select(a => ActionID.MakeSpell((Enum)Enum.ToObject(typeof(CompatAID), a)))];
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (!_aids.Contains(spell.Action))
+            return;
+
+        var target = spell.TargetID != caster.InstanceID ? spell.TargetID : caster.TargetID;
+        Targets.Add((Raid.FindSlot(target), Module.CastFinishAt(spell, Delay)));
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (!_aids.Contains(spell.Action))
+            return;
+
+        ++NumCasts;
+        Targets.RemoveAll(t => Raid[t.slot]?.InstanceID == spell.MainTargetID);
+    }
 }
 
 public class SimpleAOEGroupsByTimewindow(BossModule module, uint[] aids, AOEShape shape, double timeWindowInSeconds = 1d, int expectedNumCasters = 99, double riskyWithSecondsLeft = default)

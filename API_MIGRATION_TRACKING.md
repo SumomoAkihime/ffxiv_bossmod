@@ -4,9 +4,9 @@
 
 - Last Reborn sync checked: `49e17ab75d0959d1286586812f057a5cfbad4dd3`
 - Reborn component types after recount: `118`
-- Local component types after batch 5: `118`
-- Missing component API types after batch 5: `11`
-- Batch sizing rule: missing `10-24` => migrate `2-4` APIs per batch
+- Local component types after batch 6: `122`
+- Missing component API types after batch 6: `7`
+- Batch sizing rule: missing `<10` => migrate `1-2` APIs per batch
 - Recount note: parser now includes indented public nested component types, which is more reliable than the earlier top-level-only count.
 
 ## Batch 1 - Reborn compatibility adapters
@@ -114,6 +114,25 @@ Verification:
 
 - `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
 
+## Batch 6 - Reborn compatibility adapters
+
+Implemented:
+
+- `SimpleKnockbackGroups`
+- `SingleTargetCasts`
+- `SingleTargetDelayableCasts`
+- `SingleTargetEventDelay`
+
+Notes:
+
+- `SimpleKnockbackGroups` is implemented as a multi-AID wrapper over this fork's `KnockbackFromCastTarget`.
+- `SingleTargetCasts` adds multi-AID cast tracking over existing `SingleTargetCast` behavior.
+- `SingleTargetDelayableCasts` and `SingleTargetEventDelay` reuse local `SingleTargetCastDelay` / `SingleTargetInstant` primitives for low-risk compatibility.
+
+Verification:
+
+- `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
+
 ## Remaining Missing APIs
 
 - `ActionDrivenForcedMarch`
@@ -122,19 +141,13 @@ Verification:
 - `DonutStack`
 - `GenericBaitProximity`
 - `InverseWildCharge`
-- `SimpleKnockbackGroups`
-- `SingleTargetCasts`
-- `SingleTargetDelayableCasts`
-- `SingleTargetEventDelay`
 - `VoidzoneAtCastTargetGroup`
 
 ## Next Batch Candidates
 
-Current missing count is `11`, so the next batch should target `2-4` APIs.
+Current missing count is `7`, so the next batch should target `1-2` APIs.
 
 Recommended next batch:
 
-- `SimpleKnockbackGroups`
-- `SingleTargetCasts`
-- `SingleTargetDelayableCasts`
-- `SingleTargetEventDelay`
+- `CastTowersOpenWorld`
+- `DonutStack`
