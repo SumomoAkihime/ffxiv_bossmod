@@ -217,6 +217,36 @@ public class SimpleExaflare(BossModule module, AOEShape shape, uint aidFirst, ui
     }
 }
 
+public class CastGazes(BossModule module, uint[] aids, bool inverted = false, float range = 10000f, int maxCasts = int.MaxValue, int expectedNumCasters = 99)
+    : GenericGaze(module, (Enum)Enum.ToObject(typeof(CompatAID), default(uint)), inverted)
+{
+    private readonly ActionID[] _aids = [.. aids.Select(a => ActionID.MakeSpell((Enum)Enum.ToObject(typeof(CompatAID), a)))];
+    private readonly List<Actor> _casters = [];
+    private readonly int _maxCasts = maxCasts;
+    private readonly int _expectedNumCasters = expectedNumCasters;
+
+    public override IEnumerable<Eye> ActiveEyes(int slot, Actor actor) => _casters.Select(c => new Eye(c.Position, Module.CastFinishAt(c.CastInfo), Range: range));
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (_aids.Contains(spell.Action))
+            _casters.Add(caster);
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        _ = _expectedNumCasters;
+        if (_aids.Contains(spell.Action))
+            _casters.Remove(caster);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (_aids.Contains(spell.Action) && NumCasts < _maxCasts)
+            ++NumCasts;
+    }
+}
+
 public abstract class ThinIce(BossModule module, float distance, bool createforbiddenzones = false, uint statusID = 911u, bool stopAtWall = false, bool stopAfterWall = false)
     : GenericKnockback(module, stopAtWall: stopAtWall, stopAfterWall: stopAfterWall)
 {
@@ -539,6 +569,101 @@ public class InterceptTether(BossModule module, uint aid, uint tetherIDBad = 84u
     }
 
     private static bool IsExcluded(Actor actor, List<Actor> excluded) => excluded.Contains(actor);
+}
+
+public class InterceptTetherAOE(BossModule module, uint aid, uint tetherID, float radius, uint[]? excludedAllies = null)
+    : InterceptTether(module, aid, tetherID, tetherID, excludedAllies)
+{
+    public readonly float Radius = radius;
+    public DateTime Activation;
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        base.AddHints(slot, actor, hints);
+        if (!_tetheredPlayers[slot])
+            return;
+
+        if (Raid.WithoutSlot().InRadiusExcluding(actor, Radius).Any())
+            hints.Add("GTFO from raid!");
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action == WatchedAction)
+            Activation = Module.CastFinishAt(spell);
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        foreach (var tether in _tethers)
+            hints.AddForbiddenZone(ShapeContains.Circle(tether.Player.Position, Radius), Activation);
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        base.DrawArenaForeground(pcSlot, pc);
+        foreach (var tether in _tethers)
+            GenericTowers.DrawTower(Arena, tether.Player.Position, Radius, tether.Player == pc);
+    }
+}
+
+public class InterceptTetherStatus(BossModule module, uint aid, uint tetherID, uint sid, float radius = 0f, uint[]? excludedAllies = null)
+    : InterceptTetherAOE(module, aid, tetherID, radius, excludedAllies)
+{
+    public readonly uint StatusID = sid;
+    private BitMask _hasStatus;
+
+    public override void OnStatusGain(Actor actor, ActorStatus status)
+    {
+        if (status.ID == StatusID && Raid.TryFindSlot(actor, out var slot))
+            _hasStatus.Set(slot);
+    }
+
+    public override void OnStatusLose(Actor actor, ActorStatus status)
+    {
+        if (status.ID == StatusID && Raid.TryFindSlot(actor, out var slot))
+            _hasStatus.Clear(slot);
+    }
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (Active && !_tetheredPlayers[slot] && !_hasStatus[slot])
+            hints.Add("Grab the tether!");
+        else
+            base.AddHints(slot, actor, hints);
+
+        if (_tetheredPlayers[slot] && _hasStatus[slot])
+            hints.Add("Give tether away!");
+    }
+}
+
+public class BaitAwayChargeTether(BossModule module, float halfWidth, double activationDelay, uint aidGood, uint aidBad = default, uint tetherIDBad = 57u, uint tetherIDGood = 1u, uint enemyOID = default, float minimumDistance = default)
+    : StretchTetherDuo(module, minimumDistance, activationDelay, tetherIDBad, tetherIDGood, new AOEShapeRect(default, halfWidth), default, enemyOID)
+{
+    public readonly uint AidGood = aidGood;
+    public readonly uint AidBad = aidBad;
+    public readonly float HalfWidth = halfWidth;
+
+    public override void Update()
+    {
+        base.Update();
+        for (var i = 0; i < CurrentBaits.Count; ++i)
+        {
+            var bait = CurrentBaits[i];
+            var length = (bait.Target.Position - bait.Source.Position).Length();
+            bait.Shape = new AOEShapeRect(length, HalfWidth);
+            CurrentBaits[i] = bait;
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID != AidGood && spell.Action.ID != AidBad)
+            return;
+
+        ++NumCasts;
+        CurrentBaits.RemoveAll(b => b.Target.InstanceID == spell.MainTargetID);
+    }
 }
 
 public class StretchTetherSingle(BossModule module, uint tetherID, float minimumDistance, AOEShape? shape = null, uint aid = default, uint enemyOID = default, double activationDelay = default, bool knockbackImmunity = false, bool needToKite = false)

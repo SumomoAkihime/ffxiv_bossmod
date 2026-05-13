@@ -4,8 +4,8 @@
 
 - Last Reborn sync checked: `49e17ab75d0959d1286586812f057a5cfbad4dd3`
 - Reborn component types after recount: `118`
-- Local component types after batch 4: `114`
-- Missing component API types after batch 4: `15`
+- Local component types after batch 5: `118`
+- Missing component API types after batch 5: `11`
 - Batch sizing rule: missing `10-24` => migrate `2-4` APIs per batch
 - Recount note: parser now includes indented public nested component types, which is more reliable than the earlier top-level-only count.
 
@@ -94,17 +94,33 @@ Verification:
 
 - `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
 
+## Batch 5 - Reborn compatibility adapters
+
+Implemented:
+
+- `CastGazes`
+- `BaitAwayChargeTether`
+- `InterceptTetherAOE`
+- `InterceptTetherStatus`
+
+Notes:
+
+- `CastGazes` adds multi-AID gaze support with cast-tracking and event-cast counting, based on this fork's `GenericGaze`.
+- `BaitAwayChargeTether` builds on `StretchTetherDuo` and keeps rect-length synchronized to source-target distance for charge-style telegraphs.
+- `InterceptTetherAOE` layers radius-based spacing hints/forbidden zones onto `InterceptTether`.
+- `InterceptTetherStatus` extends `InterceptTetherAOE` with status-aware "grab/give tether" hinting.
+
+Verification:
+
+- `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
+
 ## Remaining Missing APIs
 
 - `ActionDrivenForcedMarch`
-- `BaitAwayChargeTether`
-- `CastGazes`
 - `CastLineOfSightAOEComplex`
 - `CastTowersOpenWorld`
 - `DonutStack`
 - `GenericBaitProximity`
-- `InterceptTetherAOE`
-- `InterceptTetherStatus`
 - `InverseWildCharge`
 - `SimpleKnockbackGroups`
 - `SingleTargetCasts`
@@ -114,11 +130,11 @@ Verification:
 
 ## Next Batch Candidates
 
-Current missing count is `15`, so the next batch should target `2-4` APIs.
+Current missing count is `11`, so the next batch should target `2-4` APIs.
 
 Recommended next batch:
 
-- `CastGazes`
-- `BaitAwayChargeTether`
-- `InterceptTetherAOE`
-- `InterceptTetherStatus`
+- `SimpleKnockbackGroups`
+- `SingleTargetCasts`
+- `SingleTargetDelayableCasts`
+- `SingleTargetEventDelay`
