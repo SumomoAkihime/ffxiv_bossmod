@@ -4,8 +4,8 @@
 
 - Last Reborn sync checked: `49e17ab75d0959d1286586812f057a5cfbad4dd3`
 - Reborn component types after recount: `118`
-- Local component types after batch 7: `124`
-- Missing component API types after batch 7: `5`
+- Local component types after batch 8: `126`
+- Missing component API types after batch 8: `3`
 - Batch sizing rule: missing `<10` => migrate `1-2` APIs per batch
 - Recount note: parser now includes indented public nested component types, which is more reliable than the earlier top-level-only count.
 
@@ -149,19 +149,33 @@ Verification:
 
 - `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
 
+## Batch 8 - Reborn compatibility adapters
+
+Implemented:
+
+- `VoidzoneAtCastTargetGroup`
+- `ActionDrivenForcedMarch`
+
+Notes:
+
+- `VoidzoneAtCastTargetGroup` is implemented as a multi-AID cast-target voidzone predictor with source reconciliation, matching local `PersistentVoidzoneAtCastTarget` behavior while avoiding private-field coupling.
+- `ActionDrivenForcedMarch` is mapped onto local `GenericForcedMarch` with action-driven pending movement scheduling and forced-status activation/deactivation.
+
+Verification:
+
+- `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
+
 ## Remaining Missing APIs
 
-- `ActionDrivenForcedMarch`
 - `CastLineOfSightAOEComplex`
 - `GenericBaitProximity`
 - `InverseWildCharge`
-- `VoidzoneAtCastTargetGroup`
 
 ## Next Batch Candidates
 
-Current missing count is `5`, so the next batch should target `1-2` APIs.
+Current missing count is `3`, so the next batch should target `1-2` APIs.
 
 Recommended next batch:
 
-- `VoidzoneAtCastTargetGroup`
-- `ActionDrivenForcedMarch`
+- `GenericBaitProximity`
+- `InverseWildCharge`

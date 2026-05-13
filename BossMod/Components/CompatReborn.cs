@@ -53,6 +53,58 @@ public class VoidzoneAtCastTarget(BossModule module, float radius, uint aid, Fun
 {
 }
 
+public class VoidzoneAtCastTargetGroup(BossModule module, float radius, uint[] aids, Func<BossModule, IEnumerable<Actor>> sources, double castEventToSpawn)
+    : GenericAOEs(module, (Enum)Enum.ToObject(typeof(CompatAID), default(uint)), "GTFO from voidzone!")
+{
+    public float Radius = radius;
+    public AOEShapeCircle Shape { get; init; } = new(radius);
+    public Func<BossModule, IEnumerable<Actor>> Sources { get; init; } = sources;
+    public float CastEventToSpawn { get; init; } = (float)castEventToSpawn;
+    private readonly ActionID[] _aids = [.. aids.Select(a => ActionID.MakeSpell((Enum)Enum.ToObject(typeof(CompatAID), a)))];
+    protected readonly List<(WPos pos, DateTime time)> _predictedByEvent = [];
+    private readonly List<(Actor caster, DateTime time)> _predictedByCast = [];
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        foreach (var p in _predictedByEvent)
+            yield return new(Shape, p.pos, Activation: p.time);
+        foreach (var p in _predictedByCast)
+            yield return new(Shape, WorldState.Actors.Find(p.caster.CastInfo!.TargetID)?.Position ?? p.caster.CastInfo.LocXZ, Activation: p.time);
+        foreach (var z in Sources(Module))
+            yield return new(Shape, z.Position);
+    }
+
+    public override void Update()
+    {
+        if (_predictedByEvent.Count == 0)
+            return;
+
+        foreach (var s in Sources(Module))
+            _predictedByEvent.RemoveAll(p => p.pos.InCircle(s.Position, Radius));
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (_aids.Contains(spell.Action))
+            _predictedByCast.Add((caster, Module.CastFinishAt(spell, CastEventToSpawn)));
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (_aids.Contains(spell.Action))
+            _predictedByCast.RemoveAll(p => p.caster == caster);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (_aids.Contains(spell.Action))
+        {
+            ++NumCasts;
+            _predictedByEvent.Add((WorldState.Actors.Find(spell.MainTargetID)?.Position ?? spell.TargetXZ, WorldState.FutureTime(CastEventToSpawn)));
+        }
+    }
+}
+
 public class RaidwideCasts(BossModule module, uint[] aids, string hint = "Raidwide") : RaidwideCast(module, (Enum)Enum.ToObject(typeof(CompatAID), default(uint)), hint)
 {
     private readonly ActionID[] _aids = [.. aids.Select(a => ActionID.MakeSpell((Enum)Enum.ToObject(typeof(CompatAID), a)))];
@@ -721,6 +773,45 @@ public class InterceptTetherStatus(BossModule module, uint aid, uint tetherID, u
 
         if (_tetheredPlayers[slot] && _hasStatus[slot])
             hints.Add("Give tether away!");
+    }
+}
+
+public class ActionDrivenForcedMarch(BossModule module, uint aid, float duration, Angle rotation, float actioneffectdelay, uint statusForced = 5174u, uint statusForcedNPCs = 3629u, float activationLimit = float.MaxValue)
+    : GenericForcedMarch(module, activationLimit)
+{
+    public readonly float Duration = duration;
+    public readonly float ActionEffectDelay = actioneffectdelay;
+    public readonly Angle Rotation = rotation;
+    public readonly uint StatusForced = statusForced;
+    public readonly uint StatusForcedNPCs = statusForcedNPCs;
+    public readonly ActionID Aid = ActionID.MakeSpell((Enum)Enum.ToObject(typeof(CompatAID), aid));
+
+    public override void OnStatusGain(Actor actor, ActorStatus status)
+    {
+        if (status.ID != StatusForced && status.ID != StatusForcedNPCs)
+            return;
+
+        var pendingMoves = State.GetOrAdd(actor.InstanceID).PendingMoves;
+        var idx = pendingMoves.FindIndex(m => m.dir == Rotation);
+        if (idx >= 0)
+            pendingMoves.RemoveAt(idx);
+        ActivateForcedMovement(actor, status.ExpireAt);
+    }
+
+    public override void OnStatusLose(Actor actor, ActorStatus status)
+    {
+        if (status.ID == StatusForced || status.ID == StatusForcedNPCs)
+            DeactivateForcedMovement(actor);
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action != Aid)
+            return;
+
+        var activation = Module.CastFinishAt(spell, ActionEffectDelay);
+        foreach (var p in Module.Raid.WithoutSlot())
+            AddForcedMovement(p, Rotation, Duration, activation);
     }
 }
 
