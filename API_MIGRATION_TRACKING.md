@@ -4,8 +4,8 @@
 
 - Last Reborn sync checked: `49e17ab75d0959d1286586812f057a5cfbad4dd3`
 - Reborn component types after recount: `118`
-- Local component types after batch 8: `126`
-- Missing component API types after batch 8: `3`
+- Local component types after batch 9: `128`
+- Missing component API types after batch 9: `1`
 - Batch sizing rule: missing `<10` => migrate `1-2` APIs per batch
 - Recount note: parser now includes indented public nested component types, which is more reliable than the earlier top-level-only count.
 
@@ -165,17 +165,30 @@ Verification:
 
 - `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
 
+## Batch 9 - Reborn compatibility adapters
+
+Implemented:
+
+- `GenericBaitProximity`
+- `InverseWildCharge`
+
+Notes:
+
+- `GenericBaitProximity` is implemented as a visibility-first proximity bait framework with configurable bait descriptors, target selection, clipping checks, and arena rendering.
+- `InverseWildCharge` is implemented as a lightweight inverse-line-charge component with role-based hinting and predicted damage zones, mapped to this fork's existing hint/shape primitives.
+
+Verification:
+
+- `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
+
 ## Remaining Missing APIs
 
 - `CastLineOfSightAOEComplex`
-- `GenericBaitProximity`
-- `InverseWildCharge`
 
 ## Next Batch Candidates
 
-Current missing count is `3`, so the next batch should target `1-2` APIs.
+Current missing count is `1`, so the next batch should target `1-2` APIs.
 
 Recommended next batch:
 
-- `GenericBaitProximity`
-- `InverseWildCharge`
+- `CastLineOfSightAOEComplex`

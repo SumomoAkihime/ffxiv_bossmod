@@ -815,6 +815,198 @@ public class ActionDrivenForcedMarch(BossModule module, uint aid, float duration
     }
 }
 
+public class GenericBaitProximity(BossModule module, bool alwaysDrawOtherBaits = true, bool onlyShowOutlines = false) : CastCounter(module, (Enum)Enum.ToObject(typeof(CompatAID), default(uint)))
+{
+    public struct Bait(WPos source, AOEShape shape, DateTime activation = default, int numTargets = 1, bool nearest = true, bool stack = false, int minStack = 1, int maxStack = 1, bool centerAtTarget = false, bool tankbuster = false, uint caster = default, Role role = Role.None, BitMask forbidden = default, AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.None, Angle? customRotation = null, WDir offset = default)
+    {
+        public WPos Position = source;
+        public AOEShape Shape = shape;
+        public DateTime Activation = activation;
+        public bool FromNearest = nearest;
+        public int NumTargets = numTargets;
+        public bool IsStack = stack;
+        public int MinStack = minStack;
+        public int MaxStack = maxStack;
+        public Role SpecifiedRole = role;
+        public BitMask ForbiddenPlayers = forbidden;
+        public bool CenterAtTarget = centerAtTarget;
+        public WDir Offset = offset;
+        public bool IsTankbuster = tankbuster;
+        public uint CasterID = caster;
+        public AIHints.PredictedDamageType DamageType = damageType;
+        public Angle? CustomRotation = customRotation;
+    }
+
+    public readonly bool AlwaysDrawOtherBaits = alwaysDrawOtherBaits;
+    public bool OnlyShowOutlines = onlyShowOutlines;
+    public bool AllowDeadTargets;
+    public bool EnableHints = true;
+    public bool IgnoreOtherBaits;
+    public PlayerPriority BaiterPriority = PlayerPriority.Interesting;
+    public List<Bait> CurrentBaits = [];
+    public const string BaitAwayHint = "Bait away from raid!";
+    public const string BaitAOEHint = "GTFO from baited AOE!";
+
+    public IEnumerable<Bait> ActiveBaits => AllowDeadTargets ? CurrentBaits : CurrentBaits.Where(b => GetTargets(b).Any(t => !t.IsDead));
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (!EnableHints)
+            return;
+
+        foreach (var bait in ActiveBaits)
+        {
+            var targets = GetTargets(bait).ToList();
+            if (targets.Count == 0)
+                continue;
+
+            var isBaitTarget = targets.Any(t => t == actor);
+            if (isBaitTarget)
+            {
+                var clipped = PlayersClippedBy(bait, actor).Count();
+                if (bait.IsStack)
+                {
+                    var stackCount = clipped + 1;
+                    if (stackCount < bait.MinStack)
+                        hints.Add("Not enough in stack!");
+                    else if (stackCount > bait.MaxStack)
+                        hints.Add("Too many in stack!");
+                }
+                else if (clipped > 0)
+                {
+                    hints.Add(BaitAwayHint);
+                }
+            }
+            else if (!IgnoreOtherBaits && targets.Any(t => IsClippedBy(actor, bait, t)))
+            {
+                hints.Add(BaitAOEHint);
+            }
+        }
+    }
+
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    {
+        foreach (var bait in ActiveBaits)
+        {
+            foreach (var target in GetTargets(bait))
+            {
+                if (!AlwaysDrawOtherBaits && target == pc)
+                    continue;
+
+                var color = bait.ForbiddenPlayers[pcSlot] ? ArenaColor.AOE : ArenaColor.SafeFromAOE;
+                var origin = BaitOrigin(bait, target);
+                var rot = BaitRotation(bait, target);
+                if (OnlyShowOutlines)
+                    bait.Shape.Outline(Arena, origin, rot, color);
+                else
+                    bait.Shape.Draw(Arena, origin, rot, color);
+            }
+        }
+    }
+
+    public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
+        => ActiveBaits.Any(b => GetTargets(b).Any(t => t == player)) ? BaiterPriority : PlayerPriority.Normal;
+
+    protected virtual IEnumerable<Actor> GetTargets(Bait bait)
+    {
+        var pool = Module.Raid.WithoutSlot().Where(p => bait.SpecifiedRole == Role.None || p.Role == bait.SpecifiedRole);
+        pool = AllowDeadTargets ? pool : pool.Where(p => !p.IsDead);
+        var ordered = bait.FromNearest ? pool.OrderBy(p => (p.Position - bait.Position).LengthSq()) : pool.OrderByDescending(p => (p.Position - bait.Position).LengthSq());
+        return ordered.Take(Math.Max(1, bait.NumTargets));
+    }
+
+    protected WPos BaitOrigin(Bait bait, Actor target) => (bait.CenterAtTarget ? target.Position : bait.Position) + bait.Offset;
+    protected Angle BaitRotation(Bait bait, Actor target) => bait.CustomRotation ?? Angle.FromDirection(target.Position - bait.Position);
+    protected bool IsClippedBy(Actor pc, Bait bait, Actor target) => bait.Shape.Check(pc.Position, BaitOrigin(bait, target), BaitRotation(bait, target));
+    protected IEnumerable<Actor> PlayersClippedBy(Bait bait, Actor target) => Raid.WithoutSlot().Exclude(target).Where(a => IsClippedBy(a, bait, target));
+}
+
+public class InverseWildCharge(BossModule module, float halfWidth, float distancebehind, uint aid = default, float fixedLength = default) : CastCounter(module, aid == default ? null : (Enum)Enum.ToObject(typeof(CompatAID), aid))
+{
+    public enum PlayerRole
+    {
+        Ignore,
+        Target,
+        TargetNotFirst,
+        Share,
+        ShareNotFirst,
+        Avoid,
+    }
+
+    public readonly float HalfWidth = halfWidth;
+    public readonly float DistanceBehind = distancebehind;
+    public readonly float FixedLength = fixedLength;
+    public Actor? Source;
+    public DateTime Activation;
+    public PlayerRole[] PlayerRoles = new PlayerRole[PartyState.MaxAllies];
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (Source == null || PlayerRoles[slot] == PlayerRole.Ignore)
+            return;
+
+        var inAny = EnumerateAOEs().Any(aoe => InAOE(aoe, actor));
+        switch (PlayerRoles[slot])
+        {
+            case PlayerRole.Share:
+            case PlayerRole.ShareNotFirst:
+                if (!inAny)
+                    hints.Add("Stay inside charge!");
+                break;
+            case PlayerRole.Avoid:
+                if (inAny)
+                    hints.Add("GTFO from charge!");
+                break;
+        }
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Source == null || PlayerRoles[slot] == PlayerRole.Ignore)
+            return;
+
+        foreach (var aoe in EnumerateAOEs())
+        {
+            var mask = Raid.WithSlot().Where(p => InAOE(aoe, p.Item2)).Mask();
+            hints.AddPredictedDamage(mask, Activation);
+            hints.AddForbiddenZone(
+                PlayerRoles[slot] == PlayerRole.Avoid
+                    ? ShapeContains.Rect(aoe.origin, aoe.dir, aoe.length, 0, HalfWidth)
+                    : ShapeContains.InvertedRect(aoe.origin, aoe.dir, aoe.length, 0, HalfWidth),
+                Activation);
+        }
+    }
+
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    {
+        if (Source == null || PlayerRoles[pcSlot] == PlayerRole.Ignore)
+            return;
+
+        foreach (var aoe in EnumerateAOEs())
+            Arena.ZoneRect(aoe.origin, aoe.dir, aoe.length, 0, HalfWidth, PlayerRoles[pcSlot] == PlayerRole.Avoid ? ArenaColor.AOE : ArenaColor.SafeFromAOE);
+    }
+
+    private (WPos origin, WDir dir, float length) GetAOEForTarget(WPos sourcePos, WPos targetPos)
+    {
+        var forward = (targetPos - sourcePos).Normalized();
+        var dir = -forward;
+        var origin = targetPos;
+        var length = FixedLength > 0 ? FixedLength : DistanceBehind;
+        return (origin, dir, length);
+    }
+
+    private bool InAOE((WPos origin, WDir dir, float length) aoe, Actor actor) => actor.Position.InRect(aoe.origin, aoe.dir, aoe.length, 0, HalfWidth);
+
+    private IEnumerable<(WPos origin, WDir dir, float length)> EnumerateAOEs()
+    {
+        if (Source == null)
+            yield break;
+
+        foreach (var (i, p) in Module.Raid.WithSlot().WhereSlot(i => PlayerRoles[i] is PlayerRole.Target or PlayerRole.TargetNotFirst))
+            yield return GetAOEForTarget(Source.Position, p.Position);
+    }
+}
+
 public class BaitAwayChargeTether(BossModule module, float halfWidth, double activationDelay, uint aidGood, uint aidBad = default, uint tetherIDBad = 57u, uint tetherIDGood = 1u, uint enemyOID = default, float minimumDistance = default)
     : StretchTetherDuo(module, minimumDistance, activationDelay, tetherIDBad, tetherIDGood, new AOEShapeRect(default, halfWidth), default, enemyOID)
 {
