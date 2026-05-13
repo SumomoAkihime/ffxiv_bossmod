@@ -3,10 +3,11 @@
 ## Current Baseline
 
 - Last Reborn sync checked: `49e17ab75d0959d1286586812f057a5cfbad4dd3`
-- Reborn component types: `120`
-- Local component types after batch 2: `109`
-- Missing component API types after batch 2: `24`
+- Reborn component types after recount: `118`
+- Local component types after batch 3: `110`
+- Missing component API types after batch 3: `19`
 - Batch sizing rule: missing `10-24` => migrate `2-4` APIs per batch
+- Recount note: parser now includes indented public nested component types, which is more reliable than the earlier top-level-only count.
 
 ## Batch 1 - Reborn compatibility adapters
 
@@ -34,33 +35,6 @@ Verification:
 
 - `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
 
-## Remaining Missing APIs
-
-- `ActionDrivenForcedMarch`
-- `BaitAwayChargeTether`
-- `CastGazes`
-- `CastHints`
-- `CastLineOfSightAOEComplex`
-- `CastTowersOpenWorld`
-- `Dispel`
-- `DonutStack`
-- `GenericBaitProximity`
-- `ImmuneKind`
-- `InterceptTether`
-- `InterceptTetherAOE`
-- `InterceptTetherStatus`
-- `InverseWildCharge`
-- `SimpleExaflare`
-- `SimpleKnockbackGroups`
-- `SingleTargetCasts`
-- `SingleTargetDelayableCasts`
-- `SingleTargetEventDelay`
-- `StatusStackSpread`
-- `StretchTetherDuo`
-- `StretchTetherSingle`
-- `ThinIce`
-- `VoidzoneAtCastTargetGroup`
-
 ## Batch 2 - Reborn compatibility adapters
 
 Implemented:
@@ -81,13 +55,54 @@ Verification:
 
 - `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
 
-## Next Batch Candidates
+## Batch 3 - Reborn compatibility adapters
 
-Current missing count is `24`, so the next batch should target `2-4` APIs.
+Implemented:
 
-Recommended next batch:
-
+- `SimpleExaflare`
 - `StretchTetherDuo`
 - `StretchTetherSingle`
 - `StatusStackSpread`
-- `SimpleExaflare`
+
+Notes:
+
+- `SimpleExaflare` maps Reborn's first/rest cast pattern onto this fork's existing `Exaflare.Line` model and supports cast-finish or event-cast progression.
+- `StretchTetherDuo` and `StretchTetherSingle` provide tether visibility, stretch-distance hints, and source/target bait tracking. Reborn's deeper immunity-specific behavior is accepted at the API surface but downgraded to this fork's existing hint/visibility behavior.
+- `StatusStackSpread` maps stack/spread statuses onto this fork's `UniformStackSpread` lists using status expiration for activation timing.
+
+Verification:
+
+- `dotnet build -c Release BossMod\BossMod.csproj`: passed with `0` warnings and `0` errors.
+
+## Remaining Missing APIs
+
+- `ActionDrivenForcedMarch`
+- `BaitAwayChargeTether`
+- `CastGazes`
+- `CastHints`
+- `CastLineOfSightAOEComplex`
+- `CastTowersOpenWorld`
+- `Dispel`
+- `DonutStack`
+- `GenericBaitProximity`
+- `InterceptTether`
+- `InterceptTetherAOE`
+- `InterceptTetherStatus`
+- `InverseWildCharge`
+- `SimpleKnockbackGroups`
+- `SingleTargetCasts`
+- `SingleTargetDelayableCasts`
+- `SingleTargetEventDelay`
+- `ThinIce`
+- `VoidzoneAtCastTargetGroup`
+
+## Next Batch Candidates
+
+Current missing count is `19`, so the next batch should target `2-4` APIs.
+
+Recommended next batch:
+
+- `ThinIce`
+- `Dispel`
+- `CastHints`
+- `InterceptTether`

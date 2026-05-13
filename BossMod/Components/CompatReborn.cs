@@ -139,6 +139,63 @@ public class SimpleChargeAOEGroups(BossModule module, uint[] aids, float halfWid
     }
 }
 
+public class SimpleExaflare(BossModule module, AOEShape shape, uint aidFirst, uint aidRest, float distance, double timeToMove, int explosionsLeft, int maxShownExplosions, bool castEvent = false, bool locationBased = false, Angle rotation = default)
+    : Exaflare(module, shape)
+{
+    private readonly float _timeToMove = (float)timeToMove;
+    private readonly bool _castEvent = castEvent;
+    private readonly bool _locationBased = locationBased;
+    private readonly Angle _rotation = rotation;
+    public int NumLinesFinished;
+
+    public SimpleExaflare(BossModule module, float radius, uint aidFirst, uint aidRest, float distance, double timeToMove, int explosionsLeft, int maxShownExplosions, bool castEvent = false, bool locationBased = false)
+        : this(module, new AOEShapeCircle(radius), aidFirst, aidRest, distance, timeToMove, explosionsLeft, maxShownExplosions, castEvent, locationBased)
+    {
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == aidFirst)
+            Lines.Add(new()
+            {
+                Next = _locationBased ? spell.LocXZ : caster.Position,
+                Advance = distance * caster.Rotation.ToDirection(),
+                Rotation = _rotation,
+                NextExplosion = Module.CastFinishAt(spell),
+                TimeToMove = _timeToMove,
+                ExplosionsLeft = explosionsLeft,
+                MaxShownExplosions = maxShownExplosions
+            });
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (!_castEvent && (spell.Action.ID == aidFirst || spell.Action.ID == aidRest))
+            AdvanceMatchingLine(spell.LocXZ);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (_castEvent && (spell.Action.ID == aidFirst || spell.Action.ID == aidRest))
+            AdvanceMatchingLine(_locationBased ? spell.TargetXZ : caster.Position);
+    }
+
+    private void AdvanceMatchingLine(WPos position)
+    {
+        var index = Lines.FindIndex(l => l.Next.AlmostEqual(position, 1));
+        if (index < 0)
+            return;
+
+        var line = Lines[index];
+        AdvanceLine(line, position);
+        if (line.ExplosionsLeft <= 0)
+        {
+            Lines.RemoveAt(index);
+            ++NumLinesFinished;
+        }
+    }
+}
+
 public abstract class TemporaryMisdirection(BossModule module, uint aid, string hint = "Applies temporary misdirection")
     : CastHint(module, (Enum)Enum.ToObject(typeof(CompatAID), aid), hint)
 {
@@ -256,6 +313,116 @@ public abstract class GenericBaitStack(BossModule module, uint aid = default, bo
         {
             hints.Add(HintStack, false);
         }
+    }
+}
+
+public class StretchTetherDuo(BossModule module, float minimumDistance, double activationDelay, uint tetherIDBad = 57u, uint tetherIDGood = 1u, AOEShape? shape = null, uint aid = default, uint enemyOID = default, bool knockbackImmunity = false)
+    : GenericBaitAway(module, aid == default ? null : (Enum)Enum.ToObject(typeof(CompatAID), aid), damageType: AIHints.PredictedDamageType.Tankbuster)
+{
+    public const string HintGood = "Tether is stretched!";
+    public const string HintBad = "Stretch tether further!";
+
+    public readonly uint TIDGood = tetherIDGood;
+    public readonly uint TIDBad = tetherIDBad;
+    public readonly float MinimumDistance = minimumDistance;
+    public readonly List<(Actor Actor, uint ID)> TetherOnActor = [];
+    public readonly List<(Actor Actor, DateTime Activation)> ActivationDelayOnActor = [];
+
+    private readonly AOEShape _shape = shape ?? new AOEShapeCircle(0.1f);
+    private readonly float _minimumDistanceSq = minimumDistance * minimumDistance;
+    private readonly float _activationDelay = (float)activationDelay;
+    private readonly IReadOnlyList<Actor> _enemies = enemyOID == default ? [] : module.Enemies(enemyOID);
+    private readonly bool _knockbackImmunity = knockbackImmunity;
+
+    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    {
+        var (player, enemy) = DetermineTetherSides(source, tether);
+        if (player == null || enemy == null)
+            return;
+
+        var activation = WorldState.FutureTime(_activationDelay);
+        CurrentBaits.Add(new(enemy, player, _shape, activation));
+        TetherOnActor.Add((player, tether.ID));
+        ActivationDelayOnActor.Add((player, activation));
+    }
+
+    public override void OnUntethered(Actor source, ActorTetherInfo tether)
+    {
+        var (player, enemy) = DetermineTetherSides(source, tether);
+        if (player == null || enemy == null)
+            return;
+
+        CurrentBaits.RemoveAll(b => b.Source == enemy && b.Target == player);
+        TetherOnActor.RemoveAll(t => t.Actor == player && t.ID == tether.ID);
+        ActivationDelayOnActor.RemoveAll(t => t.Actor == player);
+    }
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        _ = _knockbackImmunity;
+        foreach (var bait in ActiveBaitsOn(actor))
+        {
+            if ((bait.Source.Position - actor.Position).LengthSq() < _minimumDistanceSq)
+                hints.Add(HintBad);
+            else
+                hints.Add(HintGood, false);
+        }
+        base.AddHints(slot, actor, hints);
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        base.DrawArenaForeground(pcSlot, pc);
+        foreach (var bait in ActiveBaits)
+        {
+            var color = IsTether(bait.Target, TIDGood) || (bait.Source.Position - bait.Target.Position).LengthSq() >= _minimumDistanceSq ? ArenaColor.Safe : ArenaColor.Danger;
+            if (Arena.Config.ShowOutlinesAndShadows)
+                Arena.AddLine(bait.Source.Position, bait.Target.Position, 0xFF000000, 2);
+            Arena.AddLine(bait.Source.Position, bait.Target.Position, color);
+        }
+    }
+
+    protected bool IsTether(Actor actor, uint id) => TetherOnActor.Any(t => t.Actor == actor && t.ID == id);
+
+    private (Actor? player, Actor? enemy) DetermineTetherSides(Actor source, ActorTetherInfo tether)
+    {
+        if (tether.ID != TIDBad && tether.ID != TIDGood)
+            return (null, null);
+
+        var target = WorldState.Actors.Find(tether.Target);
+        if (target == null)
+            return (null, null);
+
+        var (player, enemy) = source.Type is ActorType.Player or ActorType.DutySupport ? (source, target) : (target, source);
+        if (!(player.Type is ActorType.Player or ActorType.DutySupport) || enemy.Type == ActorType.Player || (_enemies.Count != 0 && !_enemies.Contains(enemy)))
+        {
+            ReportError($"Unexpected tether pair: {source.InstanceID:X} -> {target.InstanceID:X}");
+            return (null, null);
+        }
+
+        return (player, enemy);
+    }
+}
+
+public class StretchTetherSingle(BossModule module, uint tetherID, float minimumDistance, AOEShape? shape = null, uint aid = default, uint enemyOID = default, double activationDelay = default, bool knockbackImmunity = false, bool needToKite = false)
+    : StretchTetherDuo(module, minimumDistance, activationDelay, tetherID, tetherID, shape, aid, enemyOID, knockbackImmunity)
+{
+    public const string HintKite = "Kite the add!";
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (needToKite && IsTether(actor, TIDBad))
+            hints.Add(HintKite);
+        else
+            base.AddHints(slot, actor, hints);
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        base.DrawArenaForeground(pcSlot, pc);
+        if (needToKite && IsTether(pc, TIDBad))
+            foreach (var bait in ActiveBaitsOn(pc))
+                Arena.Actor(bait.Source, ArenaColor.Object, true);
     }
 }
 
@@ -400,6 +567,26 @@ public class LineStack(BossModule module, uint aidMarker, uint aidResolve, doubl
             CurrentBaits.RemoveAt(0);
             ++NumCasts;
         }
+    }
+}
+
+public class StatusStackSpread(BossModule module, uint stackSid, uint spreadSid, float stackRadius, float spreadRadius, int minStackSize = 2, int maxStackSize = int.MaxValue, bool raidwideOnResolve = true, bool includeDeadTargets = false)
+    : UniformStackSpread(module, stackRadius, spreadRadius, minStackSize, maxStackSize, raidwideOnResolve: raidwideOnResolve, includeDeadTargets: includeDeadTargets)
+{
+    public override void OnStatusGain(Actor actor, ActorStatus status)
+    {
+        if (status.ID == stackSid)
+            AddStack(actor, status.ExpireAt);
+        else if (status.ID == spreadSid)
+            AddSpread(actor, status.ExpireAt);
+    }
+
+    public override void OnStatusLose(Actor actor, ActorStatus status)
+    {
+        if (status.ID == stackSid)
+            Stacks.RemoveAll(s => s.Target == actor);
+        else if (status.ID == spreadSid)
+            Spreads.RemoveAll(s => s.Target == actor);
     }
 }
 
