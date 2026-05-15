@@ -1,0 +1,1 @@
+using M05SDancingGreenStates = BossMod.Dawntrail.Savage.RM05SDancingGreen.RM05SDancingGreenStates;

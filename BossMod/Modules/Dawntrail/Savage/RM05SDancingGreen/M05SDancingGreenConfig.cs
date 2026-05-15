@@ -1,0 +1,1 @@
+using M05SDancingGreenConfig = BossMod.Dawntrail.Savage.RM05SDancingGreen.RM05SDancingGreenConfig;
