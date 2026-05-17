@@ -28,6 +28,12 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("显示测试用雷达与提示窗口", tooltip: "可在非 Boss 战斗中调试雷达和提示窗口布局", separator: true)]
     public bool ShowDemo = false;
 
+    [PropertyDisplay("Allow WIP modules", since: "7.5.0.10", tooltip: "WIP modules are unfinished and may have severe bugs. Enable at your own risk.")]
+    public bool AllowIncompleteModules = false;
+
+    [PropertyDisplay("Enable Striking Dummy module during Explorer Mode dungeons", since: "7.5.0.10", separator: true)]
+    public bool EnableDummyModule = false;
+
     // radar window settings
     [PropertyDisplay("启用雷达")]
     public bool Enable = true;
