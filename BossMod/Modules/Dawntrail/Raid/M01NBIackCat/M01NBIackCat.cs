@@ -43,7 +43,37 @@ sealed class Clawful(BossModule module) : Components.StackWithCastTargets(module
 sealed class GrimalkinGale(BossModule module) : Components.SpreadFromCastTargets(module, AID.GrimalkinGale, 5f);
 sealed class Overshadow(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Overshadow, new AOEShapeRect(60f, 2.5f));
 sealed class Shockwave(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Shockwave, 18f);
-sealed class OneTwoPaw(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.OneTwoPaw1, (uint)AID.OneTwoPaw2, (uint)AID.OneTwoPaw3, (uint)AID.OneTwoPaw4], new AOEShapeCone(60f, 90f.Degrees()));
+sealed class OneTwoPaw(BossModule module) : Components.GenericAOEs(module)
+{
+    private static readonly AOEShapeCone _shape = new(60f, 90f.Degrees());
+    private readonly List<AOEInstance> _aoes = [];
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        if (_aoes.Count <= NumCasts)
+            yield break;
+
+        // Current half-arena hit: imminent (deep yellow); next hit: preview (light yellow).
+        yield return _aoes[NumCasts] with { Risky = true, Color = ArenaColor.Danger };
+        if (_aoes.Count > NumCasts + 1)
+            yield return _aoes[NumCasts + 1] with { Risky = false, Color = ArenaColor.AOE };
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if ((AID)spell.Action.ID is AID.OneTwoPaw1 or AID.OneTwoPaw2 or AID.OneTwoPaw3 or AID.OneTwoPaw4)
+        {
+            _aoes.Add(new(_shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
+            _aoes.SortBy(aoe => aoe.Activation);
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if ((AID)spell.Action.ID is AID.OneTwoPaw1 or AID.OneTwoPaw2 or AID.OneTwoPaw3 or AID.OneTwoPaw4)
+            ++NumCasts;
+    }
+}
 sealed class BlackCatCrossing(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BlackCatCrossingFirst, (uint)AID.BlackCatCrossingRest], new AOEShapeCone(60f, 22.5f.Degrees()));
 sealed class MouserTelegraph(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.MouserTelegraphFirst, (uint)AID.MouserTelegraphSecond], new AOEShapeRect(10f, 5f));
 sealed class Mouser(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Mouser, new AOEShapeRect(10f, 5f));
