@@ -89,8 +89,18 @@ public static class BossModuleInfo
 
 // attribute that allows customizing boss module's metadata; it is optional, each field has some defaults that are fine in most cases
 [AttributeUsage(AttributeTargets.Class, Inherited = false)]
-public sealed class ModuleInfoAttribute() : Attribute
+public sealed class ModuleInfoAttribute : Attribute
 {
+    public ModuleInfoAttribute() { }
+    // Backward-compat: many local modules still pass legacy maturity as positional argument.
+    public ModuleInfoAttribute(BossModuleInfo.Maturity maturity)
+    {
+        Maturity = maturity;
+        Incomplete = maturity == BossModuleInfo.Maturity.WIP;
+    }
+
+    public BossModuleInfo.Maturity Maturity { get; } = BossModuleInfo.Maturity.Verified;
+
     public Type? StatesType { get; set; } // default: ns.xxxStates
     public Type? ConfigType { get; set; } // default: ns.xxxConfig
     public Type? ObjectIDType { get; set; } // default: ns.OID
