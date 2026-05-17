@@ -137,27 +137,33 @@ sealed class RevengeOfTheVines(BossModule module) : Components.RaidwideCast(modu
 sealed class ArenaChanges(BossModule module) : BossComponent(module)
 {
     private static readonly ArenaBoundsSquare DefaultBounds = new(20f);
-    private static readonly ArenaBoundsRect KnockbackBounds = new(30f, 7f);
-    private static readonly WPos DefaultCenter = new(100f, 100f);
-    private static readonly WPos KnockbackCenter = new(100f, 107f);
+    private static readonly ArenaBoundsRect MiddleBounds = new(12.5f, 25f);
+    private static readonly WPos MiddleCenter = new(100f, 5f);
 
     public override void OnMapEffect(byte index, uint state)
     {
-        // Simplified parity: switch to long narrow lane during NeoBombarianSpecial and restore afterwards.
-        if (index != 0x05)
+        if (state != 0x00020001u)
             return;
 
-        switch (state)
+        switch (index)
         {
-            case 0x00020001u:
-                Arena.Bounds = KnockbackBounds;
-                Arena.Center = KnockbackCenter;
+            case 0x00:
+                Arena.Bounds = MiddleBounds;
+                Arena.Center = MiddleCenter;
                 break;
-            case 0x00800004u:
-            case 0x08000004u:
+            case 0x01:
                 Arena.Bounds = DefaultBounds;
-                Arena.Center = DefaultCenter;
+                Arena.Center = MiddleCenter;
                 break;
+        }
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if ((AID)spell.Action.ID == AID.NeoBombarianSpecial)
+        {
+            Arena.Bounds = MiddleBounds;
+            Arena.Center = MiddleCenter;
         }
     }
 }
