@@ -2,7 +2,6 @@
 
 class Teleport(BossModule module) : Components.CastCounter(module, AID.Teleport);
 class TeraSlash(BossModule module) : Components.CastCounter(module, AID.TeraSlash);
-class DoomArc(BossModule module) : Components.RaidwideCast(module, AID.DoomArc);
 class UnbridledRage(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeRect(100, 4), (uint)IconID.UnbridledRage, AID.UnbridledRageAOE, 5.9f);
 class DarkNova(BossModule module) : Components.SpreadFromCastTargets(module, AID.DarkNova, 6);
 

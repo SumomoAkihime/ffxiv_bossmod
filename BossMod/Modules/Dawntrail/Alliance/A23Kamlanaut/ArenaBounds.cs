@@ -58,6 +58,3 @@ class ArenaBounds(BossModule module) : Components.GenericAOEs(module)
         }
     }
 }
-
-// Reborn-compatible mechanism name; keep implementation in canonical folder.
-class ArenaChanges(BossModule module) : ArenaBounds(module);

@@ -14,10 +14,8 @@ class CriticalReaverRaidwide(BossModule module) : Components.CastCounter(module,
 class CriticalReaverEnrage(BossModule module) : Components.CastInterruptHint(module, AID.CriticalReaverEnrage);
 
 [ModuleInfo(PrimaryActorOID = (uint)OID.BossGK, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1015, NameID = 13641)]
-public class A13ArkAngels(WorldState ws, Actor primary) : BossModule(ws, primary, new(865, -820), DefaultBounds)
+public class A13ArkAngels(WorldState ws, Actor primary) : BossModule(ws, primary, new(865, -820), new ArenaBoundsCircle(25))
 {
-    public static readonly ArenaBoundsCircle DefaultBounds = new(25);
-
     private Actor? _bossHM;
     private Actor? _bossEV;
     private Actor? _bossMR;

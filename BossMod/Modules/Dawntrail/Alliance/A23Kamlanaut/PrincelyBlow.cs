@@ -59,6 +59,3 @@ class PrincelyBlowKnockback(BossModule module) : Components.Knockback(module, AI
         }
     }
 }
-
-// Reborn naming compatibility.
-class PrincelyBlowKB(BossModule module) : PrincelyBlowKnockback(module);

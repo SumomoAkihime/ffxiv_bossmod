@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Dawntrail.Alliance.A21FaithboundKirin;
 
-class WringerLegacy(BossModule module) : Components.StandardAOEs(module, AID.WringerSlow, 14);
+class Wringer(BossModule module) : Components.StandardAOEs(module, AID.WringerSlow, 14);
 class DeadWringer(BossModule module) : Components.StandardAOEs(module, AID.DeadWringerSlow, new AOEShapeDonut(14, 30));
 class Striking(BossModule module) : Components.GroupedAOEs(module, [AID.StrikingRightBoss, AID.StrikingLeftBoss], new AOEShapeCircle(10));
 class Smiting(BossModule module) : Components.GroupedAOEs(module, [AID.SmitingRightSlow, AID.SmitingLeftSlow], new AOEShapeCircle(30));

@@ -177,15 +177,15 @@ class A24EaldnarcheStates : StateMachineBuilder
         OmegaJavelin(id + 0x22000, 5.2f);
 
         Cast(id + 0x30000, AID.DuplicateCast, 3.7f, 2)
-            .ActivateOnEnter<Duplicate>();
-        ComponentCondition<Duplicate>(id + 0x30010, 11.1f, d => d.NumCasts > 0, "Tiles 1");
+            .ActivateOnEnter<Duplicate1>();
+        ComponentCondition<Duplicate1>(id + 0x30010, 11.1f, d => d.NumCasts > 0, "Tiles 1");
         Cast(id + 0x31000, AID.DuplicateCast, 2, 2);
-        ComponentCondition<Duplicate>(id + 0x31010, 11.1f, d => d.NumCasts > 10, "Tiles 2")
-            .DeactivateOnExit<Duplicate>();
+        ComponentCondition<Duplicate1>(id + 0x31010, 11.1f, d => d.NumCasts > 10, "Tiles 2")
+            .DeactivateOnExit<Duplicate1>();
 
         Cast(id + 0x32000, AID.Excelsior, 11.5f, 7)
             .ActivateOnEnter<TileSwap>()
-            .ActivateOnEnter<ArenaChanges>()
+            .ActivateOnEnter<TileArena>()
             .ActivateOnEnter<TileVanish>();
         Timeout(id + 0x32010, 0.6f, "Stun").SetHint(StateMachine.StateHint.DowntimeStart);
 
@@ -202,7 +202,7 @@ class A24EaldnarcheStates : StateMachineBuilder
             .ActivateOnEnter<Flare>()
             .ActivateOnEnter<FlareRect>()
             .ActivateOnEnter<OrbitalWind>()
-            .ActivateOnEnter<TornadoPull>()
+            .ActivateOnEnter<TornadoAttract>()
             .ActivateOnEnter<TornadoBoss>();
 
         Cast(id + 0x43000, AID.GaeaStreamCast, 12.7f, 3)
@@ -213,7 +213,7 @@ class A24EaldnarcheStates : StateMachineBuilder
             .DeactivateOnExit<Flare>()
             .DeactivateOnExit<FlareRect>()
             .DeactivateOnExit<OrbitalWind>()
-            .DeactivateOnExit<TornadoPull>()
+            .DeactivateOnExit<TornadoAttract>()
             .DeactivateOnExit<TornadoBoss>();
 
         UranosCascade(id + 0x44000, 15.2f);
@@ -234,7 +234,7 @@ class A24EaldnarcheStates : StateMachineBuilder
             .ActivateOnEnter<Flare>()
             .ActivateOnEnter<FlareRect>()
             .ActivateOnEnter<OrbitalWind>()
-            .ActivateOnEnter<TornadoPull>()
+            .ActivateOnEnter<TornadoAttract>()
             .ActivateOnEnter<TornadoBoss>()
             .ActivateOnEnter<Duplicate2>()
             .ActivateOnEnter<StellarBurst>()

@@ -12,10 +12,6 @@ public enum OID : uint
     GuloolJaJa = 0x4E53, // R5.000, x0 (spawn during fight)
     HollowKing = 0x4D96, // R25.000, x0 (spawn during fight)
     HollowKingAutos = 0x4D9B, // R0.000, x0 (spawn during fight), Part type
-    // support Reborn actor naming/coverage; no mechanics are attached to these ids here
-    Alxaal = 0x4D98, // R0.500, x1
-    Prishe = 0x4D99, // R0.465, x1
-    Exit = 0x1E850B, // R0.500, x1, EventObj type
 }
 
 public enum AID : uint
@@ -203,7 +199,10 @@ class TwilightNebula(BossModule module) : FloorAOE(module, AID.TwilightNebula1)
     }
 }
 
-class Starflare(BossModule module) : Components.GroupedAOEs(module, [AID.StarflareP1Fast, AID.StarflareP1Slow], new AOEShapeRect(60, 5), maxCasts: 10);
+class Starflare(BossModule module) : Components.GroupedAOEs(module, [AID.StarflareP1Fast, AID.StarflareP1Slow], new AOEShapeRect(60, 5))
+{
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Casters.Where(c => Helpers.Level(c) == Helpers.Level(actor)).Take(5).Select(c => new AOEInstance(Shape, c.CastInfo!.LocXZ, c.CastInfo!.Rotation, Module.CastFinishAt(c.CastInfo)));
+}
 
 class VortexLook(BossModule module) : Components.GenericGaze(module, null, true)
 {

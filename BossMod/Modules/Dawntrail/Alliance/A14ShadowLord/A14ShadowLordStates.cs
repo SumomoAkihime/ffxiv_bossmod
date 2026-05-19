@@ -269,8 +269,6 @@ class A14ShadowLordStates : StateMachineBuilder
     private void DoomArc(uint id, float delay)
     {
         Cast(id, AID.DoomArc, delay, 15, "Raidwide")
-            .ActivateOnEnter<DoomArc>()
-            .DeactivateOnExit<DoomArc>()
             .SetHint(StateMachine.StateHint.Raidwide);
     }
 }

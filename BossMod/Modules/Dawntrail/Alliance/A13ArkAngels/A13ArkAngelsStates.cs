@@ -7,8 +7,7 @@ class A13ArkAngelsStates : StateMachineBuilder
     public A13ArkAngelsStates(A13ArkAngels module) : base(module)
     {
         _module = module;
-        DeathPhase(0, SinglePhase)
-            .ActivateOnEnter<ArenaChange>();
+        DeathPhase(0, SinglePhase);
     }
 
     private void SinglePhase(uint id)
@@ -45,7 +44,6 @@ class A13ArkAngelsStates : StateMachineBuilder
         Rampage(id + 0x280000, 15.1f);
 
         SimpleState(id + 0xFF0000, 10000, "???")
-            .ActivateOnEnter<ArenaChange>()
             .ActivateOnEnter<Cloudsplitter>()
             .ActivateOnEnter<TachiYukikaze>()
             .ActivateOnEnter<TachiGekko>()
@@ -112,8 +110,7 @@ class A13ArkAngelsStates : StateMachineBuilder
     {
         ActorCast(id, _module.BossTT, AID.Meteor, delay, 11, true, "Interrupt", true)
             .ActivateOnEnter<Meteor>()
-            .DeactivateOnExit<Meteor>()
-            .OnExit(() => _module.Arena.Bounds = A13ArkAngels.DefaultBounds);
+            .DeactivateOnExit<Meteor>();
     }
 
     private State HavocSpiral(uint id, float delay)
@@ -151,8 +148,7 @@ class A13ArkAngelsStates : StateMachineBuilder
     private void Intermission(uint id, float delay)
     {
         Targetable(id, false, delay, "Bosses disappear")
-            .DeactivateOnExit<DecisiveBattle>()
-            .DeactivateOnExit<ArenaChange>();
+            .DeactivateOnExit<DecisiveBattle>();
         ActorTargetable(id + 1, _module.BossHM, true, 4.3f, "Bosses appear")
             .SetHint(StateMachine.StateHint.DowntimeEnd);
     }
