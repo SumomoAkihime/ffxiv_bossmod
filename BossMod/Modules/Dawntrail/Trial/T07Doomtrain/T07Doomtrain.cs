@@ -86,7 +86,7 @@ sealed class ArcaneRevelation(BossModule module) : Components.GenericBaitAway(mo
 }
 
 // Low-risk arena progression: follow car swaps by UnlimitedExpress casts.
-sealed class ArenaRailcars(BossModule module) : BossComponent(module)
+class ArenaRailcars(BossModule module) : BossComponent(module)
 {
     private const float PlayerCenterSnapRange = 45f;
     private static readonly WPos Car1Center = new(100f, 100f);

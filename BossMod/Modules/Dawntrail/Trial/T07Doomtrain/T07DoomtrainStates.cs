@@ -5,7 +5,7 @@ sealed class T07DoomtrainStates : StateMachineBuilder
     public T07DoomtrainStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<ArenaRailcars>()
+            .ActivateOnEnter<CarGeometry>()
             .ActivateOnEnter<LightningBurstTankBuster>()
             .ActivateOnEnter<LightningExpress>()
             .ActivateOnEnter<WindpipeDrawIn>()

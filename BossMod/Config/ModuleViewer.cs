@@ -418,11 +418,11 @@ public sealed class ModuleViewer : IDisposable
             case BossModuleInfo.GroupType.BozjaCE:
                 groupId |= module.GroupID;
                 var ceName = $"{FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name)} CE";
-                return (new(ceName, groupId, groupId), new(module, Service.LuminaRow<DynamicEvent>(module.NameID)!.Value.Name.ToString(), module.SortOrder));
+                return (new(ceName, groupId, groupId), new(module, DynamicEventNameOrBNpc(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.BozjaDuel:
                 groupId |= module.GroupID;
                 var duelName = $"{FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name)} Duel";
-                return (new(duelName, groupId, groupId), new(module, Service.LuminaRow<DynamicEvent>(module.NameID)!.Value.Name.ToString(), module.SortOrder));
+                return (new(duelName, groupId, groupId), new(module, DynamicEventNameOrBNpc(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.EurekaNM:
                 groupId |= module.GroupID;
                 var nmName = FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name);
@@ -431,6 +431,19 @@ public sealed class ModuleViewer : IDisposable
                 return (new("Gold saucer", groupId, groupId), new(module, $"{Service.LuminaRow<GoldSaucerTextData>(module.GroupID)?.Text}: {BNpcName(module.NameID)}", module.SortOrder));
             default:
                 return (new("Ungrouped", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
+        }
+    }
+
+    private static string DynamicEventNameOrBNpc(uint id)
+    {
+        try
+        {
+            var name = Service.LuminaRow<DynamicEvent>(id)!.Value.Name.ToString();
+            return string.IsNullOrWhiteSpace(name) ? BNpcName(id) : name;
+        }
+        catch
+        {
+            return BNpcName(id);
         }
     }
 

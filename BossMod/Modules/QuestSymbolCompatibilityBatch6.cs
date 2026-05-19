@@ -1,10 +1,3 @@
-namespace BossMod.Heavensward.Quest.MSQ.DivineIntervention
-{
-    class ThunderThrust(BossModule module) : BossComponent(module);
-    class SerGrinnauxStates(BossModule module) : StateMachineBuilder(module);
-    public class SerGrinnaux(WorldState ws, Actor primary) : BossModule(ws, primary, default, new ArenaBoundsCircle(20));
-}
-
 namespace BossMod.Heavensward.Quest.MSQ.FlyFreeMyPretty
 {
     class AutoReaperAI(BossModule module) : BossComponent(module);
