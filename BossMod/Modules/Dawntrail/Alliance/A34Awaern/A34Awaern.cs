@@ -43,4 +43,15 @@ class A34AwaernStates : StateMachineBuilder
 }
 
 [ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1117, NameID = 14838)]
-public class A34Awaern(WorldState ws, Actor primary) : BossModule(ws, primary, new(-720, 720), new ArenaBoundsSquare(28));
+public class A34Awaern(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, new ArenaBoundsSquare(28))
+{
+    public static readonly WPos ArenaCenter = new(-720f, 720f);
+    public static readonly uint[] GardenofRuHmetMobs = [(uint)OID.Boss, (uint)OID.Awzdei];
+
+    protected override void DrawEnemies(int pcSlot, Actor pc)
+    {
+        foreach (var oid in GardenofRuHmetMobs)
+            foreach (var actor in Enemies((OID)oid))
+                Arena.Actor(actor, ArenaColor.Enemy);
+    }
+}

@@ -3,16 +3,6 @@
 class IonEfflux(BossModule module) : Components.RaidwideCast(module, AID.IonEfflux);
 class Antimatter(BossModule module) : Components.SingleTargetCast(module, AID.Antimatter);
 class EnergyRay(BossModule module) : Components.StandardAOEs(module, AID.EnergyRay1, new AOEShapeRect(40, 8));
-class OmegaBlaster(BossModule module) : Components.GroupedAOEs(module, [AID.OmegaBlasterFirst, AID.OmegaBlasterSecond], new AOEShapeCone(50, 90.Degrees()), maxCasts: 1)
-{
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        base.OnCastStarted(caster, spell);
-
-        if (IDs.Contains(spell.Action))
-            Casters.SortBy(c => Module.CastFinishAt(c.CastInfo));
-    }
-}
 class Crash(BossModule module) : Components.StandardAOEs(module, AID.Crash, new AOEShapeRect(40, 12));
 class TractorBeam(BossModule module) : Components.Knockback(module, AID.TractorBeam)
 {
@@ -43,32 +33,6 @@ class TractorBeam(BossModule module) : Components.Knockback(module, AID.TractorB
     }
 }
 class AntiPersonnelMissile(BossModule module) : Components.SpreadFromCastTargets(module, AID.AntiPersonnelMissile, 6);
-
-class SurfaceMissile(BossModule module) : Components.GenericAOEs(module, AID.SurfaceMissile)
-{
-    private readonly List<(WPos, DateTime)> _tiles = [];
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.TakeWhileTime(_tiles, t => t.Item2, 1).Select(t => new AOEInstance(new AOEShapeRect(6, 10, 6), t.Item1, default, t.Item2));
-
-    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
-    {
-        if ((IconID)iconID == IconID.SurfaceMissile)
-        {
-            var delay = _tiles.Count >= 8 ? 8.3f : _tiles.Count >= 4 ? 9.2f : 10.1f;
-            _tiles.Add((actor.Position, WorldState.FutureTime(delay)));
-        }
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if (spell.Action == WatchedAction)
-        {
-            NumCasts++;
-            if (_tiles.Count > 0)
-                _tiles.RemoveAt(0);
-        }
-    }
-}
 
 class CitadelBuster(BossModule module) : Components.RaidwideCast(module, AID.CitadelBuster);
 class HyperPulse(BossModule module) : Components.StandardAOEs(module, AID.HyperPulse, 24);
@@ -127,11 +91,9 @@ class A22OmegaTheOneStates : StateMachineBuilder
         ComponentCondition<ReflectedRay>(id + 0x3010, 0.7f, r => r.NumCasts > 0, "Laser 2")
             .DeactivateOnExit<ReflectedRay>();
 
-        ComponentCondition<GuidedMissile>(id + 0x4000, 15.4f, g => g.NumCasts > 0, "Offset baits")
-            .ActivateOnEnter<GuidedMissile>()
-            .ActivateOnEnter<GuidedMissileBait>()
-            .DeactivateOnExit<GuidedMissile>()
-            .DeactivateOnExit<GuidedMissileBait>();
+        ComponentCondition<TrajectoryProjection>(id + 0x4000, 15.4f, g => g.NumCasts > 0, "Offset baits")
+            .ActivateOnEnter<TrajectoryProjection>()
+            .DeactivateOnExit<TrajectoryProjection>();
 
         ActorCast(id + 0x5000, _module.Ultima, AID.TractorFieldCast, 0.6f, 5, true, "Stun + bosses disappear")
             .ActivateOnEnter<MultiMissile1>()
@@ -163,11 +125,9 @@ class A22OmegaTheOneStates : StateMachineBuilder
 
         DetractorBeam(id + 0x10000, 5.3f);
 
-        ComponentCondition<GuidedMissile>(id + 0x11000, 10.9f, g => g.NumCasts > 0, "Offset baits")
-            .ActivateOnEnter<GuidedMissile>()
-            .ActivateOnEnter<GuidedMissileBait>()
-            .DeactivateOnExit<GuidedMissile>()
-            .DeactivateOnExit<GuidedMissileBait>();
+        ComponentCondition<TrajectoryProjection>(id + 0x11000, 10.9f, g => g.NumCasts > 0, "Offset baits")
+            .ActivateOnEnter<TrajectoryProjection>()
+            .DeactivateOnExit<TrajectoryProjection>();
 
         ComponentCondition<EnergyRay>(id + 0x12000, 13.2f, e => e.NumCasts > 0, "Laser 1")
             .ActivateOnEnter<EnergyRay>()
@@ -197,8 +157,7 @@ class A22OmegaTheOneStates : StateMachineBuilder
             .ActivateOnEnter<IonEfflux>()
             .ActivateOnEnter<Antimatter>()
             .ActivateOnEnter<TractorBeam>()
-            .ActivateOnEnter<GuidedMissile>()
-            .ActivateOnEnter<GuidedMissileBait>()
+            .ActivateOnEnter<TrajectoryProjection>()
             .ActivateOnEnter<Crash>();
     }
 

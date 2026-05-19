@@ -1,5 +1,8 @@
-// Compatibility aliases for Reborn M08S naming on top of local RM08S implementation.
-using ArenaChanges = BossMod.Dawntrail.Savage.RM08SHowlingBlade.P2Arena;
-using ElementalPurge = BossMod.Dawntrail.Savage.RM08SHowlingBlade.ElementalPurgeBind;
-using MillenialDecay = BossMod.Dawntrail.Savage.RM08SHowlingBlade.MillennialDecay;
-using RiseOfTheHuntersBlade = BossMod.Dawntrail.Savage.RM08SHowlingBlade.LoneWolfTethers;
+namespace BossMod.Dawntrail.Savage.RM08SHowlingBlade;
+
+// Reborn naming compatibility shims.
+// These types are not wired into the state machine here; they only provide symbol-level compatibility.
+class ArenaChanges(BossModule module) : P2Arena(module);
+class ElementalPurge(BossModule module) : ElementalPurgeBind(module);
+class MillenialDecay(BossModule module) : MillennialDecay(module);
+class RiseOfTheHuntersBlade(BossModule module) : LoneWolfTethers(module);

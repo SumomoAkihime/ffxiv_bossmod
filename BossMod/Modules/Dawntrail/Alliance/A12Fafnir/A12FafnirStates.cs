@@ -5,6 +5,8 @@ class A12FafnirStates : StateMachineBuilder
     public A12FafnirStates(BossModule module) : base(module)
     {
         SimplePhase(0, Phase1, "P1: Until 85%")
+            .ActivateOnEnter<ArenaChange>()
+            .ActivateOnEnter<DragonBreathArenaChange>()
             .ActivateOnEnter<ShudderingEarth>()
             .Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed || Module.FindComponent<ShudderingEarth>()?.NumCasts > 0;
         SimplePhase(1, Phase2, "P2: Until 15%")

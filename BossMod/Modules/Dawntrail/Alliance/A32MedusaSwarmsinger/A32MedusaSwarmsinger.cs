@@ -43,6 +43,28 @@ public enum AID : uint
     DisregardRaidwide = 50100, // 4DAB->self, 4.0s cast, range 60 circle
     DisregardRect = 50101, // Helper->self, 4.0s cast, range 55 width 10 rect
     Petrifaction = 50102, // 4DAB->self, 5.0s cast, range 60 circle
+    DivineArrowCone = 50130, // Helper->self, 1.0s cast, range 45 90-degree cone
+    DivineArrowClose2 = 50131, // Helper->self, no cast, range 10 circle
+    DivineArrowMid2 = 50132, // Helper->self, no cast, range 10-23 donut
+    DivineArrowFar2 = 50133, // Helper->self, no cast, range 23-36 donut
+    DivineArrowClose = 50134, // Helper->self, 13.5s cast, range 10 circle
+    DivineArrowMid = 50135, // Helper->self, 11.5s cast, range 10-23 donut
+    DivineArrowFar = 50136, // Helper->self, 9.5s cast, range 23-36 donut
+    DivineArrowLines = 50137, // Helper->self, 3.5s cast, range 60 width 10 rect
+    DivineArrowLines2 = 50138, // Helper->self, 5.5s cast, range 60 width 10 rect
+    DivineArrowSpamCone = 50478, // Helper->self, no cast, range 45 90-degree cone
+}
+
+public enum IconID : uint
+{
+    DivineArrowN = 691, // Boss->self
+    DivineArrowS = 692, // Boss->self
+    DivineArrowE = 693, // Boss->self
+    DivineArrowW = 694, // Boss->self
+    DivineArrowNR = 695, // Boss->self
+    DivineArrowSR = 696, // Boss->self
+    DivineArrowER = 697, // Boss->self
+    DivineArrowWR = 698, // Boss->self
 }
 
 class Earthshatter(BossModule module) : Components.StandardAOEs(module, AID.Earthshatter, 8);
@@ -100,6 +122,107 @@ class BellowingGrunt(BossModule module) : Components.RaidwideCast(module, AID.Be
 class Disregard(BossModule module) : Components.RaidwideCast(module, AID.DisregardRaidwide);
 class DisregardRect(BossModule module) : Components.StandardAOEs(module, AID.DisregardRect, new AOEShapeRect(55, 5), highlightImminent: true);
 class Petrifaction(BossModule module) : Components.CastGaze(module, AID.Petrifaction);
+class DivineArrowCone(BossModule module) : Components.GenericRotatingAOE(module)
+{
+    static readonly AOEShapeCone _cone = new(45, 45.Degrees());
+
+    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
+    {
+        Angle starting;
+        Angle advance;
+
+        switch ((IconID)iconID)
+        {
+            case IconID.DivineArrowN:
+                starting = 180.Degrees();
+                advance = -20.Degrees();
+                break;
+            case IconID.DivineArrowS:
+                starting = default;
+                advance = -20.Degrees();
+                break;
+            case IconID.DivineArrowE:
+                starting = 90.Degrees();
+                advance = -20.Degrees();
+                break;
+            case IconID.DivineArrowW:
+                starting = -90.Degrees();
+                advance = -20.Degrees();
+                break;
+            case IconID.DivineArrowNR:
+                starting = 180.Degrees();
+                advance = 20.Degrees();
+                break;
+            case IconID.DivineArrowSR:
+                starting = default;
+                advance = 20.Degrees();
+                break;
+            case IconID.DivineArrowER:
+                starting = 90.Degrees();
+                advance = 20.Degrees();
+                break;
+            case IconID.DivineArrowWR:
+                starting = -90.Degrees();
+                advance = 20.Degrees();
+                break;
+            default:
+                return;
+        }
+
+        Sequences.Add(new(_cone, actor.Position, starting, advance, WorldState.FutureTime(13.3f), 0.67f, 18, MaxShownAOEs: 8));
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if ((AID)spell.Action.ID is AID.DivineArrowCone or AID.DivineArrowSpamCone)
+            AdvanceSequence(caster.Position, spell.Rotation, WorldState.CurrentTime);
+    }
+}
+
+class DivineArrowCircles(BossModule module) : Components.GenericAOEs(module)
+{
+    readonly List<AOEInstance> _predicted = [];
+    static readonly AOEShapeCircle _closeShape = new(10);
+    static readonly AOEShapeDonut _midShape = new(10, 23);
+    static readonly AOEShapeDonut _farShape = new(23, 36);
+    static readonly HashSet<AID> _watched = [AID.DivineArrowClose, AID.DivineArrowClose2, AID.DivineArrowMid, AID.DivineArrowMid2, AID.DivineArrowFar, AID.DivineArrowFar2];
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _predicted;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        AOEShape? shape = null;
+        switch ((AID)spell.Action.ID)
+        {
+            case AID.DivineArrowClose:
+            case AID.DivineArrowClose2:
+                shape = _closeShape;
+                break;
+            case AID.DivineArrowMid:
+            case AID.DivineArrowMid2:
+                shape = _midShape;
+                break;
+            case AID.DivineArrowFar:
+            case AID.DivineArrowFar2:
+                shape = _farShape;
+                break;
+        }
+
+        if (shape != null)
+            _predicted.Add(new(shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (_watched.Contains((AID)spell.Action.ID))
+        {
+            ++NumCasts;
+            _predicted.RemoveAll(p => p.Origin.AlmostEqual(caster.Position, 1));
+        }
+    }
+}
+
+class DivineArrowLines(BossModule module) : Components.GroupedAOEs(module, [AID.DivineArrowLines, AID.DivineArrowLines2], new AOEShapeRect(60, 5), maxCasts: 6);
 
 class A32MedusaSwarmsingerStates : StateMachineBuilder
 {
@@ -121,6 +244,9 @@ class A32MedusaSwarmsingerStates : StateMachineBuilder
             .ActivateOnEnter<Disregard>()
             .ActivateOnEnter<DisregardRect>()
             .ActivateOnEnter<Petrifaction>()
+            .ActivateOnEnter<DivineArrowCone>()
+            .ActivateOnEnter<DivineArrowCircles>()
+            .ActivateOnEnter<DivineArrowLines>()
             .Raw.Update = () => module.Enemies(OID.MedusaSwarmsinger).Any(e => e.IsDeadOrDestroyed);
     }
 }

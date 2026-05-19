@@ -12,6 +12,10 @@ public enum OID : uint
     GuloolJaJa = 0x4E53, // R5.000, x0 (spawn during fight)
     HollowKing = 0x4D96, // R25.000, x0 (spawn during fight)
     HollowKingAutos = 0x4D9B, // R0.000, x0 (spawn during fight), Part type
+    // support Reborn actor naming/coverage; no mechanics are attached to these ids here
+    Alxaal = 0x4D98, // R0.500, x1
+    Prishe = 0x4D99, // R0.465, x1
+    Exit = 0x1E850B, // R0.500, x1, EventObj type
 }
 
 public enum AID : uint

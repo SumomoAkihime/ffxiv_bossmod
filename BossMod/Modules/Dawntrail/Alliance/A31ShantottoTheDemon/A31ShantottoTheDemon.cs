@@ -242,6 +242,9 @@ class Winds : Components.Knockback
     }
 }
 
+// Reborn compatibility name: keep single implementation to avoid duplicate AID listeners.
+class AeroDynamics(BossModule module) : Winds(module);
+
 class FinalExam(BossModule module) : Components.UniformStackSpread(module, 6, 0)
 {
     public int NumCasts { get; private set; }
@@ -275,7 +278,7 @@ class A31ShantottoTheDemonStates : StateMachineBuilder
             .ActivateOnEnter<FallingRubble2>()
             .ActivateOnEnter<FallingRubble3>()
             .ActivateOnEnter<FallingRubble4>()
-            .ActivateOnEnter<Winds>();
+            .ActivateOnEnter<AeroDynamics>();
     }
 
     void P1(uint id)
@@ -356,7 +359,7 @@ class A31ShantottoTheDemonStates : StateMachineBuilder
 
         Cast(id + 0x100, AID.AeroDynamicsCast, 1.3f, 3);
 
-        ComponentCondition<Winds>(id + 0x200, 11, w => w.NumCasts > 0, "Knockback")
+        ComponentCondition<AeroDynamics>(id + 0x200, 11, w => w.NumCasts > 0, "Knockback")
             .ActivateOnEnter<GroundbreakingQuake>();
 
         Cast(id + 0x300, AID.GroundbreakingQuakeCast, 0.3f, 8);

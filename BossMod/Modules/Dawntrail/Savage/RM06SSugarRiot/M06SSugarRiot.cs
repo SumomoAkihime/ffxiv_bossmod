@@ -1,1 +1,4 @@
-using M06SSugarRiot = BossMod.Dawntrail.Savage.RM06SSugarRiot.RM06SSugarRiot;
+namespace BossMod.Dawntrail.Savage.RM06SSugarRiot;
+
+// Reborn naming compatibility bridge; no ModuleInfo to avoid duplicate module activation.
+public class M06SSugarRiot(WorldState ws, Actor primary) : RM06SSugarRiot(ws, primary);

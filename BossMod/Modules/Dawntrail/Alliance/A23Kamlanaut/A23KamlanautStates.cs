@@ -10,28 +10,6 @@ class ElementalCounter(BossModule module) : Components.CastCounterMulti(module, 
 
 class LightBlade(BossModule module) : Components.StandardAOEs(module, AID.LightBlade, new AOEShapeRect(120, 6.5f));
 
-class SublimeEstoc(BossModule module) : Components.GenericAOEs(module, AID.SublimeEstoc)
-{
-    private readonly List<(Actor, DateTime)> _casters = [];
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _casters.Select(c => new AOEInstance(new AOEShapeRect(40, 2.5f), c.Item1.Position, c.Item1.Rotation, c.Item2));
-
-    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
-    {
-        if ((OID)actor.OID == OID.SublimeEstoc && id == 0x2488)
-            _casters.Add((actor, WorldState.FutureTime(5.1f)));
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if (spell.Action == WatchedAction)
-        {
-            NumCasts++;
-            _casters.RemoveAll(c => c.Item1 == caster);
-        }
-    }
-}
-
 class GreatWheel(BossModule module) : Components.GroupedAOEs(module, [AID.GreatWheel3, AID.GreatWheel1, AID.GreatWheel2, AID.GreatWheel4], new AOEShapeCircle(10));
 class GreatWheelCleave(BossModule module) : Components.StandardAOEs(module, AID.GreatWheelCleave, new AOEShapeCone(80, 90.Degrees()));
 class Fetters(BossModule module) : Components.CastCounter(module, default)
@@ -56,24 +34,6 @@ class TranscendentUnion(BossModule module) : Components.RaidwideCastDelay(module
 class ElementalResonance(BossModule module) : Components.StandardAOEs(module, AID.ElementalResonance, 18);
 class EmpyrealBanishIII(BossModule module) : Components.SpreadFromCastTargets(module, AID.EmpyrealBanishIII, 5);
 class IllumedEstoc(BossModule module) : Components.StandardAOEs(module, AID.IllumedEstoc, new AOEShapeRect(120, 6.5f));
-class ShieldBash(BossModule module) : Components.KnockbackFromCastTarget(module, AID.ShieldBash, 30)
-{
-    private static readonly float _platformSafeRad = MathF.Atan2(5, 40);
-
-    public static Func<WPos, bool> SafetyShape(WPos origin) => p =>
-    {
-        var d = p - origin;
-        var angle = d.ToAngle();
-        return !angle.AlmostEqual(180.Degrees(), _platformSafeRad) && !angle.AlmostEqual(60.Degrees(), _platformSafeRad) && !angle.AlmostEqual(-60.Degrees(), _platformSafeRad) || d.LengthSq() >= 100;
-    };
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        foreach (var src in Sources(slot, actor))
-            if (!IsImmune(slot, src.Activation))
-                hints.AddForbiddenZone(SafetyShape(src.Origin), src.Activation);
-    }
-}
 class EmpyrealBanishIV(BossModule module) : Components.StackWithCastTargets(module, AID.EmpyrealBanishIV, 5);
 
 class A23KamlanautStates : StateMachineBuilder
@@ -83,7 +43,7 @@ class A23KamlanautStates : StateMachineBuilder
         DeathPhase(0, SinglePhase)
             .ActivateOnEnter<EnspiritedSwordplay>()
             .ActivateOnEnter<LightBlade>()
-            .ActivateOnEnter<ArenaBounds>();
+            .ActivateOnEnter<ArenaChanges>();
     }
 
     private void SinglePhase(uint id)

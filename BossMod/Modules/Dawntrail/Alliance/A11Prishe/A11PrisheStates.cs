@@ -4,7 +4,10 @@ class A11PrisheStates : StateMachineBuilder
 {
     public A11PrisheStates(BossModule module) : base(module)
     {
-        DeathPhase(0, SinglePhase);
+        DeathPhase(0, SinglePhase)
+            .ActivateOnEnter<ArenaChanges>()
+            .ActivateOnEnter<CrystallineThornsHint>()
+            .ActivateOnEnter<AuroralUppercutHint>();
     }
 
     private void SinglePhase(uint id)
@@ -133,12 +136,12 @@ class A11PrisheStates : StateMachineBuilder
         CastStart(id, AID.CrystallineThorns, delay)
             .ActivateOnEnter<CrystallineThorns>();
         CastEnd(id + 1, 4);
-        ComponentCondition<CrystallineThorns>(id + 2, 1.1f, comp => comp.NumCasts > 0, "Spikes");
+        ComponentCondition<ArenaChanges>(id + 2, 1.1f, comp => comp.NumCasts > 0, "Spikes");
         CastMulti(id + 0x10, [AID.AuroralUppercut1, AID.AuroralUppercut2, AID.AuroralUppercut3], 3.1f, 11.4f)
             .ActivateOnEnter<AuroralUppercut>();
         ComponentCondition<AuroralUppercut>(id + 0x12, 1.4f, comp => comp.NumCasts > 0, "Knockback")
             .DeactivateOnExit<AuroralUppercut>();
-        ComponentCondition<CrystallineThorns>(id + 0x20, 5.1f, comp => !comp.Active, "Spikes end")
+        ComponentCondition<ArenaChanges>(id + 0x20, 5.1f, comp => !comp.Active, "Spikes end")
             .DeactivateOnExit<CrystallineThorns>();
     }
 
@@ -185,7 +188,7 @@ class A11PrisheStates : StateMachineBuilder
         CastStart(id + 0x20, AID.CrystallineThorns, 1.6f)
             .ActivateOnEnter<CrystallineThorns>();
         CastEnd(id + 0x21, 4);
-        ComponentCondition<CrystallineThorns>(id + 0x22, 1.1f, comp => comp.NumCasts > 0, "Spikes");
+        ComponentCondition<ArenaChanges>(id + 0x22, 1.1f, comp => comp.NumCasts > 0, "Spikes");
         CastStartMulti(id + 0x30, [AID.AuroralUppercut1, AID.AuroralUppercut2, AID.AuroralUppercut3], 3.1f);
         ComponentCondition<Explosion>(id + 0x31, 2.2f, comp => comp.NumCasts >= 41, "Explosions end")
             .ActivateOnEnter<AuroralUppercut>()
@@ -193,7 +196,7 @@ class A11PrisheStates : StateMachineBuilder
         CastEnd(id + 0x32, 9.2f);
         ComponentCondition<AuroralUppercut>(id + 0x33, 1.4f, comp => comp.NumCasts > 0, "Knockback")
             .DeactivateOnExit<AuroralUppercut>();
-        ComponentCondition<CrystallineThorns>(id + 0x40, 5.1f, comp => !comp.Active, "Spikes end")
+        ComponentCondition<ArenaChanges>(id + 0x40, 5.1f, comp => !comp.Active, "Spikes end")
             .DeactivateOnExit<CrystallineThorns>();
     }
 
@@ -226,14 +229,14 @@ class A11PrisheStates : StateMachineBuilder
         CastStart(id + 0x20, AID.CrystallineThorns, 1.7f)
             .ActivateOnEnter<CrystallineThorns>();
         CastEnd(id + 0x21, 4);
-        ComponentCondition<CrystallineThorns>(id + 0x22, 1.1f, comp => comp.NumCasts > 0, "Spikes");
+        ComponentCondition<ArenaChanges>(id + 0x22, 1.1f, comp => comp.NumCasts > 0, "Spikes");
         ComponentCondition<BanishStorm>(id + 0x30, 2.4f, comp => comp.NumCasts > 0, "Exaflares start");
         CastMulti(id + 0x40, [AID.AuroralUppercut1, AID.AuroralUppercut2, AID.AuroralUppercut3], 0.7f, 11.4f)
             .ActivateOnEnter<AuroralUppercut>()
             .DeactivateOnExit<BanishStorm>();
         ComponentCondition<AuroralUppercut>(id + 0x50, 1.4f, comp => comp.NumCasts > 0, "Knockback")
             .DeactivateOnExit<AuroralUppercut>();
-        ComponentCondition<CrystallineThorns>(id + 0x60, 5.1f, comp => !comp.Active, "Spikes end")
+        ComponentCondition<ArenaChanges>(id + 0x60, 5.1f, comp => !comp.Active, "Spikes end")
             .DeactivateOnExit<CrystallineThorns>();
     }
 }

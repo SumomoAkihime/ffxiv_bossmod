@@ -1,1 +1,1 @@
-using M05SDancingGreenConfig = BossMod.Dawntrail.Savage.RM05SDancingGreen.RM05SDancingGreenConfig;
+// Compatibility placeholder for Reborn file split.

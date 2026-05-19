@@ -91,7 +91,7 @@ class Quake2(BossModule module) : Components.StandardAOEs(module, AID.QuakeSeiry
 #endregion
 
 #region Genbu
-class MoontideFont(BossModule module) : Components.GroupedAOEs(module, [AID.MoontideFontFast, AID.MoontideFontSlow], new AOEShapeCircle(9), maxCasts: 11);
+class MoontideFontLegacy(BossModule module) : Components.GroupedAOEs(module, [AID.MoontideFontFast, AID.MoontideFontSlow], new AOEShapeCircle(9), maxCasts: 11);
 class MidwinterMarch(BossModule module) : Components.StandardAOEs(module, AID.MidwinterMarch, 12);
 class NorthernCurrent(BossModule module) : Components.StandardAOEs(module, AID.NorthernCurrent, new AOEShapeDonut(12, 60));
 class ShatteringStomp(BossModule module) : Components.RaidwideCast(module, AID.ShatteringStomp);
