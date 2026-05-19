@@ -45,15 +45,26 @@ internal sealed class DTRProvider : IDisposable
 
     private static IDtrBarEntry? SafeGetEntry(string title)
     {
-        try
+        for (var i = 0; i < 8; ++i)
         {
-            return Service.DtrBar.Get(title);
+            var candidate = i == 0 ? title : $"{title}-{i}";
+            try
+            {
+                return Service.DtrBar.Get(candidate);
+            }
+            catch (ArgumentException)
+            {
+                // Duplicate title is common when previous plugin instance leaked DTR entries.
+                // Try a suffixed key so plugin still loads and displays status.
+            }
+            catch (Exception ex)
+            {
+                Service.Logger.Warning(ex, $"DTR entry '{candidate}' unavailable, skipping.");
+                return null;
+            }
         }
-        catch (Exception ex)
-        {
-            Service.Logger.Warning(ex, $"DTR entry '{title}' unavailable, skipping.");
-            return null;
-        }
+        Service.Logger.Warning($"DTR entry '{title}' unavailable after retries, skipping.");
+        return null;
     }
 
     public void Dispose()
