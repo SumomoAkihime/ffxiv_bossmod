@@ -5,25 +5,21 @@ using Dalamud.Game.Gui.Dtr;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Interface.Utility.Raii;
-using FFXIVClientStructs.FFXIV.Client.System.Input;
-using FFXIVClientStructs.FFXIV.Client.UI;
 
 namespace BossMod;
 
 internal sealed class DTRProvider : IDisposable
 {
     private readonly RotationModuleManager _mgr;
-    private readonly AIManager _ai;
     private readonly IDtrBarEntry? _autorotationEntry;
     private readonly IDtrBarEntry? _aiEntry;
     private readonly IDtrBarEntry? _statsEntry;
     private readonly AIConfig _aiConfig = Service.Config.Get<AIConfig>();
     private bool _wantOpenPopup;
 
-    public unsafe DTRProvider(RotationModuleManager manager, AIManager ai)
+    public unsafe DTRProvider(RotationModuleManager manager)
     {
         _mgr = manager;
-        _ai = ai;
         _autorotationEntry = SafeGetEntry("vbm-autorotation");
         _aiEntry = SafeGetEntry("vbm-ai");
         _statsEntry = SafeGetEntry("vbm-stats");
@@ -84,7 +80,7 @@ internal sealed class DTRProvider : IDisposable
         if (_aiEntry != null)
         {
             _aiEntry.Shown = _aiConfig.ShowDTR;
-            _aiEntry.Text = "AI: " + (_ai.Behaviour == null ? "Off" : "On");
+            _aiEntry.Text = "AI: " + (_aiConfig.Enabled ? "On" : "Off");
         }
 
         if (_statsEntry != null)
