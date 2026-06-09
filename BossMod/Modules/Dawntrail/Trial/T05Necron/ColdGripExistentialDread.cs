@@ -1,1 +1,58 @@
-using ColdGripExistentialDread = BossMod.Dawntrail.Extreme.Ex5Necron.ColdGripExistentialDread;
+﻿namespace BossMod.Dawntrail.Trial.T05Necron;
+
+sealed class ColdGripExistentialDread(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly List<AOEInstance> _aoes = new(3);
+    private readonly AOEShapeRect rect1 = new(30f, 6f), rect2 = new(30f, 12f);
+    private float offset;
+
+    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        switch (spell.Action.ID)
+        {
+            case (uint)AID.ColdGrip:
+                _aoes.Add(new(rect1, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
+                if (offset != default)
+                {
+                    AddLastAOE(1.6f);
+                }
+                break;
+            case (uint)AID.ColdGripVisual1:
+                offset = 6f;
+                AddLastAOE();
+                break;
+            case (uint)AID.ColdGripVisual2:
+                offset = -6f;
+                AddLastAOE();
+                break;
+        }
+        void AddLastAOE(float delay = 2.6f)
+        {
+            if (_aoes.Count == 2) // create 3rd AOE with small offset to leave a safespot in the right direction
+            {
+                _aoes.Add(new(rect2, new WPos(100f + offset + (offset > 0 ? 1f : -1f), 85f), spell.Rotation, Module.CastFinishAt(spell, delay)));
+            }
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID is (uint)AID.ColdGrip or (uint)AID.ExistentialDread)
+        {
+            var count = _aoes.Count;
+            if (count != 0)
+            {
+                _aoes.RemoveAt(0);
+                if (count == 2) // update 3rd AOE to the actual position
+                {
+                    ref var aoe = ref _aoes.Ref(0);
+                    aoe.Origin = new WPos(100f + offset, 85f);
+                    offset = default;
+                }
+            }
+        }
+    }
+}
+

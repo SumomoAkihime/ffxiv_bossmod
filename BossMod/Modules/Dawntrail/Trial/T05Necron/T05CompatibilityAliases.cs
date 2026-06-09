@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Trial.T05Necron;
+﻿namespace BossMod.Dawntrail.Trial.T05Necron;
 
 // Compatibility map for upstream/Reborn naming (T05Necron -> local Ex5Necron module).
 public static class T05CompatibilityAliases
@@ -8,3 +8,4 @@ public static class T05CompatibilityAliases
         typeof(global::BossMod.Dawntrail.Extreme.Ex5Necron.Ex5Necron)
     ];
 }
+

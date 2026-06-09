@@ -184,6 +184,18 @@ public record class ArenaBoundsRect(float HalfWidth, float HalfHeight, Angle Rot
 public record class ArenaBoundsCustom(float Radius, RelSimplifiedComplexPolygon Poly, float MapResolution = 0.5f) : ArenaBounds(Radius, MapResolution)
 {
     private Pathfinding.Map? _cachedMap;
+    public WPos Center { get; private init; }
+
+    public ArenaBoundsCustom(Shape[] unionShapes, Shape[]? differenceShapes = null, Shape[]? additionalShapes = null, float MapResolution = 0.5f)
+        : this(BuildFromShapes(unionShapes, differenceShapes ?? [], additionalShapes ?? []), MapResolution)
+    {
+    }
+
+    private ArenaBoundsCustom((float radius, RelSimplifiedComplexPolygon poly, WPos center) built, float mapResolution)
+        : this(built.radius, built.poly, mapResolution)
+    {
+        Center = built.center;
+    }
 
     protected override PolygonClipper.Operand BuildClipPoly() => new(Poly);
     public override void PathfindMap(Pathfinding.Map map, WPos center) => map.Init(_cachedMap ??= BuildMap(), center);
@@ -238,5 +250,53 @@ public record class ArenaBoundsCustom(float Radius, RelSimplifiedComplexPolygon 
             bleftOutside = brightOutside;
         }
         return map;
+    }
+
+    private static (float radius, RelSimplifiedComplexPolygon poly, WPos center) BuildFromShapes(Shape[] unionShapes, Shape[] differenceShapes, Shape[] additionalShapes)
+    {
+        var clipper = new PolygonClipper();
+        var union = ToOperand(unionShapes);
+        var poly = differenceShapes.Length > 0 ? clipper.Difference(union, ToOperand(differenceShapes)) : clipper.UnionAll(union);
+        if (additionalShapes.Length > 0)
+            poly = clipper.Union(new(poly), ToOperand(additionalShapes));
+
+        var (center, radius) = FindBounds(poly);
+        var centerOffset = center.ToWDir();
+        for (var i = 0; i < poly.Parts.Count; ++i)
+        {
+            var vertices = poly.Parts[i].Vertices;
+            for (var j = 0; j < vertices.Count; ++j)
+                vertices[j] -= centerOffset;
+        }
+        return (radius, poly, center);
+
+        static PolygonClipper.Operand ToOperand(Shape[] shapes)
+        {
+            var operand = new PolygonClipper.Operand();
+            foreach (var shape in shapes)
+                operand.AddPolygon(shape.ToPolygon(default));
+            return operand;
+        }
+
+        static (WPos center, float radius) FindBounds(RelSimplifiedComplexPolygon poly)
+        {
+            var minX = float.MaxValue;
+            var maxX = float.MinValue;
+            var minZ = float.MaxValue;
+            var maxZ = float.MinValue;
+            foreach (var part in poly.Parts)
+            {
+                foreach (var vertex in part.Exterior)
+                {
+                    minX = Math.Min(minX, vertex.X);
+                    maxX = Math.Max(maxX, vertex.X);
+                    minZ = Math.Min(minZ, vertex.Z);
+                    maxZ = Math.Max(maxZ, vertex.Z);
+                }
+            }
+            var center = new WPos((minX + maxX) * 0.5f, (minZ + maxZ) * 0.5f);
+            var radius = Math.Max(Math.Abs(maxX - center.X), Math.Abs(maxZ - center.Z));
+            return (center, radius);
+        }
     }
 }
