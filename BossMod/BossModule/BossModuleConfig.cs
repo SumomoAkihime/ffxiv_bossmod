@@ -25,16 +25,17 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("允许模块自动与场景对象交互", since: "0.3.5.6")]
     public bool AllowAutomaticInteract = true;
 
-    [PropertyDisplay("显示测试用雷达与提示窗口", tooltip: "可在非 Boss 战斗中调试雷达和提示窗口布局", separator: true)]
+    [PropertyDisplay("显示测试用雷达与提示窗口", tooltip: "可在非 Boss 战斗中调试雷达和提示窗口布局")]
     public bool ShowDemo = false;
 
     [PropertyDisplay("Allow WIP modules", since: "7.5.0.10", tooltip: "WIP modules are unfinished and may have severe bugs. Enable at your own risk.")]
     public bool AllowIncompleteModules = false;
 
-    [PropertyDisplay("Enable Striking Dummy module during Explorer Mode dungeons", since: "7.5.0.10", separator: true)]
+    [PropertyDisplay("Enable Striking Dummy module during Explorer Mode dungeons", since: "7.5.0.10")]
     public bool EnableDummyModule = false;
 
     // radar window settings
+    [SectionStart]
     [PropertyDisplay("启用雷达")]
     public bool Enable = true;
 
@@ -76,6 +77,9 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("在雷达上显示东南西北方向文字")]
     public bool ShowCardinals = false;
 
+    [PropertyDisplay("将北方方向文字显示为特殊颜色", depends: nameof(ShowCardinals), since: "7.5.1.6")]
+    public bool HighlightN = false;
+
     [PropertyDisplay("方向文字字号")]
     [PropertySlider(0.1f, 100, Speed = 1)]
     public float CardinalsFontSize = 17;
@@ -86,6 +90,9 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("在雷达上显示标记（攻击/禁锢/无视及形状标）", since: "0.4.10.0")]
     public bool ShowSigns = false;
 
+    [PropertyDisplay("在雷达上显示近战攻击距离", since: "7.5.1.2")]
+    public bool ShowMeleeRange = false;
+
     [PropertyDisplay("始终显示所有存活队友")]
     public bool ShowIrrelevantPlayers = false;
 
@@ -95,10 +102,11 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("未着色玩家按职业角色上色显示")]
     public bool ColorPlayersBasedOnRole = false;
 
-    [PropertyDisplay("始终显示焦点目标队友", separator: true)]
+    [PropertyDisplay("始终显示焦点目标队友")]
     public bool ShowFocusTargetPlayer = false;
 
     // hint window settings
+    [SectionStart]
     [PropertyDisplay("在独立窗口显示文字提示", tooltip: "将文字提示与雷达窗口分离，便于单独摆放")]
     public bool HintsInSeparateWindow = false;
 
@@ -108,10 +116,11 @@ public class BossModuleConfig : ConfigNode
     [PropertyDisplay("显示全团伤害提示")]
     public bool ShowGlobalHints = true;
 
-    [PropertyDisplay("显示个人提示与警告", separator: true)]
+    [PropertyDisplay("显示个人提示与警告")]
     public bool ShowPlayerHints = true;
 
     // misc. settings
+    [SectionStart]
     [PropertyDisplay("在场景中显示移动引导", tooltip: "使用频率不高，但可在游戏场景中用箭头提示部分机制走位")]
     public bool ShowWorldArrows = false;
 

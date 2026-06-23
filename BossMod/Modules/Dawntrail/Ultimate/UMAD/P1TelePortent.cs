@@ -86,12 +86,13 @@ class P1TelePortent(BossModule module) : BossComponent(module)
         switch (_config.P1Arrows)
         {
             case UMADConfig.P1ArrowShape.BigBox:
+            case UMADConfig.P1ArrowShape.Freaky:
                 var wd = ToWDir(dir.All);
 
                 if (dir.All == dir.D1.Dir)
                 {
                     // matched arrows
-                    var cardinal = wd.OrthoL() * 12;
+                    var cardinal = wd.OrthoL() * (_config.P1Arrows == UMADConfig.P1ArrowShape.Freaky ? 11 : 12);
                     var preCardinal = (wd + wd.OrthoL() * 0.5f).OrthoL() * 12;
                     _hintSpots[slot].AddRange([(dir.All, Arena.Center + cardinal), (dir.All, Arena.Center + preCardinal)]);
                 }
@@ -163,6 +164,19 @@ class P1TelePortent(BossModule module) : BossComponent(module)
             Arena.AddCircle(sp, 0.75f, sd == toCheck ? ArenaColor.Safe : ArenaColor.Danger);
         }
     }
+
+    public override void AddMovementHints(int slot, Actor actor, MovementHints movementHints)
+    {
+        var toCheck = _timesHit[slot] == 0 ? _debuffs[slot].D1.Dir : _debuffs[slot].D2.Dir;
+
+        WPos last = default;
+
+        foreach (var (d, s) in _hintSpots[slot].OrderBy(s => s.Item1 != toCheck))
+        {
+            movementHints.Add(d == toCheck ? actor.Position : last, s, d == toCheck ? ArenaColor.Safe : ArenaColor.Danger);
+            last = s;
+        }
+    }
 }
 
 class P1Arrow(BossModule module) : BossComponent(module)
@@ -213,7 +227,7 @@ class P1IndulgentWill(BossModule module) : BossComponent(module)
 
     public override void OnTethered(Actor source, ActorTetherInfo tether)
     {
-        if ((TetherID)tether.ID == TetherID._Gen_Tether_chn_elem0f && source.Position.AlmostEqual(new(95, 25), 5) && Raid.TryFindSlot(tether.Target, out var target))
+        if ((TetherID)tether.ID == TetherID.GravenImage && source.Position.AlmostEqual(new(95, 25), 5) && Raid.TryFindSlot(tether.Target, out var target))
             _targets.Set(target);
     }
 
@@ -241,7 +255,7 @@ class P1IdyllicWill(BossModule module) : Components.UniformStackSpread(module, 0
 
     public override void OnTethered(Actor source, ActorTetherInfo tether)
     {
-        if ((TetherID)tether.ID == TetherID._Gen_Tether_chn_elem0f && source.Position.AlmostEqual(new(107, 43), 5) && WorldState.Actors.Find(tether.Target) is { } target)
+        if ((TetherID)tether.ID == TetherID.GravenImage && source.Position.AlmostEqual(new(107, 43), 5) && WorldState.Actors.Find(tether.Target) is { } target)
             _stored.Add(new(target, 5, WorldState.FutureTime(9)));
     }
 

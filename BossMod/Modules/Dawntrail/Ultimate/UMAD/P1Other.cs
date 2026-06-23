@@ -12,6 +12,12 @@ class P1RevoltingRuinIIISecond : Components.GenericBaitAway
         EnableHints = false;
     }
 
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (EnableHints)
+            base.AddAIHints(slot, actor, assignment, hints);
+    }
+
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         if ((AID)spell.Action.ID == AID.RevoltingRuinIIIFirst)
@@ -45,7 +51,7 @@ class P1RevoltingRuinIIISecond : Components.GenericBaitAway
     }
 }
 
-class P1LightOfJudgment(BossModule module) : Components.RaidwideCast(module, AID.LightOfJudgment);
+class P1LightOfJudgment(BossModule module) : Components.RaidwideCast(module, AID.LightOfJudgmentP1);
 
 class P1Hyperdrive(BossModule module) : Components.GenericBaitAway(module, AID.Hyperdrive, centerAtTarget: true, damageType: AIHints.PredictedDamageType.Tankbuster)
 {
@@ -53,7 +59,7 @@ class P1Hyperdrive(BossModule module) : Components.GenericBaitAway(module, AID.H
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.LightOfJudgment)
+        if ((AID)spell.Action.ID == AID.LightOfJudgmentP1)
             _first = Module.CastFinishAt(spell, 3.1f);
     }
 
