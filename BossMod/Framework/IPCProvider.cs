@@ -360,75 +360,73 @@ sealed class IPCProvider : IDisposable
                 return false;
             }
 
-            autorotation.Preset = preset;
+            autorotation.Activate(preset, true);
             return true;
         });
         Register("Presets.Activate", (string name) =>
         {
             var preset = autorotation.Database.Presets.FindPresetByName(name);
-            if (preset == null || autorotation.Preset == preset)
+            if (preset == null || autorotation.Presets.Contains(preset))
             {
                 return false;
             }
 
-            autorotation.Preset = preset;
+            autorotation.Activate(preset);
             return true;
         });
         Register("Presets.Deactivate", (string name) =>
         {
             var preset = autorotation.Database.Presets.FindPresetByName(name);
-            if (preset == null || autorotation.Preset != preset)
+            if (preset == null || !autorotation.Presets.Contains(preset))
             {
                 return false;
             }
 
-            autorotation.Preset = null;
+            autorotation.Deactivate(preset);
             return true;
         });
         Register("Presets.GetActiveList", () =>
-            autorotation.Preset is { } preset && preset != RotationModuleManager.ForceDisable ? new List<string> { preset.Name } : []);
+            autorotation.Presets.Where(p => p != RotationModuleManager.ForceDisable).Select(p => p.Name).ToList());
         Register("Presets.SetActiveList", (List<string> names) =>
         {
-            if (names.Count == 0)
+            List<Preset> presets = [];
+            foreach (var name in names)
             {
-                autorotation.Preset = null;
-                return true;
+                var preset = autorotation.Database.Presets.FindPresetByName(name);
+                if (preset == null)
+                {
+                    Service.Log($"Presets.SetActiveList: input contained unrecognized preset name {name} - giving up");
+                    return false;
+                }
+                presets.Add(preset);
             }
 
-            var preset = autorotation.Database.Presets.FindPresetByName(names[0]);
-            if (preset == null)
+            autorotation.Clear();
+            foreach (var preset in presets)
             {
-                Service.Log($"Presets.SetActiveList: input contained unrecognized preset name {names[0]} - giving up");
-                return false;
+                autorotation.Activate(preset);
             }
-
-            if (names.Count > 1)
-            {
-                Service.Log("Presets.SetActiveList: this Reborn-baseline branch supports one active preset; using the first entry only");
-            }
-
-            autorotation.Preset = preset;
             return true;
         });
         Register("Presets.ClearActive", () =>
         {
-            if (autorotation.Preset == null)
+            if (autorotation.Presets.Count == 0)
             {
                 return false;
             }
 
-            autorotation.Preset = null;
+            autorotation.Clear();
             return true;
         });
-        Register("Presets.GetForceDisabled", () => autorotation.Preset == RotationModuleManager.ForceDisable);
+        Register("Presets.GetForceDisabled", () => autorotation.IsForceDisabled);
         Register("Presets.SetForceDisabled", () =>
         {
-            if (autorotation.Preset == RotationModuleManager.ForceDisable)
+            if (autorotation.IsForceDisabled)
             {
                 return false;
             }
 
-            autorotation.Preset = RotationModuleManager.ForceDisable;
+            autorotation.SetForceDisabled();
             return true;
         });
 

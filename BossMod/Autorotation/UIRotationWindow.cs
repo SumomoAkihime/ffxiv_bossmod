@@ -81,7 +81,7 @@ public sealed class UIRotationWindow : UIWindow
                     UIPlanDatabaseEditor.StartPlanEditor(_mgr.Database.Plans, plans.Plans[plans.SelectedIndex], activeModule.StateMachine);
                 }
 
-                if (newSel >= 0 && _mgr.Preset != null)
+                if (newSel >= 0 && _mgr.Presets.Count > 0)
                 {
                     ImGui.SameLine();
                     using var style = ImRaii.PushColor(ImGuiCol.Text, Colors.TextColor2);
@@ -92,7 +92,7 @@ public sealed class UIRotationWindow : UIWindow
 
         // TODO: more fancy action history/queue...
         ImGui.TextUnformatted($"Modules: {_mgr}");
-        if (_mgr.Preset?.Modules.Any(m => m.TransientSettings.Count > 0) ?? false)
+        if (_mgr.Presets.SelectMany(p => p.Modules).Any(m => m.TransientSettings.Count > 0))
         {
             ImGui.SameLine();
             using (ImRaii.PushColor(ImGuiCol.Text, 0xff00ff00))
@@ -101,7 +101,7 @@ public sealed class UIRotationWindow : UIWindow
             {
                 using var tooltip = ImRaii.Tooltip();
                 ImGui.TextUnformatted("Transient strategies:");
-                foreach (var m in _mgr.Preset.Modules.Where(m => m.TransientSettings.Count > 0))
+                foreach (var m in _mgr.Presets.SelectMany(p => p.Modules).Where(m => m.TransientSettings.Count > 0))
                 {
                     ImGui.TextUnformatted($"> {m.Type.FullName}");
                     using var indent = ImRaii.PushIndent();
@@ -133,13 +133,16 @@ public sealed class UIRotationWindow : UIWindow
 
         ImGui.SameLine();
 
-        using (ImRaii.PushColor(ImGuiCol.Button, Colors.ButtonPushColor1, mgr.Preset == RotationModuleManager.ForceDisable))
-        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, Colors.ButtonPushColor3, mgr.Preset == RotationModuleManager.ForceDisable))
-        using (ImRaii.PushColor(ImGuiCol.ButtonActive, Colors.ButtonPushColor4, mgr.Preset == RotationModuleManager.ForceDisable))
+        using (ImRaii.PushColor(ImGuiCol.Button, Colors.ButtonPushColor1, mgr.IsForceDisabled))
+        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, Colors.ButtonPushColor3, mgr.IsForceDisabled))
+        using (ImRaii.PushColor(ImGuiCol.ButtonActive, Colors.ButtonPushColor4, mgr.IsForceDisabled))
         {
             if (ImGui.Button("Disabled"))
             {
-                mgr.Preset = mgr.Preset == RotationModuleManager.ForceDisable ? null : RotationModuleManager.ForceDisable;
+                if (mgr.IsForceDisabled)
+                    mgr.Clear();
+                else
+                    mgr.SetForceDisabled();
                 modified |= true;
             }
         }
@@ -151,12 +154,13 @@ public sealed class UIRotationWindow : UIWindow
                 continue;
             }
             ImGui.SameLine();
-            using var col = ImRaii.PushColor(ImGuiCol.Button, Colors.ButtonPushColor2, mgr.Preset == p);
-            using var colHovered = ImRaii.PushColor(ImGuiCol.ButtonHovered, Colors.ButtonPushColor5, mgr.Preset == p);
-            using var colActive = ImRaii.PushColor(ImGuiCol.ButtonActive, Colors.ButtonPushColor6, mgr.Preset == p);
+            var active = mgr.Presets.Contains(p);
+            using var col = ImRaii.PushColor(ImGuiCol.Button, Colors.ButtonPushColor2, active);
+            using var colHovered = ImRaii.PushColor(ImGuiCol.ButtonHovered, Colors.ButtonPushColor5, active);
+            using var colActive = ImRaii.PushColor(ImGuiCol.ButtonActive, Colors.ButtonPushColor6, active);
             if (ImGui.Button(p.Name))
             {
-                mgr.Preset = mgr.Preset == p ? null : p;
+                mgr.Toggle(p);
                 modified |= true;
             }
         }

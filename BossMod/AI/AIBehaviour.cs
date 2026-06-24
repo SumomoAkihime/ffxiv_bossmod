@@ -110,7 +110,13 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot, Prese
 
                 if (!forbidTargeting && !cancel)
                 {
-                    autorot.Preset = target.Target != null ? AIPreset : null;
+                    if (AIPreset != null)
+                    {
+                        if (target.Target != null)
+                            autorot.Activate(AIPreset);
+                        else
+                            autorot.Deactivate(AIPreset);
+                    }
                 }
                 UpdateMovement(player, master, gazeImminent || pyreticImminent, misdirectionMode ? autorot.Hints.MisdirectionThreshold : default, !forbidTargeting ? autorot.Hints.ActionsToExecute : null);
             }

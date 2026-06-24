@@ -455,12 +455,12 @@ public sealed class Plugin : IAsyncDalamudPlugin
         switch (cmd.Length > 1 ? cmd[1].ToUpperInvariant() : "")
         {
             case "CLEAR":
-                Service.Log($"Console: clearing autorotation preset '{_rotation.Preset?.Name ?? "<n/a>"}'");
-                _rotation.Preset = null;
+                Service.Log($"Console: clearing autorotation presets '{_rotation.PresetNames}'");
+                _rotation.Clear();
                 break;
             case "DISABLE":
-                Service.Log($"Console: force-disabling from preset '{_rotation.Preset?.Name ?? "<n/a>"}'");
-                _rotation.Preset = RotationModuleManager.ForceDisable;
+                Service.Log($"Console: force-disabling from presets '{_rotation.PresetNames}'");
+                _rotation.SetForceDisabled();
                 break;
             case "SET":
                 if (cmd.Length <= 2)
@@ -469,12 +469,21 @@ public sealed class Plugin : IAsyncDalamudPlugin
                 }
                 else
                 {
-                    ParseAutorotationSetCommand(cmd[1..], false);
+                    ParseAutorotationSetCommand(cmd[1..], false, true);
                 }
 
                 break;
             case "TOGGLE":
-                ParseAutorotationSetCommand(cmd.Length > 2 ? cmd[1..] : [""], true);
+                ParseAutorotationSetCommand(cmd.Length > 2 ? cmd[1..] : [""], true, true);
+                break;
+            case "ACTIVATE":
+                ParseAutorotationSetCommand(cmd[1..], false, false);
+                break;
+            case "DEACTIVATE":
+                ParseAutorotationDeactivateCommand(cmd[1..]);
+                break;
+            case "TOGGLEMULTI":
+                ParseAutorotationSetCommand(cmd[1..], true, false);
                 break;
             case "UI":
                 _wndRotation.SetVisible(!_wndRotation.IsOpen);
@@ -482,7 +491,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         }
     }
 
-    private void ParseAutorotationSetCommand(string[] presetName, bool toggle)
+    private void ParseAutorotationSetCommand(string[] presetName, bool toggle, bool exclusive)
     {
         if (presetName.Length < 2)
         {
@@ -493,7 +502,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         var userInput = string.Join(" ", presetName, 1, presetName.Length - 1).Trim();
         if (userInput == "null" || string.IsNullOrWhiteSpace(userInput))
         {
-            _rotation.Preset = null;
+            _rotation.Clear();
             Service.Log("Disabled AI autorotation preset.");
             return;
         }
@@ -510,14 +519,38 @@ public sealed class Plugin : IAsyncDalamudPlugin
         preset ??= RotationModuleManager.ForceDisable;
         if (preset != null)
         {
-            var newPreset = toggle && _rotation.Preset == preset ? null : preset;
-            Service.Log($"Console: {(toggle ? "toggle" : "set")} changes preset from '{_rotation.Preset?.Name ?? "<n/a>"}' to '{newPreset?.Name ?? "<n/a>"}'");
-            _rotation.Preset = newPreset;
+            var before = _rotation.PresetNames;
+            if (toggle)
+                _rotation.Toggle(preset, exclusive);
+            else
+                _rotation.Activate(preset, exclusive);
+            Service.Log($"Console: {(toggle ? "toggle" : exclusive ? "set" : "activate")} changes presets from '{before}' to '{_rotation.PresetNames}'");
         }
         else
         {
             Service.ChatGui.PrintError($"Failed to find preset '{presetName}'");
         }
+    }
+
+    private void ParseAutorotationDeactivateCommand(string[] presetName)
+    {
+        if (presetName.Length < 2)
+        {
+            Service.Log("No valid preset name provided.");
+            return;
+        }
+
+        var userInput = string.Join(" ", presetName, 1, presetName.Length - 1).Trim();
+        var preset = _rotation.Database.Presets.FindPresetByName(userInput);
+        if (preset == null)
+        {
+            Service.ChatGui.PrintError($"Failed to find preset '{userInput}'");
+            return;
+        }
+
+        var before = _rotation.PresetNames;
+        _rotation.Deactivate(preset);
+        Service.Log($"Console: deactivate changes presets from '{before}' to '{_rotation.PresetNames}'");
     }
 
     private static void OnConditionChanged(ConditionFlag flag, bool value)

@@ -32,6 +32,10 @@ sealed class AIManager : IDisposable
 
     public void SetAIPreset(Preset? p)
     {
+        if (AiPreset != null && AiPreset != p)
+        {
+            Autorot.Deactivate(AiPreset);
+        }
         AiPreset = p;
         _config.AIAutorotPresetName = p?.Name;
         Beh?.AIPreset = p;
@@ -73,7 +77,10 @@ sealed class AIManager : IDisposable
         Beh = null;
         _config.Enabled = false;
         MasterSlot = PartyState.PlayerSlot;
-        Autorot.Preset = null;
+        if (AiPreset != null)
+        {
+            Autorot.Deactivate(AiPreset);
+        }
         Controller.Clear();
         _wndAI.UpdateTitle();
     }
@@ -749,7 +756,6 @@ sealed class AIManager : IDisposable
         if (userInput == "null" || string.IsNullOrWhiteSpace(userInput))
         {
             SetAIPreset(null);
-            Autorot.Preset = null;
             if (_config.EchoToChat)
             {
                 Service.ChatGui.Print("Disabled AI autorotation preset.");
