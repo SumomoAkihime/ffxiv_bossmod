@@ -337,7 +337,7 @@ public abstract class BossModule : IDisposable
             Components[i].DrawArenaForeground(pcSlot, pc);
         }
 
-        if (WindowConfig.ShowMeleeRangeIndicator)
+        if (WindowConfig.ShowMeleeRangeIndicator || WindowConfig.ShowMeleeRange)
         {
             var t = WorldState.Actors.Find(pc.TargetID);
             var actor = t != null && !t.IsAlly && !t.IsDead && t.InCombat ? t : !PrimaryActor.IsDead && PrimaryActor.IsTargetable ? PrimaryActor : null;

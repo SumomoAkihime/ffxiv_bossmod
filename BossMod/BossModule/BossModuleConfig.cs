@@ -119,6 +119,8 @@ public sealed class BossModuleConfig : ConfigNode
     [PropertyDisplay("Show melee range indicator")]
     public bool ShowMeleeRangeIndicator = false;
 
+    public bool ShowMeleeRange = false;
+
     [PropertyDisplay("Maximum load distance", tooltip: "Maximum load distance in yalms")]
     [PropertySlider(0.1f, 500f, Speed = 0.1f, Logarithmic = true)]
     public float MaxLoadDistance = 500f;
