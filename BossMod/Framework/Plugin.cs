@@ -14,7 +14,7 @@ namespace BossMod;
 
 public sealed class Plugin : IAsyncDalamudPlugin
 {
-    public string Name => "BossMod Reborn";
+    public string Name => "Boss Mod";
 
     private readonly IDalamudPluginInterface _dalamud;
     private readonly ICommandManager CommandManager;
@@ -75,7 +75,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         Service.LogHandlerDebug = msg => Service.Logger.Debug(msg);
         Service.LogHandlerVerbose = msg => Service.Logger.Verbose(msg);
         Service.LuminaGameData = dataManager.GameData;
-        Service.WindowSystem = new("bmr");
+        Service.WindowSystem = new("vbm");
     }
 
     public async Task LoadAsync(CancellationToken cancellationToken)
@@ -102,6 +102,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
 
         Service.Config.Modified.Subscribe(() => Task.Run(() => Service.Config.SaveToFile(_dalamud.ConfigFile)));
 
+        CommandManager.AddHandler("/vbm", new CommandInfo(OnCommand) { HelpMessage = "Show boss mod settings UI" });
         CommandManager.AddHandler("/bmr", new CommandInfo(OnCommand) { HelpMessage = "Show boss mod settings UI" });
 
         ActionDefinitions.Instance.UnlockCheck = QuestUnlocked; // ensure action definitions are initialized and set unlock check functor (we don't really store the quest progress in clientstate, for now at least)
@@ -170,6 +171,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         _bossmod.Dispose();
         ActionDefinitions.Instance.Dispose();
         CommandManager.RemoveHandler("/bmr");
+        CommandManager.RemoveHandler("/vbm");
         GarbageCollection();
     }
 
@@ -283,7 +285,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
     private void OpenConfigUI(string showTab = "")
     {
         _configUI.ShowTab(showTab);
-        _ = new UISimpleWindow("BossModReborn", _configUI.Draw, true, new(300, 300));
+        _ = new UISimpleWindow("Boss Mod Settings", _configUI.Draw, true, new(300, 300));
     }
 
     private void DrawUI()

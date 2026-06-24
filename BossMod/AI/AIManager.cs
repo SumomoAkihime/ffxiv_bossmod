@@ -26,6 +26,7 @@ sealed class AIManager : IDisposable
         _wndAI = new AIManagementWindow(this);
         Autorot = autorot;
         Controller = new(autorot.WorldState, amex, movement);
+        Service.CommandManager.AddHandler("/vbmai", new Dalamud.Game.Command.CommandInfo(OnCommand) { HelpMessage = "Toggle AI mode" });
         Service.CommandManager.AddHandler("/bmrai", new Dalamud.Game.Command.CommandInfo(OnCommand) { HelpMessage = "Toggle AI mode" });
     }
 
@@ -41,6 +42,7 @@ sealed class AIManager : IDisposable
         SwitchToIdle();
         _wndAI.Dispose();
         Service.CommandManager.RemoveHandler("/bmrai");
+        Service.CommandManager.RemoveHandler("/vbmai");
         Instance = null;
     }
 
