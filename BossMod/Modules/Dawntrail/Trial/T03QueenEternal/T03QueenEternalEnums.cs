@@ -98,4 +98,3 @@ public enum IconID : uint
     Flare = 327, // player
     LineBaits = 521 // Boss
 }
-

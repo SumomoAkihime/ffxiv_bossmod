@@ -41,7 +41,7 @@ public enum AID : uint
 }
 
 sealed class Compress(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Compress, new AOEShapeCross(50f, 3.5f));
-sealed class Accelerate(BossModule module) : Components.StackWithCastTargets(module, AID.Accelerate, 6f, 8);
+sealed class Accelerate(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.Accelerate, 6f, 8);
 sealed class Pulverize(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Pulverize, 15f);
 
 sealed class CannonShot(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CannonShot, 12f);
@@ -66,17 +66,16 @@ sealed class ConflictingWithTheFirstLawStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.BozjaCE, GroupID = 735, NameID = 1605)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.ForayFATE, GroupID = 735, NameID = 1605)]
 public sealed class ConflictingWithTheFirstLaw(WorldState ws, Actor primary) : SimpleBossModule(ws, primary)
 {
-    private static readonly OID[] Adds = [OID.FourthLegionRoader, OID.FourthLegionNimrod, OID.FourthLegionSlasher, OID.FourthLegionDeathClaw,
-    OID.InkClaw, OID.BozjanMatamata, OID.LightningSprite, OID.NimrodEscort, OID.WaterSprite, OID.BozjanGeshunpest, OID.BozjanWraith];
+    private static readonly uint[] adds = [(uint)OID.FourthLegionRoader, (uint)OID.FourthLegionNimrod, (uint)OID.FourthLegionSlasher, (uint)OID.FourthLegionDeathClaw,
+    (uint)OID.InkClaw, (uint)OID.BozjanMatamata, (uint)OID.LightningSprite, (uint)OID.NimrodEscort, (uint)OID.WaterSprite, (uint)OID.BozjanGeshunpest, (uint)OID.BozjanWraith];
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var oid in Adds)
-            Arena.Actors(Enemies(oid), ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(this, adds);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)

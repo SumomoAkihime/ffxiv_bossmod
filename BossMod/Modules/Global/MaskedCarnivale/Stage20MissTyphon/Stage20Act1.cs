@@ -2,22 +2,22 @@ namespace BossMod.Global.MaskedCarnivale.Stage20.Act1;
 
 public enum OID : uint
 {
-    Boss = 0x272A, //R=4.5
+    Boss = 0x272A //R=4.5
 }
 
 public enum AID : uint
 {
-    Fungah = 14705, // 272A->self, no cast, range 8+R ?-degree cone, knockback 20 away from source
-    Fireball = 14706, // 272A->location, 3.5s cast, range 8 circle
-    Snort = 14704, // 272A->self, 7.0s cast, range 50+R circle, stun, knockback 30 away from source
-    Fireball2 = 14707, // 272A->player, no cast, range 8 circle, 3 casts after snort
+    Fungah = 14705, // Boss->self, no cast, range 8+R ?-degree cone, knockback 20 away from source
+    Fireball = 14706, // Boss->location, 3.5s cast, range 8 circle
+    Snort = 14704, // Boss->self, 7.0s cast, range 50+R circle, stun, knockback 30 away from source
+    Fireball2 = 14707 // Boss->player, no cast, range 8 circle, 3 casts after snort
 }
 
-class Fireball(BossModule module) : Components.StandardAOEs(module, AID.Fireball, 8);
-class Snort(BossModule module) : Components.CastHint(module, AID.Snort, "Use Diamondback!");
-class SnortKB(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Snort, 30, kind: Kind.AwayFromOrigin, stopAtWall: true); // knockback actually delayed by 0.7s
+sealed class Fireball(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Fireball, 8f);
+sealed class Snort(BossModule module) : Components.CastHint(module, (uint)AID.Snort, "Use Diamondback!");
+sealed class SnortKB(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.Snort, 30f, kind: Kind.AwayFromOrigin, stopAtWall: true);
 
-class Hints(BossModule module) : BossComponent(module)
+sealed class Hints(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -30,7 +30,7 @@ class Hints(BossModule module) : BossComponent(module)
     }
 }
 
-class Stage20Act1States : StateMachineBuilder
+sealed class Stage20Act1States : StateMachineBuilder
 {
     public Stage20Act1States(BossModule module) : base(module)
     {
@@ -42,10 +42,10 @@ class Stage20Act1States : StateMachineBuilder
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 630, NameID = 3046, SortOrder = 1)]
-public class Stage20Act1 : BossModule
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 630, NameID = 3046, SortOrder = 1)]
+public sealed class Stage20Act1 : BossModule
 {
-    public Stage20Act1(WorldState ws, Actor primary) : base(ws, primary, new(100, 100), new ArenaBoundsCircle(25))
+    public Stage20Act1(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleBig)
     {
         ActivateComponent<Hints>();
     }

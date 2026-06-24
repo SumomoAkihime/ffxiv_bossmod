@@ -4,20 +4,20 @@ public enum OID : uint
 {
     Boss = 0x25C0, //R=1.8
     Marshmallow = 0x25C2, //R1.8
-    Bavarois = 0x25C4, //R1.8
+    Bavarois = 0x25C4 //R1.8
 }
 
 public enum AID : uint
 {
-    Fire = 14266, // 25C0->player, 1.0s cast, single-target
-    Aero = 14269, // 25C2->player, 1.0s cast, single-target
-    Thunder = 14268, // 25C4->player, 1.0s cast, single-target
-    GoldenTongue = 14265, // 25C0/25C2/25C4->self, 5.0s cast, single-target
+    Fire = 14266, // Boss->player, 1.0s cast, single-target
+    Aero = 14269, // Marshmallow->player, 1.0s cast, single-target
+    Thunder = 14268, // Bavarois->player, 1.0s cast, single-target
+    GoldenTongue = 14265 // Boss/Marshmallow/Bavarois->self, 5.0s cast, single-target
 }
 
-class GoldenTongue(BossModule module) : Components.CastHint(module, AID.GoldenTongue, "Can be interrupted, increase its magic damage");
+sealed class GoldenTongue(BossModule module) : Components.CastInterruptHint(module, (uint)AID.GoldenTongue);
 
-class Hints(BossModule module) : BossComponent(module)
+sealed class Hints(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -25,7 +25,7 @@ class Hints(BossModule module) : BossComponent(module)
     }
 }
 
-class Hints2(BossModule module) : BossComponent(module)
+sealed class Hints2(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -33,7 +33,7 @@ class Hints2(BossModule module) : BossComponent(module)
     }
 }
 
-class Stage02Act1States : StateMachineBuilder
+sealed class Stage02Act1States : StateMachineBuilder
 {
     public Stage02Act1States(BossModule module) : base(module)
     {
@@ -41,26 +41,25 @@ class Stage02Act1States : StateMachineBuilder
             .ActivateOnEnter<GoldenTongue>()
             .ActivateOnEnter<Hints2>()
             .DeactivateOnEnter<Hints>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.Marshmallow).All(e => e.IsDead) && module.Enemies(OID.Bavarois).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed(Stage02Act1.Trash);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 612, NameID = 8078, SortOrder = 1)]
-public class Stage02Act1 : BossModule
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 612, NameID = 8078, SortOrder = 1)]
+public sealed class Stage02Act1 : BossModule
 {
-    public Stage02Act1(WorldState ws, Actor primary) : base(ws, primary, new(100, 100), new ArenaBoundsCircle(25))
+    public Stage02Act1(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleBig)
     {
         ActivateComponent<Hints>();
     }
+    public static readonly uint[] Trash = [(uint)OID.Boss, (uint)OID.Marshmallow, (uint)OID.Bavarois];
 
-    protected override bool CheckPull() { return PrimaryActor.IsTargetable && PrimaryActor.InCombat || Enemies(OID.Marshmallow).Any(e => e.InCombat) || Enemies(OID.Bavarois).Any(e => e.InCombat); }
+    protected override bool CheckPull() => IsAnyActorInCombat(Trash);
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.Marshmallow))
-            Arena.Actor(s, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.Bavarois))
-            Arena.Actor(s, ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.Marshmallow));
+        Arena.Actors(Enemies((uint)OID.Bavarois));
     }
 }

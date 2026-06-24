@@ -1,9 +1,9 @@
 ﻿namespace BossMod.Stormblood.Ultimate.UWU;
 
 // TODO :implement hints...
-class P1Mesohigh(BossModule module) : Components.CastCounter(module, AID.Mesohigh)
+class P1Mesohigh(BossModule module) : Components.CastCounter(module, (uint)AID.Mesohigh)
 {
-    private readonly IReadOnlyList<Actor> _sisters = module.Enemies(OID.GarudaSister);
+    private readonly List<Actor> _sisters = module.Enemies((uint)OID.GarudaSister);
     private const float _radius = 3;
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
@@ -13,8 +13,8 @@ class P1Mesohigh(BossModule module) : Components.CastCounter(module, AID.Mesohig
             var tetherTarget = WorldState.Actors.Find(s.Tether.Target);
             if (tetherTarget != null)
             {
-                Arena.AddLine(s.Position, tetherTarget.Position, ArenaColor.Danger);
-                Arena.AddCircle(tetherTarget.Position, _radius, ArenaColor.Danger);
+                Arena.AddLine(s.Position, tetherTarget.Position, Colors.Danger);
+                Arena.AddCircle(tetherTarget.Position, _radius, Colors.Danger);
             }
         }
     }

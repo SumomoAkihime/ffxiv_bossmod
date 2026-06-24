@@ -2,27 +2,28 @@ namespace BossMod.Dawntrail.Quest.Job.Viper.FangsOfTheViper;
 
 public enum OID : uint
 {
-    Boss = 0x429F,
-    FawningPeiste = 0x42A1,
-    FawningRaptor = 0x42A3,
-    FawningWivre = 0x42A2,
-    WanderingGowrow = 0x42A0,
+    Boss = 0x429F, // R0.5
+    FawningPeiste = 0x42A1, // R2.34
+    FawningRaptor = 0x42A3, // R1.82
+    FawningWivre = 0x42A2, // R3.9
+    WanderingGowrow = 0x42A0, // R4.0
     Helper = 0x43A3
 }
 
 public enum AID : uint
 {
-    AutoAttack1 = 6497,
-    AutoAttack2 = 6498,
-    Visual1 = 37699,
-    Visual2 = 37698,
-    Visual3 = 37697,
-    BurningCyclone = 37703,
-    FoulBreath = 39263,
-    BrowHorn = 37704,
-    Firebreathe = 37700,
-    RightSidedShockwave = 37701,
-    LeftSidedShockwave = 37702
+    AutoAttack1 = 6497, // FawningPeiste/FawningRaptor/WanderingGowrow->player, no cast, single-target
+    AutoAttack2 = 6498, // FawningWivre->player, no cast, single-target
+    Visual1 = 37699, // Helper->self, no cast, single-target
+    Visual2 = 37698, // Helper->self, no cast, single-target
+    Visual3 = 37697, // WanderingGowrow->self, no cast, single-target
+
+    BurningCyclone = 37703, // FawningPeiste->self, 5.0s cast, range 6 120-degree cone
+    FoulBreath = 39263, // FawningRaptor->self, 5.0s cast, range 7 90-degree cone
+    BrowHorn = 37704, // FawningWivre->self, 5.0s cast, range 6 width 4 rect
+    Firebreathe = 37700, // WanderingGowrow->self, 5.0s cast, range 60 90-degree cone
+    RightSidedShockwave = 37701, // WanderingGowrow->self, 4.0s cast, range 20 180-degree cone
+    LeftSidedShockwave = 37702 // WanderingGowrow->self, 4.0s cast, range 20 180-degree cone
 }
 
 sealed class BurningCyclone(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BurningCyclone, new AOEShapeCone(6f, 60f.Degrees()));
@@ -46,24 +47,21 @@ sealed class FangsOfTheViperStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.Quest, GroupID = 70385, NameID = 12825)]
-public sealed class FangsOfTheViper(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, ArenaBounds)
+public sealed class FangsOfTheViper(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
 {
-    private static readonly WPos ArenaCenter = new(264f, 480f);
-    private static readonly ArenaBoundsCircle ArenaBounds = new(19.5f);
+    private static readonly ArenaBoundsCustom arena = new([new Polygon(new(264f, 480f), 19.5f, 20)]);
+    private static readonly uint[] all = [(uint)OID.FawningWivre, (uint)OID.FawningPeiste, (uint)OID.FawningRaptor, (uint)OID.WanderingGowrow];
 
     public Actor? BossGowrow;
 
     protected override void UpdateModule()
     {
-        BossGowrow ??= Enemies((uint)OID.WanderingGowrow).FirstOrDefault();
+        BossGowrow ??= GetActor((uint)OID.WanderingGowrow);
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actors(Enemies((uint)OID.FawningWivre), ArenaColor.Enemy);
-        Arena.Actors(Enemies((uint)OID.FawningPeiste), ArenaColor.Enemy);
-        Arena.Actors(Enemies((uint)OID.FawningRaptor), ArenaColor.Enemy);
-        Arena.Actors(Enemies((uint)OID.WanderingGowrow), ArenaColor.Enemy);
+        Arena.Actors(this, all);
     }
 
     protected override bool CheckPull() => Raid.Player()!.InCombat;

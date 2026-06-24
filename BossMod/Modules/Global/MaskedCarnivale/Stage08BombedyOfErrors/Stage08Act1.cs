@@ -4,56 +4,70 @@ public enum OID : uint
 {
     Boss = 0x2708, //R=0.6
     Bomb = 0x2709, //R=1.2
-    Snoll = 0x270A, //R=0.9
+    Snoll = 0x270A //R=0.9
 }
 
 public enum AID : uint
 {
-    SelfDestruct = 14687, // 2708->self, no cast, range 10 circle
-    HypothermalCombustion = 14689, // 270A->self, no cast, range 6 circle
-    SelfDestruct2 = 14688, // 2709->self, no cast, range 6 circle
+    SelfDestruct = 14687, // Boss->self, no cast, range 10 circle
+    HypothermalCombustion = 14689, // Snoll->self, no cast, range 6 circle
+    SelfDestruct2 = 14688 // Bomb->self, no cast, range 6 circle
 }
 
-class Selfdetonations(BossModule module) : BossComponent(module)
+sealed class Selfdetonation(BossModule module) : BossComponent(module)
 {
     private const string hint = "In bomb explosion radius!";
+    private readonly List<Actor> bombs = new(6);
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if (actor.OID is (uint)OID.Bomb or (uint)OID.Snoll)
+        {
+            bombs.Add(actor);
+        }
+    }
+
+    public override void OnActorDeath(Actor actor)
+    {
+        if (actor.OID is (uint)OID.Bomb or (uint)OID.Snoll)
+        {
+            bombs.Remove(actor);
+        }
+    }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         if (!Module.PrimaryActor.IsDead)
         {
-            if (Arena.Config.ShowOutlinesAndShadows)
-                Arena.AddCircle(Module.PrimaryActor.Position, 10, 0xFF000000, 2);
-            Arena.AddCircle(Module.PrimaryActor.Position, 10, ArenaColor.Danger);
+            Arena.AddCircle(Module.PrimaryActor.Position, 10f);
         }
-        foreach (var p in Module.Enemies(OID.Bomb).Where(x => !x.IsDead))
+        var count = bombs.Count;
+        for (var i = 0; i < count; ++i)
         {
-            if (Arena.Config.ShowOutlinesAndShadows)
-                Arena.AddCircle(p.Position, 6, 0xFF000000, 2);
-            Arena.AddCircle(p.Position, 6, ArenaColor.Danger);
-        }
-        foreach (var p in Module.Enemies(OID.Snoll).Where(x => !x.IsDead))
-        {
-            if (Arena.Config.ShowOutlinesAndShadows)
-                Arena.AddCircle(p.Position, 6, 0xFF000000, 2);
-            Arena.AddCircle(p.Position, 6, ArenaColor.Danger);
+            Arena.AddCircle(bombs[i].Position, 6f);
         }
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        if (!Module.PrimaryActor.IsDead && actor.Position.InCircle(Module.PrimaryActor.Position, 10))
+        if (!Module.PrimaryActor.IsDead && actor.Position.InCircle(Module.PrimaryActor.Position, 10f))
+        {
             hints.Add(hint);
-        foreach (var p in Module.Enemies(OID.Bomb).Where(x => !x.IsDead))
-            if (actor.Position.InCircle(p.Position, 6))
+            return;
+        }
+        var count = bombs.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            if (actor.Position.InCircle(bombs[i].Position, 6f))
+            {
                 hints.Add(hint);
-        foreach (var p in Module.Enemies(OID.Snoll).Where(x => !x.IsDead))
-            if (actor.Position.InCircle(p.Position, 6))
-                hints.Add(hint);
+                return;
+            }
+        }
     }
 }
 
-class Hints(BossModule module) : BossComponent(module)
+sealed class Hints(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -61,7 +75,7 @@ class Hints(BossModule module) : BossComponent(module)
     }
 }
 
-class Hints2(BossModule module) : BossComponent(module)
+sealed class Hints2(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -69,45 +83,45 @@ class Hints2(BossModule module) : BossComponent(module)
     }
 }
 
-class Stage08Act1States : StateMachineBuilder
+sealed class Stage08Act1States : StateMachineBuilder
 {
     public Stage08Act1States(BossModule module) : base(module)
     {
         TrivialPhase()
             .DeactivateOnEnter<Hints>()
             .ActivateOnEnter<Hints2>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.Bomb).All(e => e.IsDead) && module.Enemies(OID.Snoll).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed(Stage08Act1.Trash);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 618, NameID = 8140, SortOrder = 1)]
-public class Stage08Act1 : BossModule
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 618, NameID = 8140, SortOrder = 1)]
+public sealed class Stage08Act1 : BossModule
 {
-    public Stage08Act1(WorldState ws, Actor primary) : base(ws, primary, new(100, 100), new ArenaBoundsCircle(25))
+    public Stage08Act1(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleBig)
     {
         ActivateComponent<Hints>();
-        ActivateComponent<Selfdetonations>();
+        ActivateComponent<Selfdetonation>();
     }
+    public static readonly uint[] Trash = [(uint)OID.Boss, (uint)OID.Bomb, (uint)OID.Snoll];
 
-    protected override bool CheckPull() { return PrimaryActor.IsTargetable && PrimaryActor.InCombat || Enemies(OID.Bomb).Any(e => e.InCombat) || Enemies(OID.Snoll).Any(e => e.InCombat); }
+    protected override bool CheckPull() => IsAnyActorInCombat(Trash);
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.Bomb))
-            Arena.Actor(s, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.Snoll))
-            Arena.Actor(s, ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.Bomb));
+        Arena.Actors(Enemies((uint)OID.Snoll));
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.Boss => 1,
-                OID.Snoll or OID.Bomb => 0,
+                (uint)OID.Boss => 1,
                 _ => 0
             };
         }

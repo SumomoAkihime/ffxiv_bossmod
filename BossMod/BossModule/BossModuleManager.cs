@@ -1,14 +1,16 @@
 ﻿namespace BossMod;
 
 // class that creates and manages instances of proper boss modules in response to world state changes
+[SkipLocalsInit]
 public sealed class BossModuleManager : IDisposable
 {
     public readonly WorldState WorldState;
     public readonly RaidCooldowns RaidCooldowns;
-    public readonly BossModuleConfig Config = Service.Config.Get<BossModuleConfig>();
+    public static readonly BossModuleConfig Config = Service.Config.Get<BossModuleConfig>();
     private readonly EventSubscriptions _subsciptions;
 
-    public List<BossModule> LoadedModules { get; } = [];
+    public readonly List<BossModule> PendingModules = [];
+    public readonly List<BossModule> LoadedModules = [];
     public Event<BossModule> ModuleLoaded = new();
     public Event<BossModule> ModuleUnloaded = new();
     public Event<BossModule> ModuleActivated = new();
@@ -43,14 +45,19 @@ public sealed class BossModuleManager : IDisposable
         );
 
         foreach (var a in WorldState.Actors)
+        {
             ActorAdded(a);
+        }
     }
 
     public void Dispose()
     {
         _activeModule = null;
         foreach (var m in LoadedModules)
+        {
             m.Dispose();
+        }
+
         LoadedModules.Clear();
 
         _subsciptions.Dispose();
@@ -60,89 +67,149 @@ public sealed class BossModuleManager : IDisposable
     public void Update()
     {
         // update all loaded modules, handle activation/deactivation
-        int bestPriority = 0;
+        var bestPriority = 0;
         BossModule? bestModule = null;
-        bool anyModuleActivated = false;
-        for (int i = 0; i < LoadedModules.Count; ++i)
+        var anyModuleActivated = false;
+
+        var maxDist = Config.MaxLoadDistance;
+        if (WorldState.Party[0]?.PosRot.AsVector3() is Vector3 playerPos)
         {
-            var m = LoadedModules[i];
-            bool wasActive = m.StateMachine.ActiveState != null;
-            bool allowUpdate = !_wipeInProgress && (wasActive || !LoadedModules.Any(other => other.StateMachine.ActiveState != null && other.GetType() == m.GetType())); // hack: forbid activating multiple modules of the same type
-            bool isActive;
-            try
+            var countP = PendingModules.Count - 1;
+            var maxSq = maxDist * maxDist;
+            for (var i = countP; i >= 0; --i)
             {
-                if (allowUpdate)
-                    m.Update();
-                isActive = m.StateMachine.ActiveState != null;
-            }
-            catch (Exception ex)
-            {
-                Service.Log($"Boss module {m.GetType()} crashed: {ex}");
-                wasActive = true; // force unload if exception happened before activation
-                isActive = false;
+                var m = PendingModules[i];
+                var prim = m.PrimaryActor;
+                if (prim.IsDeadOrDestroyed)
+                {
+                    PendingModules.RemoveAt(i);
+                    m.Dispose();
+                    continue;
+                }
+                if (m.OnlyLoadIfTargetable && !m.PrimaryActor.IsTargetable)
+                {
+                    continue;
+                }
+                if ((playerPos - prim.PosRot.AsVector3()).LengthSquared() <= maxSq)
+                {
+                    var countL = LoadedModules.Count;
+                    var oid = prim.OID;
+
+                    var exists = false;
+                    for (var j = 0; j < countL; ++j)
+                    {
+                        if (oid == LoadedModules[j].PrimaryActor.OID)
+                        {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists)
+                    {
+                        LoadedModules.Add(m);
+                        Service.Log($"[BMM] Boss module '{m.GetType()}' moved from pending to loaded for actor {prim}");
+                        ModuleLoaded.Fire(m);
+                        PendingModules.RemoveAt(i);
+                    }
+                }
             }
 
-            // if module was activated or deactivated, notify listeners
-            if (isActive != wasActive)
-                (isActive ? ModuleActivated : ModuleDeactivated).Fire(m);
-
-            // unload module either if it became deactivated or its primary actor disappeared without ever activating
-            if (!isActive && (wasActive || m.PrimaryActor.IsDestroyed))
+            for (var i = 0; i < LoadedModules.Count; ++i)
             {
-                UnloadModule(i--);
-                continue;
-            }
+                var m = LoadedModules[i];
+                var wasActive = m.StateMachine.ActiveState != null;
+                bool allowUpdate = !_wipeInProgress && (wasActive || !LoadedModules.Any(other => other.StateMachine.ActiveState != null && other.GetType() == m.GetType()));
+                bool isActive;
+                try
+                {
+                    if (allowUpdate)
+                        m.Update();
+                    isActive = m.StateMachine.ActiveState != null;
+                }
+                catch (Exception ex)
+                {
+                    Service.Log($"Boss module {m.GetType()} crashed: {ex}");
+                    wasActive = true; // force unload if exception happened before activation
+                    isActive = false;
+                }
 
-            // if module is active and wants to be reset, oblige
-            if (isActive && m.CheckReset())
-            {
-                Service.Log($"[BMM] Resetting module '{m.GetType()}'");
-                ModuleDeactivated.Fire(m);
+                // if module was activated or deactivated, notify listeners
+                if (isActive != wasActive)
+                {
+                    (isActive ? ModuleActivated : ModuleDeactivated).Fire(m);
+                }
+
                 var actor = m.PrimaryActor;
-                UnloadModule(i--);
-                if (!actor.IsDestroyed)
-                    ActorAdded(actor);
-                continue;
+                // unload module because it is not active and player is out of desired range
+                if (!isActive && (playerPos - actor.PosRot.AsVector3()).LengthSquared() > maxSq && actor.SpawnIndex != -99)
+                {
+                    UnloadModule(i--);
+                    if (!actor.IsDestroyed)
+                    {
+                        ActorAdded(actor);
+                    }
+                    continue;
+                }
+
+                // unload module either if it became deactivated or its primary actor disappeared without ever activating
+                if (!isActive && (wasActive || m.PrimaryActor.IsDestroyed))
+                {
+                    UnloadModule(i--);
+                    continue;
+                }
+
+                // if module is active and wants to be reset, oblige
+                if (isActive && m.CheckReset())
+                {
+                    ModuleDeactivated.Fire(m);
+                    UnloadModule(i--);
+                    if (!actor.IsDestroyed)
+                    {
+                        ActorAdded(actor);
+                    }
+
+                    continue;
+                }
+
+                // module remains loaded
+                var priority = ModuleDisplayPriority(m);
+                if (priority > bestPriority)
+                {
+                    bestPriority = priority;
+                    bestModule = m;
+                }
+
+                if (!wasActive && isActive)
+                {
+                    Service.Log($"[BMM] Boss module '{m.GetType()}' for actor {m.PrimaryActor.InstanceID:X} ({m.PrimaryActor.OID:X}) '{m.PrimaryActor.Name}' activated");
+                    anyModuleActivated |= true;
+                }
             }
 
-            // module remains loaded
-            int priority = ModuleDisplayPriority(m);
-            if (priority > bestPriority)
+            var curPriority = ModuleDisplayPriority(_activeModule);
+            if (bestPriority > curPriority && (anyModuleActivated || !_activeModuleOverridden))
             {
-                bestPriority = priority;
-                bestModule = m;
+                Service.Log($"[BMM] Active module change: from {_activeModule?.GetType().FullName ?? "<n/a>"} (prio {curPriority}, manual-override={_activeModuleOverridden}) to {bestModule?.GetType().FullName ?? "<n/a>"} (prio {bestPriority})");
+                _activeModule = bestModule;
+                _activeModuleOverridden = false;
             }
-
-            if (!wasActive && isActive)
-            {
-                Service.Log($"[BMM] Boss module '{m.GetType()}' for actor {m.PrimaryActor.InstanceID:X} ({m.PrimaryActor.OID:X}) '{m.PrimaryActor.Name}' activated");
-                anyModuleActivated |= true;
-            }
-        }
-
-        var curPriority = ModuleDisplayPriority(_activeModule);
-        if (bestPriority > curPriority && (anyModuleActivated || !_activeModuleOverridden))
-        {
-            Service.Log($"[BMM] Active module change: from {_activeModule?.GetType().FullName ?? "<n/a>"} (prio {curPriority}, manual-override={_activeModuleOverridden}) to {bestModule?.GetType().FullName ?? "<n/a>"} (prio {bestPriority})");
-            _activeModule = bestModule;
-            _activeModuleOverridden = false;
         }
     }
 
-    private void LoadModule(BossModule m)
+    private void LoadModule(BossModule m, bool oidExists = false)
     {
-        // this can only happen in modules that involve teleporting to different areas mid-combat, where the boss will deload and reload when the player returns to the arena
-        // for now the only applicable boss is dawntrail EX5 Necron
-        // shadowbringers alliance raid boss Red Girl is similar (player teleports to a minigame arena) but the actor in the P2 arena is a separate object
-        if (LoadedModules.FindIndex(l => l.PrimaryActor.InstanceID == m.PrimaryActor.InstanceID) is var ix && ix >= 0)
+        var maxDist = Config.MaxLoadDistance;
+        if (!oidExists && WorldState.Party[0]?.PosRot.AsVector3() is Vector3 playerPos && (playerPos - m.PrimaryActor.PosRot.AsVector3()).LengthSquared() <= maxDist * maxDist)
         {
-            LoadedModules[ix].SetPrimaryActor(m.PrimaryActor);
-            return;
+            LoadedModules.Add(m);
+            Service.Log($"[BMM] Boss module '{m.GetType()}' loaded for actor {m.PrimaryActor}");
+            ModuleLoaded.Fire(m);
         }
-
-        LoadedModules.Add(m);
-        Service.Log($"[BMM] Boss module '{m.GetType()}' loaded for actor {m.PrimaryActor}");
-        ModuleLoaded.Fire(m);
+        else
+        {
+            PendingModules.Add(m);
+            Service.Log($"[BMM] Boss module '{m.GetType()}' loaded as pending for actor {m.PrimaryActor}");
+        }
     }
 
     private void UnloadModule(int index)
@@ -162,24 +229,65 @@ public sealed class BossModuleManager : IDisposable
     private static int ModuleDisplayPriority(BossModule? m)
     {
         if (m == null)
+        {
             return 0;
+        }
+
         if (m.StateMachine.ActiveState != null)
+        {
             return 4;
-        if (m.PrimaryActor.InstanceID == 0)
+        }
+
+        if (m.PrimaryActor.InstanceID == default)
+        {
             return 2; // demo module
+        }
+
         if (!m.PrimaryActor.IsDestroyed && !m.PrimaryActor.IsDead && m.PrimaryActor.IsTargetable)
+        {
             return 3;
+        }
+
         return 1;
     }
 
-    private DemoModule CreateDemoModule() => new(WorldState, new(0, 0, -1, 0, "", 0, ActorType.None, Class.None, 0, new()));
+    private DemoModule CreateDemoModule() => new(WorldState, new(default, default, -99, default, default!, default, default, default, default, WorldState.Party[0]?.PosRot ?? default));
 
     private void ActorAdded(Actor actor)
     {
-        var m = BossModuleRegistry.CreateModuleForActor(WorldState, actor, Config.AllowIncompleteModules, Config.EnableDummyModule);
+        var m = BossModuleRegistry.CreateModuleForActor(WorldState, actor, Config.MinMaturity);
         if (m != null)
         {
-            LoadModule(m);
+            var count = LoadedModules.Count;
+            for (var i = 0; i < count; ++i)
+            {
+                var module = LoadedModules[i];
+                var prim = module.PrimaryActor;
+                if (prim.OID == actor.OID)
+                {
+                    if (prim.InstanceID == actor.InstanceID)  // module already exists, but actor reference was no longer valid (eg due to teleports at Necron)
+                    {
+                        module.PrimaryActor = actor;
+                        return;
+                    }
+                    LoadModule(m, true); // module for oid already loaded, usually means its a trash mob
+                    return;
+                }
+            }
+            LoadModule(m, m.OnlyLoadIfTargetable);
+        }
+    }
+
+    private void ConfigChanged()
+    {
+        var demoIndex = LoadedModules.FindIndex(m => m is DemoModule);
+        if (Config.ShowDemo && demoIndex < 0)
+        {
+            LoadModule(CreateDemoModule());
+        }
+        else if (!Config.ShowDemo && demoIndex >= 0)
+        {
+            UnloadModule(demoIndex);
         }
     }
 
@@ -202,15 +310,6 @@ public sealed class BossModuleManager : IDisposable
     private void OnZoneChange(WorldState.OpZoneChange zc)
     {
         ForceUnload("ZoneInit");
-    }
-
-    private void ConfigChanged()
-    {
-        int demoIndex = LoadedModules.FindIndex(m => m is DemoModule);
-        if (Config.ShowDemo && demoIndex < 0)
-            LoadModule(CreateDemoModule());
-        else if (!Config.ShowDemo && demoIndex >= 0)
-            UnloadModule(demoIndex);
     }
 
     public void ForceUnload(string? cause = null)

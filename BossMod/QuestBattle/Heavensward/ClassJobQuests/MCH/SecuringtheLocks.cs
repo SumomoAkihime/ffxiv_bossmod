@@ -1,6 +1,6 @@
 ﻿namespace BossMod.QuestBattle.Heavensward.ClassJobQuests.MCH;
 
-[ZoneModuleInfo(424)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 424)]
 internal class SecuringTheLocks(WorldState ws) : QuestBattle(ws)
 {
     private static readonly WPos Center = new(231.29f, 124.36f);
@@ -14,9 +14,13 @@ internal class SecuringTheLocks(WorldState ws) : QuestBattle(ws)
         {
             var closest = hints.PotentialTargets.MinBy(p => p.Actor.DistanceToHitbox(player));
             if (closest != null)
-                hints.GoalZones.Add(hints.GoalSingleTarget(closest.Actor, 25));
+            {
+                hints.GoalZones.Add(AIHints.GoalSingleTarget(closest.Actor, 25));
+            }
             else
-                hints.GoalZones.Add(hints.GoalSingleTarget(Center, 5));
+            {
+                hints.GoalZones.Add(AIHints.GoalSingleTarget(Center, 5));
+            }
         }
     }
 }

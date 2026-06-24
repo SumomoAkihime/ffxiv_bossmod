@@ -1,9 +1,8 @@
 ﻿using BossMod.Pathfinding;
-using System.Threading.Tasks;
 
 namespace BossMod.Autorotation.MiscAI;
 
-public sealed class NormalMovement(RotationModuleManager manager, Actor player) : RotationModule(manager, player)
+public sealed class NormalMovement : RotationModule
 {
     public enum Track { Destination, Range, Cast, SpecialModes, ForbiddenZoneCushion, DelayMovement }
     public enum DestinationStrategy { None, Pathfind, Explicit }
@@ -14,6 +13,19 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
     public enum DelayMovementStrategy { None, Short, Long }
 
     public const float GreedTolerance = 0.15f;
+
+    public static NormalMovement? Instance;
+
+    public NormalMovement(RotationModuleManager manager, Actor player) : base(manager, player)
+    {
+        Instance = this;
+    }
+
+    public override void Dispose()
+    {
+        Instance = null;
+        base.Dispose();
+    }
 
     public static RotationModuleDefinition Definition()
     {
@@ -52,15 +64,13 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
             .AddOption(DelayMovementStrategy.None, "Do not delay movement")
             .AddOption(DelayMovementStrategy.Short, "Delay movement by 0.5s")
             .AddOption(DelayMovementStrategy.Long, "Delay movement by 1s");
-
         return res;
     }
 
     private readonly NavigationDecision.Context _navCtx = new();
 
-    public const float MeleeRange = 3;
-    public const float CasterRange = 25;
-    const float SpinningLookahead = 5.5f;
+    public const float MeleeRange = 2.6f; // Note: melee range is always hitbox radius + 2.6 for auto attacks, doesn't matter if skills have 3 range...
+    public const float CasterRange = 25f;
 
     private Task<NavigationDecision> _decisionTask = Task.FromResult(default(NavigationDecision));
     private NavigationDecision _lastDecision;
@@ -71,8 +81,6 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
         if (_decisionTask.IsCompletedSuccessfully)
         {
             _lastDecision = _decisionTask.Result;
-            Manager.LastRasterizeMs = (float)_lastDecision.RasterizeTime.TotalMilliseconds;
-            Manager.LastPathfindMs = (float)_lastDecision.PathfindTime.TotalMilliseconds;
         }
 
         if (_decisionTask.IsCompleted)
@@ -80,13 +88,13 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
             if (_decisionTask.Exception is { } exception)
                 Service.Log($"exception during pathfind: {exception}");
 
-            _decisionTask = NavigationDecision.BuildAsync(_navCtx, World.CurrentTime, Hints, Player.Position, speed, forbiddenZoneCushion: cushionSize);
+            _decisionTask = Task.Run(() => NavigationDecision.Build(_navCtx, World.CurrentTime, Hints, Player, speed, forbiddenZoneCushion: cushionSize));
         }
 
         return _lastDecision;
     }
 
-    public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         // do nothing if we're already being moved by some other module (i.e. quest battle pathfinding)
         if (Hints.ForcedMovement != null)
@@ -106,46 +114,32 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
             if (Player.PendingKnockbacks.Count > 0)
                 return; // do not move if there are any unresolved knockbacks - the positions are taken at resolve time, so we might fuck things up
 
-            if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Pyretic && Hints.ImminentSpecialMode.activation <= World.FutureTime(1))
+            if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Pyretic && Hints.ImminentSpecialMode.activation <= World.FutureTime(1d))
             {
                 Hints.ForceCancelCast = true; // this is only useful if autopyretic tweak is disabled
                 return; // pyretic is imminent, do not move
             }
 
-            if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.PyreticMove && Hints.ImminentSpecialMode.activation <= World.FutureTime(1))
+            if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.NoMovement && Hints.ImminentSpecialMode.activation <= World.FutureTime(1d))
                 return;
 
             if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Freezing && Hints.ImminentSpecialMode.activation <= World.FutureTime(0.5f))
                 Hints.WantJump = true;
-        }
 
-        if (Hints.InteractWithTarget != null)
-        {
-            var targetPos = Hints.InteractWithTarget.Position;
-            // strongly prefer moving towards interact target
-            Hints.GoalZones.Add(p =>
+            if (Hints.InteractWithTarget != null)
             {
-                var length = (p - targetPos).Length();
+                var targetPos = Hints.InteractWithTarget.Position;
+                // strongly prefer moving towards interact target
+                Hints.GoalZones.Add(p =>
+                {
+                    var length = (p - targetPos).LengthSq();
 
-                // 99% of eventobjects have an interact range of 3.5y, while the rest have a range of 2.09y
-                // checking only for the shorter range here would be fine in the vast majority of cases, but it can break interact pathfinding in the case that the target object is partially covered by a forbidden zone with a radius between 2.1 and 3.5
-                // this is specifically an issue in the metal gear thancred solo duty in endwalker
-                return length <= 2.09f ? 101 : length <= 3.5f ? 100 : 0;
-            });
-        }
-
-        // fallback so that we can automatically start some quest battles xddd (the RP rotation is a component on the module, which isn't active until we pull, so no goal zone)
-        if (Hints.GoalZones.Count == 0 && primaryTarget is { IsAlly: false, IsDead: false } && Player.Statuses.Any(s => RotationModuleManager.TransformationStatuses.Contains(s.ID)))
-            Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget, 3));
-
-        var isSpinning = Player.Statuses.Any(s => s.ID == 2973);
-
-        // simulate forward forced movement; this is kind of a hack, but it definitely doesn't belong in modules because it's part of the movement constraint
-        if (isSpinning)
-        {
-            // rect is offset by -1 unit player-relative. we know very well that player-centered shapes make the pathfinder freak the fuck out
-            Hints.AddForbiddenZone(ShapeContains.Rect(Player.Position, Player.Rotation, SpinningLookahead, SpinningLookahead + 2, SpinningLookahead + 2), World.FutureTime(2));
-            Hints.AddForbiddenZone(ShapeContains.Cone(Player.Position, 100, Player.Rotation + 180.Degrees(), 45.Degrees()), DateTime.MaxValue);
+                    // 99% of eventobjects have an interact range of 3.5y, while the rest have a range of 2.09y
+                    // checking only for the shorter range here would be fine in the vast majority of cases, but it can break interact pathfinding in the case that the target object is partially covered by a forbidden zone with a radius between 2.1 and 3.5
+                    // this is specifically an issue in the metal gear thancred solo duty in endwalker
+                    return length <= 4.3681f ? 101f : length <= 12.25f ? 100f : 0;
+                });
+            }
         }
 
         var speed = World.Client.MoveSpeed;
@@ -183,16 +177,6 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
         if (resetStats)
         {
             _lastDecision = default;
-            Manager.LastPathfindMs = 0;
-            Manager.LastRasterizeMs = 0;
-        }
-
-        if (isSpinning)
-        {
-            if (Hints.SpinDirection == null && navi.Destination is { } wp)
-                Hints.SpinDirection = Player.DirectionTo(wp).ToAngle();
-
-            return;
         }
 
         if (navi.Destination == null)
@@ -274,7 +258,7 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
             // this means that cos(threshold) = speed * dt / 2 / distance
             // assuming we wanna move at least for a second, speed is standard 6, threshold of 60 degrees would be fine for distances >= 6
             // for micro adjusts, if we move for 1 frame (1/60s), threshold of 60 degrees would be fine for distance 0.1, which is our typical threshold
-            var threshold = 30.Degrees();
+            var threshold = 30f.Degrees();
             var allowMovement = World.Client.ForcedMovementDirection.AlmostEqual(Angle.FromDirection(dir), threshold.Rad);
             if (allowMovement && destinationStrategy == DestinationStrategy.Pathfind)
             {
@@ -300,8 +284,8 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
         }
         else
         {
-            // fine to move if we won't interrupt cast (or are explicitly allowed to)
-            var allowMovement = Player.CastInfo == null || Player.CastInfo.EventHappened || castStrategy is CastStrategy.DropMove or CastStrategy.DropInstants;
+            // fine to move if we won't interrupt cast or only just started casting (or are explicitly allowed to)
+            var allowMovement = Player.CastInfo == null || Player.CastInfo.EventHappened || Player.CastInfo.ElapsedTime <= 1.0f || castStrategy is CastStrategy.DropMove or CastStrategy.DropInstants;
             Hints.ForcedMovement = allowMovement ? dir.ToVec3(Player.PosRot.Y) : default;
         }
 
@@ -332,7 +316,7 @@ public sealed class NormalMovement(RotationModuleManager manager, Actor player) 
         if (!_navCtx.Map.InBounds(start.x, start.y))
             return 0;
 
-        var end = _navCtx.Map.WorldToGrid(Player.Position + 100 * dir.ToDirection());
+        var end = _navCtx.Map.WorldToGrid(Player.Position + 100f * dir.ToDirection());
         var startG = _navCtx.Map.PixelMaxG[_navCtx.Map.GridToIndex(start.x, start.y)];
         foreach (var p in _navCtx.Map.EnumeratePixelsInLine(start.x, start.y, end.x, end.y))
         {

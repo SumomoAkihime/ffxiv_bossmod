@@ -1,9 +1,10 @@
 ﻿namespace BossMod;
 
+[SkipLocalsInit]
 public sealed class ZoneModuleManager : IDisposable
 {
     public readonly WorldState WorldState;
-    public readonly ZoneModuleConfig Config = Service.Config.Get<ZoneModuleConfig>();
+    public static readonly ZoneModuleConfig Config = Service.Config.Get<ZoneModuleConfig>();
     private readonly EventSubscriptions _subsciptions;
 
     public ZoneModule? ActiveModule;
@@ -36,7 +37,7 @@ public sealed class ZoneModuleManager : IDisposable
             ActiveModule = null;
         }
 
-        var m = ZoneModuleRegistry.CreateModule(WorldState, cfcid);
+        var m = ZoneModuleRegistry.CreateModule(WorldState, cfcid, Config.MinMaturity);
         if (m != null)
         {
             Service.Log($"[ZMM] Loading module '{m.GetType()}' for zone {cfcid}");

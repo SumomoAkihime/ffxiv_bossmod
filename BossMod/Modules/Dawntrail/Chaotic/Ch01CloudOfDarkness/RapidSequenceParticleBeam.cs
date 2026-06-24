@@ -1,18 +1,18 @@
 ﻿namespace BossMod.Dawntrail.Chaotic.Ch01CloudOfDarkness;
 
-class RapidSequenceParticleBeam(BossModule module) : Components.GenericWildCharge(module, 3, AID.RapidSequenceParticleBeamAOE, 50)
+sealed class RapidSequenceParticleBeam(BossModule module) : Components.GenericWildCharge(module, 3f, (uint)AID.RapidSequenceParticleBeamAOE, 50f)
 {
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         Source = null; // just in case, if mechanic was not finished properly, reset on next cast start
-        if ((AID)spell.Action.ID == AID.RapidSequenceParticleBeam)
+        if (spell.Action.ID == (uint)AID.RapidSequenceParticleBeam)
         {
             NumCasts = 0;
             Source = caster;
             Activation = Module.CastFinishAt(spell, 0.8f);
             // TODO: not sure how targets are selected, assume it's first healer of each alliance
             BitMask selectedTargetsInAlliance = default;
-            foreach (var (i, p) in Raid.WithSlot())
+            foreach (var (i, p) in Raid.WithSlot(false, false, true))
             {
                 if (p.Role == Role.Healer && !selectedTargetsInAlliance[i >> 3])
                 {
@@ -29,7 +29,7 @@ class RapidSequenceParticleBeam(BossModule module) : Components.GenericWildCharg
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.RapidSequenceParticleBeamAOE && ++NumCasts >= 12)
+        if (spell.Action.ID == (uint)AID.RapidSequenceParticleBeamAOE && ++NumCasts >= 12)
             Source = null;
     }
 }

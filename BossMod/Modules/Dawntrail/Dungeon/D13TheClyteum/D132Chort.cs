@@ -47,18 +47,46 @@ sealed class MortifyingFleshAOEs(BossModule module) : Components.SimpleAOEGroups
 
 sealed class BodyWeightExorcism1(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.BodyweightExorcism1, 8)
 {
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) { }
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Casters.Count != 0)
+        {
+            ref readonly var kb = ref Casters.Ref(0);
+            var act = kb.Activation;
+            if (!IsImmune(slot, act))
+            {
+                hints.AddForbiddenZone(new SDInvertedCircle(kb.Origin, 7f), act);
+            }
+        }
+    }
 }
 
 sealed class BasicVomit(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BasicVomit, new AOEShapeCone(50f, 60f.Degrees()));
 
-sealed class BodyweightTower(BossModule module) : Components.CastTowers(module, AID.BodyweightExorcismTower, 4f, 4, 4)
-{ }
+sealed class BodyweightTower(BossModule module) : Components.CastTowers(module, (uint)AID.BodyweightExorcismTower, 4f, 4, 4)
+{
+    public override ReadOnlySpan<Tower> ActiveTowers(int slot, Actor actor)
+    {
+        var towers = CollectionsMarshal.AsSpan(Towers);
+        var len = towers.Length;
+        if (len <= 1)
+            return towers;
+        // Only expose the next tower (earliest activation) so the AI soaks in sequence rather than rushing to the closest one.
+        var nextIdx = 0;
+        for (var i = 1; i < len; ++i)
+        {
+            if (towers[i].Activation < towers[nextIdx].Activation)
+                nextIdx = i;
+        }
+        return towers.Slice(nextIdx, 1);
+    }
+}
 
-sealed class EvilEmission(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.EvilEmissionSpread, AID.EvilEmission1, 4, 5);
+sealed class EvilEmission(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.EvilEmissionSpread, (uint)AID.EvilEmission1, 4, 5);
 
-sealed class ProfanePressure(BossModule module) : Components.StackWithCastTargets(module, AID.ProfanePressure1, 6f, 4);
+sealed class ProfanePressure(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.ProfanePressure1, 6f, 4);
 
+[SkipLocalsInit]
 sealed class D132ChortStates : StateMachineBuilder
 {
     public D132ChortStates(BossModule module) : base(module)
@@ -91,4 +119,5 @@ sealed class D132ChortStates : StateMachineBuilder
     NameID = 14734u,
     SortOrder = 1,
     PlanLevel = 0)]
+[SkipLocalsInit]
 public sealed class Chort(WorldState ws, Actor primary) : BossModule(ws, primary, new(660f, -141f), new ArenaBoundsCircle(15f));

@@ -15,7 +15,7 @@ class SewageDeluge(BossModule module) : BossComponent(module)
     private const float _connectInner = _offsetCorner - _connectHalfWidth;
     private const float _connectOuter = _offsetCorner + _connectHalfWidth;
 
-    private static readonly WDir[] _corners = [new(), new(-1, -1), new(1, -1), new(-1, 1), new(1, 1)];
+    private static readonly WDir[] _corners = [default, new(-1f, -1f), new(1f, -1f), new(-1f, 1f), new(1f, 1f)];
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
@@ -23,64 +23,64 @@ class SewageDeluge(BossModule module) : BossComponent(module)
             return;
 
         // central area + H additionals
-        Arena.ZoneRect(Module.Center, new WDir(+1, 0), _connectInner, _connectInner, _cornerInner, ArenaColor.AOE);
+        Arena.ZoneRect(Arena.Center, new WDir(+1, 0), _connectInner, _connectInner, _cornerInner, Colors.AOE);
         // central V additionals
-        Arena.ZoneRect(Module.Center, new WDir(0, +1), _connectInner, -_cornerInner, _cornerInner, ArenaColor.AOE);
-        Arena.ZoneRect(Module.Center, new WDir(0, -1), _connectInner, -_cornerInner, _cornerInner, ArenaColor.AOE);
+        Arena.ZoneRect(Arena.Center, new WDir(0, +1), _connectInner, -_cornerInner, _cornerInner, Colors.AOE);
+        Arena.ZoneRect(Arena.Center, new WDir(0, -1), _connectInner, -_cornerInner, _cornerInner, Colors.AOE);
         // outer additionals
-        Arena.ZoneRect(Module.Center, new WDir(+1, 0), _cornerOuter, -_connectOuter, _cornerInner, ArenaColor.AOE);
-        Arena.ZoneRect(Module.Center, new WDir(-1, 0), _cornerOuter, -_connectOuter, _cornerInner, ArenaColor.AOE);
-        Arena.ZoneRect(Module.Center, new WDir(0, +1), _cornerOuter, -_connectOuter, _cornerInner, ArenaColor.AOE);
-        Arena.ZoneRect(Module.Center, new WDir(0, -1), _cornerOuter, -_connectOuter, _cornerInner, ArenaColor.AOE);
+        Arena.ZoneRect(Arena.Center, new WDir(+1, 0), _cornerOuter, -_connectOuter, _cornerInner, Colors.AOE);
+        Arena.ZoneRect(Arena.Center, new WDir(-1, 0), _cornerOuter, -_connectOuter, _cornerInner, Colors.AOE);
+        Arena.ZoneRect(Arena.Center, new WDir(0, +1), _cornerOuter, -_connectOuter, _cornerInner, Colors.AOE);
+        Arena.ZoneRect(Arena.Center, new WDir(0, -1), _cornerOuter, -_connectOuter, _cornerInner, Colors.AOE);
         // outer area
-        Arena.ZoneRect(Module.Center, new WDir(+1, 0), Module.Bounds.Radius, -_cornerOuter, Module.Bounds.Radius, ArenaColor.AOE);
-        Arena.ZoneRect(Module.Center, new WDir(-1, 0), Module.Bounds.Radius, -_cornerOuter, Module.Bounds.Radius, ArenaColor.AOE);
-        Arena.ZoneRect(Module.Center, new WDir(0, +1), Module.Bounds.Radius, -_cornerOuter, _cornerOuter, ArenaColor.AOE);
-        Arena.ZoneRect(Module.Center, new WDir(0, -1), Module.Bounds.Radius, -_cornerOuter, _cornerOuter, ArenaColor.AOE);
+        Arena.ZoneRect(Arena.Center, new WDir(+1, 0), Arena.Bounds.Radius, -_cornerOuter, Arena.Bounds.Radius, Colors.AOE);
+        Arena.ZoneRect(Arena.Center, new WDir(-1, 0), Arena.Bounds.Radius, -_cornerOuter, Arena.Bounds.Radius, Colors.AOE);
+        Arena.ZoneRect(Arena.Center, new WDir(0, +1), Arena.Bounds.Radius, -_cornerOuter, _cornerOuter, Colors.AOE);
+        Arena.ZoneRect(Arena.Center, new WDir(0, -1), Arena.Bounds.Radius, -_cornerOuter, _cornerOuter, Colors.AOE);
 
-        var corner = Module.Center + _corners[(int)_blockedCorner] * _offsetCorner;
-        Arena.ZoneRect(corner, new WDir(1, 0), _cornerHalfSize, _cornerHalfSize, _cornerHalfSize, ArenaColor.AOE);
+        var corner = Arena.Center + _corners[(int)_blockedCorner] * _offsetCorner;
+        Arena.ZoneRect(corner, new WDir(1, 0), _cornerHalfSize, _cornerHalfSize, _cornerHalfSize, Colors.AOE);
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         // inner border
-        Arena.PathLineTo(Module.Center + new WDir(-_cornerInner, -_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(-_cornerInner, -_connectInner));
-        Arena.PathLineTo(Module.Center + new WDir(+_cornerInner, -_connectInner));
-        Arena.PathLineTo(Module.Center + new WDir(+_cornerInner, -_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(+_connectInner, -_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(+_connectInner, +_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(+_cornerInner, +_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(+_cornerInner, +_connectInner));
-        Arena.PathLineTo(Module.Center + new WDir(-_cornerInner, +_connectInner));
-        Arena.PathLineTo(Module.Center + new WDir(-_cornerInner, +_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(-_connectInner, +_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(-_connectInner, -_cornerInner));
-        Arena.PathStroke(true, ArenaColor.Border);
+        Arena.PathLineTo(Arena.Center + new WDir(-_cornerInner, -_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(-_cornerInner, -_connectInner));
+        Arena.PathLineTo(Arena.Center + new WDir(+_cornerInner, -_connectInner));
+        Arena.PathLineTo(Arena.Center + new WDir(+_cornerInner, -_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(+_connectInner, -_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(+_connectInner, +_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(+_cornerInner, +_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(+_cornerInner, +_connectInner));
+        Arena.PathLineTo(Arena.Center + new WDir(-_cornerInner, +_connectInner));
+        Arena.PathLineTo(Arena.Center + new WDir(-_cornerInner, +_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(-_connectInner, +_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(-_connectInner, -_cornerInner));
+        MiniArena.PathStroke(true, Colors.Border);
 
         // outer border
-        Arena.PathLineTo(Module.Center + new WDir(-_cornerOuter, -_cornerOuter));
-        Arena.PathLineTo(Module.Center + new WDir(-_cornerInner, -_cornerOuter));
-        Arena.PathLineTo(Module.Center + new WDir(-_cornerInner, -_connectOuter));
-        Arena.PathLineTo(Module.Center + new WDir(+_cornerInner, -_connectOuter));
-        Arena.PathLineTo(Module.Center + new WDir(+_cornerInner, -_cornerOuter));
-        Arena.PathLineTo(Module.Center + new WDir(+_cornerOuter, -_cornerOuter));
-        Arena.PathLineTo(Module.Center + new WDir(+_cornerOuter, -_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(+_connectOuter, -_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(+_connectOuter, +_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(+_cornerOuter, +_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(+_cornerOuter, +_cornerOuter));
-        Arena.PathLineTo(Module.Center + new WDir(+_cornerInner, +_cornerOuter));
-        Arena.PathLineTo(Module.Center + new WDir(+_cornerInner, +_connectOuter));
-        Arena.PathLineTo(Module.Center + new WDir(-_cornerInner, +_connectOuter));
-        Arena.PathLineTo(Module.Center + new WDir(-_cornerInner, +_cornerOuter));
-        Arena.PathLineTo(Module.Center + new WDir(-_cornerOuter, +_cornerOuter));
-        Arena.PathLineTo(Module.Center + new WDir(-_cornerOuter, +_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(-_connectOuter, +_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(-_connectOuter, -_cornerInner));
-        Arena.PathLineTo(Module.Center + new WDir(-_cornerOuter, -_cornerInner));
-        Arena.PathStroke(true, ArenaColor.Border);
+        Arena.PathLineTo(Arena.Center + new WDir(-_cornerOuter, -_cornerOuter));
+        Arena.PathLineTo(Arena.Center + new WDir(-_cornerInner, -_cornerOuter));
+        Arena.PathLineTo(Arena.Center + new WDir(-_cornerInner, -_connectOuter));
+        Arena.PathLineTo(Arena.Center + new WDir(+_cornerInner, -_connectOuter));
+        Arena.PathLineTo(Arena.Center + new WDir(+_cornerInner, -_cornerOuter));
+        Arena.PathLineTo(Arena.Center + new WDir(+_cornerOuter, -_cornerOuter));
+        Arena.PathLineTo(Arena.Center + new WDir(+_cornerOuter, -_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(+_connectOuter, -_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(+_connectOuter, +_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(+_cornerOuter, +_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(+_cornerOuter, +_cornerOuter));
+        Arena.PathLineTo(Arena.Center + new WDir(+_cornerInner, +_cornerOuter));
+        Arena.PathLineTo(Arena.Center + new WDir(+_cornerInner, +_connectOuter));
+        Arena.PathLineTo(Arena.Center + new WDir(-_cornerInner, +_connectOuter));
+        Arena.PathLineTo(Arena.Center + new WDir(-_cornerInner, +_cornerOuter));
+        Arena.PathLineTo(Arena.Center + new WDir(-_cornerOuter, +_cornerOuter));
+        Arena.PathLineTo(Arena.Center + new WDir(-_cornerOuter, +_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(-_connectOuter, +_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(-_connectOuter, -_cornerInner));
+        Arena.PathLineTo(Arena.Center + new WDir(-_cornerOuter, -_cornerInner));
+        MiniArena.PathStroke(true, Colors.Border);
     }
 
     public override void OnMapEffect(byte index, uint state)

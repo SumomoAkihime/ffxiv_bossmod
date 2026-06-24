@@ -38,13 +38,13 @@ class ElementalBelone : BossComponent
             var safeCorner = assignments.Assignment(_safeElement);
             if (safeCorner != SettingTheScene.Corner.Unknown)
             {
-                var p = Module.Center + 10 * assignments.Direction(safeCorner);
-                Arena.ZoneRect(p, new WDir(1, 0), 10, 10, 10, ArenaColor.SafeFromAOE);
+                var p = Arena.Center + 10 * assignments.Direction(safeCorner);
+                Arena.ZoneRect(p, new WDir(1, 0), 10, 10, 10, Colors.SafeFromAOE);
             }
         }
         foreach (var p in _imminentExplodingCorners)
         {
-            Arena.ZoneRect(p, new WDir(1, 0), 10, 10, 10, ArenaColor.AOE);
+            Arena.ZoneRect(p, new WDir(1, 0), 10, 10, 10, Colors.AOE);
         }
     }
 

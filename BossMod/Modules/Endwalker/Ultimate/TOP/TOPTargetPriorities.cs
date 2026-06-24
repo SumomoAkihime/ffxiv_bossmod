@@ -1,8 +1,8 @@
 ﻿namespace BossMod.Endwalker.Ultimate.TOP;
 
-class P2Invincibility(BossModule module) : Components.InvincibleStatus(module, (uint)SID.Invincibility);
+sealed class P2Invincibility(BossModule module) : Components.InvincibleStatus(module, (uint)SID.Invincibility);
 
-class P2PacketFilter(BossModule module) : Components.GenericInvincible(module)
+sealed class P2PacketFilter(BossModule module) : Components.GenericInvincible(module)
 {
     enum Firewall
     {
@@ -16,36 +16,40 @@ class P2PacketFilter(BossModule module) : Components.GenericInvincible(module)
 
     private readonly Firewall[] _playerStates = Utils.MakeArray(PartyState.MaxPartySize, Firewall.None);
 
-    protected override IEnumerable<Actor> ForbiddenTargets(int slot, Actor actor) => _playerStates.BoundSafeAt(slot) switch
+    protected override ReadOnlySpan<Actor> ForbiddenTargets(int slot, Actor actor) => _playerStates.BoundSafeAt(slot) switch
     {
-        Firewall.PacketFilterF => _omegaF,
-        Firewall.PacketFilterM => _omegaM,
+        Firewall.PacketFilterF => CollectionsMarshal.AsSpan(_omegaF),
+        Firewall.PacketFilterM => CollectionsMarshal.AsSpan(_omegaM),
         _ => []
     };
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.OmegaF:
+            case (uint)SID.OmegaF:
                 _omegaM.Remove(actor);
                 _omegaF.Add(actor);
                 break;
-            case SID.OmegaM:
+            case (uint)SID.OmegaM:
                 _omegaF.Remove(actor);
                 _omegaM.Add(actor);
                 break;
-            case SID.PacketFilterF:
-            case SID.PacketFilterM:
-                if (Raid.TryFindSlot(actor, out var slot))
-                    _playerStates[slot] = (SID)status.ID == SID.PacketFilterF ? Firewall.PacketFilterF : Firewall.PacketFilterM;
+            case (uint)SID.PacketFilterF:
+            case (uint)SID.PacketFilterM:
+                if (Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
+                {
+                    _playerStates[slot] = status.ID == (uint)SID.PacketFilterF ? Firewall.PacketFilterF : Firewall.PacketFilterM;
+                }
                 break;
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID is SID.PacketFilterF or SID.PacketFilterM && Raid.TryFindSlot(actor, out var slot))
+        if (status.ID is (uint)SID.PacketFilterF or (uint)SID.PacketFilterM && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
+        {
             _playerStates[slot] = Firewall.None;
+        }
     }
 }

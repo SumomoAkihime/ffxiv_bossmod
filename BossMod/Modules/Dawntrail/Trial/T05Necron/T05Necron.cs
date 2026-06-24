@@ -1,13 +1,9 @@
-﻿namespace BossMod.Dawntrail.Trial.T05Necron;
+namespace BossMod.Dawntrail.Trial.T05Necron;
 
-sealed class Wipe : BossComponent
+sealed class Wipe(BossModule module) : BossComponent(module)
 {
     public bool Wiped;
-
-    public Wipe(BossModule module) : base(module)
-    {
-        KeepOnPhaseChange = true;
-    }
+    public override bool KeepOnPhaseChange => true;
 
     public override void OnEventDirectorUpdate(uint updateID, uint param1, uint param2, uint param3, uint param4)
     {
@@ -18,10 +14,10 @@ sealed class Wipe : BossComponent
     }
 }
 
-sealed class DarknessOfEternity(BossModule module) : Components.RaidwideCastDelay(module, AID.DarknessOfEternityVisual, AID.DarknessOfEternity, 6.4f);
+sealed class DarknessOfEternity(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.DarknessOfEternityVisual, (uint)AID.DarknessOfEternity, 6.4d);
 sealed class FearOfDeathAOE2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.FearOfDeathAOE2, 3f);
 sealed class FearOfDeathGrandCross(BossModule module) : Components.RaidwideCasts(module, [(uint)AID.FearOfDeath, (uint)AID.GrandCross, (uint)AID.GrandCrossProximity]);
-sealed class BlueShockwave(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCone(100f, 50f.Degrees()), (uint)IconID.BlueShockwave, AID.BlueShockwave, 7.2f)
+sealed class BlueShockwave(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCone(100f, 50f.Degrees()), (uint)IconID.BlueShockwave, (uint)AID.BlueShockwave, 7.2d)
 {
     public override void Update()
     {
@@ -51,9 +47,8 @@ public sealed class T05Necron(WorldState ws, Actor primary) : Necron(ws, primary
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var oid in hands)
-            Arena.Actors(Enemies(oid), ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(this, hands);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -70,4 +65,3 @@ public sealed class T05Necron(WorldState ws, Actor primary) : Necron(ws, primary
         }
     }
 }
-

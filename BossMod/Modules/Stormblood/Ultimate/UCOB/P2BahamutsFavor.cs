@@ -12,38 +12,38 @@ class P2BahamutsFavorFireball(BossModule module) : Components.UniformStackSpread
             AddStack(Target, _activation, _forbidden);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Firescorched)
+        if (status.ID == (uint)SID.Firescorched)
         {
-            _forbidden.Set(Raid.FindSlot(actor.InstanceID));
+            _forbidden[Raid.FindSlot(actor.InstanceID)] = true;
             foreach (ref var s in Stacks.AsSpan())
                 s.ForbiddenPlayers = _forbidden;
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Firescorched)
+        if (status.ID == (uint)SID.Firescorched)
         {
-            _forbidden.Clear(Raid.FindSlot(actor.InstanceID));
+            _forbidden[Raid.FindSlot(actor.InstanceID)] = false;
             foreach (ref var s in Stacks.AsSpan())
                 s.ForbiddenPlayers = _forbidden;
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
-        if ((TetherID)tether.ID == TetherID.Fireball)
+        if (tether.ID == (uint)TetherID.Fireball)
         {
             Target = WorldState.Actors.Find(tether.Target);
-            _activation = WorldState.FutureTime(5.1f);
+            _activation = WorldState.FutureTime(5.1d);
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.FireballP2)
+        if (spell.Action.ID == (uint)AID.FireballP2)
         {
             Stacks.Clear();
             Target = null;
@@ -53,32 +53,32 @@ class P2BahamutsFavorFireball(BossModule module) : Components.UniformStackSpread
 }
 
 // note: if player dies immediately after chain lightning cast, he won't get a status or have aoe cast; if he dies after status application, aoe will be triggered immediately
-class P2BahamutsFavorChainLightning(BossModule module) : Components.UniformStackSpread(module, 0, 5, alwaysShowSpreads: true)
+class P2BahamutsFavorChainLightning(BossModule module) : Components.UniformStackSpread(module, default, 5f)
 {
     private BitMask _pendingTargets;
     private DateTime _expectedStatuses;
 
-    public bool ActiveOrSkipped() => Active || _pendingTargets.Any() && WorldState.CurrentTime >= _expectedStatuses && Raid.WithSlot(true).IncludedInMask(_pendingTargets).All(ip => ip.Item2.IsDead);
+    public bool ActiveOrSkipped() => Active || _pendingTargets.Any() && WorldState.CurrentTime >= _expectedStatuses && Raid.WithSlot(true, true, true).IncludedInMask(_pendingTargets).All(ip => ip.Item2.IsDead);
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Thunderstruck)
+        if (status.ID == (uint)SID.Thunderstruck)
         {
             AddSpread(actor, status.ExpireAt);
-            _pendingTargets.Reset();
+            _pendingTargets = default;
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.ChainLightning:
-                _expectedStatuses = WorldState.FutureTime(1);
+            case (uint)AID.ChainLightning:
+                _expectedStatuses = WorldState.FutureTime(1d);
                 foreach (var t in spell.Targets)
                     _pendingTargets.Set(Raid.FindSlot(t.ID));
                 break;
-            case AID.ChainLightningAOE:
+            case (uint)AID.ChainLightningAOE:
                 Spreads.Clear();
                 break;
         }
@@ -102,12 +102,12 @@ class P2BahamutsFavorDeathstorm(BossModule module) : BossComponent(module)
     {
         var doomOrder = _dooms.FindIndex(d => d.player == pc);
         if (doomOrder >= 0 && !_dooms[doomOrder].cleansed && doomOrder < _cleanses.Count)
-            Arena.AddCircle(_cleanses[doomOrder].voidzone?.Position ?? _cleanses[doomOrder].predicted, 1, ArenaColor.Safe);
+            Arena.AddCircle(_cleanses[doomOrder].voidzone?.Position ?? _cleanses[doomOrder].predicted, 1, Colors.Safe);
     }
 
     public override void OnActorCreated(Actor actor)
     {
-        if ((OID)actor.OID == OID.VoidzoneSalvation)
+        if (actor.OID == (uint)OID.VoidzoneSalvation)
         {
             var index = _cleanses.FindIndex(z => z.voidzone == null && z.predicted.AlmostEqual(actor.Position, 0.5f));
             if (index >= 0)
@@ -117,18 +117,18 @@ class P2BahamutsFavorDeathstorm(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Doom)
+        if (status.ID == (uint)SID.Doom)
         {
             _dooms.Add((actor, status.ExpireAt, false));
-            _dooms.SortBy(d => d.expiration);
+            _dooms.Sort(static (a, b) => a.expiration.CompareTo(b.expiration));
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Doom)
+        if (status.ID == (uint)SID.Doom)
         {
             var index = _dooms.FindIndex(d => d.player == actor);
             if (index >= 0)
@@ -140,13 +140,13 @@ class P2BahamutsFavorDeathstorm(BossModule module) : BossComponent(module)
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.WingsOfSalvation)
+        if (spell.Action.ID == (uint)AID.WingsOfSalvation)
             _cleanses.Add((spell.LocXZ, null));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.Deathstorm)
+        if (spell.Action.ID == (uint)AID.Deathstorm)
         {
             _dooms.Clear();
             _cleanses.Clear();
@@ -155,4 +155,4 @@ class P2BahamutsFavorDeathstorm(BossModule module) : BossComponent(module)
     }
 }
 
-class P2BahamutsFavorWingsOfSalvation(BossModule module) : Components.StandardAOEs(module, AID.WingsOfSalvation, 4);
+class P2BahamutsFavorWingsOfSalvation(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WingsOfSalvation, 4f);

@@ -2,116 +2,81 @@ namespace BossMod.Stormblood.Dungeon.D05CastrumAbania.D052SubjectNumberXXIV;
 
 public enum OID : uint
 {
-    Boss = 0x3F3B, // R3.600, x?
-    Helper = 0x233C, // R0.500, x?, Helper type
+    Boss = 0x3F3B, // R3.6
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    Attack = 871, // 3F3B/1BC3->player, no cast, single-target
+    AutoAttack = 871, // Boss->player, no cast, single-target
 
-    ElementalOverload1 = 33448, // 3F3B->self, 5.0s cast, range 60 circle -- Ice Loaded
-    ElementalOverload2 = 33449, // 3F3B->self, 5.0s cast, range 60 circle -- Fire Loaded
-    ElementalOverload3 = 33450, // 3F3B->self, 5.0s cast, range 60 circle
-    ElementalOverload4 = 33451, // 3F3B->self, 5.0s cast, range 60 circle -- Ice Loaded
-    ElementalOverload5 = 33452, // 3F3B->self, 5.0s cast, range 60 circle -- Fire Loaded
-    ElementalOverload6 = 33453, // 3F3B->self, 5.0s cast, range 60 circle -- Thunder Loaded
-    SystemError = 33459, // 3F3B->self, no cast, single-target
+    ElementalOverload1 = 33450, // Boss->self, 5.0s cast, range 60 circle
+    ElementalOverload2 = 33452, // Boss->self, 5.0s cast, range 60 circle
+    ElementalOverload3 = 33451, // Boss->self, 5.0s cast, range 60 circle
+    ElementalOverload4 = 33453, // Boss->self, 5.0s cast, range 60 circle
+    ElementalOverload5 = 33448, // Boss->self, 5.0s cast, range 60 circle
+    ElementalOverload6 = 33449, // Boss->self, 5.0s cast, range 60 circle
 
-    DiscreteMagick1 = 33454, // 3F3B->self, 3.5+0.5s cast, single-target -- IceGrid
-    DiscreteMagick2 = 33455, // 3F3B->self, 4.5+0.5s cast, single-target == Blizzard II
-    DiscreteMagick3 = 33457, // 3F3B->self, 3.5+0.5s cast, single-target
-    DiscreteMagick4 = 33458, // 3F3B->self, 4.5+0.5s cast, single-target -- Stack
-    DiscreteMagick5 = 33748, // 3F3B->self, 5.0+0.5s cast, single-target
-    DiscreteMagick6 = 33749, // 3F3B->self, 4.5+0.5s cast, single-target -- SparkingCurrent
+    DiscreteMagickTowersVisual = 33748, // Boss->self, 5.0+0,5s cast, single-target
+    ThunderII = 33464, // Helper->self, 5.5s cast, range 5 circle
+    Electrify = 33465, // Helper->self, no cast, range 60 circle, tower fail
 
-    SerialMagicks1 = 33747, // 3F3B->self, 3.5+0.5s cast, single-target -- Fire Raidwide
-    SerialMagicks2 = 33456, // 3F3B->self, 3.5+0.5s cast, single-target -- Blizzard II + Ice Grid (Checkerboard)
-    SerialMagicks3 = 33750, // 3F3B->self, 5.0+0.5s cast, single-target -- ThunderII Towers
+    DiscreteMagickBaitVisual = 33749, // Boss->self, 4.5+0,5s cast, single-target
+    SparkingCurrentMarker = 33467, // Helper->player, no cast, single-target
+    SparkingCurrent = 33466, // Helper->self, no cast, range 20 width 6 rect
 
-    FireII = 33462, // 233C->players, 5.0s cast, range 5 circle -- Stack
-    ThunderII = 33464, // 233C->self, 5.5s cast, range 5 circle
-    BlizzardII = 33461, // 233C->player, 5.0s cast, range 5 circle -- Spread?
+    SerialMagicks1 = 33750, // Boss->self, 5.0+0,5s cast, single-target
+    SerialMagicks2 = 33747, // Boss->self, 3.5+0,5s cast, single-target
+    SerialMagicks3 = 33456, // Boss->self, 3.5+0,5s cast, single-target
+    SystemError = 33459, // Boss->self, no cast, single-target
 
-    Triflame = 33463, // 233C->self, 4.0s cast, range 60 60-degree cone
-    SparkingCurrent = 33466, // 233C->self, no cast, range 20 width 6 rect
-    IceGrid = 33460, // 233C->self, 4.0s cast, range 40 width 4 rect
+    DiscreteMagickTriflameVisual = 33457, // Boss->self, 3.5+0,5s cast, single-target
+    Triflame = 33463, // Helper->self, 4.0s cast, range 60 60-degree cone
 
-    A = 33467, // 233C->player, no cast, single-target
-}
-public enum SID : uint
-{
-    FireLoaded = 3626, // Boss->Boss, extra=0x0
-    IceLoaded = 3627, // Boss->Boss, extra=0x0
-    LightningLoaded = 3628, // Boss->Boss, extra=0x0
-    SystemError = 3562, // Boss->Boss, extra=0x255
+    DiscreteMagickStackVisual = 33458, // Boss->self, 4.5+0,5s cast, single-target
+    FireII = 33462, // Helper->player, 5.0s cast, range 5 circle
+
+    DiscreteMagickIceGridVisual = 33454, // Boss->self, 3.5+0,5s cast, single-target
+    IceGrid = 33460, // Helper->self, 4.0s cast, range 40 width 4 rect
+
+    DiscreteMagickSpreadVisual = 33455, // Boss->self, 4.5+0,5s cast, single-target
+    BlizzardII = 33461, // Helper->player, 5.0s cast, range 5 circle
 }
 
-public enum IconID : uint
+class SparkingCurrent(BossModule module) : Components.GenericBaitAway(module)
 {
-    Stack = 161,
-    Spread = 376,
-    Huh = 326,
-}
-class ElementalOverload1(BossModule module) : Components.RaidwideCast(module, AID.ElementalOverload1);
-class ElementalOverload2(BossModule module) : Components.RaidwideCast(module, AID.ElementalOverload2);
-class ElementalOverload3(BossModule module) : Components.RaidwideCast(module, AID.ElementalOverload3);
-class ElementalOverload4(BossModule module) : Components.RaidwideCast(module, AID.ElementalOverload4);
-class ElementalOverload5(BossModule module) : Components.RaidwideCast(module, AID.ElementalOverload5);
-class ElementalOverload6(BossModule module) : Components.RaidwideCast(module, AID.ElementalOverload6);
+    private static readonly AOEShapeRect rect = new(20f, 3f);
 
-class DiscreteMagick6(BossModule module) : Components.GenericBaitAway(module, AID.DiscreteMagick6, true)
-{
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if (spell.Action == WatchedAction)
-        {
-            if (caster != null)
-                foreach (var p in WorldState.Party.WithoutSlot())
-                    CurrentBaits.Add(new Bait(caster, p, new AOEShapeRect(20, 3)));
-        }
-    }
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.SparkingCurrent)
-        {
+        if (spell.Action.ID == (uint)AID.SparkingCurrentMarker)
+            CurrentBaits.Add(new(caster, WorldState.Actors.Find(spell.MainTargetID)!, rect, WorldState.FutureTime(5d)));
+        else if (spell.Action.ID == (uint)AID.SparkingCurrent)
             CurrentBaits.Clear();
-        }
     }
 }
-class FireII(BossModule module) : Components.IconStackSpread(module, (uint)IconID.Stack, 0, AID.FireII, default, 6, 0, 5.1f);
-class ThunderII(BossModule module) : Components.CastTowers(module, AID.ThunderII, 5, 1, 1)
-{
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((OID)caster.OID is OID.Helper && (AID)spell.Action.ID is AID.ThunderII)
-        {
-            Towers.Add(new(caster.Position, Radius));
-        }
-    }
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if ((OID)caster.OID is OID.Helper && (AID)spell.Action.ID is AID.ThunderII)
-        {
-            Towers.RemoveAll(t => t.Position.AlmostEqual(caster.Position, 1));
-        }
-    }
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        foreach (var t in Towers.Where(t => !t.ForbiddenSoakers[slot] && (!t.CorrectAmountInside(Module) || t.IsInside(actor))))
-        {
-            hints.AddForbiddenZone(ShapeContains.InvertedCircle(t.Position, Radius - 0.5f));
-        }
-    }
-};
-class BlizzardII(BossModule module) : Components.CastStackSpread(module, default, AID.BlizzardII, 0, 5);
-class Triflame(BossModule module) : Components.StandardAOEs(module, AID.Triflame, new AOEShapeCone(60, 30.Degrees()));
-class IceGrid(BossModule module) : Components.StandardAOEs(module, AID.IceGrid, new AOEShapeRect(40, 2f));
+
+class ThunderII(BossModule module) : Components.CastTowers(module, (uint)AID.ThunderII, 5f);
+class FireII(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.FireII, 5f, 4, 4);
+class BlizzardII(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.BlizzardII, 5f);
+class IceGrid(BossModule module) : Components.SimpleAOEs(module, (uint)AID.IceGrid, new AOEShapeRect(40f, 2f), 10);
+class Triflame(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Triflame, new AOEShapeCone(60f, 30f.Degrees()), 3);
+class ElementalOverload1(BossModule module) : Components.RaidwideCast(module, (uint)AID.ElementalOverload1);
+class ElementalOverload2(BossModule module) : Components.RaidwideCast(module, (uint)AID.ElementalOverload2);
+class ElementalOverload3(BossModule module) : Components.RaidwideCast(module, (uint)AID.ElementalOverload3);
+class ElementalOverload4(BossModule module) : Components.RaidwideCast(module, (uint)AID.ElementalOverload4);
+class ElementalOverload5(BossModule module) : Components.RaidwideCast(module, (uint)AID.ElementalOverload5);
+class ElementalOverload6(BossModule module) : Components.RaidwideCast(module, (uint)AID.ElementalOverload6);
+
 class D052SubjectNumberXXIVStates : StateMachineBuilder
 {
     public D052SubjectNumberXXIVStates(BossModule module) : base(module)
     {
         TrivialPhase()
+            .ActivateOnEnter<SparkingCurrent>()
+            .ActivateOnEnter<ThunderII>()
+            .ActivateOnEnter<IceGrid>()
+            .ActivateOnEnter<Triflame>()
             .ActivateOnEnter<ElementalOverload1>()
             .ActivateOnEnter<ElementalOverload2>()
             .ActivateOnEnter<ElementalOverload3>()
@@ -119,13 +84,12 @@ class D052SubjectNumberXXIVStates : StateMachineBuilder
             .ActivateOnEnter<ElementalOverload5>()
             .ActivateOnEnter<ElementalOverload6>()
             .ActivateOnEnter<FireII>()
-            .ActivateOnEnter<ThunderII>()
-            .ActivateOnEnter<BlizzardII>()
-            .ActivateOnEnter<Triflame>()
-            .ActivateOnEnter<IceGrid>()
-            .ActivateOnEnter<DiscreteMagick6>();
+            .ActivateOnEnter<BlizzardII>();
     }
 }
 
-[ModuleInfo(Contributors = "VeraNala", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 242, NameID = 12392)]
-public class D052SubjectNumberXXIV(WorldState ws, Actor primary) : BossModule(ws, primary, new(10.4f, 186.5f), new ArenaBoundsCircle(19));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 242, NameID = 12392)]
+public class D052SubjectNumberXXIV(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
+{
+    private static readonly ArenaBoundsCustom arena = new([new Circle(new(10.5f, 186.5f), 19.55f)], [new Rectangle(new(11, 207), 20, 1.5f), new Rectangle(new(30, 187), 1.1f, 20f)]);
+}

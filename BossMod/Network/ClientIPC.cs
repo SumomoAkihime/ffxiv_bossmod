@@ -1,6 +1,4 @@
-﻿using System.Runtime.InteropServices;
-
-namespace BossMod.Network.ClientIPC;
+﻿namespace BossMod.Network.ClientIPC;
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public unsafe struct ActionRequest
@@ -20,7 +18,6 @@ public unsafe struct ActionRequest
     public ulong u5;
 }
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public unsafe struct ActionRequestGroundTargeted
 {
     public byte ActionProcState; // see ActionManager.GetAdjustedCastTime implementation, last optional arg

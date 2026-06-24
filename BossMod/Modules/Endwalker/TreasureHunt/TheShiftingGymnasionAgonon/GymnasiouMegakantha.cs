@@ -2,64 +2,76 @@ namespace BossMod.Endwalker.TreasureHunt.ShiftingGymnasionAgonon.GymnasiouMegaka
 
 public enum OID : uint
 {
-    Boss = 0x3D33, //R=6
-    BonusAddLyssa = 0x3D4E, //R=3.75, bonus loot adds
-    BossHelper = 0x233C,
-    BossAdd1 = 0x3D35, //R=1.76 
-    BossAdd2 = 0x3D36, //R=1.56
-    BonusAddLampas = 0x3D4D, //R=2.001, bonus loot adds
+    Boss = 0x3D33, //R=6.0
+    GymnasiouAkantha = 0x3D35, //R=1.76 
+    GymnasiouSinapi = 0x3D36, //R=1.56
+    GymnasiouLyssa = 0x3D4E, //R=3.75
+    GymnasiouLampas = 0x3D4D, //R=2.001
+    GymnasticGarlic = 0x3D51, // R0.84, icon 3, needs to be killed in order from 1 to 5 for maximum rewards
+    GymnasticQueen = 0x3D53, // R0.84, icon 5, needs to be killed in order from 1 to 5 for maximum rewards
+    GymnasticEggplant = 0x3D50, // R0.84, icon 2, needs to be killed in order from 1 to 5 for maximum rewards
+    GymnasticOnion = 0x3D4F, // R0.84, icon 1, needs to be killed in order from 1 to 5 for maximum rewards
+    GymnasticTomato = 0x3D52, // R0.84, icon 4, needs to be killed in order from 1 to 5 for maximum rewards
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    AutoAttack = 870, // BonusAddLyssa->player, no cast, single-target
-    AutoAttack2 = 872, // Boss/BossAdd2/BossAdd1->player, no cast, single-target
+    AutoAttack1 = 870, // GymnasiouLyssa->player, no cast, single-target
+    AutoAttack2 = 872, // Boss/GymnasiouSinapi/GymnasiouAkantha->player, no cast, single-target
+
     OdiousAtmosphereComboStart = 32199, // Boss->self, no cast, single-target
-    OdiousAtmosphere0 = 32241, // Boss->self, 4.0s cast, single-target
-    OdiousAtmosphere1 = 32242, // BossHelper->self, 5.3s cast, range 40 180-degree cone
-    OdiousAtmosphere2 = 33015, // BossHelper->self, 5.3s cast, range 40 180-degree cone
-    OdiousAtmosphere3 = 33016, // BossHelper->self, 3.0s cast, range 40 180-degree cone
+    OdiousAtmosphere = 32241, // Boss->self, 4.0s cast, single-target
+    OdiousAtmosphere1 = 32242, // Helper->self, 5.3s cast, range 40 180-degree cone
+    OdiousAtmosphere2 = 33015, // Helper->self, 5.3s cast, range 40 180-degree cone
+    OdiousAtmosphere3 = 33016, // Helper->self, 3.0s cast, range 40 180-degree cone
     SludgeBomb = 32239, // Boss->self, 3.0s cast, single-target
-    SludgeBomb2 = 32240, // BossHelper->location, 3.0s cast, range 8 circle
-    RustlingWind = 32244, // BossAdd2->self, 3.0s cast, range 15 width 4 rect
-    AcidMist = 32243, // BossAdd1->self, 2.5s cast, range 6 circle
+    SludgeBomb2 = 32240, // Helper->location, 3.0s cast, range 8 circle
+    RustlingWind = 32244, // GymnasiouSinapi->self, 3.0s cast, range 15 width 4 rect
+    AcidMist = 32243, // GymnasiouAkantha->self, 2.5s cast, range 6 circle
     VineWhip = 32238, // Boss->player, 5.0s cast, single-target
     OdiousAir = 32237, // Boss->self, 3.0s cast, range 12 120-degree cone
 
-    HeavySmash = 32317, // BossAdd->location, 3.0s cast, range 6 circle
-    Telega = 9630, // BonusAdds->self, no cast, single-target, bonus add disappear
+    HeavySmash = 32317, // GymnasiouLyssa->location, 3.0s cast, range 6 circle
+    PluckAndPrune = 32302, // GymnasticEggplant->self, 3.5s cast, range 7 circle
+    Pollen = 32305, // GymnasticQueen->self, 3.5s cast, range 7 circle
+    HeirloomScream = 32304, // GymnasticTomato->self, 3.5s cast, range 7 circle
+    PungentPirouette = 32303, // GymnasticGarlic->self, 3.5s cast, range 7 circle
+    TearyTwirl = 32301, // GymnasticOnion->self, 3.5s cast, range 7 circle
+    Telega = 9630 // Mandragoras/Lyssa/Lampas->self, no cast, single-target, bonus add disappear
 }
 
-class HeavySmash(BossModule module) : Components.StandardAOEs(module, AID.HeavySmash, 6);
-class SludgeBomb(BossModule module) : Components.StandardAOEs(module, AID.SludgeBomb2, 8);
-class RustlingWind(BossModule module) : Components.StandardAOEs(module, AID.RustlingWind, new AOEShapeRect(15, 2));
-class AcidMist(BossModule module) : Components.StandardAOEs(module, AID.AcidMist, new AOEShapeCircle(6));
-class OdiousAir(BossModule module) : Components.StandardAOEs(module, AID.OdiousAir, new AOEShapeCone(12, 60.Degrees()));
-class VineWhip(BossModule module) : Components.SingleTargetCast(module, AID.VineWhip);
+class SludgeBomb(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SludgeBomb2, 8f);
+class RustlingWind(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RustlingWind, new AOEShapeRect(15f, 2f));
+class AcidMist(BossModule module) : Components.SimpleAOEs(module, (uint)AID.AcidMist, 6f);
+class OdiousAir(BossModule module) : Components.SimpleAOEs(module, (uint)AID.OdiousAir, new AOEShapeCone(12f, 60f.Degrees()));
+class VineWhip(BossModule module) : Components.SingleTargetCast(module, (uint)AID.VineWhip);
 
 class OdiousAtmosphere(BossModule module) : Components.GenericAOEs(module)
 {
-    private AOEInstance? _aoe;
+    private AOEInstance[] _aoe = [];
+    private static readonly AOEShapeCone cone = new(40f, 90f.Degrees());
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.ZeroOrOne(_aoe);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.OdiousAtmosphere0)
-            _aoe = new(new AOEShapeCone(40, 90.Degrees()), caster.Position, spell.Rotation, Module.CastFinishAt(spell));
+        if (spell.Action.ID == (uint)AID.OdiousAtmosphere1)
+        {
+            _aoe = [new(cone, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell))];
+        }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.OdiousAtmosphere0:
-            case AID.OdiousAtmosphere1:
-            case AID.OdiousAtmosphere2:
-            case AID.OdiousAtmosphere3:
-                if (++NumCasts == 6)
+            case (uint)AID.OdiousAtmosphere1:
+            case (uint)AID.OdiousAtmosphere2:
+            case (uint)AID.OdiousAtmosphere3:
+                if (++NumCasts == 5)
                 {
-                    _aoe = null;
+                    _aoe = [];
                     NumCasts = 0;
                 }
                 break;
@@ -67,9 +79,14 @@ class OdiousAtmosphere(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class MegakanthaStates : StateMachineBuilder
+class MandragoraAOEs(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.PluckAndPrune, (uint)AID.TearyTwirl,
+(uint)AID.HeirloomScream, (uint)AID.PungentPirouette, (uint)AID.Pollen], 7f);
+
+class HeavySmash(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HeavySmash, 6f);
+
+class GymnasiouMegakanthaStates : StateMachineBuilder
 {
-    public MegakanthaStates(BossModule module) : base(module)
+    public GymnasiouMegakanthaStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<SludgeBomb>()
@@ -79,36 +96,41 @@ class MegakanthaStates : StateMachineBuilder
             .ActivateOnEnter<OdiousAtmosphere>()
             .ActivateOnEnter<AcidMist>()
             .ActivateOnEnter<HeavySmash>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.BossAdd1).All(e => e.IsDead) && module.Enemies(OID.BossAdd2).All(e => e.IsDead) && module.Enemies(OID.BonusAddLyssa).All(e => e.IsDead) && module.Enemies(OID.BonusAddLampas).All(e => e.IsDead);
+            .ActivateOnEnter<MandragoraAOEs>()
+            .Raw.Update = () => AllDeadOrDestroyed(GymnasiouMegakantha.All);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 909, NameID = 12009)]
-public class Megakantha(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(20))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 909, NameID = 12009)]
+public class GymnasiouMegakantha(WorldState ws, Actor primary) : THTemplate(ws, primary)
 {
+    private static readonly uint[] bonusAdds = [(uint)OID.GymnasticEggplant, (uint)OID.GymnasticGarlic, (uint)OID.GymnasticOnion, (uint)OID.GymnasticTomato,
+    (uint)OID.GymnasticQueen, (uint)OID.GymnasiouLyssa, (uint)OID.GymnasiouLampas];
+    private static readonly uint[] rest = [(uint)OID.Boss, (uint)OID.GymnasiouSinapi, (uint)OID.GymnasiouAkantha];
+    public static readonly uint[] All = [.. rest, .. bonusAdds];
+
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.BossAdd1))
-            Arena.Actor(s, ArenaColor.Object);
-        foreach (var s in Enemies(OID.BossAdd2))
-            Arena.Actor(s, ArenaColor.Object);
-        foreach (var s in Enemies(OID.BonusAddLyssa))
-            Arena.Actor(s, ArenaColor.Vulnerable);
-        foreach (var s in Enemies(OID.BonusAddLampas))
-            Arena.Actor(s, ArenaColor.Vulnerable);
+        var m = this;
+        Arena.Actors(m, rest);
+        Arena.Actors(m, bonusAdds, Colors.Vulnerable);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.BonusAddLampas => 4,
-                OID.BonusAddLyssa => 3,
-                OID.BossAdd1 or OID.BossAdd2 => 2,
-                OID.Boss => 1,
+                (uint)OID.GymnasticOnion => 7,
+                (uint)OID.GymnasticEggplant => 6,
+                (uint)OID.GymnasticGarlic => 5,
+                (uint)OID.GymnasticTomato => 4,
+                (uint)OID.GymnasticQueen or (uint)OID.GymnasiouLampas => 3,
+                (uint)OID.GymnasiouLyssa => 2,
+                (uint)OID.GymnasiouAkantha or (uint)OID.GymnasiouSinapi => 1,
                 _ => 0
             };
         }

@@ -8,7 +8,7 @@ public enum OID : uint
     Pillar1 = 0x1E86A7, // x1, EventObj type
     Pillar2 = 0x1E86A8, // x1, EventObj type
     Pillar3 = 0x1E86A9, // x1, EventObj type
-    Pillar4 = 0x1E86AA, // x1, EventObj type
+    Pillar4 = 0x1E86AA // x1, EventObj type
 }
 
 public enum AID : uint
@@ -21,24 +21,24 @@ public enum AID : uint
     TerrorEye = 1077, // DarkHelot->location, 3.5s cast, range 6 circle puddle
     TriumphantRoar = 741, // DarkHelot->self, no cast, single-target damage up (enrage if not killed fast enough)
     PlagueDance = 1075, // Boss->self, no cast, single-target, visual (spawns dark nova)
-    BubonicCloud = 1076, // DarkNova->self, no cast, range 10+R circle, voidzone
+    BubonicCloud = 1076 // DarkNova->self, no cast, range 10+R circle, voidzone
 }
 
 public enum TetherID : uint
 {
-    PlagueDance = 1, // Boss->player
+    PlagueDance = 1 // Boss->player
 }
 
-class TheLook(BossModule module) : Components.Cleave(module, AID.TheLook, new AOEShapeCone(11.5f, 45.Degrees())); // TODO: verify angle
-class RottenBreath(BossModule module) : Components.StandardAOEs(module, AID.RottenBreath, new AOEShapeCone(11.5f, 45.Degrees())); // TODO: verify angle
-class TailDrive(BossModule module) : Components.StandardAOEs(module, AID.TailDrive, new AOEShapeCone(35.5f, 45.Degrees()));
+class TheLook(BossModule module) : Components.Cleave(module, (uint)AID.TheLook, new AOEShapeCone(11.5f, 45f.Degrees())); // TODO: verify angle
+class RottenBreath(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RottenBreath, new AOEShapeCone(11.5f, 45f.Degrees())); // TODO: verify angle
+class TailDrive(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TailDrive, new AOEShapeCone(35.5f, 45f.Degrees()));
 
-class ImminentCatastrophe(BossModule module) : Components.CastLineOfSightAOE(module, AID.ImminentCatastrophe, 100, true)
+class ImminentCatastrophe(BossModule module) : Components.CastLineOfSightAOE(module, (uint)AID.ImminentCatastrophe, 100f, true)
 {
-    public override IEnumerable<Actor> BlockerActors() => ((D163Anantaboga)Module).ActivePillars();
+    public override ReadOnlySpan<Actor> BlockerActors() => CollectionsMarshal.AsSpan(((D163Anantaboga)Module).ActivePillars());
 }
 
-class TerrorEye(BossModule module) : Components.StandardAOEs(module, AID.TerrorEye, 6);
+class TerrorEye(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TerrorEye, 6f);
 
 class PlagueDance(BossModule module) : BossComponent(module)
 {
@@ -52,11 +52,11 @@ class PlagueDance(BossModule module) : BossComponent(module)
         if (actor == _target)
         {
             foreach (var p in ((D163Anantaboga)Module).ActivePillars())
-                hints.AddForbiddenZone(_shape, p.Position, new(), _activation);
+                hints.AddForbiddenZone(_shape, p.Position, default, _activation);
         }
         else if (_target != null)
         {
-            hints.AddForbiddenZone(_shape, _target.Position, new(), _activation);
+            hints.AddForbiddenZone(_shape, _target.Position, default, _activation);
         }
     }
 
@@ -70,23 +70,26 @@ class PlagueDance(BossModule module) : BossComponent(module)
         _shape.Outline(Arena, _target);
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == (uint)TetherID.PlagueDance)
         {
             _target = WorldState.Actors.Find(tether.Target);
-            _activation = WorldState.FutureTime(6.1f);
+            _activation = WorldState.FutureTime(6.1d);
         }
     }
 
-    public override void OnUntethered(Actor source, ActorTetherInfo tether)
+    public override void OnUntethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == (uint)TetherID.PlagueDance)
             _target = null;
     }
 }
 
-class BubonicCloud(BossModule module) : Components.PersistentVoidzone(module, 11.5f, m => m.Enemies(OID.DarkNova));
+class BubonicCloud(BossModule module) : Components.Voidzone(module, 11.5f, GetDarkNova)
+{
+    private static List<Actor> GetDarkNova(BossModule module) => module.Enemies((uint)OID.DarkNova);
+}
 
 class D163AnantabogaStates : StateMachineBuilder
 {
@@ -103,17 +106,20 @@ class D163AnantabogaStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 14, NameID = 1696)]
-public class D163Anantaboga(WorldState ws, Actor primary) : BossModule(ws, primary, new(10, 0), new ArenaBoundsSquare(25))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 14, NameID = 1696)]
+public class D163Anantaboga(WorldState ws, Actor primary) : BossModule(ws, primary, new(10f, default), new ArenaBoundsSquare(25))
 {
+    private static readonly uint[] _pillars = [(uint)OID.Pillar1, (uint)OID.Pillar2, (uint)OID.Pillar3, (uint)OID.Pillar4];
+
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.DarkHelot => 2,
-                OID.Boss => 1,
+                (uint)OID.DarkHelot => 1,
                 _ => 0
             };
         }
@@ -121,23 +127,24 @@ public class D163Anantaboga(WorldState ws, Actor primary) : BossModule(ws, prima
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var add in Enemies(OID.DarkHelot))
-            Arena.Actor(add, ArenaColor.Enemy);
-        foreach (var p in ActivePillars())
-            Arena.Actor(p, ArenaColor.Object, true);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.DarkHelot));
+        Arena.Actors(ActivePillars(), Colors.Object, true);
     }
 
     // TODO: blocker coordinates are slightly different, find out correct coords...
-    public IEnumerable<Actor> ActivePillars()
+
+    public List<Actor> ActivePillars()
     {
-        foreach (var e in Enemies(OID.Pillar1).Where(e => e.EventState == 0))
-            yield return e;
-        foreach (var e in Enemies(OID.Pillar2).Where(e => e.EventState == 0))
-            yield return e;
-        foreach (var e in Enemies(OID.Pillar3).Where(e => e.EventState == 0))
-            yield return e;
-        foreach (var e in Enemies(OID.Pillar4).Where(e => e.EventState == 0))
-            yield return e;
+        var pillars = Enemies(_pillars);
+        var count = pillars.Count;
+        var activepillars = new List<Actor>();
+        for (var i = 0; i < count; ++i)
+        {
+            var p = pillars[i];
+            if (p.EventState == 0)
+                activepillars.Add(p);
+        }
+        return activepillars;
     }
 }

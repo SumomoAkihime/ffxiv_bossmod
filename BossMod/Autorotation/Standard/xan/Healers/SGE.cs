@@ -70,7 +70,7 @@ public sealed class SGE(RotationModuleManager manager, Actor player) : Castxan<A
 
         Gall = gauge.Addersgall;
         Sting = gauge.Addersting;
-        NextGall = MathF.Max(0, 20f - gauge.AddersgallTimer / 1000f);
+        NextGall = Math.Max(0, 20f - gauge.AddersgallTimer / 1000f);
         Eukrasia = gauge.EukrasiaActive;
 
         (BestPhlegmaTarget, NumPhlegmaTargets) = SelectTarget(strategy, primaryTarget, 6, IsSplashTarget);
@@ -116,7 +116,7 @@ public sealed class SGE(RotationModuleManager manager, Actor player) : Castxan<A
         if (ShouldPhlegma(strategy))
         {
             if (ReadyIn(AID.Phlegma) <= GCD && primaryTarget is { } t)
-                Hints.GoalZones.Add(Hints.GoalSingleTarget(t.Actor, 6));
+                Hints.GoalZones.Add(AIHints.GoalSingleTarget(t.Actor, 6));
 
             PushGCD(AID.Phlegma, BestPhlegmaTarget);
         }
@@ -228,10 +228,10 @@ public sealed class SGE(RotationModuleManager manager, Actor player) : Castxan<A
         Actor? tank = null;
         foreach (var actor in World.Party.WithoutSlot(excludeAlliance: true))
         {
-            total++;
+            ++total;
             if (actor.Class.GetRole() == Role.Tank)
             {
-                tanks++;
+                ++tanks;
                 tank ??= actor;
             }
         }

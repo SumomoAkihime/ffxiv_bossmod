@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Trial.T03QueenEternal;
+namespace BossMod.Dawntrail.Trial.T03QueenEternal;
 
 // mechanic spawns target markers that result in 5 rectangles of 7 front and 7 back length
 // forming almost a circle that can be approximated with a circle radius of sqrt(212)/2 for easy coding
@@ -10,7 +10,7 @@ sealed class WaltzOfTheRegaliaBait(BossModule module) : Components.GenericAOEs(m
     private static readonly AOEShapeCircle circle = new(MathF.Sqrt(212f) * 0.5f);
     private readonly List<(Actor, DateTime)> _targets = new(3);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         var count = _targets.Count;
         if (count == 0)
@@ -28,7 +28,7 @@ sealed class WaltzOfTheRegaliaBait(BossModule module) : Components.GenericAOEs(m
     {
         if (id == 0x11D7 && actor.OID == (uint)OID.QueenEternal3)
         {
-            _targets.Add((actor, WorldState.FutureTime(7f)));
+            _targets.Add((actor, WorldState.FutureTime(7d)));
         }
     }
 
@@ -68,4 +68,3 @@ sealed class WaltzOfTheRegaliaBait(BossModule module) : Components.GenericAOEs(m
 }
 
 sealed class WaltzOfTheRegalia(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WaltzOfTheRegalia, new AOEShapeRect(14f, 2f));
-

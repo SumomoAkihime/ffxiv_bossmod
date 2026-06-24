@@ -3,75 +3,68 @@ namespace BossMod.Endwalker.TreasureHunt.ShiftingGymnasionAgonon.LampasChrysine;
 public enum OID : uint
 {
     Boss = 0x3D40, //R=6
-    BossHelper = 0x233C,
-    BonusAddLampas = 0x3D4D, //R=2.001, bonus loot adds
+    GymnasiouLampas = 0x3D4D, //R=2.001
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
     AutoAttack = 32287, // Boss->player, no cast, single-target
-    AetherialLight = 32293, // Boss->self, 1.3s cast, single-target
-    AetherialLight2 = 32294, // BossHelper->self, 3.0s cast, range 40 60-degree cone
+
+    AetherialLightVisual = 32293, // Boss->self, 1.3s cast, single-target
+    AetherialLight = 32294, // Helper->self, 3.0s cast, range 40 60-degree cone
     unknown = 32236, // Boss->self, no cast, single-target, seems to be connected to Aetherial Light
-    Lightburst = 32289, // Boss->self, 3.3s cast, single-target
-    Lightburst2 = 32290, // BossHelper->player, 5.0s cast, single-target
-    Shine = 32291, // Boss->self, 1.3s cast, single-target
-    Shine2 = 32292, // BossHelper->location, 3.0s cast, range 5 circle
+    LightburstVisual = 32289, // Boss->self, 3.3s cast, single-target
+    Lightburst = 32290, // Helper->player, 5.0s cast, single-target
+    ShineVisual = 32291, // Boss->self, 1.3s cast, single-target
+    Shine = 32292, // Helper->location, 3.0s cast, range 5 circle
     Summon = 32288, // Boss->self, 1.3s cast, single-target, spawns bonus loot adds
-    Telega = 9630, // BonusAddLampas->self, no cast, single-target, bonus loot add despawn
+    Telega = 9630 // GymnasiouLampas->self, no cast, single-target, bonus loot add despawn
 }
 
-class Shine(BossModule module) : Components.StandardAOEs(module, AID.Shine2, 5);
+class Shine(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Shine, 5f);
 
-class AetherialLight(BossModule module) : Components.StandardAOEs(module, AID.AetherialLight2, new AOEShapeCone(40, 30.Degrees()), 4)
+class AetherialLight : Components.SimpleAOEs
 {
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        return ActiveCasters.Select((c, i) => new AOEInstance(Shape, c.Position, c.CastInfo!.Rotation, Module.CastFinishAt(c.CastInfo), (NumCasts > 2 && i < 2) ? ArenaColor.Danger : ArenaColor.AOE));
-    }
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        base.OnCastStarted(caster, spell);
-        if ((AID)spell.Action.ID == AID.AetherialLight2)
-            ++NumCasts;
-    }
+    public AetherialLight(BossModule module) : base(module, (uint)AID.AetherialLight, new AOEShapeCone(40f, 30f.Degrees()), 4) { MaxDangerColor = 2; }
 }
 
-class Lightburst(BossModule module) : Components.SingleTargetCast(module, AID.Lightburst2);
-class Summon(BossModule module) : Components.CastHint(module, AID.Summon, "Calls bonus adds");
+class Lightburst(BossModule module) : Components.SingleTargetCast(module, (uint)AID.Lightburst);
+class Summon(BossModule module) : Components.CastHint(module, (uint)AID.Summon, "Calls bonus adds");
 
-class LampasStates : StateMachineBuilder
+class LampasChrysineStates : StateMachineBuilder
 {
-    public LampasStates(BossModule module) : base(module)
+    public LampasChrysineStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<Shine>()
             .ActivateOnEnter<AetherialLight>()
             .ActivateOnEnter<Lightburst>()
             .ActivateOnEnter<Summon>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.BonusAddLampas).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed(LampasChrysine.All);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 909, NameID = 12021)]
-public class Lampas(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(20))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 909, NameID = 12021)]
+public class LampasChrysine(WorldState ws, Actor primary) : THTemplate(ws, primary)
 {
+    public static readonly uint[] All = [(uint)OID.Boss, (uint)OID.GymnasiouLampas];
+
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.BonusAddLampas))
-            Arena.Actor(s, ArenaColor.Vulnerable);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.GymnasiouLampas), Colors.Vulnerable);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.BonusAddLampas => 2,
-                OID.Boss => 1,
+                (uint)OID.GymnasiouLampas => 1,
                 _ => 0
             };
         }

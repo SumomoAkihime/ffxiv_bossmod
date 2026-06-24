@@ -1,8 +1,8 @@
-﻿namespace BossMod.Endwalker.Criterion.C02AMR.C022Gorai;
+﻿namespace BossMod.Endwalker.VariantCriterion.C02AMR.C022Gorai;
 
-class RousingReincarnation(BossModule module, AID aid) : Components.CastCounter(module, aid);
-class NRousingReincarnation(BossModule module) : RousingReincarnation(module, AID.NRousingReincarnationAOE);
-class SRousingReincarnation(BossModule module) : RousingReincarnation(module, AID.SRousingReincarnationAOE);
+abstract class RousingReincarnation(BossModule module, uint aid) : Components.CastCounter(module, aid);
+class NRousingReincarnation(BossModule module) : RousingReincarnation(module, (uint)AID.NRousingReincarnationAOE);
+class SRousingReincarnation(BossModule module) : RousingReincarnation(module, (uint)AID.SRousingReincarnationAOE);
 
 // note on towers: indices are 0-7 CW from N, even (cardinal) are blue, odd (intercardinal) are orange
 class MalformedPrayer1(BossModule module) : Components.GenericTowers(module)
@@ -10,23 +10,23 @@ class MalformedPrayer1(BossModule module) : Components.GenericTowers(module)
     public int[] OrangeSoakOrder = [-1, -1, -1, -1]; // blue is inferred as (x+2)%4
     private readonly List<int> _towerOrder = [];
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        var order = (SID)status.ID switch
+        var order = status.ID switch
         {
-            SID.RodentialRebirth1 => 0,
-            SID.RodentialRebirth2 => 1,
-            SID.RodentialRebirth3 => 2,
-            SID.RodentialRebirth4 => 3,
+            (uint)SID.RodentialRebirth1 => 0,
+            (uint)SID.RodentialRebirth2 => 1,
+            (uint)SID.RodentialRebirth3 => 2,
+            (uint)SID.RodentialRebirth4 => 3,
             _ => -1,
         };
-        if (order >= 0 && Raid.TryFindSlot(actor.InstanceID, out var slot))
+        if (order >= 0 && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
             OrangeSoakOrder[slot] = order;
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.NBurstOrange or AID.NBurstBlue or AID.SBurstOrange or AID.SBurstBlue)
+        if (spell.Action.ID is (uint)AID.NBurstOrange or (uint)AID.NBurstBlue or (uint)AID.SBurstOrange or (uint)AID.SBurstBlue)
         {
             ++NumCasts;
             if ((NumCasts & 1) == 0)
@@ -68,7 +68,7 @@ class MalformedPrayer1(BossModule module) : Components.GenericTowers(module)
     private void UpdateTowers()
     {
         Towers.Clear();
-        int towerOrder = NumCasts / 2;
+        var towerOrder = NumCasts / 2;
         var orangeSoaker = Array.IndexOf(OrangeSoakOrder, towerOrder);
         var blueSoaker = Array.IndexOf(OrangeSoakOrder, (towerOrder + 2) & 3);
         foreach (var index in _towerOrder.Skip(NumCasts).Take(2))
@@ -76,7 +76,7 @@ class MalformedPrayer1(BossModule module) : Components.GenericTowers(module)
             BitMask forbidden = new(0xf);
             var soakerSlot = (index & 1) != 0 ? orangeSoaker : blueSoaker;
             forbidden.Clear(soakerSlot);
-            Towers.Add(new(Module.Center + 11 * (180.Degrees() - index * 45.Degrees()).ToDirection(), 4, forbiddenSoakers: forbidden));
+            Towers.Add(new(Arena.Center + 11f * (180f.Degrees() - index * 45f.Degrees()).ToDirection(), 4, forbiddenSoakers: forbidden));
         }
     }
 }
@@ -85,10 +85,10 @@ class PointedPurgation : Components.BaitAwayTethers
 {
     private BitMask _oddSoakers; // players with 1/3 debuff
 
-    public PointedPurgation(BossModule module) : base(module, new AOEShapeCone(60, 22.5f.Degrees()), (uint)TetherID.PointedPurgation)
+    public PointedPurgation(BossModule module) : base(module, new AOEShapeCone(60f, 22.5f.Degrees()), (uint)TetherID.PointedPurgation)
     {
         var malformedPlayer = module.FindComponent<MalformedPrayer1>();
-        foreach (var (index, _) in Raid.WithSlot(true))
+        foreach (var (index, _) in Raid.WithSlot(true, true, true))
         {
             var soakOrder = malformedPlayer?.OrangeSoakOrder[index] ?? -1;
             if (soakOrder is 0 or 2)
@@ -104,7 +104,7 @@ class PointedPurgation : Components.BaitAwayTethers
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.NPointedPurgationAOE or AID.SPointedPurgationAOE)
+        if (spell.Action.ID is (uint)AID.NPointedPurgationAOE or (uint)AID.SPointedPurgationAOE)
         {
             ++NumCasts;
             ForbiddenPlayers = (NumCasts & 2) != 0 ? ~_oddSoakers : _oddSoakers;

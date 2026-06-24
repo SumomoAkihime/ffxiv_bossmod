@@ -1,8 +1,13 @@
 ﻿namespace BossMod.Dawntrail.Alliance.A11Prishe;
 
-class NullifyingDropkick(BossModule module) : Components.CastSharedTankbuster(module, AID.NullifyingDropkickAOE, 6);
-class Holy(BossModule module) : Components.SpreadFromCastTargets(module, AID.HolyAOE, 6);
-class Explosion(BossModule module) : Components.StandardAOEs(module, AID.Explosion, new AOEShapeCircle(8));
+sealed class NullifyingDropkick(BossModule module) : Components.CastSharedTankbuster(module, (uint)AID.NullifyingDropkick, 6f);
+sealed class Holy(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.Holy, 6f);
+sealed class BanishgaIV(BossModule module) : Components.RaidwideCast(module, (uint)AID.BanishgaIV);
+sealed class Banishga(BossModule module) : Components.RaidwideCast(module, (uint)AID.Banishga);
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1015, NameID = 13351)]
-public class A11Prishe(WorldState ws, Actor primary) : BossModule(ws, primary, new(800, 400), new ArenaBoundsSquare(35));
+[ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus, LTS)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1015, NameID = 13351, SortOrder = 2, PlanLevel = 100)]
+public sealed class A11Prishe(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, DefaultBounds)
+{
+    public static readonly WPos ArenaCenter = new(800f, 400f);
+    public static readonly ArenaBoundsSquare DefaultBounds = new(35f);
+}

@@ -4,14 +4,14 @@ class SpinnersWheelSelect(BossModule module) : BossComponent(module)
 {
     public enum Branch { None, Gaze, StayMove }
 
-    public Branch SelectedBranch { get; private set; }
+    public Branch SelectedBranch;
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        var branch = (SID)status.ID switch
+        var branch = status.ID switch
         {
-            SID.ArcaneAttraction or SID.AttractionReversed => Branch.Gaze,
-            SID.ArcaneFever or SID.FeverReversed => Branch.StayMove,
+            (uint)SID.ArcaneAttraction or (uint)SID.AttractionReversed => Branch.Gaze,
+            (uint)SID.ArcaneFever or (uint)SID.FeverReversed => Branch.StayMove,
             _ => Branch.None
         };
         if (branch != Branch.None)
@@ -19,58 +19,60 @@ class SpinnersWheelSelect(BossModule module) : BossComponent(module)
     }
 }
 
-class SpinnersWheelGaze(BossModule module, bool inverted, AID aid, SID sid) : Components.GenericGaze(module, aid, inverted)
+abstract class SpinnersWheelGaze(BossModule module, bool inverted, uint aid, uint sid) : Components.GenericGaze(module, aid)
 {
-    private readonly SID _sid = sid;
-    private readonly Actor? _source = module.Enemies(OID.Nymeia).FirstOrDefault();
+    private readonly Actor? _source = module.Enemies((uint)OID.Nymeia).FirstOrDefault();
     private DateTime _activation;
     private BitMask _affected;
 
-    public override IEnumerable<Eye> ActiveEyes(int slot, Actor actor)
+    public override ReadOnlySpan<Eye> ActiveEyes(int slot, Actor actor)
     {
         if (_source != null && _affected[slot])
-            yield return new(_source.Position, _activation);
+            return new Eye[1] { new(_source.Position, _activation, inverted: inverted) };
+        return [];
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == _sid)
+        if (status.ID == sid)
         {
             _activation = status.ExpireAt;
-            _affected.Set(Raid.FindSlot(actor.InstanceID));
+            _affected[Raid.FindSlot(actor.InstanceID)] = true;
         }
     }
 }
-class SpinnersWheelArcaneAttraction(BossModule module) : SpinnersWheelGaze(module, false, AID.SpinnersWheelArcaneAttraction, SID.ArcaneAttraction);
-class SpinnersWheelAttractionReversed(BossModule module) : SpinnersWheelGaze(module, true, AID.SpinnersWheelAttractionReversed, SID.AttractionReversed);
+class SpinnersWheelArcaneAttraction(BossModule module) : SpinnersWheelGaze(module, false, (uint)AID.SpinnersWheelArcaneAttraction, (uint)SID.ArcaneAttraction);
+class SpinnersWheelAttractionReversed(BossModule module) : SpinnersWheelGaze(module, true, (uint)AID.SpinnersWheelAttractionReversed, (uint)SID.AttractionReversed);
 
 class SpinnersWheelStayMove(BossModule module) : Components.StayMove(module)
 {
-    public int ActiveDebuffs { get; private set; }
+    public int ActiveDebuffs;
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.ArcaneFever:
-                SetState(Raid.FindSlot(actor.InstanceID), new(Requirement.Stay, status.ExpireAt));
+            case (uint)SID.ArcaneFever:
+                if (Raid.FindSlot(actor.InstanceID) is var feverSlot && feverSlot >= 0)
+                    PlayerStates[feverSlot] = new(Requirement.Stay, status.ExpireAt);
                 break;
-            case SID.FeverReversed:
-                SetState(Raid.FindSlot(actor.InstanceID), new(Requirement.Move, status.ExpireAt));
+            case (uint)SID.FeverReversed:
+                if (Raid.FindSlot(actor.InstanceID) is var revSlot && revSlot >= 0)
+                    PlayerStates[revSlot] = new(Requirement.Move, status.ExpireAt);
                 break;
-            case SID.Pyretic:
-            case SID.FreezingUp:
+            case (uint)SID.Pyretic:
+            case (uint)SID.FreezingUp:
                 ++ActiveDebuffs;
                 break;
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID is SID.Pyretic or SID.FreezingUp)
+        if (status.ID is (uint)SID.Pyretic or (uint)SID.FreezingUp)
         {
             --ActiveDebuffs;
-            if (Raid.TryFindSlot(actor.InstanceID, out var slot))
+            if (Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
                 PlayerStates[slot] = default;
         }
     }

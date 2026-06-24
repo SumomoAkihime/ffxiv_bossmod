@@ -1,46 +1,70 @@
-﻿namespace BossMod.Endwalker.Criterion.C02AMR.C022Gorai;
+﻿namespace BossMod.Endwalker.VariantCriterion.C02AMR.C022Gorai;
 
 class FlameAndSulphur(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = [];
+    private readonly List<AOEInstance> _aoes = new(14);
+    private static readonly AOEShapeRect _shapeFlameExpand = new(46f, 5f);
+    private static readonly AOEShapeRect _shapeFlameSplit = new(46f, 2.5f);
+    private static readonly AOEShapeCircle _shapeRockExpand = new(11f);
+    private static readonly AOEShapeDonut _shapeRockSplit = new(5f, 16f);
 
-    private static readonly AOEShapeRect _shapeFlameExpand = new(46, 5);
-    private static readonly AOEShapeRect _shapeFlameSplit = new(46, 2.5f);
-    private static readonly AOEShapeCircle _shapeRockExpand = new(11);
-    private static readonly AOEShapeDonut _shapeRockSplit = new(6, 16);
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        var activation = Module.CastFinishAt(spell, 3.1f);
+
+        switch (spell.Action.ID)
         {
-            case AID.BrazenBalladExpanding:
-                foreach (var a in Module.Enemies(OID.FlameAndSulphurFlame))
-                    _aoes.Add(new(_shapeFlameExpand, a.Position, a.Rotation, Module.CastFinishAt(spell, 3.1f)));
-                foreach (var a in Module.Enemies(OID.FlameAndSulphurRock))
-                    _aoes.Add(new(_shapeRockExpand, a.Position, a.Rotation, Module.CastFinishAt(spell, 3.1f)));
+            case (uint)AID.BrazenBalladSplitting:
+                AddAOEs(_shapeFlameSplit, (uint)OID.FlameAndSulphurFlame, true);
+                AddAOEs(_shapeRockSplit, (uint)OID.FlameAndSulphurRock);
                 break;
-            case AID.BrazenBalladSplitting:
-                foreach (var a in Module.Enemies(OID.FlameAndSulphurFlame))
+            case (uint)AID.BrazenBalladExpanding:
+                AddAOEs(_shapeFlameExpand, (uint)OID.FlameAndSulphurFlame);
+                AddAOEs(_shapeRockExpand, (uint)OID.FlameAndSulphurRock);
+                break;
+        }
+
+        void AddAOEs(AOEShape shape, uint actors, bool twice = false)
+        {
+            var enemies = Module.Enemies(actors);
+            var count = enemies.Count;
+
+            if (!twice)
+                for (var i = 0; i < count; ++i)
                 {
-                    var offset = a.Rotation.ToDirection().OrthoL() * 7.5f;
-                    _aoes.Add(new(_shapeFlameSplit, a.Position + offset, a.Rotation, Module.CastFinishAt(spell, 3.1f)));
-                    _aoes.Add(new(_shapeFlameSplit, a.Position - offset, a.Rotation, Module.CastFinishAt(spell, 3.1f)));
+                    var enemy = enemies[i];
+                    AddAOE(shape, enemy.Position, enemy.Rotation);
                 }
-                foreach (var a in Module.Enemies(OID.FlameAndSulphurRock))
-                    _aoes.Add(new(_shapeRockSplit, a.Position, a.Rotation, Module.CastFinishAt(spell, 3.1f)));
-                break;
+            else
+                for (var i = 0; i < count; ++i)
+                {
+                    var enemy = enemies[i];
+                    var rot = enemy.Rotation;
+                    var offset = rot.ToDirection().OrthoL() * 7.5f;
+                    AddAOE(shape, enemy.Position + offset, rot);
+                    AddAOE(shape, enemy.Position - offset, rot);
+                }
+            void AddAOE(AOEShape shape, WPos origin, Angle rotation) => _aoes.Add(new(shape, origin.Quantized(), rotation, activation));
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.NFireSpreadExpand or AID.NFireSpreadSplit or AID.NFallingRockExpand or AID.NFallingRockSplit
-            or AID.SFireSpreadExpand or AID.SFireSpreadSplit or AID.SFallingRockExpand or AID.SFallingRockSplit)
+        switch (spell.Action.ID)
         {
-            ++NumCasts;
-            _aoes.RemoveAll(aoe => aoe.Origin.AlmostEqual(caster.Position, 1));
+            case (uint)AID.NFireSpreadExpand:
+            case (uint)AID.NFireSpreadSplit:
+            case (uint)AID.NFallingRockExpand:
+            case (uint)AID.NFallingRockSplit:
+            case (uint)AID.SFireSpreadExpand:
+            case (uint)AID.SFireSpreadSplit:
+            case (uint)AID.SFallingRockExpand:
+            case (uint)AID.SFallingRockSplit:
+                ++NumCasts;
+                _aoes.Clear();
+                break;
         }
     }
 }

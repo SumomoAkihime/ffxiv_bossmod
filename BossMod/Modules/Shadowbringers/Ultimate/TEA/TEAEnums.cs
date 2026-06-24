@@ -32,14 +32,14 @@ public enum OID : uint
     PerfectAlexander = 0x2C55, // R10.800, x1, and more spawn during fight
     FateProjection = 0x2C56, // R0.500, spawn during fight
 
-    Helper = 0x233C, // R0.500, x17
     CruiseChaserCutscene = 0x2C9D, // R0.850, x1
     AlexanderPrimeCutscene = 0x2C9E, // R7.200, x1
     PerfectAlexanderCutscene = 0x2C9F, // R10.800, x1
     Alexander = 0x18D6, // R0.500, x1
 
-    //_Gen_Actor1EA1A1 = 0x1EA1A1, // R0.500-2.000, x8, EventObj type
+    ArenaFeatures = 0x1EA1A1, // R2.0, x8, EventObj type
     //_Gen_Actor1E8536 = 0x1E8536, // R0.500-2.000, x1, EventObj type
+    Helper = 0x233C // R0.500, x17
 }
 
 public enum AID : uint
@@ -108,10 +108,10 @@ public enum AID : uint
     SuperJump = 18505, // BruteJustice->self, 3.9s cast, single-target, visual
     SuperJumpAOE = 18506, // BruteJustice->location, no cast, range 10 circle aoe baited on farthest
     ApocalypticRay = 18507, // BruteJustice->self, no cast, single-target, visual
-    ApocalypticRayAOE = 18508, // Helper->self, no cast, range 25+R ?-degree cone aoe
+    ApocalypticRayAOE = 18508, // Helper->self, no cast, range 25+R 90-degree cone aoe
     FinalSentence = 18518, // BruteJustice->self, 8.0s cast, single-target, visual (enrage)
     EternalDarknessP2 = 18490, // CruiseChaser->location, 8.0s cast, range 100 circle, ??? (enrage)
-    //SevereContamination = 18891, // LiquidRage->self, no cast, range 80 circle
+    SevereContamination = 18891, // LiquidRage->self, no cast, range 80 circle
 
     AutoAttackP3 = 18812, // AlexanderPrime->player, no cast, single-target
     TemporalStasis = 18522, // AlexanderPrime->self, 8.0s cast, single-target, visual (debuffs & baits)
@@ -131,10 +131,11 @@ public enum AID : uint
     Aetheroplasm = 18546, // Plasmasphere->self, no cast, range 6 circle (orb explosion)
     ElectromagneticBurst = 18548, // Helper->self, no cast, range 50 circle, raidwide if aetheroplasm explosions intersect
     Tetrashatter = 19080, // JudgmentCrystal->self, no cast, range 80+R circle (light raidwide, if mechanic succeeded)
+    TetrashatterVisual = 19023, // Helper->self, no cast, single-target
     TetrashatterFail = 18525, // JudgmentCrystal->self, 5.5s cast, range 80+R circle
     Inception = 18526, // AlexanderPrime->self, 5.0s cast, range 100 width 16 cross, ???
     SacramentInception = 18527, // AlexanderPrime->self, no cast, range 100 width 16 cross aoe
-    //_Weaponskill_ = 19023, // Helper->self, no cast, single-target, ??? visual?
+    Burst = 18547, // Plasmasphere->self, no cast, range 40 circle
     TrueHeartSuccess = 19024, // TrueHeart->self, no cast, range 80 circle, applies Enigma Codex to whole raid (on success?)
     WormholeFormation = 18542, // AlexanderPrime->self, 4.0s cast, single-target, visual (mechanic start)
     LimitCutP3 = 19215, // CruiseChaser->self, 2.0s cast, single-target, visual
@@ -169,7 +170,7 @@ public enum AID : uint
     IndividualReprobation = 18572, // Helper->player, no cast, range 6 circle spread
     CollectiveReprobation = 18573, // Helper->players, no cast, range 6 circle stack
     Faithlessness = 19073, // Helper->self, no cast, range 100 circle, ??? (wipe if something failed)
-    DivineRetribution = 18563, // Helper->player, no cast, single-target, kill if distance check failed
+    DivineRetribution1 = 18563, // Helper->player, no cast, single-target, kill if distance check failed
     FateProjectionPrepare = 18581, // PerfectAlexander->location, no cast, single-target, visual (???)
     FateProjectionAlpha = 18555, // PerfectAlexander->self, 5.0s cast, single-target, visual (spawn clones)
     FateCalibrationAlpha = 18556, // PerfectAlexander->self, 22.0s cast, single-target, visual (execute mechanics on clones)
@@ -181,7 +182,7 @@ public enum AID : uint
     FateCalibrationAlphaSharedSentence = 18598, // Helper->FateProjection, no cast, single-target (kills clone by shared sentence)
     FateCalibrationAlphaOrdainedMotionStillness2 = 18858, // PerfectAlexander[clone]->self, 1.0s cast, single-target (common for both mechanics)
     FateCalibrationAlphaOrdainedMotion2 = 18585, // Helper->FateProjection, no cast, single-target, kill (motion fx)
-    // FateCalibrationAlphaOrdainedStillness2 = ???
+    FateCalibrationAlphaOrdainedStillness2 = 18586, // Helper->FateProjection, no cast, single-target, kill (motion fx)
     FateCalibrationAlphaSacrament = 18591, // PerfectAlexander[clone]->self, no cast, single-target, sacrament fx
     FateCalibrationAlphaResolveOrdainedMotion = 18859, // PerfectAlexander->self, no cast, single-target
     FateCalibrationAlphaResolveOrdainedStillness = 18860, // PerfectAlexander->self, no cast, single-target
@@ -199,7 +200,7 @@ public enum AID : uint
     FateCalibrationBetaOpticalSightStack = 18593, // PerfectAlexander[clone]->self, no cast, single-target, visual (stack fx)
     FateCalibrationBetaKillBeaconSpread = 18594, // Helper->FateProjection, no cast, single-target (kills beacon clones)
     FateCalibrationBetaKillBeaconStack = 18595, // Helper->FateProjection, no cast, single-target (kills beacon clones)
-    //_Weaponskill_DivineRetribution = 18562, // Helper->player, no cast, single-target
+    DivineRetribution2 = 18562, // Helper->player, no cast, single-target, kill if distance check failed
     FateCalibrationBetaJJump = 18565, // PerfectAlexander[clone]->location, no cast, range 10 circle baited jump
     FateCalibrationBetaResolveOpticalSightSpread = 18861, // PerfectAlexander->self, no cast, single-target, visual (spread fx)
     FateCalibrationBetaResolveOpticalSightStack = 18862, // PerfectAlexander->self, no cast, single-target, visual (stack fx)
@@ -214,7 +215,6 @@ public enum AID : uint
 
 public enum SID : uint
 {
-    None = 0,
     Throttle = 700, // none->player, extra=0x0
     FinalDecreeNisiAlpha = 2222, // none->player, extra=0x0
     FinalDecreeNisiBeta = 2223, // none->player, extra=0x0
@@ -234,6 +234,7 @@ public enum SID : uint
     SharedSentence = 1122, // none->player, extra=0x0
     HouseArrest = 1123, // none->player, extra=0x0
     RestrainingOrder = 1124, // none->player, extra=0x0
+    EnigmaCodexHeart = 2147, // none->TrueHeart, extra=0x171
     FinalWordContactProhibition = 2152, // none->player, extra=0x0
     FinalWordContactRegulation = 2153, // none->player, extra=0x0
     FinalWordEscapeProhibition = 2154, // none->player, extra=0x0
@@ -244,9 +245,7 @@ public enum SID : uint
     EscapeDetectionOrdained = 3058, // none->player, extra=0x0
     FateCalibrationBeta = 2195, // none->player, extra=0x84 (light) / 0x85 (dark)
     TemporalPrison = 2165, // none->player, extra=0x0
-
-    PhysicalVulnerabilityUp = 695, // none->player
-    //_Gen_EnigmaCodex = 2147, // none->TrueHeart, extra=0x171
+    PhysicalVulnerabilityUp = 695 // none->player
     //_Gen_EnigmaCodex = 2146, // TrueHeart->player, extra=0x0
     //_Gen_DamageDown = 1016, // none->Plasmasphere, extra=0x1/0x2/0x3/0x4
     //_Gen_VulnerabilityDown = 406, // none->TrueHeart, extra=0x1/0x2/0x3/0x4
@@ -257,17 +256,15 @@ public enum SID : uint
 
 public enum TetherID : uint
 {
-    None = 0,
     Drainage = 3, // LiquidRage->player
     HouseArrest = 28, // player->player (stay at range <= 5; 4.93 is ok, 5.34 is fatal)
     RestrainingOrder = 29, // player->player (stay at range >= 30 or so; 25.45 is fatal, 31.25 is ok)
     Plasmasphere = 12, // Plasmasphere->player
-    FateProjection = 98, // player->FateProjection (note that it appears before target is created)
+    FateProjection = 98 // player->FateProjection (note that it appears before target is created)
 }
 
 public enum IconID : uint
 {
-    None = 0,
     Icon1 = 79, // player
     Icon2 = 80, // player
     Icon3 = 81, // player
@@ -283,5 +280,5 @@ public enum IconID : uint
     JudgmentCrystal = 96, // player
     IncineratingHeat = 93, // player
     OpticalSightSpread = 139, // player
-    OpticalSightStack = 62, // player
+    OpticalSightStack = 62 // player
 }

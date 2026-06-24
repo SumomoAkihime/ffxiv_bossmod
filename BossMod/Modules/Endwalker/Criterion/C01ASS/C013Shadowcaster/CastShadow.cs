@@ -1,31 +1,34 @@
-﻿namespace BossMod.Endwalker.Criterion.C01ASS.C013Shadowcaster;
+﻿namespace BossMod.Endwalker.VariantCriterion.C01ASS.C013Shadowcaster;
 
-class CastShadow(BossModule module) : Components.GenericAOEs(module)
+sealed class CastShadow(BossModule module) : Components.GenericAOEs(module)
 {
-    public List<Actor> FirstAOECasters = [];
-    public List<Actor> SecondAOECasters = [];
+    private static readonly AOEShapeCone cone = new(65f, 15f.Degrees());
+    public readonly List<AOEInstance> AOEs = new(8);
 
-    private static readonly AOEShape _shape = new AOEShapeCone(65, 15.Degrees());
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        return (FirstAOECasters.Count > 0 ? FirstAOECasters : SecondAOECasters).Select(c => new AOEInstance(_shape, c.Position, c.CastInfo!.Rotation, Module.CastFinishAt(c.CastInfo)));
+        var count = AOEs.Count;
+        if (count == 0)
+            return [];
+        var max = count > 6 ? 6 : count;
+        return CollectionsMarshal.AsSpan(AOEs).Slice(NumCasts, max);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        ListForAction(spell.Action)?.Add(caster);
+        if (spell.Action.ID is (uint)AID.NCastShadowAOE1 or (uint)AID.SCastShadowAOE1 or (uint)AID.NCastShadowAOE2 or (uint)AID.SCastShadowAOE2)
+        {
+            AOEs.Add(new(cone, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
+            if (AOEs.Count == 12)
+                SortHelpers.SortAOEByActivation(AOEs);
+        }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        ListForAction(spell.Action)?.Remove(caster);
+        if (AOEs.Count != 0 && spell.Action.ID is (uint)AID.NCastShadowAOE1 or (uint)AID.SCastShadowAOE1 or (uint)AID.NCastShadowAOE2 or (uint)AID.SCastShadowAOE2)
+        {
+            ++NumCasts;
+        }
     }
-
-    private List<Actor>? ListForAction(ActionID action) => (AID)action.ID switch
-    {
-        AID.NCastShadowAOE1 or AID.SCastShadowAOE1 => FirstAOECasters,
-        AID.NCastShadowAOE2 or AID.SCastShadowAOE2 => SecondAOECasters,
-        _ => null
-    };
 }

@@ -37,7 +37,7 @@ public class GroupAssignment
             var roleToSlot = actorAssignments.SlotsPerAssignment(party);
             if (roleToSlot.Length == Assignments.Length)
             {
-                for (int role = 0; role < Assignments.Length; ++role)
+                for (var role = 0; role < Assignments.Length; ++role)
                 {
                     yield return (roleToSlot[role], Assignments[role]);
                 }
@@ -48,10 +48,15 @@ public class GroupAssignment
     // build slot mask for members of specified group; returns 0 if resolve fails
     public BitMask BuildGroupMask(int group, PartyState party, PartyRolesConfig actorAssignments)
     {
-        BitMask mask = new();
+        BitMask mask = default;
         foreach (var (slot, g) in Resolve(party, actorAssignments))
+        {
             if (g == group)
+            {
                 mask.Set(slot);
+            }
+        }
+
         return mask;
     }
 
@@ -73,9 +78,14 @@ public class GroupAssignmentLightParties : GroupAssignment
 
     public override bool Validate()
     {
-        for (int i = 0; i < (int)PartyRolesConfig.Assignment.Unassigned; i += 2)
+        for (var i = 0; i < (int)PartyRolesConfig.Assignment.Unassigned; i += 2)
+        {
             if (Assignments[i] < 0 || Assignments[i] >= 2 || Assignments[i + 1] < 0 || Assignments[i + 1] >= 2 || Assignments[i] == Assignments[i + 1])
+            {
                 return false;
+            }
+        }
+
         return true;
     }
 }
@@ -105,16 +115,24 @@ public class GroupAssignmentDDSupportPairs : GroupAssignment
 
     public override bool Validate()
     {
-        BitMask mask = new(); // bits 0-3 - support for group N, bits 4-7 - dd for group (N-4)
+        BitMask mask = default; // bits 0-3 - support for group N, bits 4-7 - dd for group (N-4)
         void addToMask(int group, int offset)
         {
             if (group is >= 0 and < 4)
+            {
                 mask.Set(group + offset);
+            }
         }
-        for (int i = 0; i < 4; ++i)
+        for (var i = 0; i < 4; ++i)
+        {
             addToMask(Assignments[i], 0);
-        for (int i = 4; i < 8; ++i)
+        }
+
+        for (var i = 4; i < 8; ++i)
+        {
             addToMask(Assignments[i], 4);
+        }
+
         return mask.Raw == 0xff;
     }
 }
@@ -152,9 +170,12 @@ public class GroupAssignmentUnique : GroupAssignment
 
     public override bool Validate()
     {
-        BitMask mask = new();
-        for (int i = 0; i < 8; ++i)
+        BitMask mask = default;
+        for (var i = 0; i < 8; ++i)
+        {
             mask.Set(Assignments[i]);
+        }
+
         return mask.Raw == 0xff;
     }
 }

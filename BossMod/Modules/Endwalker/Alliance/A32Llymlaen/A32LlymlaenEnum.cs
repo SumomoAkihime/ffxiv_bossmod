@@ -2,12 +2,12 @@
 
 public enum OID : uint
 {
-    Boss = 0x4024, // R7.000, x1
-    Perykos = 0x4026, // R6.300, x1
-    Thalaos = 0x4027, // R6.300, x1
-    Helper = 0x233C, // R0.500, x25, 523 type
-    SeaFoam = 0x4029, // R1.500, spawn during fight
-    Trident = 0x4025, // R3.000, spawn during fight
+    Boss = 0x4024, // R7.0
+    Perykos = 0x4026, // R6.3
+    Thalaos = 0x4027, // R6.3
+    SeaFoam = 0x4029, // R1.5
+    Trident = 0x4025, // R3.0
+    Helper = 0x233C
 }
 
 public enum AID : uint
@@ -66,12 +66,12 @@ public enum AID : uint
     HardWaterThalaos = 34870, // Thalaos->players, 7.0s cast, range 6 circle, stack
 
     BlowkissPunishment = 34874, // Boss->player, no cast, single-target, knockback 10 away from source + down for the count, used on players using specific emotes on boss
-    NavigatorsDagger = 34875, // Boss->player, no cast, single-target, used on players using specific emotes on boss
+    NavigatorsDagger = 34875 // Boss->player, no cast, single-target, used on players using specific emotes on boss
 }
 
 public enum IconID : uint
 {
     DeepDive = 161, // player
     Stormwinds = 139, // player
-    HardWater = 305, // player
+    HardWater = 305 // player
 }

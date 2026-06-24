@@ -1,68 +1,49 @@
 ﻿namespace BossMod.Dawntrail.Chaotic.Ch01CloudOfDarkness;
 
-class Flare(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCircle(25), (uint)IconID.Flare, AID.FlareAOE, 8.1f, true);
-class StygianShadow(BossModule module) : Components.Adds(module, (uint)OID.StygianShadow);
-class Atomos(BossModule module) : Components.Adds(module, (uint)OID.Atomos);
-class GhastlyGloomCross(BossModule module) : Components.StandardAOEs(module, AID.GhastlyGloomCrossAOE, new AOEShapeCross(40, 15));
-class GhastlyGloomDonut(BossModule module) : Components.StandardAOEs(module, AID.GhastlyGloomDonutAOE, new AOEShapeDonut(21, 40));
-class FloodOfDarknessAdd(BossModule module) : Components.CastInterruptHint(module, AID.FloodOfDarknessAdd); // TODO: only if add is player's?..
-class Excruciate(BossModule module) : Components.BaitAwayCast(module, AID.Excruciate, new AOEShapeCircle(4), true);
-class LoomingChaos(BossModule module) : Components.CastCounter(module, AID.LoomingChaosAOE);
+sealed class Flare(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.Flare, (uint)AID.FlareAOE, 25f, 8.1d);
+sealed class StygianShadow(BossModule module) : Components.Adds(module, (uint)OID.StygianShadow);
+sealed class Atomos(BossModule module) : Components.Adds(module, (uint)OID.Atomos);
+sealed class GhastlyGloomCross(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GhastlyGloomCrossAOE, new AOEShapeCross(40f, 15f));
+sealed class GhastlyGloomDonut(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GhastlyGloomDonutAOE, new AOEShapeDonut(21f, 40f));
+sealed class FloodOfDarknessAdd(BossModule module) : Components.CastInterruptHint(module, (uint)AID.FloodOfDarknessAdd); // TODO: only if add is player's?..
+sealed class Excruciate(BossModule module) : Components.BaitAwayCast(module, (uint)AID.Excruciate, 4f, tankbuster: true, damageType: AIHints.PredictedDamageType.Tankbuster);
+sealed class LoomingChaos(BossModule module) : Components.CastCounter(module, (uint)AID.LoomingChaosAOE);
+sealed class Phaser(BossModule module) : Components.SimpleAOEGroupsByTimewindow(module, [(uint)AID.Phaser], new AOEShapeCone(23f, 30f.Degrees()));
+sealed class FeintParticleBeam(BossModule module) : Components.StandardChasingAOEs(module, 3f, (uint)AID.FeintParticleBeamAOEFirst, (uint)AID.FeintParticleBeamAOERest, 2.1f, 0.4d, 18, icon: (uint)IconID.FeintParticleBeam);
 
 // TODO: tankswap hints component for phase1
 // TODO: phase 2 teleport zones?
 // TODO: grim embrace / curse of darkness prevent turning
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1010, NameID = 13624, PlanLevel = 100)]
-public class Ch01CloudOfDarkness(WorldState ws, Actor primary) : BossModule(ws, primary, DefaultCenter, InitialBounds)
+
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus, LTS)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1010, NameID = 13624, PlanLevel = 100)]
+public sealed class Ch01CloudOfDarkness(WorldState ws, Actor primary) : BossModule(ws, primary, DefaultCenter, DefaultArena)
 {
-    public static readonly WPos DefaultCenter = new(100, 100);
-    public static readonly ArenaBoundsCircle InitialBounds = new(40);
-    public static readonly ArenaBoundsCustom Phase1Bounds = new(InitialBounds.Radius, new(BuildPhase1BoundsContour()));
-    public static readonly ArenaBoundsCustom Phase2Bounds = new(InitialBounds.Radius, BuildPhase2BoundsPoly());
-    public static readonly WPos Phase1Midpoint = DefaultCenter + (Phase1Bounds.Poly.Parts[0].Vertices[1] + Phase1Bounds.Poly.Parts[0].Vertices[3]) * 0.5f;
+    public static readonly WPos DefaultCenter = new(100f, 100f);
+    public static readonly WPos Phase1BoundsCenter = new(100f, 76.28427f);
+    public static readonly PolygonCustom[] Diamond = [new([new(115f, 63f), new(128.28427f, 76.28427f), new(100f, 104.56854f), new(71.71573f, 76.28427f), new(85f, 63f)])];
+    private static readonly DonutV[] donut = [new(DefaultCenter, 34f, 40f, 80)];
+    public static readonly Square[] IntersectionBlockers = [.. GenerateIntersectionBlockers()];
+    public static readonly Shape[] Phase2ShapesND = [new Rectangle(new(100f, 115f), 24f, 3f), new Rectangle(new(100f, 85f), 24f, 3f), new Rectangle(new(115f, 100f), 3f, 24f),
+    new Rectangle(new(85f, 100f), 3f, 24f), new Square(new(126.5f, 100f), 7.5f), new Square(new(73.5f, 100f), 7.5f)];
+    public static readonly Shape[] Phase2ShapesWD = [.. donut, .. Phase2ShapesND];
+    public static readonly ArenaBoundsCircle DefaultArena = new(40f);
+    public static readonly ArenaBoundsCustom Phase1Bounds = new(Diamond, ScaleFactor: 1.414f);
+    public static readonly ArenaBoundsCustom Phase2BoundsWD = new(Phase2ShapesWD, IntersectionBlockers);
+    public static readonly ArenaBoundsCustom Phase2BoundsND = new(Phase2ShapesND, [.. IntersectionBlockers, .. donut]);
 
-    public static List<WDir> BuildPhase1BoundsContour()
+    private static Square[] GenerateIntersectionBlockers() // at intersections there are small blockers to prevent players from skipping tiles
     {
-        // north 'diagonal' is at [+/-15, -37] (it almost intersects the initial circle - at x=15 z is ~37.08)
-        // the main diagonal is 20, rotated by 45 degrees, which means that side corners are at x=+/- 40/sqrt(2), z = -37 + 40/sqrt(2) - 15
-        var nz = -37;
-        var nx = 15;
-        var halfDiag = 40 / MathF.Sqrt(2);
-        var cz = nz + halfDiag - nx;
-        return [new(nx, nz), new(halfDiag, cz), new(0, cz + halfDiag), new(-halfDiag, cz), new(-nx, nz)];
-    }
+        var a45 = 45f.Degrees();
+        var a135 = 135f.Degrees();
+        WDir[] dirs = [a45.ToDirection(), a135.ToDirection(), (-a45).ToDirection(), (-a135).ToDirection()];
+        WPos[] pos = [new(85f, 85f), new(115f, 85f), new(115f, 115f), new(85f, 115f)];
+        var distance = 3f * MathF.Sqrt(2);
 
-    public static RelSimplifiedComplexPolygon BuildPhase2BoundsPoly()
-    {
-        // mid is union of 4 rects
-        var midHalfWidth = 3;
-        var midHalfLength = 24;
-        var midOffset = 15;
-        var op1 = new PolygonClipper.Operand();
-        var op2 = new PolygonClipper.Operand();
-        op1.AddContour(CurveApprox.Rect(new WDir(0, +midOffset), new(1, 0), midHalfWidth, midHalfLength));
-        op1.AddContour(CurveApprox.Rect(new WDir(0, -midOffset), new(1, 0), midHalfWidth, midHalfLength));
-        op2.AddContour(CurveApprox.Rect(new WDir(+midOffset, 0), new(0, 1), midHalfWidth, midHalfLength));
-        op2.AddContour(CurveApprox.Rect(new WDir(-midOffset, 0), new(0, 1), midHalfWidth, midHalfLength));
-        var mid = InitialBounds.Clipper.Union(op1, op2);
-
-        // sides is union of two platforms and the outside ring
-        var sideHalfWidth = 7.5f;
-        var sideHalfLength = 10;
-        var sideOffset = 19 + sideHalfLength;
-        var sideRingWidth = 6;
-        op1.Clear();
-        op2.Clear();
-        op1.AddContour(CurveApprox.Rect(new WDir(+sideOffset, 0), new(1, 0), sideHalfWidth, sideHalfLength));
-        op1.AddContour(CurveApprox.Rect(new WDir(-sideOffset, 0), new(1, 0), sideHalfWidth, sideHalfLength));
-        op2.AddContour(CurveApprox.Circle(InitialBounds.Radius, 0.1f));
-        op2.AddContour(CurveApprox.Circle(InitialBounds.Radius - sideRingWidth, 0.1f));
-        var side = InitialBounds.Clipper.Union(op1, op2);
-
-        op1.Clear();
-        op2.Clear();
-        op1.AddPolygon(mid);
-        op2.AddPolygon(side);
-        return InitialBounds.Clipper.Union(op1, op2);
+        var squares = new Square[16];
+        var index = 0;
+        for (var i = 0; i < 4; ++i)
+            for (var j = 0; j < 4; ++j)
+                squares[index++] = new(pos[i] + distance * dirs[j], 1f, a45);
+        return squares;
     }
 }

@@ -1,33 +1,49 @@
 ﻿namespace BossMod;
 
-[ConfigDisplay(Name = "回放", Order = 0)]
-public class ReplayManagementConfig : ConfigNode
+public record struct ReplayMemory(string Path, bool IsOpen, DateTime PlaybackPosition);
+
+[ConfigDisplay(Name = "Replays", Order = 0)]
+public sealed class ReplayManagementConfig : ConfigNode
 {
-    [PropertyDisplay("显示回放管理界面")]
+    [PropertyDisplay("Show replay management UI")]
     public bool ShowUI = false;
 
-    [PropertyDisplay("在副本/野外模块开始或结束时自动录制回放")]
-    public bool AutoRecord = true;
+    [PropertyDisplay("Show chat alert when a duty with no module is entered or recorded")]
+    public bool ImportantDutyAlert = true;
 
-    [PropertyDisplay("在剧情回放（Duty Recorder）中自动录制", tooltip: "需先开启自动录制")]
-    public bool AutoARR = true;
+    [PropertyDisplay("Auto record replays on duty start/end or outdoor module start/end")]
+    public bool AutoRecord = false;
 
-    [PropertyDisplay("保留回放数量上限")]
+    [PropertyDisplay("Auto record in Duty Recorder replays", tooltip: "Requires auto-record to be turned on")]
+    public bool AutoARR = false;
+
+    [PropertyDisplay("Max replays to keep before removal")]
     [PropertySlider(0, 1000)]
-    public int MaxReplays = 20;
+    public int MaxReplays = 0;
 
-    [PropertyDisplay("在回放中记录并存储服务端封包")]
+    [PropertyDisplay("Record and store server packets in the replay")]
     public bool RecordServerPackets = false;
 
-    [PropertyDisplay("将服务端封包输出到 dalamud.log")]
+    [PropertyDisplay("Dump server packets into dalamud.log")]
     public bool DumpServerPackets = false;
 
-    [PropertyDisplay("输出到 dalamud.log 时忽略其他玩家封包")]
+    [PropertyDisplay("Ignore packets for other players when dumping to dalamud.log")]
     public bool DumpServerPacketsPlayerOnly = false;
 
-    [PropertyDisplay("将客户端封包输出到 dalamud.log")]
+    [PropertyDisplay("Dump client packets into dalamud.log")]
     public bool DumpClientPackets = false;
 
-    [PropertyDisplay("录制日志格式")]
+    [PropertyDisplay("Format for recorded logs")]
     public ReplayLogFormat WorldLogFormat = ReplayLogFormat.BinaryCompressed;
+
+    [PropertyDisplay("Open previously open replays on plugin reload")]
+    public bool RememberReplays;
+
+    [PropertyDisplay("Remember playback position for previously opened replays")]
+    public bool RememberReplayTimes;
+
+    // TODO: this should not be part of the actual config! figure out where to store transient user preferences...
+    public List<ReplayMemory> ReplayHistory = [];
+
+    public string ReplayFolder = "";
 }

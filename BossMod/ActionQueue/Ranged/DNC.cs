@@ -120,10 +120,10 @@ public enum SID : uint
     Peloton = ClassShared.SID.Peloton, // applied by Peloton to self/party
 }
 
-public sealed class Definitions : Defs
+public sealed class Definitions : IDisposable
 {
     private readonly DNCConfig _config = Service.Config.Get<DNCConfig>();
-    public override void Define(ActionDefinitions d)
+    public Definitions(ActionDefinitions d)
     {
         d.RegisterSpell(AID.CrimsonLotus, true, castAnimLock: 3.70f); // animLock=???, castAnimLock=3.700
         d.RegisterSpell(AID.Cascade, true);
@@ -174,6 +174,8 @@ public sealed class Definitions : Defs
 
         Customize(d);
     }
+
+    public void Dispose() { }
 
     private void Customize(ActionDefinitions d)
     {

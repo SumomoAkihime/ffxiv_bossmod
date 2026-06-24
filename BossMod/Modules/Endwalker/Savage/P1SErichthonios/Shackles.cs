@@ -17,11 +17,11 @@ class Shackles(BossModule module) : BossComponent(module)
 
     private const float _blueExplosionRadius = 4;
     private const float _redExplosionRadius = 8;
-    private static uint TetherColor(bool blue, bool red) => blue ? (red ? 0xff00ffff : 0xffff0080) : (red ? 0xff8080ff : 0xff808080);
+    private static uint TetherColor(bool blue, bool red) => blue ? (red ? Colors.Danger : Colors.Other1) : (red ? Colors.Other2 : Colors.PlayerGeneric);
 
     public override void Update()
     {
-        _blueTetherMatrix = _redTetherMatrix = _blueExplosionMatrix = _redExplosionMatrix = new();
+        _blueTetherMatrix = _redTetherMatrix = _blueExplosionMatrix = _redExplosionMatrix = default;
         var blueDebuffs = _debuffsBlueImminent | _debuffsBlueFuture;
         var redDebuffs = _debuffsRedImminent | _debuffsRedFuture;
         _active = (blueDebuffs | redDebuffs).Any();
@@ -29,13 +29,13 @@ class Shackles(BossModule module) : BossComponent(module)
             return; // nothing to do...
 
         // update tether matrices
-        foreach ((int iSrc, var src) in Raid.WithSlot())
+        foreach ((var iSrc, var src) in Raid.WithSlot(false, true, true))
         {
             // blue => 3 closest
             if (blueDebuffs[iSrc])
             {
                 _blueTetherMatrix[iSrc, iSrc] = true;
-                foreach ((int iTgt, _) in Raid.WithSlot().Exclude(iSrc).SortedByRange(src.Position).Take(3))
+                foreach ((var iTgt, _) in Raid.WithSlot(false, true, true).Exclude(iSrc).SortedByRange(src.Position).Take(3))
                     _blueTetherMatrix[iTgt, iSrc] = true;
             }
 
@@ -43,20 +43,20 @@ class Shackles(BossModule module) : BossComponent(module)
             if (redDebuffs[iSrc])
             {
                 _redTetherMatrix[iSrc, iSrc] = true;
-                foreach ((int iTgt, _) in Raid.WithSlot().Exclude(iSrc).SortedByRange(src.Position).TakeLast(3))
+                foreach ((var iTgt, _) in Raid.WithSlot(false, true, true).Exclude(iSrc).SortedByRange(src.Position).TakeLast(3))
                     _redTetherMatrix[iTgt, iSrc] = true;
             }
         }
 
         // update explosion matrices and detect problems (has to be done in a separate pass)
-        foreach ((int i, var actor) in Raid.WithSlot())
+        foreach ((var i, var actor) in Raid.WithSlot(false, true, true))
         {
             if (_blueTetherMatrix[i].Any())
-                foreach ((int j, _) in Raid.WithSlot().InRadiusExcluding(actor, _blueExplosionRadius))
+                foreach ((var j, _) in Raid.WithSlot(false, true, true).InRadiusExcluding(actor, _blueExplosionRadius))
                     _blueExplosionMatrix[j, i] = true;
 
             if (_redTetherMatrix[i].Any())
-                foreach ((int j, _) in Raid.WithSlot().InRadiusExcluding(actor, _redExplosionRadius))
+                foreach ((var j, _) in Raid.WithSlot(false, true, true).InRadiusExcluding(actor, _redExplosionRadius))
                     _redExplosionMatrix[j, i] = true;
         }
     }
@@ -77,7 +77,7 @@ class Shackles(BossModule module) : BossComponent(module)
     {
         if (_preferredPositions[slot] != default)
         {
-            movementHints.Add(actor.Position, _preferredPositions[slot], ArenaColor.Safe);
+            movementHints.Add(actor.Position, _preferredPositions[slot], Colors.Safe);
         }
     }
 
@@ -86,23 +86,23 @@ class Shackles(BossModule module) : BossComponent(module)
         if (!_active)
             return;
 
-        bool drawBlueAroundMe = false;
-        bool drawRedAroundMe = false;
-        foreach ((int i, var actor) in Raid.WithSlot())
+        var drawBlueAroundMe = false;
+        var drawRedAroundMe = false;
+        foreach ((var i, var actor) in Raid.WithSlot())
         {
             var blueTetheredTo = _blueTetherMatrix[i];
             var redTetheredTo = _redTetherMatrix[i];
             Arena.Actor(actor, TetherColor(blueTetheredTo.Any(), redTetheredTo.Any()));
 
             // draw tethers
-            foreach ((int j, var target) in Raid.WithSlot(true).Exclude(i).IncludedInMask(blueTetheredTo | redTetheredTo))
+            foreach ((var j, var target) in Raid.WithSlot(true).Exclude(i).IncludedInMask(blueTetheredTo | redTetheredTo))
                 Arena.AddLine(actor.Position, target.Position, TetherColor(blueTetheredTo[j], redTetheredTo[j]));
 
             // draw explosion circles that hit me
             if (_blueExplosionMatrix[pcSlot, i])
-                Arena.AddCircle(actor.Position, _blueExplosionRadius, ArenaColor.Danger);
+                Arena.AddCircle(actor.Position, _blueExplosionRadius, Colors.Danger);
             if (_redExplosionMatrix[pcSlot, i])
-                Arena.AddCircle(actor.Position, _redExplosionRadius, ArenaColor.Danger);
+                Arena.AddCircle(actor.Position, _redExplosionRadius, Colors.Danger);
 
             drawBlueAroundMe |= _blueExplosionMatrix[i, pcSlot];
             drawRedAroundMe |= _redExplosionMatrix[i, pcSlot];
@@ -110,17 +110,17 @@ class Shackles(BossModule module) : BossComponent(module)
 
         // draw explosion circles if I hit anyone
         if (drawBlueAroundMe)
-            Arena.AddCircle(pc.Position, _blueExplosionRadius, ArenaColor.Danger);
+            Arena.AddCircle(pc.Position, _blueExplosionRadius, Colors.Danger);
         if (drawRedAroundMe)
-            Arena.AddCircle(pc.Position, _redExplosionRadius, ArenaColor.Danger);
+            Arena.AddCircle(pc.Position, _redExplosionRadius, Colors.Danger);
 
         // draw assigned spot, if any
         if (_preferredPositions[pcSlot] != new WPos())
-            Arena.AddCircle(_preferredPositions[pcSlot], 2, ArenaColor.Safe);
+            Arena.AddCircle(_preferredPositions[pcSlot], 2, Colors.Safe);
 
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         switch ((SID)status.ID)
         {
@@ -171,7 +171,7 @@ class Shackles(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
         switch ((SID)status.ID)
         {
@@ -209,10 +209,11 @@ class Shackles(BossModule module) : BossComponent(module)
 
         var w1 = new WPos(way1.Value.XZ());
         var w2 = new WPos(way2.Value.XZ());
-        var d1 = (w1 - Module.Center).LengthSq();
-        var d2 = (w2 - Module.Center).LengthSq();
-        bool use1 = far ? d1 > d2 : d1 < d2;
-        if (Raid.TryFindSlot(actor.InstanceID, out var slot))
+        var d1 = (w1 - Arena.Center).LengthSq();
+        var d2 = (w2 - Arena.Center).LengthSq();
+        var use1 = far ? d1 > d2 : d1 < d2;
+        var slot = Raid.FindSlot(actor.InstanceID);
+        if (slot >= 0)
             _preferredPositions[slot] = use1 ? w1 : w2;
     }
 }

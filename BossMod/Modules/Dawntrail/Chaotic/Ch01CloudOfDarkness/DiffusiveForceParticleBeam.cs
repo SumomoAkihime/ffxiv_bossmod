@@ -5,19 +5,19 @@
 // if there are <= 12 players alive, everyone will be hit by the first wave, and the second wave will never happen
 // so for safety we just show larger radius around everyone
 // TODO: show second wave for players not hit by first wave
-class DiffusiveForceParticleBeam(BossModule module) : Components.UniformStackSpread(module, 0, 7)
+sealed class DiffusiveForceParticleBeam(BossModule module) : Components.UniformStackSpread(module, default, 7f)
 {
     public int NumCasts;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.DiffusiveForceParticleBeam)
-            AddSpreads(Raid.WithoutSlot(true), Module.CastFinishAt(spell, 0.7f));
+        if (spell.Action.ID == (uint)AID.DiffusiveForceParticleBeam)
+            AddSpreads(Raid.WithoutSlot(true, false, true), Module.CastFinishAt(spell, 0.7d));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.DiffusiveForceParticleBeamAOE1 or AID.DiffusiveForceParticleBeamAOE2)
+        if (spell.Action.ID is (uint)AID.DiffusiveForceParticleBeamAOE1 or (uint)AID.DiffusiveForceParticleBeamAOE2)
         {
             ++NumCasts;
             Spreads.RemoveAll(s => s.Target.InstanceID == spell.MainTargetID);

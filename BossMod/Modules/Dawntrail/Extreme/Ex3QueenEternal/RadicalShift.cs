@@ -1,70 +1,64 @@
-namespace BossMod.Dawntrail.Extreme.Ex3QueenEternal;
+﻿namespace BossMod.Dawntrail.Extreme.Ex3QueenEternal;
 
-sealed class RadicalShift(BossModule module) : BossComponent(module)
+sealed class RadicalShift(BossModule module) : Components.GenericAOEs(module)
 {
     public enum Rotation { None, Left, Right }
 
     private ArenaBoundsCustom? _left;
     private ArenaBoundsCustom? _right;
     private Rotation _nextRotation;
-    private List<RelTriangle>? _triangulation;
+    private AOEInstance[] _aoe = [];
+    private static readonly Square[] defaultSquare = [new(Ex3QueenEternal.ArenaCenter, 20f)];
 
-    public override void AddHints(int slot, Actor actor, TextHints hints)
-    {
-        var platform = NextPlatform;
-        if (platform != null && !platform.Contains(actor.Position - Module.Center))
-            hints.Add("Go to safe platform!");
-    }
-
-    public override void DrawArenaBackground(int pcSlot, Actor pc)
-    {
-        if (_triangulation != null)
-            Arena.Zone(_triangulation, ArenaColor.AOE);
-    }
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnMapEffect(byte index, uint state)
     {
-        if (index == 12)
+        if (index == 0x0C)
         {
             var rot = state switch
             {
-                0x01000080 => Rotation.Left,
-                0x08000400 => Rotation.Right,
+                0x01000080u => Rotation.Left,
+                0x08000400u => Rotation.Right,
                 _ => Rotation.None
             };
             if (rot != Rotation.None)
             {
                 _nextRotation = rot;
-                UpdateTriangulation(NextPlatform);
+                UpdateAOE(NextPlatform);
             }
         }
-        else if (state is 0x00020001 or 0x00200010)
+        else if (state is 0x00020001u or 0x00200010u)
         {
-            ArenaBoundsCustom? platform = index switch
+            var platform = index switch
             {
-                9 => Ex3QueenEternal.WindBounds,
-                10 => Ex3QueenEternal.EarthBounds,
-                11 => Ex3QueenEternal.IceBounds,
+                0x09 => Ex3QueenEternal.WindBounds,
+                0x0A => Ex3QueenEternal.EarthBounds,
+                0x0B => Ex3QueenEternal.IceBounds,
                 _ => null
             };
             if (platform != null)
             {
-                (state == 0x00020001 ? ref _right : ref _left) = platform;
-                UpdateTriangulation(NextPlatform);
+                (state == 0x00020001u ? ref _right : ref _left) = platform;
+                UpdateAOE(NextPlatform);
             }
+        }
+    }
+
+    public override void OnEventDirectorUpdate(uint updateID, uint param1, uint param2, uint param3, uint param4)
+    {
+        if (_aoe.Length != 0 && updateID == 0x8000000D && param1 is 0x02u or 0x04u or 0x08u)
+        {
+            _aoe = [];
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.RadicalShift)
+        if (spell.Action.ID == (uint)AID.RadicalShift)
         {
-            var platform = NextPlatform;
-            if (platform != null)
-                Arena.Bounds = platform;
             _left = _right = null;
             _nextRotation = Rotation.None;
-            _triangulation = null;
         }
     }
 
@@ -75,19 +69,27 @@ sealed class RadicalShift(BossModule module) : BossComponent(module)
         _ => null
     };
 
-    private void UpdateTriangulation(ArenaBoundsCustom? platform)
-        => _triangulation = platform != null ? Arena.Bounds.ClipAndTriangulate(platform.Clipper.Difference(new(CurveApprox.Rect(new(0, 1), platform.Radius, platform.Radius)), new(platform.Poly))) : null;
-}
-
-sealed class RadicalShiftAOE(BossModule module) : Components.SpreadFromCastTargets(module, AID.RadicalShiftAOE, 5)
-{
-    public void Reset()
+    private void UpdateAOE(ArenaBoundsCustom? platform)
     {
-        // Defensive full reset between radical-shift cycles.
-        // Keep this centralized so state-machine hooks don't need to manage individual fields.
-        Stacks.Clear();
-        Spreads.Clear();
-        NumFinishedStacks = 0;
-        NumFinishedSpreads = 0;
+        AOEShapeCustom? aoe = null;
+        var center = Arena.Center;
+        if (platform == Ex3QueenEternal.WindBounds)
+        {
+            aoe = new(defaultSquare, Trial.T03QueenEternal.T03QueenEternal.XArenaRects, origin: center);
+        }
+        else if (platform == Ex3QueenEternal.EarthBounds)
+        {
+            aoe = new(defaultSquare, Trial.T03QueenEternal.T03QueenEternal.SplitArenaRects, origin: center);
+        }
+        else if (platform == Ex3QueenEternal.IceBounds)
+        {
+            aoe = new(defaultSquare, Ex3QueenEternal.IceRectsAll, origin: center);
+        }
+        if (aoe != null)
+        {
+            _aoe = [new(aoe, center, default, WorldState.FutureTime(6d))];
+        }
     }
 }
+
+sealed class RadicalShiftAOE(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.RadicalShiftAOE, 5f);

@@ -1,8 +1,8 @@
 ﻿namespace BossMod.Endwalker.Savage.P3SPhoinix;
 
 // state related to brightened fire mechanic
-// this helper relies on waymarks 1-4, and assumes they don't change during fight - this is of course quite an assumption, but whatever...
-class BrightenedFire(BossModule module) : Components.CastCounter(module, AID.BrightenedFireAOE)
+// this helper relies on waymarks 1-4
+class BrightenedFire(BossModule module) : Components.CastCounter(module, (uint)AID.BrightenedFireAOE)
 {
     private readonly int[] _playerOrder = new int[8]; // 0 if unknown, 1-8 otherwise
 
@@ -19,7 +19,7 @@ class BrightenedFire(BossModule module) : Components.CastCounter(module, AID.Bri
             hints.Add($"Get to correct position {_playerOrder[slot]}!");
         }
 
-        int numHitAdds = Module.Enemies(OID.DarkenedFire).InRadius(actor.Position, _aoeRange).Count();
+        var numHitAdds = Module.Enemies((uint)OID.DarkenedFire).InRadius(actor.Position, _aoeRange).Count();
         if (numHitAdds < 2)
         {
             hints.Add("Get closer to adds!");
@@ -32,24 +32,25 @@ class BrightenedFire(BossModule module) : Components.CastCounter(module, AID.Bri
             return;
 
         var pos = PositionForOrder(_playerOrder[pcSlot]);
-        Arena.AddCircle(pos, 1, ArenaColor.Safe);
+        Arena.AddCircle(pos, 1, Colors.Safe);
 
         // draw all adds
-        int addIndex = 0;
-        foreach (var fire in Module.Enemies(OID.DarkenedFire).SortedByRange(pos))
+        var addIndex = 0;
+        foreach (var fire in Module.Enemies((uint)OID.DarkenedFire).SortedByRange(pos))
         {
-            Arena.Actor(fire, addIndex++ < 2 ? ArenaColor.Danger : ArenaColor.PlayerGeneric);
+            Arena.Actor(fire, addIndex++ < 2 ? Colors.Danger : Colors.PlayerGeneric);
         }
 
         // draw range circle
-        Arena.AddCircle(pc.Position, _aoeRange, ArenaColor.Danger);
+        Arena.AddCircle(pc.Position, _aoeRange, Colors.Danger);
     }
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
         if (iconID is >= 268 and <= 275)
         {
-            if (Raid.TryFindSlot(actor, out var slot))
+            var slot = Raid.FindSlot(actor.InstanceID);
+            if (slot >= 0)
                 _playerOrder[slot] = (int)iconID - 267;
         }
     }
@@ -57,8 +58,8 @@ class BrightenedFire(BossModule module) : Components.CastCounter(module, AID.Bri
     private WPos PositionForOrder(int order)
     {
         // TODO: consider how this can be improved...
-        var markID = (int)Waymark.N1 + (order - 1) % 4;
+        var markID = ((int)Waymark.N1 + (order - 1)) & 3;
         var wm = WorldState.Waymarks.GetFieldMark(markID);
-        return wm != null ? new(wm.Value.XZ()) : Module.Center;
+        return wm != null ? new(wm.Value.XZ()) : Arena.Center;
     }
 }

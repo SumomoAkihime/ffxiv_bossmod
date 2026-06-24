@@ -2,10 +2,10 @@
 
 public enum OID : uint
 {
-    BossP1 = 0x406D, // R8.000, x1
-    Avatar = 0x406E, // R8.000, x4
-    BossP2 = 0x406F, // R24.990, spawn during fight
-    Helper = 0x233C, // R0.500, x40, 523 type
+    BossP1 = 0x406D, // R8.0
+    Avatar = 0x406E, // R8.0
+    BossP2 = 0x406F, // R24.99
+    Helper = 0x233C
 }
 
 public enum AID : uint
@@ -75,11 +75,14 @@ public enum AID : uint
     WanderingVolleyDownhillAOE = 35234, // Helper->location, 14.0s cast, range 8 circle
     WanderingVolleyN = 35244, // BossP2->self, 10.0s cast, range 40 width 40 rect, knockback 12 left/right + huge circle N
     WanderingVolleyS = 35245, // BossP2->self, 10.0s cast, range 40 width 40 rect, knockback 12 left/right + huge circle S
+
+    P2SuddenDownpour = 35226, // BossP2->self, 4.0+1,0s cast, single-target
+    P2SuddenDownpourAOE = 36027 // Helper->self, 5.0s cast, range 60 circle
 }
 
 public enum IconID : uint
 {
     FlintedFoehn = 316, // player
     ArrowP1 = 344, // player
-    TankbusterP2 = 500, // player
+    TankbusterP2 = 500 // player
 }

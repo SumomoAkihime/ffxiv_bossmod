@@ -2,6 +2,7 @@
 
 // 8x8 matrix with 1-bit elements, stored as 64-bit int
 // typically used for per-player-pair flags in normal raids
+[SkipLocalsInit]
 public struct BitMatrix(ulong raw = 0)
 {
     public ulong Raw = raw;
@@ -33,9 +34,13 @@ public struct BitMatrix(ulong raw = 0)
             if ((uint)row < 8 && (uint)col < 8)
             {
                 if (value)
+                {
                     Raw |= 1ul << (8 * row + col);
+                }
                 else
+                {
                     Raw &= ~(1ul << (8 * row + col));
+                }
             }
         }
     }

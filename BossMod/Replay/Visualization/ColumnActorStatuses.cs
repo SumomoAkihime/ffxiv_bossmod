@@ -2,7 +2,7 @@
 
 namespace BossMod.ReplayVisualization;
 
-public class ColumnActorStatuses : Timeline.ColumnGroup
+public sealed class ColumnActorStatuses : Timeline.ColumnGroup
 {
     private readonly StateMachineTree _tree;
     private readonly List<int> _phaseBranches;
@@ -26,14 +26,16 @@ public class ColumnActorStatuses : Timeline.ColumnGroup
         _target = actor;
         _sep = Add(new ColumnSeparator(timeline, width: 0));
         foreach (var s in replay.EncounterStatuses(enc).Where(s => s.Target == actor && !_columns.Any(c => c.sid == s.ID && c.source == s.Source)))
+        {
             _columns.Add((s.ID, s.Source, null));
+        }
     }
 
     public void DrawConfig(UITree tree)
     {
         foreach (ref var c in _columns.AsSpan())
         {
-            bool visible = c.col?.Width > 0;
+            var visible = c.col?.Width > 0;
             if (ImGui.Checkbox($"{Utils.StatusString(c.sid)} from {ReplayUtils.ParticipantString(c.source, c.source?.WorldExistence.FirstOrDefault().Start ?? default)}", ref visible))
             {
                 c.col ??= BuildColumn(c.sid, c.source);
@@ -59,14 +61,17 @@ public class ColumnActorStatuses : Timeline.ColumnGroup
                 res.Add($"- final duration: {s.InitialDuration - s.Time.Duration:f3}");
             };
             if (s.Time.Start == prevEnd)
-                res.AddHistoryEntryLine(_enc.Time.Start, prevEnd, "", 0xffffffff);
+            {
+                res.AddHistoryEntryLine(_enc.Time.Start, prevEnd, "", Colors.TextColor1);
+            }
+
             prevEnd = s.Time.End;
         }
         foreach (var a in _replay.EncounterActions(_enc))
         {
             foreach (var t in a.Targets)
             {
-                foreach (var e in t.Effects)
+                foreach (var e in t.Effects.ValidEffects())
                 {
                     if (e.Type is ActionEffectType.ApplyStatusEffectTarget or ActionEffectType.ApplyStatusEffectSource && e.Value == statusID)
                     {
@@ -75,7 +80,7 @@ public class ColumnActorStatuses : Timeline.ColumnGroup
                         if (src == source && tgt == _target)
                         {
                             var actionName = $"{a.ID} -> {ReplayUtils.ParticipantString(a.MainTarget, a.Timestamp)} #{a.GlobalSequence}";
-                            res.AddHistoryEntryDot(_enc.Time.Start, a.Timestamp, actionName, 0xffffffff).AddActionTooltip(a);
+                            res.AddHistoryEntryDot(_enc.Time.Start, a.Timestamp, actionName, Colors.TextColor1).AddActionTooltip(a);
                         }
                     }
                 }

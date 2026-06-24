@@ -8,6 +8,7 @@
 // - first nibble (mask 0x0000000F) is used for smallest possible states (e.g. cast-start + cast-end)
 // - second and third nibble can be used by modules needing more hierarchy levels
 // this is all done to provide ids that are relatively stable across refactorings (these are used e.g. for cooldown planning)
+[SkipLocalsInit]
 public class StateMachineBuilder(BossModule module)
 {
     // wrapper that simplifies building phases
@@ -18,14 +19,20 @@ public class StateMachineBuilder(BossModule module)
         public Phase OnEnter(Action action, bool condition = true)
         {
             if (condition)
+            {
                 Raw.Enter += action;
+            }
+
             return this;
         }
 
         public Phase OnExit(Action action, bool condition = true)
         {
             if (condition)
+            {
                 Raw.Exit += action;
+            }
+
             return this;
         }
 
@@ -37,7 +44,10 @@ public class StateMachineBuilder(BossModule module)
         public Phase SetHint(StateMachine.PhaseHint h, bool condition = true)
         {
             if (condition)
+            {
                 Raw.Hint |= h;
+            }
+
             return this;
         }
     }
@@ -50,33 +60,52 @@ public class StateMachineBuilder(BossModule module)
         public State OnEnter(Action action, bool condition = true)
         {
             if (condition)
+            {
                 Raw.Enter += action;
+            }
+
             return this;
         }
 
         public State OnExit(Action action, bool condition = true)
         {
             if (condition)
+            {
                 Raw.Exit += action;
+            }
+
             return this;
         }
 
         public State ActivateOnEnter<C>(bool condition = true) where C : BossComponent => OnEnter(module.ActivateComponent<C>, condition);
+        public State ActivateOnExit<C>(bool condition = true) where C : BossComponent => OnExit(module.ActivateComponent<C>, condition);
+        public State DeactivateOnEnter<C>(bool condition = true) where C : BossComponent => OnEnter(module.DeactivateComponent<C>, condition);
         public State DeactivateOnExit<C>(bool condition = true) where C : BossComponent => OnExit(module.DeactivateComponent<C>, condition);
         public State ExecOnEnter<C>(Action<C> fn, bool condition = true) where C : BossComponent => OnEnter(ExecForComponent(fn), condition);
         public State ExecOnExit<C>(Action<C> fn, bool condition = true) where C : BossComponent => OnExit(ExecForComponent(fn), condition);
+        public State ResetComp<C>(bool condition = true) where C : BossComponent
+        {
+            OnExit(module.DeactivateComponent<C>, condition);
+            return OnExit(module.ActivateComponent<C>, condition);
+        }
 
         public State SetHint(StateMachine.StateHint h, bool condition = true)
         {
             if (condition)
+            {
                 Raw.EndHint |= h;
+            }
+
             return this;
         }
 
         public State ClearHint(StateMachine.StateHint h, bool condition = true)
         {
             if (condition)
+            {
                 Raw.EndHint &= ~h;
+            }
+
             return this;
         }
 
@@ -84,9 +113,13 @@ public class StateMachineBuilder(BossModule module)
         {
             var c = module.FindComponent<C>();
             if (c != null)
+            {
                 fn(c);
+            }
             else
+            {
                 module.ReportError(null, $"Component {typeof(C)} needed for state {Raw.ID:X} was not found");
+            }
         };
     }
 
@@ -100,13 +133,19 @@ public class StateMachineBuilder(BossModule module)
 
     // create a simple phase; buildState is called to fill out phase states, argument is seqID << 24
     // note that on exit, by default all components are removed (except those that opt out of this explicitly), since generally phase transition can happen at any time
-    public Phase SimplePhase(uint seqID, Action<uint> buildState, string name, float dur = -1)
+    public Phase SimplePhase(uint seqID, Action<uint> buildState, string name, float dur = -1f)
     {
         if (_curInitial != null)
+        {
             throw new InvalidOperationException($"Trying to create phase '{name}' while inside another phase");
+        }
+
         buildState(seqID << 24);
         if (_curInitial == null)
+        {
             throw new InvalidOperationException($"Phase '{name}' has no states");
+        }
+
         var phase = new StateMachine.Phase(_curInitial, name, dur);
         phase.Exit += () => Module.ClearComponents(comp => !comp.KeepOnPhaseChange);
         _phases.Add(phase);
@@ -118,28 +157,35 @@ public class StateMachineBuilder(BossModule module)
     public Phase DeathPhase(uint seqID, Action<uint> buildState)
     {
         var phase = SimplePhase(seqID, buildState, "Boss death");
-        phase.Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed || Module.PrimaryActor.HPMP.CurHP == 0;
+        phase.Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed || Module.PrimaryActor.HPMP.CurHP == default;
         return phase;
     }
 
     // create a single-state phase; useful for modules with trivial state machines
-    public Phase TrivialPhase(uint seqID = 0, float enrage = 10000) => DeathPhase(seqID, id => SimpleState(id, enrage, "Enrage"));
+    public Phase TrivialPhase(uint seqID = default, float enrage = 10000f) => DeathPhase(seqID, id => SimpleState(id, enrage, "Enrage"));
 
     // create a simple state without any actions
     public State SimpleState(uint id, float duration, string name)
     {
-        if (_states.ContainsKey(id))
-            throw new InvalidOperationException($"Duplicate state id {id:X}");
+        while (_states.ContainsKey(id))
+        {
+            Service.Log($"Duplicate state id {id:X}, incrementing by 1");
+            ++id;
+        }
 
         var state = _states[id] = new() { ID = id, Duration = duration, Name = name };
         if (_lastState != null)
         {
             if (_lastState.NextStates != null)
+            {
                 throw new InvalidOperationException($"Previous state {_lastState.ID} is already linked while adding new state {id}");
+            }
 
             _lastState.NextStates = [state];
             if ((_lastState.ID & 0xFFFF0000) == (id & 0xFFFF0000))
+            {
                 _lastState.EndHint |= StateMachine.StateHint.GroupWithNext;
+            }
         }
         else
         {
@@ -167,13 +213,19 @@ public class StateMachineBuilder(BossModule module)
         state.Raw.Update = timeSinceTransition =>
         {
             if (timeSinceTransition < checkDelay)
+            {
                 return -1; // too early to check for condition
+            }
 
             if (condition())
+            {
                 return 0;
+            }
 
             if (timeSinceTransition < expected + maxOverdue)
+            {
                 return -1;
+            }
 
             Module.ReportError(null, $"State {id:X}: transition triggered because of overdue");
             return 0;
@@ -193,23 +245,31 @@ public class StateMachineBuilder(BossModule module)
         state.Raw.Update = _ =>
         {
             if (!condition())
+            {
                 return -1;
+            }
 
             var key = select();
             var fork = stateDispatch.GetValueOrDefault(key, -1);
             if (fork < 0)
+            {
                 Module.ReportError(null, $"State {id:X}: unexpected fork condition result: got {key}");
+            }
+
             return fork;
         };
 
-        int nextIndex = 0;
+        var nextIndex = 0;
         var prevInit = _curInitial;
         foreach (var (key, action) in dispatch)
         {
             _lastState = _curInitial = null;
             action.buildState(action.seqID << 24);
             if (_curInitial == null)
+            {
                 throw new InvalidOperationException($"Fork #{nextIndex} didn't create any states");
+            }
+
             state.Raw.NextStates[nextIndex] = _curInitial;
             stateDispatch[key] = nextIndex++;
         }
@@ -220,14 +280,16 @@ public class StateMachineBuilder(BossModule module)
     }
 
     // create a state triggered by component condition (or timeout if it never happens); if component is not present, error is logged and transition is triggered immediately
-    public State ComponentCondition<T>(uint id, float expected, Func<T, bool> condition, string name = "", float maxOverdue = 1, float checkDelay = 0) where T : BossComponent
+    public State ComponentCondition<T>(uint id, float expected, Func<T, bool> condition, string name = "", float maxOverdue = 1f, float checkDelay = default) where T : BossComponent
     {
         var state = SimpleState(id, expected, name);
         state.Raw.Comment = $"Condition on {typeof(T).Name}";
         state.Raw.Update = (timeSinceTransition) =>
         {
             if (timeSinceTransition < checkDelay)
+            {
                 return -1; // too early to check for condition
+            }
 
             var comp = Module.FindComponent<T>();
             if (comp == null)
@@ -237,10 +299,14 @@ public class StateMachineBuilder(BossModule module)
             }
 
             if (condition(comp))
+            {
                 return 0;
+            }
 
             if (timeSinceTransition < expected + maxOverdue)
+            {
                 return -1;
+            }
 
             Module.ReportError(null, $"State {id:X}: transition triggered because of overdue");
             return 0;
@@ -267,31 +333,34 @@ public class StateMachineBuilder(BossModule module)
     }
 
     // create a state triggered by expected cast start by arbitrary actor; unexpected casts still trigger a transition, but log error
-    public State ActorCastStart<AID>(uint id, Func<Actor?> actorAcc, AID aid, float delay, bool isBoss = false, string name = "")
-        where AID : Enum
+    public State ActorCastStart(uint id, Func<Actor?> actorAcc, uint aid, float delay, bool isBoss = false, string name = "")
     {
         var state = SimpleState(id, delay, name).SetHint(StateMachine.StateHint.BossCastStart, isBoss);
-        var expected = ActionID.MakeSpell(aid);
         state.Raw.Comment = $"Cast start: {aid}";
         state.Raw.Update = _ =>
         {
             var castInfo = actorAcc()?.CastInfo;
             if (castInfo == null)
+            {
                 return -1;
-            if (castInfo.Action != expected)
-                Module.ReportError(null, $"State {id:X}: unexpected cast start: got {castInfo.Action}, expected {expected}");
+            }
+
+            if (castInfo.Action.ID != aid)
+            {
+                Module.ReportError(null, $"State {id:X}: unexpected cast start: got {castInfo.Action}, expected {aid}");
+            }
+
             return 0;
         };
         return state;
     }
 
     // create a state triggered by expected cast start by a primary actor; unexpected casts still trigger a transition, but log error
-    public State CastStart<AID>(uint id, AID aid, float delay, string name = "") where AID : Enum
+    public State CastStart(uint id, uint aid, float delay, string name = "")
         => ActorCastStart(id, () => Module.PrimaryActor, aid, delay, true, name);
 
     // create a state triggered by one of a set of expected casts by arbitrary actor; unexpected casts still trigger a transition, but log error
-    public State ActorCastStartMulti<AID>(uint id, Func<Actor?> actorAcc, IEnumerable<AID> aids, float delay, bool isBoss = false, string name = "")
-        where AID : Enum
+    public State ActorCastStartMulti(uint id, Func<Actor?> actorAcc, uint[] aids, float delay, bool isBoss = false, string name = "")
     {
         var state = SimpleState(id, delay, name).SetHint(StateMachine.StateHint.BossCastStart, isBoss);
         state.Raw.Comment = $"Cast start: [{string.Join(", ", aids)}]";
@@ -299,28 +368,39 @@ public class StateMachineBuilder(BossModule module)
         {
             var castInfo = actorAcc()?.CastInfo;
             if (castInfo == null)
+            {
                 return -1;
-            if (!aids.Any(aid => castInfo.IsSpell(aid)))
+            }
+
+            var matchedAid = false;
+            for (var ai = 0; ai < aids.Length; ++ai)
+            {
+                if (aids[ai] == castInfo.Action.ID) { matchedAid = true; break; }
+            }
+
+            if (!matchedAid)
+            {
                 Module.ReportError(null, $"State {id:X}: unexpected cast start: got {castInfo.Action}");
+            }
+
             return 0;
         };
         return state;
     }
 
     // create a state triggered by one of a set of expected casts by a primary actor; unexpected casts still trigger a transition, but log error
-    public State CastStartMulti<AID>(uint id, IEnumerable<AID> aids, float delay, string name = "") where AID : Enum
+    public State CastStartMulti(uint id, uint[] aids, float delay, string name = "")
         => ActorCastStartMulti(id, () => Module.PrimaryActor, aids, delay, true, name);
 
     // create a state triggered by one of a set of expected casts by arbitrary actor, each of which forking to a separate subsequence
     // values in map are actions building state chains corresponding to each fork
-    public State ActorCastStartFork<AID>(uint id, Func<Actor?> actorAcc, Dictionary<AID, (uint seqID, Action<uint> buildState)> dispatch, float delay, bool isBoss = false, string name = "")
-        where AID : Enum
-        => ConditionFork(id, delay, () => actorAcc()?.CastInfo?.IsSpell() ?? false, () => (AID)(object)actorAcc()!.CastInfo!.Action.ID, dispatch, name)
+    public State ActorCastStartFork(uint id, Func<Actor?> actorAcc, Dictionary<uint, (uint seqID, Action<uint> buildState)> dispatch, float delay, bool isBoss = false, string name = "")
+        => ConditionFork(id, delay, () => actorAcc()?.CastInfo?.IsSpell() ?? false, () => actorAcc()!.CastInfo!.Action.ID, dispatch, name)
             .SetHint(StateMachine.StateHint.BossCastStart, isBoss);
 
     // create a state triggered by one of a set of expected casts by a primary actor, each of which forking to a separate subsequence
     // values in map are actions building state chains corresponding to each fork
-    public State CastStartFork<AID>(uint id, Dictionary<AID, (uint seqID, Action<uint> buildState)> dispatch, float delay, string name = "") where AID : Enum
+    public State CastStartFork(uint id, Dictionary<uint, (uint seqID, Action<uint> buildState)> dispatch, float delay, string name = "")
         => ActorCastStartFork(id, () => Module.PrimaryActor, dispatch, delay, true, name);
 
     // create a state triggered by cast end by arbitrary actor
@@ -337,32 +417,28 @@ public class StateMachineBuilder(BossModule module)
         => ActorCastEnd(id, () => Module.PrimaryActor, castTime, true, name, interruptible);
 
     // create a chain of states: ActorCastStart -> ActorCastEnd; second state uses id+1
-    public State ActorCast<AID>(uint id, Func<Actor?> actorAcc, AID aid, float delay, float castTime, bool isBoss = false, string name = "", bool interruptible = false)
-        where AID : Enum
+    public State ActorCast(uint id, Func<Actor?> actorAcc, uint aid, float delay, float castTime, bool isBoss = false, string name = "", bool interruptible = false)
     {
         ActorCastStart(id, actorAcc, aid, delay, isBoss, "");
         return ActorCastEnd(id + 1, actorAcc, castTime, isBoss, name, interruptible);
     }
 
     // create a chain of states: CastStart -> CastEnd; second state uses id+1
-    public State Cast<AID>(uint id, AID aid, float delay, float castTime, string name = "", bool interruptible = false)
-        where AID : Enum
+    public State Cast(uint id, uint aid, float delay, float castTime, string name = "", bool interruptible = false)
     {
         CastStart(id, aid, delay, "");
         return CastEnd(id + 1, castTime, name, interruptible);
     }
 
     // create a chain of states: ActorCastStartMulti -> ActorCastEnd; second state uses id+1
-    public State ActorCastMulti<AID>(uint id, Func<Actor?> actorAcc, IEnumerable<AID> aids, float delay, float castTime, bool isBoss = false, string name = "", bool interruptible = false)
-        where AID : Enum
+    public State ActorCastMulti(uint id, Func<Actor?> actorAcc, uint[] aids, float delay, float castTime, bool isBoss = false, string name = "", bool interruptible = false)
     {
         ActorCastStartMulti(id, actorAcc, aids, delay, isBoss, "");
         return ActorCastEnd(id + 1, actorAcc, castTime, isBoss, name, interruptible);
     }
 
     // create a chain of states: CastStartMulti -> CastEnd; second state uses id+1
-    public State CastMulti<AID>(uint id, IEnumerable<AID> aids, float delay, float castTime, string name = "", bool interruptible = false)
-        where AID : Enum
+    public State CastMulti(uint id, uint[] aids, float delay, float castTime, string name = "", bool interruptible = false)
     {
         CastStartMulti(id, aids, delay, "");
         return CastEnd(id + 1, castTime, name, interruptible);
@@ -378,7 +454,119 @@ public class StateMachineBuilder(BossModule module)
     }
 
     // create a state triggered by a primary actor becoming (un)targetable; automatically sets downtime begin/end flag
-    public State Targetable(uint id, bool targetable, float delay, string name = "", float checkDelay = 0)
+    public State Targetable(uint id, bool targetable, float delay, string name = "", float checkDelay = default)
         => ActorTargetable(id, () => Module.PrimaryActor, targetable, delay, name, checkDelay)
             .SetHint(targetable ? StateMachine.StateHint.DowntimeEnd : StateMachine.StateHint.DowntimeStart);
+
+    protected bool AllDeadOrDestroyed(uint[] enemies)
+    {
+        var allenemies = enemies;
+        var len = allenemies.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            var enemies_ = Module.Enemies(allenemies[i]);
+            var count = enemies_.Count;
+            for (var j = 0; j < count; ++j)
+            {
+                var enemy = enemies_[j];
+                if (!enemy.IsDeadOrDestroyed)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    protected bool AllDeadOrDestroyed(uint enemy)
+    {
+        var enemies = Module.Enemies(enemy);
+        var count = enemies.Count;
+        for (var j = 0; j < count; ++j)
+        {
+            var e = enemies[j];
+            if (!e.IsDeadOrDestroyed)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    protected bool AllDeadOrDestroyedInBounds(uint[] enemies)
+    {
+        var allenemies = enemies;
+        var len = allenemies.Length;
+        var center = Module.Center;
+        var radius = Module.Bounds.Radius;
+        for (var i = 0; i < len; ++i)
+        {
+            var enemies_ = Module.Enemies(allenemies[i]);
+            var count = enemies_.Count;
+            for (var j = 0; j < count; ++j)
+            {
+                var enemy = enemies_[j];
+                if (!enemy.IsDeadOrDestroyed && enemy.Position.AlmostEqual(center, radius))
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    protected bool AllDestroyed(uint[] enemies)
+    {
+        var allenemies = enemies;
+        var len = allenemies.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            var enemies_ = Module.Enemies(allenemies[i]);
+            var count = enemies_.Count;
+            for (var j = 0; j < count; ++j)
+            {
+                var enemy = enemies_[j];
+                if (!enemy.IsDestroyed)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    protected bool AllDestroyed(uint enemy)
+    {
+        var enemies = Module.Enemies(enemy);
+        var count = enemies.Count;
+        for (var j = 0; j < count; ++j)
+        {
+            var e = enemies[j];
+            if (!e.IsDestroyed)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    protected bool AnyTargetable(uint[] enemies)
+    {
+        var allenemies = enemies;
+        var len = allenemies.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            var enemies_ = Module.Enemies(allenemies[i]);
+            var count = enemies_.Count;
+            for (var j = 0; j < count; ++j)
+            {
+                var enemy = enemies_[j];
+                if (enemy.IsTargetable)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 }

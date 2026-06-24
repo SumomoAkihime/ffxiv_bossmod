@@ -5,12 +5,13 @@ public enum OID : uint
     Boss = 0x3EAA, // R=26.0
     MammothTentacle = 0x3EAB, // R=6.0
     Crystals = 0x3EAC, // R=0.5
-    Helper = 0x233C,
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
     AutoAttack = 33357, // Boss->player, no cast, single-target
+
     Breathstroke = 34551, // Boss->self, 16.5s cast, range 35 180-degree cone
     Clearout = 33348, // MammothTentacle->self, 9.0s cast, range 16 120-degree cone
     Octostroke = 33347, // Boss->self, 16.0s cast, single-target
@@ -23,20 +24,19 @@ public enum AID : uint
     VividEyes = 33355, // Boss->self, 4.0s cast, range 20-26 donut
     WaterDrop = 34436, // Helper->player, 5.0s cast, range 6 circle
     WallopVisual = 33350, // Boss->self, no cast, single-target, visual, starts tentacle wallops
-    Wallop = 33346, // MammothTentacle->self, 3.0s cast, range 22 width 8 rect
+    Wallop = 33346 // MammothTentacle->self, 3.0s cast, range 22 width 8 rect
 }
 
-class Wallop(BossModule module) : Components.StandardAOEs(module, AID.Wallop, new AOEShapeRect(22, 4));
-class VividEyes(BossModule module) : Components.StandardAOEs(module, AID.VividEyes, new AOEShapeDonut(20, 26));
-class Clearout(BossModule module) : Components.StandardAOEs(module, AID.Clearout, new AOEShapeCone(16, 60.Degrees()));
-class TidalBreath(BossModule module) : Components.StandardAOEs(module, AID.TidalBreath, new AOEShapeCone(35, 90.Degrees()));
-class Breathstroke(BossModule module) : Components.StandardAOEs(module, AID.Breathstroke, new AOEShapeCone(35, 90.Degrees()));
-class TidalRoar(BossModule module) : Components.RaidwideCast(module, AID.TidalRoar);
-class WaterDrop(BossModule module) : Components.SpreadFromCastTargets(module, AID.WaterDrop, 6);
-class SalineSpit(BossModule module) : Components.StandardAOEs(module, AID.SalineSpit2, new AOEShapeCircle(8));
-class Telekinesis(BossModule module) : Components.StandardAOEs(module, AID.Telekinesis2, new AOEShapeCircle(12));
+sealed class Wallop(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Wallop, new AOEShapeRect(22f, 4f));
+sealed class VividEyes(BossModule module) : Components.SimpleAOEs(module, (uint)AID.VividEyes, new AOEShapeDonut(20f, 26f));
+sealed class Clearout(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Clearout, new AOEShapeCone(16f, 60f.Degrees()));
+sealed class TidalBreathBreathstroke(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.TidalBreath, (uint)AID.Breathstroke], new AOEShapeCone(35f, 90f.Degrees()));
+sealed class TidalRoar(BossModule module) : Components.RaidwideCast(module, (uint)AID.TidalRoar);
+sealed class WaterDrop(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.WaterDrop, 6f);
+sealed class SalineSpit(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SalineSpit2, 8f);
+sealed class Telekinesis(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Telekinesis2, 12f);
 
-class D123OctomammothStates : StateMachineBuilder
+sealed class D123OctomammothStates : StateMachineBuilder
 {
     public D123OctomammothStates(BossModule module) : base(module)
     {
@@ -46,53 +46,38 @@ class D123OctomammothStates : StateMachineBuilder
             .ActivateOnEnter<VividEyes>()
             .ActivateOnEnter<WaterDrop>()
             .ActivateOnEnter<TidalRoar>()
-            .ActivateOnEnter<TidalBreath>()
+            .ActivateOnEnter<TidalBreathBreathstroke>()
             .ActivateOnEnter<Telekinesis>()
-            .ActivateOnEnter<Breathstroke>()
             .ActivateOnEnter<SalineSpit>();
     }
 }
 
-[ModuleInfo(Contributors = "dhoggpt, Malediktus, xan", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 822, NameID = 12334)]
-class D123Octomammoth(WorldState ws, Actor primary) : BossModule(ws, primary, new(-370, -355.5f), OctoBounds)
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "dhoggpt, Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 822u, NameID = 12334u, SortOrder = 8)]
+public sealed class D123Octomammoth(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
 {
-    public static readonly ArenaBoundsCustom OctoBounds = MakeBounds();
+    private static readonly WPos arenaCenter = new(-370f, -368f);
+    private static readonly WPos[] bridge1 = [new(-396.417f, -361.641f), new(-393.813f, -358.136f), new(-393.178f, -353.815f), new(-387.778f, -356.604f),
+    new(-390.071f, -359.686f), new(-390.630f, -363.486f)];
+    private static readonly WPos[] bridge5 = [new(-346.767f, -353.669f), new(-346.187f, -358.136f), new(-343.583f, -361.638f), new(-349.946f, -363.513f),
+    new(-349.929f, -359.686f), new(-352.302f, -356.647f)]; // coordinates seem to be slightly offset from calculated values, so hardcoding a 2nd bridge here
+    private static readonly ArenaBoundsCustom arena = new([new Polygon(new(-345f, -368f), 8f, 20), new Polygon(new(-352.322f, -350.322f), 8f, 20, 9f.Degrees()),
+    new Polygon(new(-370f, -343f), 8f, 20), new Polygon(new(-387.678f, -350.322f), 8f, 20, 9f.Degrees()), new Polygon(new(-395f, -368f), 8f, 20),
+    new PolygonCustom(bridge1), new PolygonCustom(WPos.GenerateRotatedVertices(arenaCenter, bridge1, -45f)),
+    new PolygonCustom(WPos.GenerateRotatedVertices(arenaCenter, bridge1, -90f)), new PolygonCustom(bridge5)], AdjustForHitboxInwards: true);
 
-    private static ArenaBoundsCustom MakeBounds()
+    protected override bool CheckPull() => Arena.InBounds(Raid.Player()!.Position);
+
+    protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var island = CurveApprox.Circle(8, 1 / 90f);
-        var iop = new PolygonClipper.Operand();
-        var rot = -90.Degrees();
-
-        for (var i = 0; i < 5; i++)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            var off = rot.ToDirection() * 25;
-            var thisIsland = island.Select(d => d + off);
-            iop.AddContour(island.Select(d => d + off));
-
-            rot += 45.Degrees();
+            var e = hints.PotentialTargets[i];
+            if (e.Actor.OID == (uint)OID.Boss)
+            {
+                e.Priority = 1;
+                break;
+            }
         }
-
-        var bop = new PolygonClipper.Operand();
-        rot = -67.5f.Degrees();
-
-        List<WDir> bridgeContour = [
-            new(-2.745f, 21.225f),
-            new(0, 21.725f),
-            new(2.745f, 21.225f),
-            new(2.745f, 26.467f),
-            new(0, 25.775f),
-            new(-2.745f, 26.467f),
-        ];
-
-        for (var i = 0; i < 4; i++)
-        {
-            bop.AddContour(bridgeContour.Select(b => b.Rotate(rot)));
-            rot += 45.Degrees();
-        }
-
-        return new(33, new PolygonClipper().Union(iop, bop).Transform(new(0, -12.5f), new(0, 1)));
     }
-
-    protected override void DrawEnemies(int pcSlot, Actor pc) => Arena.ActorInsideBounds(PrimaryActor.Position, PrimaryActor.Rotation, ArenaColor.Enemy);
 }

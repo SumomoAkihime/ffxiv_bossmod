@@ -1,10 +1,48 @@
 namespace BossMod.RealmReborn.Trial.T09WhorleaterH;
 
-class GrandFall(BossModule module) : Components.StandardAOEs(module, AID.GrandFall, 8);
-class Hydroshot(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 5, AID.Hydroshot, m => m.Enemies(OID.HydroshotZone).Where(z => z.EventState != 7), 0);
-class Dreadstorm(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 5, AID.Dreadstorm, m => m.Enemies(OID.DreadstormZone).Where(z => z.EventState != 7), 0);
+sealed class GrandFall(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GrandFall, 8f);
+sealed class Hydroshot(BossModule module) : Components.VoidzoneAtCastTarget(module, 5f, (uint)AID.Hydroshot, GetVoidzones)
+{
+    private static Actor[] GetVoidzones(BossModule module)
+    {
+        var enemies = module.Enemies((uint)OID.HydroshotZone);
+        var count = enemies.Count;
+        if (count == 0)
+            return [];
 
-class T09WhorleaterHStates : StateMachineBuilder
+        var voidzones = new Actor[count];
+        var index = 0;
+        for (var i = 0; i < count; ++i)
+        {
+            var z = enemies[i];
+            if (z.EventState != 7)
+                voidzones[index++] = z;
+        }
+        return voidzones[..index];
+    }
+}
+sealed class Dreadstorm(BossModule module) : Components.VoidzoneAtCastTarget(module, 5f, (uint)AID.Dreadstorm, GetVoidzones)
+{
+    private static Actor[] GetVoidzones(BossModule module)
+    {
+        var enemies = module.Enemies((uint)OID.DreadstormZone);
+        var count = enemies.Count;
+        if (count == 0)
+            return [];
+
+        var voidzones = new Actor[count];
+        var index = 0;
+        for (var i = 0; i < count; ++i)
+        {
+            var z = enemies[i];
+            if (z.EventState != 7)
+                voidzones[index++] = z;
+        }
+        return voidzones[..index];
+    }
+}
+
+sealed class T09WhorleaterHStates : StateMachineBuilder
 {
     public T09WhorleaterHStates(BossModule module) : base(module)
     {
@@ -20,59 +58,55 @@ class T09WhorleaterHStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(Contributors = "taurenkey, Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 72, NameID = 2505)]
-public class T09WhorleaterH(WorldState ws, Actor primary) : BossModule(ws, primary, new(-0, 0), new ArenaBoundsRect(14.5f, 20))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "taurenkey, Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 72, NameID = 2505)]
+public sealed class T09WhorleaterH(WorldState ws, Actor primary) : BossModule(ws, primary, default, new ArenaBoundsRect(14.5f, 19.5f))
 {
+    private static readonly uint[] adds = [(uint)OID.Tail, (uint)OID.WavespineSahagin, (uint)OID.WavespineSahagin, (uint)OID.WavetoothSahagin];
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy, true);
-        foreach (var s in Enemies(OID.Spume))
-            Arena.Actor(s, ArenaColor.Vulnerable);
-        foreach (var e in Enemies(OID.Tail))
-            Arena.Actor(e, ArenaColor.Enemy);
-        foreach (var e in Enemies(OID.Sahagin))
-            Arena.Actor(e, ArenaColor.Enemy);
-        foreach (var e in Enemies(OID.DangerousSahagins))
-            Arena.Actor(e, ArenaColor.Enemy);
-        foreach (var c in Enemies(OID.Converter))
-            Arena.Actor(c, ArenaColor.Object);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(this, adds);
+        Arena.Actors(Enemies((uint)OID.Spume), Colors.Vulnerable);
+        Arena.Actors(Enemies((uint)OID.Converter), Colors.Object);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var TankMimikry = actor.FindStatus(2124); //Bluemage Tank Mimikry
-        foreach (var e in hints.PotentialTargets)
+        var TankMimikry = actor.FindStatus(2124u); // Bluemage Tank Mimikry
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            if (actor.Class.GetClassCategory() is ClassCategory.Caster or ClassCategory.Healer || (actor.Class is Class.BLU && TankMimikry == null))
+            var e = hints.PotentialTargets[i];
+            if (actor.Class.GetClassCategory() is ClassCategory.Caster or ClassCategory.Healer || actor.Class is Class.BLU && TankMimikry == null)
             {
-                e.Priority = (OID)e.Actor.OID switch
+                e.Priority = e.Actor.OID switch
                 {
-                    OID.DangerousSahagins => 4,
-                    OID.Spume => 3,
-                    OID.Sahagin => 2,
-                    OID.Boss => 1,
-                    _ => 0
+                    (uint)OID.WavetoothSahagin => 4,
+                    (uint)OID.Spume => 3,
+                    (uint)OID.WavespineSahagin => 2,
+                    (uint)OID.Boss => 1,
+                    _ => AIHints.Enemy.PriorityUndesirable
                 };
             }
-            if (actor.Class.GetClassCategory() is ClassCategory.PhysRanged)
+            else if (actor.Class.GetClassCategory() is ClassCategory.PhysRanged)
             {
-                e.Priority = (OID)e.Actor.OID switch
+                e.Priority = e.Actor.OID switch
                 {
-                    OID.DangerousSahagins => 4,
-                    OID.Spume => 3,
-                    OID.Sahagin => 2,
-                    OID.Tail => 1,
-                    _ => 0
+                    (uint)OID.WavetoothSahagin => 4,
+                    (uint)OID.Spume => 3,
+                    (uint)OID.WavespineSahagin => 2,
+                    (uint)OID.Tail => 1,
+                    _ => AIHints.Enemy.PriorityUndesirable
                 };
             }
-            if (actor.Class.GetClassCategory() is ClassCategory.Tank or ClassCategory.Melee || (actor.Class is Class.BLU && TankMimikry != null))
+            else if (actor.Class.GetClassCategory() is ClassCategory.Tank or ClassCategory.Melee || actor.Class is Class.BLU && TankMimikry != null)
             {
-                e.Priority = (OID)e.Actor.OID switch
+                e.Priority = e.Actor.OID switch
                 {
-                    OID.DangerousSahagins => 4,
-                    OID.Spume => 3,
-                    OID.Sahagin => 2,
-                    OID.Boss or OID.Tail => 1,
+                    (uint)OID.WavetoothSahagin => 4,
+                    (uint)OID.Spume => 3,
+                    (uint)OID.WavespineSahagin => 2,
+                    (uint)OID.Boss or (uint)OID.Tail => 1,
                     _ => 0
                 };
             }

@@ -7,8 +7,8 @@ class EyeOfTheStormGeocrush(BossModule module) : BossComponent(module)
     private Actor? _geocrushCaster;
     public bool Active => _eotsCaster != null || _geocrushCaster != null;
 
-    private static readonly AOEShapeDonut _aoeEOTS = new(12, 25);
-    private static readonly AOEShapeCircle _aoeGeocrush = new(18); // TODO: check falloff
+    private static readonly AOEShapeDonut _aoeEOTS = new(12f, 25f);
+    private static readonly AOEShapeCircle _aoeGeocrush = new(18f); // TODO: check falloff
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
@@ -23,13 +23,11 @@ class EyeOfTheStormGeocrush(BossModule module) : BossComponent(module)
         if (_eotsCaster != null)
         {
             // we want to stand in a small ring near inner edge of aoe
-            var inner = ShapeContains.Circle(_eotsCaster.Position, _aoeEOTS.InnerRadius - 2);
-            var outer = ShapeContains.InvertedCircle(_eotsCaster.Position, _aoeEOTS.InnerRadius);
-            hints.AddForbiddenZone(p => inner(p) || outer(p), Module.CastFinishAt(_eotsCaster.CastInfo!));
+            hints.AddForbiddenZone(new SDUnion([new SDCircle(_eotsCaster.Position, _aoeEOTS.InnerRadius - 2f), new SDInvertedCircle(_eotsCaster.Position, _aoeEOTS.InnerRadius)]), Module.CastFinishAt(_eotsCaster.CastInfo));
         }
         else if (_geocrushCaster != null)
         {
-            hints.AddForbiddenZone(_aoeGeocrush, _geocrushCaster.Position, new(), Module.CastFinishAt(_geocrushCaster.CastInfo!));
+            hints.AddForbiddenZone(_aoeGeocrush, _geocrushCaster.Position, default, Module.CastFinishAt(_geocrushCaster.CastInfo));
         }
     }
 
@@ -43,12 +41,12 @@ class EyeOfTheStormGeocrush(BossModule module) : BossComponent(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.EyeOfTheStorm:
+            case (uint)AID.EyeOfTheStorm:
                 _eotsCaster = caster;
                 break;
-            case AID.Geocrush:
+            case (uint)AID.Geocrush:
                 _geocrushCaster = caster;
                 break;
         }
@@ -56,12 +54,12 @@ class EyeOfTheStormGeocrush(BossModule module) : BossComponent(module)
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.EyeOfTheStorm:
+            case (uint)AID.EyeOfTheStorm:
                 _eotsCaster = null;
                 break;
-            case AID.Geocrush:
+            case (uint)AID.Geocrush:
                 _geocrushCaster = null;
                 break;
         }

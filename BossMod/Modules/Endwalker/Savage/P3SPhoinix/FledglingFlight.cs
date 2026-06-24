@@ -17,7 +17,7 @@ class FledglingFlight(BossModule module) : BossComponent(module)
         if (_sources.Count == 0)
             return;
 
-        foreach ((int i, var player) in Raid.WithSlot())
+        foreach ((var i, var player) in Raid.WithSlot(false, true, true))
         {
             _playerDeathTollStacks[i] = player.FindStatus((uint)SID.DeathsToll)?.Extra ?? 0; // TODO: use status events here...
             _playerAOECount[i] = _sources.Count(srcRot => player.Position.InCone(srcRot.Item1.Position, srcRot.Item2, _coneHalfAngle));
@@ -51,19 +51,19 @@ class FledglingFlight(BossModule module) : BossComponent(module)
             return;
 
         // draw all players
-        foreach ((int i, var player) in Raid.WithSlot())
-            Arena.Actor(player, _playerAOECount[i] != _playerDeathTollStacks[i] ? ArenaColor.PlayerInteresting : ArenaColor.PlayerGeneric);
+        foreach ((var i, var player) in Raid.WithSlot(false, true, true))
+            Arena.Actor(player, _playerAOECount[i] != _playerDeathTollStacks[i] ? Colors.PlayerInteresting : Colors.PlayerGeneric);
 
         var eyePos = GetEyePlacementPosition(pcSlot, pc);
         if (eyePos != null)
-            Arena.AddCircle(eyePos.Value, 1, ArenaColor.Safe);
+            Arena.AddCircle(eyePos.Value, 1, Colors.Safe);
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
         foreach ((var source, var dir) in _sources)
         {
-            Arena.ZoneIsoscelesTri(source.Position, dir, _coneHalfAngle, 50, ArenaColor.AOE);
+            Arena.ZoneIsoscelesTri(source.Position, dir, _coneHalfAngle, 50, Colors.AOE);
         }
     }
 
@@ -116,11 +116,11 @@ class FledglingFlight(BossModule module) : BossComponent(module)
         if (PlacementDone)
             return null;
 
-        (var src, Angle rot) = _sources.Find(srcRot => srcRot.Item1 == player);
+        (var src, var rot) = _sources.Find(srcRot => srcRot.Item1 == player);
         if (src == null)
             return null;
 
         var offset = rot.ToDirection() * _eyePlacementOffset;
-        return _playerDeathTollStacks[slot] > 0 ? Module.Center - offset : Module.Center + offset;
+        return _playerDeathTollStacks[slot] > 0 ? Arena.Center - offset : Arena.Center + offset;
     }
 }

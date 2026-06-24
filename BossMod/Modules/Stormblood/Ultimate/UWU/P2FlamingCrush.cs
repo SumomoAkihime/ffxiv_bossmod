@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Stormblood.Ultimate.UWU;
 
-class FlamingCrush(BossModule module) : Components.UniformStackSpread(module, 4, 0, 6)
+class FlamingCrush(BossModule module) : Components.UniformStackSpread(module, 4f, default, 6, 6)
 {
     protected BitMask Avoid;
 
@@ -14,7 +14,7 @@ class FlamingCrush(BossModule module) : Components.UniformStackSpread(module, 4,
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.FlamingCrush)
+        if (spell.Action.ID == (uint)AID.FlamingCrush)
         {
             Stacks.Clear();
         }
@@ -40,6 +40,6 @@ class P5FlamingCrush : FlamingCrush
 {
     public P5FlamingCrush(BossModule module) : base(module)
     {
-        Avoid = Raid.WithSlot(true).WhereActor(p => p.FindStatus(SID.ThermalLow) != null && p.Role != Role.Healer).Mask();
+        Avoid = Raid.WithSlot(true, true, true).WhereActor(p => p.FindStatus((uint)SID.ThermalLow) != null && p.Role != Role.Healer).Mask();
     }
 }

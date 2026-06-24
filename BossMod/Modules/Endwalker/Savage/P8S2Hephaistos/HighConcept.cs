@@ -24,7 +24,7 @@ class HighConceptCommon(BossModule module) : BossComponent(module)
 
     public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor) => NumAssignedRoles < 8 ? PlayerPriority.Irrelevant : PlayerPriority.Normal;
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         var role = (SID)status.ID switch
         {
@@ -39,11 +39,11 @@ class HighConceptCommon(BossModule module) : BossComponent(module)
 
         if (role != PlayerRole.Unassigned)
         {
+            var slot = Raid.FindSlot(actor.InstanceID);
             ++NumAssignedRoles;
-            if (Raid.TryFindSlot(actor, out var slot) && _playerRoles[slot] < role) // priority order: letters > stacks (important for HC2)
-                _playerRoles[slot] = role;
-
             _roleSlots[(int)role] = slot;
+            if (slot >= 0 && _playerRoles[slot] < role) // priority order: letters > stacks (important for HC2)
+                _playerRoles[slot] = role;
         }
     }
 
@@ -109,25 +109,25 @@ class HighConceptCommon(BossModule module) : BossComponent(module)
             _ => (TowerColor.Unknown, new WDir())
         };
         if (secondColorHC2 != TowerColor.Unknown)
-            SecondTowersHC2.Add((Module.Center + secondOffsetHC2, secondColorHC2));
+            SecondTowersHC2.Add((Arena.Center + secondOffsetHC2, secondColorHC2));
     }
 
     protected void DrawExplosion(int slot, float radius, bool safe)
     {
         var source = Raid[slot];
         if (source != null)
-            Arena.AddCircle(source.Position, radius, safe ? ArenaColor.Safe : ArenaColor.Danger);
+            Arena.AddCircle(source.Position, radius, safe ? Colors.Safe : Colors.Danger);
     }
 
-    protected void DrawTower(WPos pos, bool assigned) => Arena.AddCircle(pos, TowerRadius, assigned ? ArenaColor.Safe : ArenaColor.Danger, 2);
-    protected void DrawTower(float offsetZ, bool assigned) => DrawTower(Module.Center + new WDir(0, offsetZ), assigned);
+    protected void DrawTower(WPos pos, bool assigned) => Arena.AddCircle(pos, TowerRadius, assigned ? Colors.Safe : Colors.Danger, 2);
+    protected void DrawTower(float offsetZ, bool assigned) => DrawTower(Arena.Center + new WDir(0, offsetZ), assigned);
 
     protected void DrawTether(int slot1, int slot2, int pcSlot)
     {
         var a1 = Raid[slot1];
         var a2 = Raid[slot2];
         if (a1 != null && a2 != null)
-            Arena.AddLine(a1.Position, a2.Position, pcSlot == slot1 || pcSlot == slot2 ? ArenaColor.Safe : ArenaColor.Danger);
+            Arena.AddLine(a1.Position, a2.Position, pcSlot == slot1 || pcSlot == slot2 ? Colors.Safe : Colors.Danger);
     }
 }
 

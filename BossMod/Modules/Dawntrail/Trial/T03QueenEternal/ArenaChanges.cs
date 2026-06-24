@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Trial.T03QueenEternal;
+namespace BossMod.Dawntrail.Trial.T03QueenEternal;
 
 sealed class ArenaChanges(BossModule module) : BossComponent(module)
 {
@@ -46,4 +46,3 @@ sealed class ArenaChanges(BossModule module) : BossComponent(module)
             SetArena(T03QueenEternal.SplitArena, T03QueenEternal.SplitArena.Center);
     }
 }
-

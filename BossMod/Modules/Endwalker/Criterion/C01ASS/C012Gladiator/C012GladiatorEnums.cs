@@ -1,4 +1,4 @@
-﻿namespace BossMod.Endwalker.Criterion.C01ASS.C012Gladiator;
+﻿namespace BossMod.Endwalker.VariantCriterion.C01ASS.C012Gladiator;
 
 public enum OID : uint
 {

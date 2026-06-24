@@ -1,1 +1,0 @@
-using M07SBruteAbombinatorStates = BossMod.Dawntrail.Savage.RM07SBruteAbominator.RM07SBruteAbombinatorStates;

@@ -2,148 +2,146 @@ namespace BossMod.Heavensward.Dungeon.D02SohmAl.D023Tioman;
 
 public enum OID : uint
 {
-    Boss = 0xE96, // R6.840, x?
-    LeftWingOfTragedy = 0x10B4, // Spawn During the Fight
-    RightWingOfInjury = 0x10B5, // Spawn During the Fight
-    Helper = 0x233C, // Helper
-
+    Boss = 0xE96, // R6.84
+    Comet = 0x13AD, // R1.44
+    RightWingOfInjury = 0x10B5, // R6.84
+    LeftWingOfTragedy = 0x10B4, // R6.84
+    Helper = 0x1B2
 }
 
 public enum AID : uint
 {
     AutoAttack = 870, // Boss->player, no cast, single-target
-    AbyssicBuster = 3811, // E96->self, no cast, range 25+R ?-degree cone
-    ChaosBlast = 3813, // E96->location, 2.0s cast, range 2 circle
-    ChaosBlast2 = 3819, // 1B2->self, 2.0s cast, range 50+R width 4 rect
-    Comet = 3816, // 1B2->location, 3.0s cast, range 4 circle
-    Comet2 = 3814, // E96->self, 4.0s cast, single-target
-    MeteorBait = 4999, // 1B2->self, 3.5s cast, range 30+R circle
-    MeteorImpact = 4997, // 13AD->self, no cast, range 30 circle
-    HeavensfallVisual = 3815, // E96->self, no cast, single-target
-    Heavensfall2 = 3817, // 1B2->player, no cast, range 5 circle
-    Heavensfall = 3818, // 1B2->location, 3.0s cast, range 5 circle
-    HypothermalCombustion = 3156, // F2D->self, 4.0s cast, range 8+R circle
-    DarkStar = 3812, // E96->self, 5.0s cast, range 50+R circle
+
+    AbyssicBuster = 3811, // Boss->self, no cast, range 25+R 90-degree cone
+    ChaosBlastCircle = 3813, // Boss->location, 2.0s cast, range 2 circle
+    ChaosBlastRect = 3819, // Helper->self, 2.0s cast, range 50+R width 4 rect
+    CometVisual = 3814, // Boss->self, 4.0s cast, single-target
+    Comet = 3816, // Helper->location, 3.0s cast, range 4 circle
+    MeteorImpactVisual = 4999, // Helper->self, 3.5s cast, range 30+R circle
+    MeteorImpact = 4997, // Comet->self, no cast, range 30 circle, damage fall off AOE
+    HeavensfallVisual = 3815, // Boss->self, no cast, single-target
+    Heavensfall1 = 3817, // Helper->player, no cast, range 5 circle
+    Heavensfall2 = 3818, // Helper->location, 3.0s cast, range 5 circle
+    DarkStar = 3812 // Boss->self, 5.0s cast, range 50+R circle
 }
-public enum GID : uint
-{
-    Invincibility = 325,
-}
+
 public enum IconID : uint
 {
     Comet = 10, // player
-    Meteor = 7, // player
+    Meteor = 7 // player
 }
 
-class AbyssicBuster(BossModule module) : Components.Cleave(module, AID.AbyssicBuster, new AOEShapeCone(25, 45.Degrees()))
+class HeavensfallBait(BossModule module) : Components.BaitAwayIcon(module, 5f, (uint)IconID.Comet, (uint)AID.Heavensfall1, 3.1f)
 {
-    private readonly List<Actor> _boss = [];
-    private IEnumerable<(Actor origin, Actor target, Angle angle)> OriginsAndTargets()
-    {
-        foreach (var b in _boss)
-        {
-            if (b.IsDead || !ActiveForUntargetable && !b.IsTargetable || !ActiveWhileCasting && b.CastInfo != null || b.FindStatus(GID.Invincibility) != null)
-                continue;
-
-            var target = WorldState.Actors.Find(b.TargetID);
-            if (target != null)
-            {
-                yield return (OriginAtTarget ? target : b, target, Angle.FromDirection(target.Position - b.Position));
-            }
-        }
-    }
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var (origin, target, angle) in OriginsAndTargets())
-        {
-            if (actor != target)
-            {
-                hints.AddForbiddenZone(Shape, origin.Position, angle, NextExpected);
-            }
-        }
+        base.AddAIHints(slot, actor, assignment, hints);
+        if (IsBaitTarget(actor))
+            hints.AddForbiddenZone(new SDCircle(D023Tioman.ArenaCenter, 27f));
     }
 
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        foreach (var e in OriginsAndTargets())
-        {
-            Shape.Outline(Arena, e.origin.Position, e.angle);
-        }
+        base.AddHints(slot, actor, hints);
+        if (IsBaitTarget(actor))
+            hints.Add("Bait away!");
     }
-    public override void OnActorCreated(Actor actor)
-    {
-        if ((OID)actor.OID is OID.Boss)
-        {
-            _boss.Add(actor);
-        }
-    }
-    public override void OnActorDestroyed(Actor actor)
-    {
-        if ((OID)actor.OID is OID.Boss)
-        {
-            _boss.Remove(actor);
-        }
-    }
-};
-class ChaosBlast(BossModule module) : Components.StandardAOEs(module, AID.ChaosBlast, 2);
-class ChaosBlast2(BossModule module) : Components.StandardAOEs(module, AID.ChaosBlast2, new AOEShapeRect(50, 2));
-class Comet(BossModule module) : Components.StandardAOEs(module, AID.Comet, 4);
-class MeteorBait(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCircle(30), (uint)IconID.Meteor, AID.MeteorBait, 9.1f, true)
+}
+
+class Meteor(BossModule module) : Components.BaitAwayIcon(module, 20f, (uint)IconID.Meteor, (uint)AID.MeteorImpactVisual, 8.1f)
 {
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        base.AddAIHints(slot, actor, assignment, hints);
+        if (IsBaitTarget(actor))
+            hints.AddForbiddenZone(new SDCircle(D023Tioman.ArenaCenter, 27f));
+    }
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        base.AddHints(slot, actor, hints);
+        if (IsBaitTarget(actor))
+            hints.Add("Bait away!");
+    }
+
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.MeteorBait)
-        {
+        if (spell.Action.ID == WatchedAction)
             CurrentBaits.Clear();
-        }
     }
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        if (ActiveBaits.Any(x => x.Target == actor))
-            hints.AddForbiddenZone(new AOEShapeCircle(23), Module.Center);
-    }
+
     public override void OnEventCast(Actor caster, ActorCastEvent spell) { }
 }
 
 class MeteorImpact(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _meteors = [];
+    private readonly List<AOEInstance> _aoes = [];
+    private static readonly AOEShapeCircle circle = new(20f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _meteors;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.MeteorBait)
-        {
-            _meteors.Add(new(new AOEShapeCircle(15), caster.Position, Activation: Module.CastFinishAt(spell, 1f)));
-        }
+        if (spell.Action.ID == (uint)AID.MeteorImpactVisual)
+            _aoes.Add(new(circle, spell.LocXZ, default, Module.CastFinishAt(spell, 1.5f)));
     }
+
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.MeteorImpact)
-        {
-            _meteors.Clear();
-        }
+        if (spell.Action.ID == (uint)AID.MeteorImpact)
+            _aoes.Clear();
     }
 }
-class Heavensfall(BossModule module) : Components.StandardAOEs(module, AID.Heavensfall, 5);
-class DarkStar(BossModule module) : Components.RaidwideCast(module, AID.DarkStar);
-class MultiAddModule(BossModule module) : Components.AddsMulti(module, [OID.LeftWingOfTragedy, OID.RightWingOfInjury], 1);
+
+class DarkStar(BossModule module) : Components.RaidwideCast(module, (uint)AID.DarkStar);
+class ChaosBlastCircle(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ChaosBlastCircle, 2f);
+class ChaosBlastRect(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ChaosBlastRect, new AOEShapeRect(50.5f, 2f));
+class AbyssicBuster(BossModule module) : Components.Cleave(module, (uint)AID.AbyssicBuster, new AOEShapeCone(31.84f, 45f.Degrees()));
+class Comet(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Comet, 4f);
+class Heavensfall(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Heavensfall2, 5f);
+
 class D023TiomanStates : StateMachineBuilder
 {
     public D023TiomanStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<AbyssicBuster>()
-            .ActivateOnEnter<ChaosBlast>()
-            .ActivateOnEnter<ChaosBlast2>()
-            .ActivateOnEnter<Comet>()
-            .ActivateOnEnter<MeteorBait>()
+            .ActivateOnEnter<Meteor>()
             .ActivateOnEnter<MeteorImpact>()
-            .ActivateOnEnter<Heavensfall>()
             .ActivateOnEnter<DarkStar>()
-            .ActivateOnEnter<MultiAddModule>();
-
+            .ActivateOnEnter<AbyssicBuster>()
+            .ActivateOnEnter<ChaosBlastCircle>()
+            .ActivateOnEnter<ChaosBlastRect>()
+            .ActivateOnEnter<Comet>()
+            .ActivateOnEnter<Heavensfall>()
+            .ActivateOnEnter<HeavensfallBait>();
     }
 }
-[ModuleInfo(Contributors = "VeraNala", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 37, NameID = 3798)]
-public class D023Tioman(WorldState ws, Actor primary) : BossModule(ws, primary, new(-103, -395), new ArenaBoundsCircle(27f));
+
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 37, NameID = 3798)]
+public class D023Tioman(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
+{
+    public static readonly WPos ArenaCenter = new(-104f, -395f);
+    private static readonly ArenaBoundsCustom arena = new([new Circle(ArenaCenter, 27.5f)], [new Rectangle(new(-112.465f, -368.177f), 20, 1.25f, -19.24f.Degrees())]);
+
+    protected override void DrawEnemies(int pcSlot, Actor pc)
+    {
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.LeftWingOfTragedy));
+        Arena.Actors(Enemies((uint)OID.RightWingOfInjury));
+    }
+
+    protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
+            {
+                (uint)OID.RightWingOfInjury or (uint)OID.LeftWingOfTragedy => 1,
+                _ => 0
+            };
+        }
+    }
+}

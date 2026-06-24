@@ -1,20 +1,25 @@
 ﻿namespace BossMod.Endwalker.Alliance.A23Halone;
 
-class ThousandfoldThrust(BossModule module) : Components.GenericAOEs(module)
+sealed class ThousandfoldThrust(BossModule module) : Components.GenericAOEs(module)
 {
-    private AOEInstance? _aoe;
+    private AOEInstance[] _aoe = [];
+    private static readonly AOEShapeCone cone = new(30f, 90f.Degrees());
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.ZeroOrOne(_aoe);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.ThousandfoldThrustAOEFirst)
-            _aoe = new(new AOEShapeCone(30, 90.Degrees()), caster.Position, spell.Rotation, Module.CastFinishAt(spell));
+        if (spell.Action.ID == (uint)AID.ThousandfoldThrustAOEFirst)
+        {
+            _aoe = [new(cone, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell))];
+        }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.ThousandfoldThrustAOEFirst or AID.ThousandfoldThrustAOERest)
+        if (spell.Action.ID is (uint)AID.ThousandfoldThrustAOEFirst or (uint)AID.ThousandfoldThrustAOERest)
+        {
             ++NumCasts;
+        }
     }
 }

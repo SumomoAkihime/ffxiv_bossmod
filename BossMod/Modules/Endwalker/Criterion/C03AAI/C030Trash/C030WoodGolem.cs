@@ -1,12 +1,12 @@
-﻿namespace BossMod.Endwalker.Criterion.C03AAI.C030Trash2;
+﻿namespace BossMod.Endwalker.VariantCriterion.C03AAI.C030Trash2;
 
-class Tornado(BossModule module, AID aid) : Components.SpreadFromCastTargets(module, aid, 4);
-class NTornado(BossModule module) : Tornado(module, AID.NTornado);
-class STornado(BossModule module) : Tornado(module, AID.STornado);
+abstract class Tornado(BossModule module, uint aid) : Components.SpreadFromCastTargets(module, aid, 4f);
+class NTornado(BossModule module) : Tornado(module, (uint)AID.NTornado);
+class STornado(BossModule module) : Tornado(module, (uint)AID.STornado);
 
-class Ovation(BossModule module, AID aid) : Components.StandardAOEs(module, aid, new AOEShapeRect(12, 2));
-class NOvation(BossModule module) : Ovation(module, AID.NOvation);
-class SOvation(BossModule module) : Ovation(module, AID.SOvation);
+abstract class Ovation(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, new AOEShapeRect(12f, 2f));
+class NOvation(BossModule module) : Ovation(module, (uint)AID.NOvation);
+class SOvation(BossModule module) : Ovation(module, (uint)AID.SOvation);
 
 class C030WoodGolemStates : StateMachineBuilder
 {
@@ -28,7 +28,7 @@ class C030WoodGolemStates : StateMachineBuilder
 
     private void AncientAero(uint id, float delay)
     {
-        CastStart(id, _savage ? AID.SAncientAero : AID.NAncientAero, delay);
+        CastStart(id, _savage ? (uint)AID.SAncientAero : (uint)AID.NAncientAero, delay);
 
         var castEnd = SimpleState(id + 1, 5, "Interruptible raidwide"); // note: we use custom state instead of cast-end, since cast-end happens whenever anyone presses interrupt - and if not interrupted, spell finish can be slightly delayed
         castEnd.Raw.Comment = "Interruptible cast end";
@@ -37,7 +37,7 @@ class C030WoodGolemStates : StateMachineBuilder
 
     private void Tornado(uint id, float delay)
     {
-        Cast(id, _savage ? AID.STornado : AID.NTornado, delay, 5, "Spread")
+        Cast(id, _savage ? (uint)AID.STornado : (uint)AID.NTornado, delay, 5, "Spread")
             .ActivateOnEnter<NTornado>(!_savage)
             .ActivateOnEnter<STornado>(_savage)
             .DeactivateOnExit<Tornado>();
@@ -45,7 +45,7 @@ class C030WoodGolemStates : StateMachineBuilder
 
     private void Ovation(uint id, float delay)
     {
-        Cast(id, _savage ? AID.SOvation : AID.NOvation, delay, 4, "Line")
+        Cast(id, _savage ? (uint)AID.SOvation : (uint)AID.NOvation, delay, 4, "Line")
             .ActivateOnEnter<NOvation>(!_savage)
             .ActivateOnEnter<SOvation>(_savage)
             .DeactivateOnExit<Ovation>();
@@ -54,8 +54,8 @@ class C030WoodGolemStates : StateMachineBuilder
 class C030NWoodGolemStates(BossModule module) : C030WoodGolemStates(module, false);
 class C030SWoodGolemStates(BossModule module) : C030WoodGolemStates(module, true);
 
-[ModuleInfo(PrimaryActorOID = (uint)OID.NWoodGolem, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 979, NameID = 12560, SortOrder = 6)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.NWoodGolem, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 979, NameID = 12560, SortOrder = 6)]
 public class C030NWoodGolem(WorldState ws, Actor primary) : C030Trash2(ws, primary);
 
-[ModuleInfo(PrimaryActorOID = (uint)OID.SWoodGolem, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 980, NameID = 12560, SortOrder = 6)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.SWoodGolem, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 980, NameID = 12560, SortOrder = 6)]
 public class C030SWoodGolem(WorldState ws, Actor primary) : C030Trash2(ws, primary);

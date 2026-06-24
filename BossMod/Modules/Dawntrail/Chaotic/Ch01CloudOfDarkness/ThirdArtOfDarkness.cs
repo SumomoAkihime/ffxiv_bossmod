@@ -1,83 +1,116 @@
 ﻿namespace BossMod.Dawntrail.Chaotic.Ch01CloudOfDarkness;
 
-class ThirdArtOfDarknessCleave(BossModule module) : Components.GenericAOEs(module)
+sealed class ThirdArtOfDarknessCleave(BossModule module) : Components.GenericAOEs(module)
 {
     public enum Mechanic { None, Left, Right, Stack, Spread }
 
     public readonly Dictionary<Actor, List<(Mechanic mechanic, DateTime activation)>> Mechanics = [];
     public BitMask PlatformPlayers;
 
-    private static readonly AOEShapeCone _shape = new(15, 90.Degrees());
+    private static readonly AOEShapeCone _shape = new(15f, 90f.Degrees());
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
+        var count = Mechanics.Count;
+        if (count == 0)
+            return [];
+        var aoes = new AOEInstance[count];
+        var index = 0;
         foreach (var (caster, m) in Mechanics)
         {
             var dir = m.Count == 0 ? default : m[0].mechanic switch
             {
-                Mechanic.Left => 90.Degrees(),
-                Mechanic.Right => -90.Degrees(),
+                Mechanic.Left => 90f.Degrees(),
+                Mechanic.Right => -90f.Degrees(),
                 _ => default
             };
             if (dir != default)
-                yield return new(_shape, caster.Position, caster.Rotation + dir, m[0].activation);
+                aoes[index++] = new(_shape, caster.Position.Quantized(), caster.Rotation + dir, m[0].activation);
         }
+        return aoes.AsSpan()[..index];
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
         if (PlatformPlayers[slot])
         {
-            var playerSide = actor.Position.X - Module.Center.X;
-            var (a, m) = Mechanics.FirstOrDefault(kv => (kv.Key.Position.X - Module.Center.X) * playerSide > 0);
-            if (a != null && m.Count > 0)
-                hints.Add($"Order: {string.Join(" > ", m.Select(m => m.mechanic))}", false);
+            var playerSide = actor.PosRot.X - Arena.Center.X;
+
+            Actor? matchingActor = null;
+            List<(Mechanic mechanic, DateTime activation)>? matchingMechanics = null;
+
+            foreach (var kv in Mechanics)
+            {
+                var actorSide = kv.Key.PosRot.X - Arena.Center.X;
+                if (actorSide * playerSide > 0)
+                {
+                    matchingActor = kv.Key;
+                    matchingMechanics = kv.Value;
+                    break;
+                }
+            }
+
+            if (matchingActor != null && matchingMechanics != null && matchingMechanics.Count > 0)
+            {
+                var order = "";
+                var count = matchingMechanics.Count;
+                var mechs = CollectionsMarshal.AsSpan(matchingMechanics);
+                for (var i = 0; i < count; ++i)
+                {
+                    ref var m = ref mechs[i];
+                    if (i > 0)
+                        order += " > ";
+                    order += m.mechanic.ToString();
+                }
+                hints.Add($"Order: {order}", false);
+            }
         }
+
         base.AddHints(slot, actor, hints);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.OuterDarkness)
+        if (status.ID == (uint)SID.OuterDarkness)
             PlatformPlayers.Set(Raid.FindSlot(actor.InstanceID));
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.OuterDarkness)
+        if (status.ID == (uint)SID.OuterDarkness)
             PlatformPlayers.Clear(Raid.FindSlot(actor.InstanceID));
     }
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        if ((OID)actor.OID == OID.StygianShadow)
+        if (actor.OID == (uint)OID.StygianShadow)
         {
-            var mechanic = (IconID)iconID switch
+            var mechanic = iconID switch
             {
-                IconID.ThirdArtOfDarknessLeft => Mechanic.Left,
-                IconID.ThirdArtOfDarknessRight => Mechanic.Right,
-                IconID.ThirdArtOfDarknessStack => Mechanic.Stack,
-                IconID.ThirdArtOfDarknessSpread => Mechanic.Spread,
+                (uint)IconID.ThirdArtOfDarknessLeft => Mechanic.Left,
+                (uint)IconID.ThirdArtOfDarknessRight => Mechanic.Right,
+                (uint)IconID.ThirdArtOfDarknessStack => Mechanic.Stack,
+                (uint)IconID.ThirdArtOfDarknessSpread => Mechanic.Spread,
                 _ => Mechanic.None
             };
             if (mechanic != Mechanic.None)
-                Mechanics.GetOrAdd(actor).Add((mechanic, WorldState.FutureTime(9.5f)));
+                Mechanics.GetOrAdd(actor).Add((mechanic, WorldState.FutureTime(9.5d)));
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        var mechanic = (AID)spell.Action.ID switch
+        var mechanic = spell.Action.ID switch
         {
-            AID.ArtOfDarknessAOEL => Mechanic.Left,
-            AID.ArtOfDarknessAOER => Mechanic.Right,
-            AID.HyperFocusedParticleBeamAOE => Mechanic.Spread,
-            AID.MultiProngedParticleBeamAOE => Mechanic.Stack,
+            (uint)AID.ArtOfDarknessAOEL => Mechanic.Left,
+            (uint)AID.ArtOfDarknessAOER => Mechanic.Right,
+            (uint)AID.HyperFocusedParticleBeamAOE => Mechanic.Spread,
+            (uint)AID.MultiProngedParticleBeamAOE => Mechanic.Stack,
             _ => Mechanic.None
         };
         if (mechanic != Mechanic.None)
         {
-            var (a, m) = Mechanics.FirstOrDefault(kv => kv.Key.Position.AlmostEqual(caster.Position, 1) && kv.Value.Count > 0 && kv.Value[0].mechanic == mechanic);
+            var (a, m) = Mechanics.FirstOrDefault(kv => kv.Key.Position.AlmostEqual(caster.Position, 1f) && kv.Value.Count > 0 && kv.Value[0].mechanic == mechanic);
             if (a != null)
             {
                 ++NumCasts;
@@ -89,7 +122,7 @@ class ThirdArtOfDarknessCleave(BossModule module) : Components.GenericAOEs(modul
     }
 }
 
-class ThirdArtOfDarknessHyperFocusedParticleBeam(BossModule module) : Components.GenericBaitAway(module)
+sealed class ThirdArtOfDarknessHyperFocusedParticleBeam(BossModule module) : Components.GenericBaitAway(module)
 {
     private readonly ThirdArtOfDarknessCleave? _main = module.FindComponent<ThirdArtOfDarknessCleave>();
 
@@ -101,12 +134,12 @@ class ThirdArtOfDarknessHyperFocusedParticleBeam(BossModule module) : Components
         if (_main != null)
             foreach (var (a, m) in _main.Mechanics)
                 if (m.Count > 0 && m[0].mechanic == ThirdArtOfDarknessCleave.Mechanic.Spread)
-                    foreach (var p in Raid.WithoutSlot().SortedByRange(a.Position).Take(6))
+                    foreach (var p in Raid.WithoutSlot(false, false, true).SortedByRange(a.Position).Take(6))
                         CurrentBaits.Add(new(a, p, _shape, m[0].activation));
     }
 }
 
-class ThirdArtOfDarknessMultiProngedParticleBeam(BossModule module) : Components.UniformStackSpread(module, 3, 0, 2)
+sealed class ThirdArtOfDarknessMultiProngedParticleBeam(BossModule module) : Components.UniformStackSpread(module, 3f, default, 2)
 {
     private readonly ThirdArtOfDarknessCleave? _main = module.FindComponent<ThirdArtOfDarknessCleave>();
 
@@ -116,7 +149,7 @@ class ThirdArtOfDarknessMultiProngedParticleBeam(BossModule module) : Components
         if (_main != null)
             foreach (var (a, m) in _main.Mechanics)
                 if (m.Count > 0 && m[0].mechanic == ThirdArtOfDarknessCleave.Mechanic.Stack)
-                    foreach (var p in Raid.WithoutSlot().SortedByRange(a.Position).Take(3))
+                    foreach (var p in Raid.WithoutSlot(false, false, true).SortedByRange(a.Position).Take(3))
                         AddStack(p, m[0].activation, ~_main.PlatformPlayers);
         base.Update();
     }

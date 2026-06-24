@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Alliance.A22Forgall;
+﻿namespace BossMod.Heavensward.Alliance.A22Forgall;
 
 class A22ForgallStates : StateMachineBuilder
 {

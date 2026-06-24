@@ -27,34 +27,34 @@ class MagitekCompressor(BossModule module) : Components.GenericRotatingAOE(modul
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.MagitekCompressorFirst)
+        if (spell.Action.ID == (uint)AID.MagitekCompressorFirst)
         {
             NumCasts = 0;
-            Sequences.Add(new(_shape, caster.Position, spell.Rotation, _increment, Module.CastFinishAt(spell), 2.1f, 10));
+            Sequences.Add(new(_shape, spell.LocXZ, spell.Rotation, _increment, Module.CastFinishAt(spell), 2.1f, 10));
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.RotateCW:
-                _increment = -30.Degrees();
+            case (uint)AID.RotateCW:
+                _increment = -30f.Degrees();
                 break;
-            case AID.RotateCCW:
-                _increment = 30.Degrees();
+            case (uint)AID.RotateCCW:
+                _increment = 30f.Degrees();
                 break;
-            case AID.MagitekCompressorFirst:
-            case AID.MagitekCompressorReverse:
-            case AID.MagitekCompressorNext:
-                if (Sequences.Count > 0)
+            case (uint)AID.MagitekCompressorFirst:
+            case (uint)AID.MagitekCompressorReverse:
+            case (uint)AID.MagitekCompressorNext:
+                if (Sequences.Count != 0)
                 {
                     AdvanceSequence(0, WorldState.CurrentTime);
                     if (NumCasts == 5)
                     {
                         ref var s = ref Sequences.Ref(0);
                         s.Increment = -s.Increment;
-                        s.NextActivation = WorldState.FutureTime(3.6f);
+                        s.NextActivation = WorldState.FutureTime(3.6d);
                     }
                 }
                 break;
@@ -62,10 +62,10 @@ class MagitekCompressor(BossModule module) : Components.GenericRotatingAOE(modul
     }
 }
 
-class AcceleratedLanding(BossModule module) : Components.StandardAOEs(module, AID.AcceleratedLanding, 6);
-class CalculatedCombustion(BossModule module) : Components.RaidwideCast(module, AID.CalculatedCombustion);
-class Pummel(BossModule module) : Components.SingleTargetCast(module, AID.Pummel);
-class SoporificGas(BossModule module) : Components.StandardAOEs(module, AID.SoporificGas, new AOEShapeCircle(12));
+class AcceleratedLanding(BossModule module) : Components.SimpleAOEs(module, (uint)AID.AcceleratedLanding, 6f);
+class CalculatedCombustion(BossModule module) : Components.RaidwideCast(module, (uint)AID.CalculatedCombustion);
+class Pummel(BossModule module) : Components.SingleTargetCast(module, (uint)AID.Pummel);
+class SoporificGas(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SoporificGas, 12f);
 
 class ArmstrongStates : StateMachineBuilder
 {
@@ -80,5 +80,5 @@ class ArmstrongStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.S, NameID = 10619)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.S, NameID = 10619)]
 public class Armstrong(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);

@@ -24,13 +24,14 @@ sealed class FRUAI(RotationModuleManager manager, Actor player) : AIRotationModu
         return res;
     }
 
+    private readonly PartyRolesConfig _prc = Service.Config.Get<PartyRolesConfig>();
     private readonly FRUConfig _config = Service.Config.Get<FRUConfig>();
 
-    public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
-        if (Bossmods.ActiveModule is FRU module && module.Raid.TryFindSlot(Player.InstanceID, out var playerSlot))
+        if (Bossmods.ActiveModule is FRU module && module.Raid.FindSlot(Player.InstanceID) is var playerSlot && playerSlot >= 0)
         {
-            SetForcedMovement(CalculateDestination(module, primaryTarget, strategy.Option(Track.Movement), Service.Config.Get<PartyRolesConfig>()[module.Raid.Members[playerSlot].ContentId]));
+            SetForcedMovement(CalculateDestination(module, primaryTarget, strategy.Option(Track.Movement), _prc[module.Raid.Members[playerSlot].ContentId]));
         }
     }
 
@@ -48,7 +49,7 @@ sealed class FRUAI(RotationModuleManager manager, Actor player) : AIRotationModu
     // TODO: account for leeway for casters
     private WPos PathfindPosition(Actor? meleeGreedTarget)
     {
-        var res = NavigationDecision.Build(NavigationContext, World.CurrentTime, Hints, Player.Position, Speed());
+        var res = NavigationDecision.Build(NavigationContext, World.CurrentTime, Hints, Player, Speed());
         return meleeGreedTarget != null && res.Destination != null ? ClosestInMelee(res.Destination.Value, meleeGreedTarget) : (res.Destination ?? Player.Position);
     }
 
@@ -62,7 +63,7 @@ sealed class FRUAI(RotationModuleManager manager, Actor player) : AIRotationModu
         var dir = _config.P1CyclonicBreakSpots[assignment];
         if (dir < 0)
             dir = 0;
-        var desiredPos = module.Center + desiredRange * (180 - 45 * dir).Degrees().ToDirection();
+        var desiredPos = module.Center + desiredRange * (180f - 45f * dir).Degrees().ToDirection();
         var off = desiredPos - module.PrimaryActor.Position;
         var distSq = off.LengthSq();
         if (distSq >= safeRange * safeRange)
@@ -75,7 +76,7 @@ sealed class FRUAI(RotationModuleManager manager, Actor player) : AIRotationModu
     // empyrically, if i stand still, i can start moving when boss is ~11m away and it will still be dragged to intended spot
     private WPos DragToCenterPosition(FRU module)
     {
-        if (module.PrimaryActor.Position.Z >= module.Center.Z - 1)
+        if (module.PrimaryActor.PosRot.Z >= module.Center.Z - 1)
             return module.Center - new WDir(0, 6); // boss is positioned, go to N clockspot
         var dragDistance = module.PrimaryActor.HitboxRadius + Player.HitboxRadius + 2.25f; // we need to stay approx here, it's fine to overshoot a little bit - then when boss teleports, it won't turn
         var meleeDistance = module.PrimaryActor.HitboxRadius + Player.HitboxRadius + 2.75f; // -0.25 is a small extra leeway

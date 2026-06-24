@@ -1,9 +1,8 @@
-﻿namespace BossMod.Dawntrail.Trial.T05Necron;
+namespace BossMod.Dawntrail.Trial.T05Necron;
 
-sealed class MassMacabre(BossModule module) : Components.GenericTowers(module)
+sealed class MassMacabre(BossModule module) : Components.GenericTowers(module, prioritizeInsufficient: true)
 {
     private int numAdded;
-    private readonly List<byte> _towerIndexes = [];
 
     public override void OnMapEffect(byte index, uint state)
     {
@@ -20,18 +19,18 @@ sealed class MassMacabre(BossModule module) : Components.GenericTowers(module)
             if (pos != default)
             {
                 ++numAdded;
-                _towerIndexes.Add(index);
-                Towers.Add(new(pos, 3f, 4, 4, activation: WorldState.FutureTime(15f)));
+                Towers.Add(new(pos.Quantized(), 3f, 4, 4, activation: WorldState.FutureTime(15d), actorID: index));
             }
         }
         else if (state is 0x00080004u or 0x08000400u)
         {
             var count = Towers.Count;
+            var towers = CollectionsMarshal.AsSpan(Towers);
+            var id = (ulong)index;
             for (var i = 0; i < count; ++i)
             {
-                if (_towerIndexes[i] == index)
+                if (towers[i].ActorID == id)
                 {
-                    _towerIndexes.RemoveAt(i);
                     Towers.RemoveAt(i);
                     if (Towers.Count == 0)
                     {
@@ -44,5 +43,4 @@ sealed class MassMacabre(BossModule module) : Components.GenericTowers(module)
     }
 }
 
-sealed class SpreadingFear(BossModule module) : Components.CastHint(module, AID.SpreadingFear, "Hand enraging!", true);
-
+sealed class SpreadingFear(BossModule module) : Components.CastHint(module, (uint)AID.SpreadingFear, "Hand enraging!", true);

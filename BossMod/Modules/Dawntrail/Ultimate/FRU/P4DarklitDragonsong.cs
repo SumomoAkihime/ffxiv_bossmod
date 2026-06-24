@@ -1,7 +1,7 @@
 ﻿namespace BossMod.Dawntrail.Ultimate.FRU;
 
 // tethers & general assignments
-class P4DarklitDragonsong(BossModule module) : BossComponent(module)
+sealed class P4DarklitDragonsong(BossModule module) : BossComponent(module)
 {
     public BitMask Stacks;
     public BitMask TowerSoakers;
@@ -19,20 +19,20 @@ class P4DarklitDragonsong(BossModule module) : BossComponent(module)
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         foreach (var t in _tethers)
-            Arena.AddLine(t.from.Position, t.to.Position, ArenaColor.Safe); // TODO: min/max break distance
+            Arena.AddLine(t.from.Position, t.to.Position, Colors.Safe); // TODO: min/max break distance
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.SpellInWaitingDarkWater)
-            Stacks.Set(Raid.FindSlot(actor.InstanceID));
+        if (status.ID == (uint)SID.SpellInWaitingDarkWater)
+            Stacks[Raid.FindSlot(actor.InstanceID)] = true;
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == (uint)TetherID.LightRampantChains)
         {
-            TowerSoakers.Set(Raid.FindSlot(source.InstanceID));
+            TowerSoakers[Raid.FindSlot(source.InstanceID)] = true;
             var target = WorldState.Actors.Find(tether.Target);
             if (target != null)
                 _tethers.Add((source, target));
@@ -59,9 +59,9 @@ class P4DarklitDragonsong(BossModule module) : BossComponent(module)
         foreach (var t in _tethers)
         {
             if (t.from == anchorPlayer)
-                AssignS.Set(Raid.FindSlot(t.to.InstanceID));
+                AssignS[Raid.FindSlot(t.to.InstanceID)] = true;
             else if (t.to == anchorPlayer)
-                AssignS.Set(Raid.FindSlot(t.from.InstanceID));
+                AssignS[Raid.FindSlot(t.from.InstanceID)] = true;
         }
 
         // E/W assignments for tower soakers
@@ -107,12 +107,12 @@ class P4DarklitDragonsong(BossModule module) : BossComponent(module)
     }
 }
 
-class P4DarklitDragonsongBrightHunger(BossModule module) : Components.GenericTowers(module, AID.BrightHunger)
+sealed class P4DarklitDragonsongBrightHunger(BossModule module) : Components.GenericTowers(module, (uint)AID.BrightHunger)
 {
     private readonly P4DarklitDragonsong? _darklit = module.FindComponent<P4DarklitDragonsong>();
     private int _numTethers;
 
-    private const float TowerOffset = 8;
+    private const float TowerOffset = 8f;
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
@@ -120,13 +120,13 @@ class P4DarklitDragonsongBrightHunger(BossModule module) : Components.GenericTow
             return; // we only provide hints for soakers
 
         // stay on the far side of assigned tower, on the correct E/W side
-        var towerPos = Module.Center + new WDir(0, _darklit.AssignS[slot] ? +TowerOffset : -TowerOffset);
-        hints.AddForbiddenZone(ShapeContains.InvertedCircle(towerPos, 3), Towers[0].Activation);
-        hints.AddForbiddenZone(ShapeContains.Circle(Module.Center, TowerOffset), Towers[0].Activation);
-        hints.AddForbiddenZone(ShapeContains.HalfPlane(Module.Center, new(_darklit.AssignE[slot] ? +1 : -1, 0)), Towers[0].Activation);
+        var towerPos = Arena.Center + new WDir(0, _darklit.AssignS[slot] ? +TowerOffset : -TowerOffset);
+        hints.AddForbiddenZone(new SDInvertedCircle(towerPos, 3f), Towers[0].Activation);
+        hints.AddForbiddenZone(new SDCircle(Arena.Center, TowerOffset), Towers[0].Activation);
+        hints.AddForbiddenZone(new SDHalfPlane(Arena.Center, new(_darklit.AssignE[slot] ? +1 : -1, default)), Towers[0].Activation);
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == (uint)TetherID.LightRampantChains && ++_numTethers == 4 && _darklit != null)
         {
@@ -135,26 +135,27 @@ class P4DarklitDragonsongBrightHunger(BossModule module) : Components.GenericTow
             if (_darklit.AssignS.None())
                 allowedN = allowedS = _darklit.TowerSoakers; // no assignments, just mark both towers as good
 
-            var towerOffset = new WDir(0, TowerOffset);
-            Towers.Add(new(Module.Center - towerOffset, 4, 2, 2, new BitMask(0xFF) ^ allowedN, WorldState.FutureTime(10.4f)));
-            Towers.Add(new(Module.Center + towerOffset, 4, 2, 2, new BitMask(0xFF) ^ allowedS, WorldState.FutureTime(10.4f)));
+            var towerOffset = new WDir(default, TowerOffset);
+            var act = WorldState.FutureTime(10.4d);
+            Towers.Add(new(Arena.Center - towerOffset, 4f, 2, 2, new BitMask(0xFF) ^ allowedN, act));
+            Towers.Add(new(Arena.Center + towerOffset, 4f, 2, 2, new BitMask(0xFF) ^ allowedS, act));
         }
     }
 }
 
-class P4DarklitDragonsongPathOfLight(BossModule module) : Components.GenericBaitAway(module, AID.PathOfLightAOE)
+sealed class P4DarklitDragonsongPathOfLight(BossModule module) : Components.GenericBaitAway(module, (uint)AID.PathOfLightAOE)
 {
     private readonly P4DarklitDragonsong? _darklit = module.FindComponent<P4DarklitDragonsong>();
     private Actor? _source;
     private DateTime _activation;
 
-    private static readonly AOEShapeCone _shape = new(60, 30.Degrees());
+    private static readonly AOEShapeCone _shape = new(60f, 30f.Degrees());
 
     public override void Update()
     {
         CurrentBaits.Clear();
         if (_source != null && ForbiddenPlayers.Any())
-            foreach (var p in Raid.WithoutSlot().SortedByRange(_source.Position).Take(4))
+            foreach (var p in Raid.WithoutSlot(false, true, true).SortedByRange(_source.Position).Take(4))
                 CurrentBaits.Add(new(_source, p, _shape, _activation));
     }
 
@@ -173,11 +174,11 @@ class P4DarklitDragonsongPathOfLight(BossModule module) : Components.GenericBait
         {
             if (baitIndex < 0)
                 hints.Add("Stay closer to bait!");
-            else if (PlayersClippedBy(CurrentBaits[baitIndex]).Any())
+            else if (PlayersClippedBy(ref CurrentBaits.Ref(baitIndex)).Count != 0)
                 hints.Add("Bait cone away from raid!");
         }
 
-        if (ActiveBaitsNotOn(actor).Any(b => IsClippedBy(actor, b)))
+        if (ActiveBaitsNotOn(actor).Any(b => IsClippedBy(actor, ref b)))
             hints.Add("GTFO from baited cone!");
     }
 
@@ -187,27 +188,27 @@ class P4DarklitDragonsongPathOfLight(BossModule module) : Components.GenericBait
             return; // we only provide hints for baiters
 
         // do not clip either tower (it's visible at half-angle = asin(4/8) = 30) or each other
-        var dir = (_darklit.AssignE[slot] ? +1 : -1) * (_darklit.AssignS[slot] ? 60 : 120).Degrees();
-        hints.AddForbiddenZone(ShapeContains.PrecisePosition(Module.Center + 4 * dir.ToDirection(), new(0, 1), Module.Bounds.MapResolution, actor.Position, 0.1f), _activation);
+        var dir = (_darklit.AssignE[slot] ? +1 : -1) * (_darklit.AssignS[slot] ? 60f : 120f).Degrees();
+        hints.AddForbiddenZone(new SDPrecisePosition(Arena.Center + 4f * dir.ToDirection(), new(default, 1f), Arena.Bounds.MapResolution, actor.Position, 0.1f), _activation);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.DarklitDragonsongUsurper)
+        if (spell.Action.ID == (uint)AID.DarklitDragonsongUsurper)
         {
             _source = caster;
-            _activation = Module.CastFinishAt(spell, 12);
+            _activation = Module.CastFinishAt(spell, 12f);
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == (uint)TetherID.LightRampantChains)
-            ForbiddenPlayers.Set(Raid.FindSlot(source.InstanceID));
+            ForbiddenPlayers[Raid.FindSlot(source.InstanceID)] = true;
     }
 }
 
-class P4DarklitDragonsongSpiritTaker(BossModule module) : SpiritTaker(module)
+sealed class P4DarklitDragonsongSpiritTaker(BossModule module) : SpiritTaker(module)
 {
     //private readonly P4DarklitDragonsong? _darklit = module.FindComponent<P4DarklitDragonsong>();
 
@@ -216,7 +217,7 @@ class P4DarklitDragonsongSpiritTaker(BossModule module) : SpiritTaker(module)
         //if (_darklit != null && _darklit.AssignS.Any() && Spreads.Count > 0 && Spreads[0].Activation > WorldState.FutureTime(1))
         //{
         //    // preposition
-        //    hints.AddForbiddenZone(ShapeDistance.InvertedCircle(Module.Center + PrepositionOffset(_darklit, slot, actor), 1), Spreads[0].Activation);
+        //    hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center + PrepositionOffset(_darklit, slot, actor), 1)), Spreads[0].Activation);
         //}
         //else
         {
@@ -248,7 +249,7 @@ class P4DarklitDragonsongSpiritTaker(BossModule module) : SpiritTaker(module)
     //}
 }
 
-class P4DarklitDragonsongDarkWater(BossModule module) : Components.UniformStackSpread(module, 6, 0, 4, includeDeadTargets: true)
+sealed class P4DarklitDragonsongDarkWater(BossModule module) : Components.UniformStackSpread(module, 6f, default, 4, includeDeadTargets: true)
 {
     private readonly P4DarklitDragonsong? _assignments = module.FindComponent<P4DarklitDragonsong>();
     private bool _resolveImminent;
@@ -277,40 +278,47 @@ class P4DarklitDragonsongDarkWater(BossModule module) : Components.UniformStackS
         if (!_resolveImminent || _assignments == null || _assignments.AssignS.None())
             return;
 
-        var stack = Stacks.FindIndex(s => !s.ForbiddenPlayers[slot]);
-        if (stack < 0)
-            return;
-
-        if (Stacks[stack].Target == actor || Stacks[stack].Activation > WorldState.FutureTime(1.5f))
+        var stacks = CollectionsMarshal.AsSpan(Stacks);
+        var len = stacks.Length;
+        for (var i = 0; i < len; ++i)
         {
-            // preposition
-            var off = 9 * (_assignments.AssignS[slot] ? 20 : 130).Degrees().ToDirection();
-            var p1 = ShapeContains.Circle(Module.Center + off, 1);
-            var p2 = ShapeContains.Circle(Module.Center + new WDir(-off.X, off.Z), 1);
-            hints.AddForbiddenZone(p => !(p1(p) || p2(p)), Stacks[stack].Activation);
-        }
-        else
-        {
-            // otherwise just stack tightly with our target, and avoid other
-            foreach (var s in Stacks)
-                hints.AddForbiddenZone(s.ForbiddenPlayers[slot] ? ShapeContains.Circle(s.Target.Position, s.Radius) : ShapeContains.InvertedCircle(s.Target.Position, 2), s.Activation);
+            ref var s = ref stacks[i];
+            if (!s.ForbiddenPlayers[slot])
+            {
+                if (s.Target == actor || s.Activation > WorldState.FutureTime(1.5d))
+                {
+                    // preposition
+                    var off = 9 * (_assignments.AssignS[slot] ? 20f : 130f).Degrees().ToDirection();
+                    var center = Arena.Center;
+                    hints.AddForbiddenZone(new SDInvertedUnion([new SDCircle(center + off, 1f), new SDCircle(center + new WDir(-off.X, off.Z), 1f)]), s.Activation);
+                }
+                else
+                {
+                    // otherwise just stack tightly with our target, and avoid other
+                    for (var j = 0; j < len; ++j)
+                    {
+                        ref var st = ref stacks[i];
+                        hints.AddForbiddenZone(st.ForbiddenPlayers[slot] ? new SDCircle(st.Target.Position, st.Radius) : new SDInvertedCircle(st.Target.Position, 2f), st.Activation);
+                    }
+                }
+            }
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.SpellInWaitingDarkWater)
+        if (status.ID == (uint)SID.SpellInWaitingDarkWater)
             AddStack(actor, status.ExpireAt);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.DarkWater)
+        if (spell.Action.ID == (uint)AID.DarkWater)
             Stacks.Clear();
     }
 }
 
-class P4SomberDance(BossModule module) : Components.GenericBaitAway(module, centerAtTarget: true)
+sealed class P4SomberDance(BossModule module) : Components.GenericBaitAway(module, centerAtTarget: true)
 {
     private readonly FRUConfig _config = Service.Config.Get<FRUConfig>();
     private Actor? _source;
@@ -323,7 +331,7 @@ class P4SomberDance(BossModule module) : Components.GenericBaitAway(module, cent
         CurrentBaits.Clear();
         if (_source == null)
             return;
-        var targets = Raid.WithoutSlot(excludeNPCs: true);
+        var targets = Raid.WithoutSlot(false, true, true);
         var target = NumCasts == 0 ? targets.Farthest(_source.Position) : targets.Closest(_source.Position);
         if (target != null)
             CurrentBaits.Add(new(_source, target, _shape, _activation));
@@ -334,8 +342,8 @@ class P4SomberDance(BossModule module) : Components.GenericBaitAway(module, cent
         if (assignment == (_config.P4SomberDanceOTBait ? PartyRolesConfig.Assignment.OT : PartyRolesConfig.Assignment.MT))
         {
             // go far east/west
-            var pos = Module.Center + new WDir(actor.Position.X > Module.Center.X ? 19 : -19, 0);
-            hints.AddForbiddenZone(ShapeContains.InvertedCircle(pos, 1), _activation);
+            var pos = Arena.Center + new WDir(actor.PosRot.X > Arena.Center.X ? 19f : -19f, default);
+            hints.AddForbiddenZone(new SDInvertedCircle(pos, 1f), _activation);
         }
         else
         {
@@ -345,20 +353,20 @@ class P4SomberDance(BossModule module) : Components.GenericBaitAway(module, cent
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.SomberDance)
+        if (spell.Action.ID == (uint)AID.SomberDance)
         {
-            ForbiddenPlayers = Raid.WithSlot(true).WhereActor(p => p.Role != Role.Tank).Mask();
+            ForbiddenPlayers = Raid.WithSlot(true, true, true).WhereActor(p => p.Role != Role.Tank).Mask();
             _source = caster;
-            _activation = Module.CastFinishAt(spell, 0.4f);
+            _activation = Module.CastFinishAt(spell, 0.4d);
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.SomberDanceAOE1 or AID.SomberDanceAOE2)
+        if (spell.Action.ID is (uint)AID.SomberDanceAOE1 or (uint)AID.SomberDanceAOE2)
         {
             ++NumCasts;
-            _activation = WorldState.FutureTime(3.2f);
+            _activation = WorldState.FutureTime(3.2d);
             foreach (var t in spell.Targets)
                 ForbiddenPlayers.Set(Raid.FindSlot(t.ID));
         }

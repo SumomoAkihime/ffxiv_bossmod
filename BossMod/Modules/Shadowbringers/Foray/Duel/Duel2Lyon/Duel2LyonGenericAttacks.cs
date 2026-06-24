@@ -1,171 +1,209 @@
 namespace BossMod.Shadowbringers.Foray.Duel.Duel2Lyon;
 
-class Enaero(BossModule module) : Components.DispelHint(module, (uint)SID.Enaero, AID.RagingWinds1);
+sealed class Enaero(BossModule module) : Components.Dispel(module, (uint)SID.Enaero, (uint)AID.RagingWinds1);
 
-class HeartOfNatureConcentric(BossModule module) : Components.ConcentricAOEs(module, _shapes)
+sealed class HeartOfNature(BossModule module) : Components.ConcentricAOEs(module, _shapes)
 {
-    private static readonly AOEShape[] _shapes = [new AOEShapeCircle(10), new AOEShapeDonut(10, 20), new AOEShapeDonut(20, 30)];
+    private static readonly AOEShape[] _shapes = [new AOEShapeCircle(10f), new AOEShapeDonut(10f, 20f), new AOEShapeDonut(20f, 30f)];
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.NaturesPulse1)
-            AddSequence(caster.Position, Module.CastFinishAt(spell));
+        if (spell.Action.ID == (uint)AID.NaturesPulse1)
+            AddSequence(spell.LocXZ, Module.CastFinishAt(spell));
     }
 
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (Sequences.Count > 0)
+        if (Sequences.Count != 0)
         {
-            var order = (AID)spell.Action.ID switch
+            var order = spell.Action.ID switch
             {
-                AID.NaturesPulse1 => 0,
-                AID.NaturesPulse2 => 1,
-                AID.NaturesPulse3 => 2,
+                (uint)AID.NaturesPulse1 => 0,
+                (uint)AID.NaturesPulse2 => 1,
+                (uint)AID.NaturesPulse3 => 2,
                 _ => -1
             };
-            AdvanceSequence(order, caster.Position, WorldState.FutureTime(1.5f));
-            Sequences.RemoveAll(s => s.NumCastsDone >= _shapes.Length);
-        }
-    }
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        base.AddAIHints(slot, actor, assignment, hints);
-
-        var origins = Sequences.Select(s => s.Origin);
-
-        if (Sequences.All(s => s.NumCastsDone == 0))
-        {
-            // preposition on edge of aoe to make next dodge easier
-            hints.GoalZones.Add(p => origins.Any(o => p.InCircle(o, 12)) ? 5 : 0);
-
-            // for multi-quake, standing inside both donuts will get us killed
-            if (Sequences.Count == 2)
-                hints.AddForbiddenZone(p => origins.All(o => p.InCircle(o, 20)), Sequences[0].NextActivation);
+            AdvanceSequence(order, spell.LocXZ, WorldState.FutureTime(2d));
         }
     }
 }
 
-class TasteOfBlood(BossModule module) : Components.StandardAOEs(module, AID.TasteOfBlood, new AOEShapeCone(40, 90.Degrees()));
+sealed class TasteOfBlood(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TasteOfBlood, new AOEShapeCone(40f, 90f.Degrees()));
+sealed class TasteOfBloodHint(BossModule module) : Components.CastHint(module, (uint)AID.TasteOfBlood, "Go behind Lyon!");
 
-class RavenousGaleTwister(BossModule module) : Components.CastTwister(module, 1, (uint)OID.RavenousGaleVoidzone, AID.RavenousGale, 0.4f, 0.25f);
-class RavenousGaleHint(BossModule module) : Components.CastHint(module, AID.RavenousGale, "Twisters spawning");
-
-class TwinAgonies(BossModule module) : Components.SingleTargetCast(module, AID.TwinAgonies, "Use Manawall or tank mitigations!");
-class WindsPeak(BossModule module) : Components.StandardAOEs(module, AID.WindsPeak1, new AOEShapeCircle(5));
-
-class WindsPeakKB(BossModule module) : Components.KnockbackFromCastTarget(module, AID.WindsPeak2, 15)
+sealed class RavenousGale(BossModule module) : Components.GenericAOEs(module)
 {
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => Module.PrimaryActor.CastInfo == null && base.DestinationUnsafe(slot, actor, pos);
+    private static readonly AOEShapeCircle circle = new(1.5f);
+    private readonly List<AOEInstance> _aoes = [];
+    private bool casting;
 
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        foreach (var src in Sources(slot, actor))
-            hints.AddForbiddenZone(ShapeContains.Donut(src.Origin, 5, 50), src.Activation);
+        var count = _aoes.Count + (casting ? 1 : 0);
+        if (count == 0)
+            return [];
+
+        var aoes = new AOEInstance[count];
+        var index = 0;
+
+        if (casting)
+            aoes[index++] = new AOEInstance(circle, actor.Position, default);
+
+        for (var i = 0; i < _aoes.Count; ++i)
+            aoes[index++] = _aoes[i];
+
+        return aoes;
     }
-}
-
-class TheKingsNotice(BossModule module) : Components.CastGaze(module, AID.TheKingsNotice);
-class SplittingRage(BossModule module) : Components.CastHint(module, AID.SplittingRage, "Applies temporary misdirection");
-
-class NaturesBlood(BossModule module) : Components.Exaflare(module, 4)
-{
-    class LineWithActor : Line
-    {
-        public Actor Caster;
-
-        public LineWithActor(BossModule module, Actor caster)
-        {
-            Next = caster.Position;
-            Advance = 6 * caster.Rotation.ToDirection();
-            NextExplosion = module.CastFinishAt(caster.CastInfo!);
-            TimeToMove = 1.1f; //note the actual time between exaflare moves seems to vary by upto 100ms, but all 4 exaflares move at the same time
-            ExplosionsLeft = 7;
-            MaxShownExplosions = 3;
-            Caster = caster;
-        }
-    }
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.NaturesBlood1)
-            Lines.Add(new LineWithActor(Module, caster));
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if (Lines.Count > 0 && (AID)spell.Action.ID is AID.NaturesBlood1 or AID.NaturesBlood2)
-        {
-            int index = Lines.FindIndex(item => ((LineWithActor)item).Caster == caster);
-            AdvanceLine(Lines[index], caster.Position);
-            if (Lines[index].ExplosionsLeft == 0)
-                Lines.RemoveAt(index);
-        }
-    }
-}
-
-class VermillionFlame(BossModule module) : Components.GenericAOEs(module)
-{
-    private readonly List<(Actor Actor, DateTime Activation, int Casts)> Balls = [];
 
     public override void OnActorCreated(Actor actor)
     {
-        if ((OID)actor.OID is OID.VermillionFlame)
-            Balls.Add((actor, WorldState.FutureTime(2.6f), 0));
+        if (actor.OID == (uint)OID.RavenousGaleVoidzone)
+            _aoes.Add(new(circle, actor.Position.Quantized(), default, WorldState.FutureTime(4.6d)));
+    }
+
+    public override void OnActorDestroyed(Actor actor)
+    {
+        if (actor.OID == (uint)OID.RavenousGaleVoidzone)
+            _aoes.RemoveAt(0);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.SpitefulFlame1 && Balls.FindIndex(b => b.Actor == caster) is var slot && slot >= 0)
-            Balls.Ref(slot).Activation = Module.CastFinishAt(spell);
+        if (spell.Action.ID == (uint)AID.RavenousGale)
+            casting = true;
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.RavenousGale)
+            casting = false;
+    }
+
+    public override void AddGlobalHints(GlobalHints hints)
+    {
+        base.AddGlobalHints(hints);
+        if (casting)
+            hints.Add("Move a little to avoid voidzone spawning under you");
+    }
+}
+
+sealed class TwinAgonies(BossModule module) : Components.SingleTargetCast(module, (uint)AID.TwinAgonies, "Use Manawall or tank mitigations");
+sealed class WindsPeak(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WindsPeak1, 5f);
+
+sealed class WindsPeakKB(BossModule module) : Components.GenericKnockback(module)
+{
+    private DateTime Time;
+    private bool watched;
+    private DateTime _activation;
+
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
+    {
+        if (watched && WorldState.CurrentTime < Time.AddSeconds(4.4d))
+            return new Knockback[1] { new(Module.PrimaryActor.Position, 15f, _activation) };
+        else
+            return [];
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.WindsPeak1)
+        {
+            watched = true;
+            Time = WorldState.CurrentTime;
+            _activation = Module.CastFinishAt(spell);
+        }
+    }
+}
+
+sealed class TheKingsNotice(BossModule module) : Components.CastGaze(module, (uint)AID.TheKingsNotice);
+sealed class SplittingRage(BossModule module) : Components.TemporaryMisdirection(module, (uint)AID.SplittingRage);
+
+sealed class NaturesBlood(BossModule module) : Components.Exaflare(module, 4f)
+{
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.NaturesBlood1)
+        {
+            Lines.Add(new(caster.Position, 6f * spell.Rotation.ToDirection(), Module.CastFinishAt(spell), 1.1d, 7, 3));
+        }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.SpitefulFlame1)
+        if (spell.Action.ID is (uint)AID.NaturesBlood1 or (uint)AID.NaturesBlood2)
         {
-            var ix = Balls.FindIndex(b => b.Actor == caster);
-            if (ix >= 0)
+            var count = Lines.Count;
+            var pos = caster.Position;
+            for (var i = 0; i < count; ++i)
             {
-                Balls.Ref(ix).Casts++;
-                if (Balls[ix].Casts >= 3)
-                    Balls.RemoveAt(ix);
+                var line = Lines[i];
+                if (line.Next.AlmostEqual(pos, 1f))
+                {
+                    AdvanceLine(line, pos);
+                    if (line.ExplosionsLeft == 0)
+                        Lines.RemoveAt(i);
+                    return;
+                }
             }
         }
     }
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Balls.Select(b => new AOEInstance(new AOEShapeCircle(10), b.Actor.Position, Activation: b.Activation));
 }
 
-class SpitefulFlameRect(BossModule module) : Components.StandardAOEs(module, AID.SpitefulFlame2, new AOEShapeRect(80, 2));
-
-class DynasticFlame : Components.BaitAwayTethers
+sealed class SpitefulFlameCircleVoidzone(BossModule module) : Components.GenericAOEs(module)
 {
-    private int orbcount;
+    private static readonly AOEShapeCircle circle = new(10f);
+    private readonly List<AOEInstance> _aoes = [];
 
-    public DynasticFlame(BossModule module) : base(module, new AOEShapeCircle(10), (uint)TetherID.fireorbs)
-    {
-        CenterAtTarget = true;
-    }
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        var center = Arena.Center;
-        var pos = actor.Position;
-        if (CurrentBaits.Count > 0)
-            hints.AddForbiddenZone(p => !p.InDonutCone(center, 17, 20, Angle.FromDirection(pos - center) + 18.Degrees(), 20.Degrees()), orbcount > 0 ? default : DateTime.MaxValue);
-    }
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
     public override void OnActorCreated(Actor actor)
     {
-        if ((OID)actor.OID == OID.VermillionFlame)
-            ++orbcount;
-        if (orbcount == 4)
+        if (actor.OID == (uint)OID.VermillionFlame)
+            _aoes.Add(new(circle, actor.Position.Quantized()));
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == (uint)AID.SpitefulFlame1)
         {
-            CurrentBaits.Clear();
-            orbcount = 0;
+            if (++NumCasts == 12)
+            {
+                NumCasts = 0;
+                _aoes.Clear();
+            }
         }
     }
 }
 
-class SkyrendingStrike(BossModule module) : Components.CastHint(module, AID.SkyrendingStrike, "Enrage!", true);
+sealed class SpitefulFlameRect(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpitefulFlame2, new AOEShapeRect(80f, 2f));
+
+sealed class DynasticFlame(BossModule module) : Components.BaitAwayTethers(module, 10f, (uint)TetherID.fireorbs)
+{
+    private int orbcount;
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (CurrentBaits.Count != 0 && CurrentBaits.Ref(0).Target == actor)
+            hints.AddForbiddenZone(new SDCircle(Arena.Center, 18f));
+    }
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (CurrentBaits.Count != 0 && CurrentBaits.Ref(0).Target == actor)
+            hints.Add("Go to the edge and run until 4 orbs are spawned");
+    }
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if (actor.OID == (uint)OID.VermillionFlame)
+        {
+            if (++orbcount == 4)
+            {
+                CurrentBaits.Clear();
+                orbcount = 0;
+            }
+        }
+    }
+}
+
+sealed class SkyrendingStrike(BossModule module) : Components.CastHint(module, (uint)AID.SkyrendingStrike, "Enrage!", true);

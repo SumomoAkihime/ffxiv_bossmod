@@ -14,7 +14,7 @@ public static class ActionSpeed
     }
 
     public static int AdjustRecastMS(int baselineMS, int speedMod, int hasteMod) => Math.Max(baselineMS * speedMod / 1000 * hasteMod / 100, 1500);
-    public static float Round(int ms) => (ms / 10) * 0.01f;
+    public static float Round(int ms) => ms / 10 * 0.01f;
 
     public static int GCDRawMS(int speedStat, int hasteStat, int level, int baselineMS = 2500) => AdjustRecastMS(baselineMS, SpeedStatToModifier(speedStat, level), hasteStat);
     public static float GCDRounded(int speedStat, int hasteStat, int level, int baselineMS = 2500) => Round(GCDRawMS(speedStat, hasteStat, level, baselineMS));

@@ -112,9 +112,9 @@ public enum SID : uint
     TrueNorth = ClassShared.SID.TrueNorth, // applied by True North to self
 }
 
-public sealed class Definitions : Defs
+public sealed class Definitions : IDisposable
 {
-    public override void Define(ActionDefinitions d)
+    public Definitions(ActionDefinitions d)
     {
         d.RegisterSpell(AID.WorldSwallower);
         d.RegisterSpell(AID.SteelFangs);
@@ -165,6 +165,8 @@ public sealed class Definitions : Defs
 
         Customize(d);
     }
+
+    public void Dispose() { }
 
     private void Customize(ActionDefinitions d)
     {

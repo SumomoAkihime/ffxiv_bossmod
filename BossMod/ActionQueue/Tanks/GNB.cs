@@ -175,11 +175,11 @@ public enum SID : uint
     #endregion
 }
 
-public sealed class Definitions : Defs
+public sealed class Definitions : IDisposable
 {
     private readonly GNBConfig _config = Service.Config.Get<GNBConfig>();
 
-    public override void Define(ActionDefinitions d)
+    public Definitions(ActionDefinitions d)
     {
         d.RegisterSpell(AID.GunmetalSoul, instantAnimLock: 3.86f);
         d.RegisterSpell(AID.KeenEdge);
@@ -243,6 +243,8 @@ public sealed class Definitions : Defs
 
         Customize(d);
     }
+
+    public void Dispose() { }
 
     private void Customize(ActionDefinitions d)
     {

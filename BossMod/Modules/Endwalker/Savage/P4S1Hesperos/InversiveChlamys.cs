@@ -21,25 +21,25 @@ class InversiveChlamys(BossModule module) : BossComponent(module)
             if (coils == null)
             {
                 // assign from bloodrake tethers
-                _tetherForbidden = Raid.WithSlot().Tethered(TetherID.Bloodrake).Mask();
+                _tetherForbidden = Raid.WithSlot(false, true, true).Tethered(TetherID.Bloodrake).Mask();
                 _assigned = true;
             }
             else if (coils.ActiveSoakers != BeloneCoils.Soaker.Unknown)
             {
                 // assign from coils (note that it happens with some delay)
-                _tetherForbidden = Raid.WithSlot().WhereActor(coils.IsValidSoaker).Mask();
+                _tetherForbidden = Raid.WithSlot(false, true, true).WhereActor(coils.IsValidSoaker).Mask();
                 _assigned = true;
             }
         }
 
-        _tetherTargets = _tetherInAOE = new();
+        _tetherTargets = _tetherInAOE = default;
         if (_tetherForbidden.None())
             return;
 
-        foreach ((int i, var player) in Raid.WithSlot().Tethered(TetherID.Chlamys))
+        foreach ((var i, var player) in Raid.WithSlot(false, true, true).Tethered(TetherID.Chlamys))
         {
             _tetherTargets.Set(i);
-            _tetherInAOE |= Raid.WithSlot().InRadiusExcluding(player, _aoeRange).Mask();
+            _tetherInAOE |= Raid.WithSlot(false, true, true).InRadiusExcluding(player, _aoeRange).Mask();
         }
     }
 
@@ -59,7 +59,7 @@ class InversiveChlamys(BossModule module) : BossComponent(module)
             {
                 hints.Add("Tethers: intercept!");
             }
-            else if (Raid.WithoutSlot().InRadiusExcluding(actor, _aoeRange).Any())
+            else if (Raid.WithoutSlot(false, true, true).InRadiusExcluding(actor, _aoeRange).Any())
             {
                 hints.Add("Tethers: GTFO from others!");
             }
@@ -92,7 +92,7 @@ class InversiveChlamys(BossModule module) : BossComponent(module)
 
     public override void AddGlobalHints(GlobalHints hints)
     {
-        var forbidden = Raid.WithSlot(true).IncludedInMask(_tetherForbidden).FirstOrDefault().Item2;
+        var forbidden = Raid.WithSlot(true, true, true).IncludedInMask(_tetherForbidden).FirstOrDefault().Item2;
         if (forbidden != null)
         {
             hints.Add($"Intercept: {(forbidden.Role is Role.Tank or Role.Healer ? "DD" : "Tanks/Healers")}");
@@ -105,16 +105,16 @@ class InversiveChlamys(BossModule module) : BossComponent(module)
             return;
 
         var failingPlayers = _tetherForbidden & _tetherTargets;
-        foreach ((int i, var player) in Raid.WithSlot())
+        foreach ((var i, var player) in Raid.WithSlot(false, true, true))
         {
-            bool failing = failingPlayers[i];
-            bool inAOE = _tetherInAOE[i];
-            Arena.Actor(player, failing ? ArenaColor.Danger : (inAOE ? ArenaColor.PlayerInteresting : ArenaColor.PlayerGeneric));
+            var failing = failingPlayers[i];
+            var inAOE = _tetherInAOE[i];
+            Arena.Actor(player, failing ? Colors.Danger : (inAOE ? Colors.PlayerInteresting : Colors.PlayerGeneric));
 
             if (player.Tether.ID == (uint)TetherID.Chlamys)
             {
-                Arena.AddLine(player.Position, Module.PrimaryActor.Position, failing ? ArenaColor.Danger : ArenaColor.Safe);
-                Arena.AddCircle(player.Position, _aoeRange, ArenaColor.Danger);
+                Arena.AddLine(player.Position, Module.PrimaryActor.Position, failing ? Colors.Danger : Colors.Safe);
+                Arena.AddCircle(player.Position, _aoeRange, Colors.Danger);
             }
         }
     }

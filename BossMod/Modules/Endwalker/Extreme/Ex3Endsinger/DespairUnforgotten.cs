@@ -31,12 +31,12 @@ class DespairUnforgotten(BossModule module) : BossComponent(module)
         // TODO: think what to draw here...
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         switch ((SID)status.ID)
         {
             case SID.RewindDespair:
-                int rings = status.Extra switch
+                var rings = status.Extra switch
                 {
                     0x17C => 1,
                     0x17D => 2,
@@ -49,7 +49,8 @@ class DespairUnforgotten(BossModule module) : BossComponent(module)
                     break;
                 }
 
-                if (Raid.TryFindSlot(actor, out var slot))
+                var slot = Raid.FindSlot(actor.InstanceID);
+                if (slot >= 0)
                     _states[slot * 4 + 3] = _states[slot * 4 + 3 - rings];
                 break;
             case SID.EchoesOfNausea:
@@ -67,7 +68,7 @@ class DespairUnforgotten(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
         switch ((SID)status.ID)
         {
@@ -75,7 +76,8 @@ class DespairUnforgotten(BossModule module) : BossComponent(module)
             case SID.EchoesOfBefoulment:
             case SID.EchoesOfFuture:
             case SID.EchoesOfBenevolence:
-                if (Raid.TryFindSlot(actor, out var slot))
+                var slot = WorldState.Party.FindSlot(actor.InstanceID);
+                if (slot >= 0)
                     Done |= ++_doneCasts[slot] > 3;
                 break;
         }
@@ -83,7 +85,8 @@ class DespairUnforgotten(BossModule module) : BossComponent(module)
 
     private void ModifyState(Actor actor, State state)
     {
-        if (Raid.TryFindSlot(actor, out var slot))
+        var slot = Raid.FindSlot(actor.InstanceID);
+        if (slot >= 0)
         {
             if (_doneCasts[slot] > 3)
                 ReportError($"Unexpected state change after {_doneCasts[slot]} casts");

@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Trial.T05Necron;
+namespace BossMod.Dawntrail.Trial.T05Necron;
 
 sealed class Prisons(BossModule module) : BossComponent(module)
 {
@@ -31,7 +31,7 @@ sealed class Prisons(BossModule module) : BossComponent(module)
             for (var i = 0; i < 8; ++i)
             {
                 var pos = prisonPositions[i];
-                if (InPrison(playerPos, pos))
+                if (playerPos.InSquare(pos, 50f))
                 {
                     if (activeTeleporters[i])
                     {
@@ -52,14 +52,14 @@ sealed class Prisons(BossModule module) : BossComponent(module)
         if (pc.PosRot.Y < -100f)
         {
             var playerPos = pc.Position;
-            if (Arena.Bounds.Radius == 17.5f && InPrison(playerPos, Arena.Center)) // grand cross could happen while player is in prison
+            if (Arena.Bounds.Radius == 17.5f && playerPos.InSquare(Arena.Center, 50f)) // grand cross could happen while player is in prison
             {
                 return;
             }
             for (var i = 0; i < 8; ++i)
             {
                 var pos = prisonPositions[i];
-                if (InPrison(playerPos, pos))
+                if (playerPos.InSquare(pos, 50f))
                 {
                     var arena = new ArenaBoundsCustom([new Polygon(pos, 9.5f, 32), new Polygon(pos + new WDir(-5f, -21f), 4.5f, 32),
                         new Polygon(pos + new WDir(14f, -14f), 4.5f, 32), new Polygon(pos + new WDir(20f, default), 3.25f, 32)]);
@@ -84,21 +84,18 @@ sealed class Prisons(BossModule module) : BossComponent(module)
             for (var i = 0; i < 8; ++i)
             {
                 var pos = prisonPositions[i];
-                if (InPrison(playerPos, pos))
+                if (playerPos.InSquare(pos, 50f))
                 {
                     if (activeTeleporters[i])
                     {
-                        hints.Portals.Add((pos + new WDir(default, -7.4f), 2f, pos + new WDir(-6f, -18f)));
-                        hints.Portals.Add((pos + new WDir(-2.5f, -20f), 2f, pos + new WDir(10f, -15f)));
-                        hints.Portals.Add((pos + new WDir(15f, -11.5f), 2f, pos + new WDir(19f, -2f)));
-                        hints.GoalZones.Add(hints.GoalSingleTarget(pos + new WDir(20f, default), 1f, 9f));
+                        hints.Teleporters.Add(new(pos + new WDir(default, -7.4f), pos + new WDir(-6f, -18f), 2f, false));
+                        hints.Teleporters.Add(new(pos + new WDir(-2.5f, -20f), pos + new WDir(10f, -15f), 2f, false));
+                        hints.Teleporters.Add(new(pos + new WDir(15f, -11.5f), pos + new WDir(19f, -2f), 2f, false));
+                        hints.GoalZones.Add(AIHints.GoalSingleTarget(pos + new WDir(20f, default), 1f, 9f));
                     }
                     return;
                 }
             }
         }
     }
-
-    private static bool InPrison(WPos playerPos, WPos prisonCenter) => (playerPos - prisonCenter).LengthSq() <= 50f * 50f;
 }
-

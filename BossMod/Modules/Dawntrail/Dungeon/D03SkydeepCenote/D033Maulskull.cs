@@ -2,229 +2,301 @@
 
 public enum OID : uint
 {
-    Boss = 0x41C7, // R19.980, x1
-    Helper = 0x233C, // R0.500, x15, Helper type
+    Boss = 0x41C7, // R19.98
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
     AutoAttack = 36678, // Boss->player, no cast, single-target
-    WroughtFire = 39121, // Boss->self, 4.0+1.0s cast, single-target, visual (aoe tankbuster)
-    WroughtFireAOE = 39122, // Helper->player, 5.0s cast, range 6 circle tankbuster
-    Ashlayer = 36711, // Boss->self, 3.0+2.0s cast, single-target, visual (raidwide)
-    AshlayerAOE = 36712, // Helper->self, no cast, range 60 circle, raidwide
 
-    StonecarverRL = 36668, // Boss->self, 8.0s cast, single-target, visual (cleave right->left)
-    StonecarverLR = 36669, // Boss->self, 8.0s cast, single-target, visual (cleave left->right)
-    StonecarverAOE1 = 36670, // Helper->self, 9.0s cast, range 40 width 20 rect
-    StonecarverAOE2 = 36671, // Helper->self, 11.5s cast, range 40 width 20 rect
-    StonecarverSecondR = 36672, // Boss->self, no cast, single-target, visual (second cleave right)
-    StonecarverSecondL = 36673, // Boss->self, no cast, single-target, visual (second cleave left)
-    StonecarverEnd = 36674, // Boss->self, no cast, single-target, visual (finish mechanic)
+    StonecarverVisual1 = 36668, // Boss->self, 8.0s cast, single-target
+    StonecarverVisual2 = 36669, // Boss->self, 8.0s cast, single-target
+    StonecarverVisual3 = 36672, // Boss->self, no cast, single-target
+    StonecarverVisual4 = 36673, // Boss->self, no cast, single-target
+    StonecarverVisual5 = 36699, // Boss->self, no cast, single-target
+    StonecarverVisual6 = 36700, // Boss->self, no cast, single-target
+    Stonecarver1 = 36670, // Helper->self, 9.0s cast, range 40 width 20 rect
+    Stonecarver2 = 36671, // Helper->self, 11.5s cast, range 40 width 20 rect
+    Stonecarver3 = 36696, // Helper->self, 11.1s cast, range 40 width 20 rect
+    Stonecarver4 = 36697, // Helper->self, 13.6s cast, range 40 width 20 rect
 
-    Skullcrush = 36675, // Boss->self, 5.0+2.0s cast, single-target, visual (knockback + spread)
-    SkullcrushAOE = 36676, // Helper->self, 7.0s cast, range 10 circle
-    SkullcrushImpact = 36677, // Helper->self, 7.0s cast, range 60 circle knockback 18
-    SkullcrushEnd = 38664, // Boss->self, no cast, single-target, visual (finish mechanic)
-    Charcore = 36708, // Boss->self, no cast, single-target, visual (stack/spread resolve)
-    DestructiveHeat = 36709, // Helper->players, 7.0s cast, range 6 circle spread
-    BuildingHeat = 36710, // Helper->players, 7.0s cast, range 6 circle stack
+    Impact1 = 36677, // Helper->self, 7.0s cast, range 60 circle, knockback 18, away from origin
+    Impact2 = 36667, // Helper->self, 9.0s cast, range 60 circle, knockback 18, away from origin
+    Impact3 = 36707, // Helper->self, 8.0s cast, range 60 circle, knockback 20, away from origin
 
-    Maulwork1 = 36679, // Boss->self, 5.0s cast, single-target, visual (puddles + center/sides ?)
-    Maulwork2 = 36680, // Boss->self, 5.0s cast, single-target, visual (puddles + center/sides ? - center variant)
-    Maulwork3 = 36681, // Boss->self, 5.0s cast, single-target, visual (puddles + center/sides ? - sides variant)
-    Maulwork4 = 36682, // Boss->self, 5.0s cast, single-target, visual (puddles + center/sides ?)
-    Landing = 36683, // Helper->location, 3.0s cast, range 8 circle
+    SkullCrushVisual1 = 36674, // Boss->self, no cast, single-target
+    SkullcrushVisual2 = 36675, // Boss->self, 5.0+2.0s cast, single-target
+    SkullcrushVisual3 = 38664, // Boss->self, no cast, single-target
+    Skullcrush1 = 36676, // Helper->self, 7.0s cast, range 10 circle
+    Skullcrush2 = 36666, // Helper->self, 9.0s cast, range 10 circle
+
+    Charcore = 36708, // Boss->self, no cast, single-target
+    DestructiveHeat = 36709, // Helper->players, 7.0s cast, range 6 circle
+
+    MaulworkFirstCenter = 36679, // Boss->self, 5.0s cast, single-target
+    MaulworkFirstSides = 36681, // Boss->self, 5.0s cast, single-target
+    MaulworkSecondSides = 36682, // Boss->self, 5.0s cast, single-target
+    MaulworkSecondCenter = 36680, // Boss->self, 5.0s cast, single-target
     ShatterCenter = 36684, // Helper->self, 3.0s cast, range 40 width 20 rect
-    ShatterSideR = 36685, // Helper->self, 3.0s cast, range 45 width 22 rect
-    ShatterSideL = 36686, // Helper->self, 3.0s cast, range 45 width 22 rect
+    ShatterLR1 = 36685, // Helper->self, 3.0s cast, range 45 width 22 rect
+    ShatterLR2 = 36686, // Helper->self, 3.0s cast, range 45 width 22 rect
+    Landing = 36683, // Helper->location, 3.0s cast, range 8 circle
 
-    DeepThunder = 36687, // Boss->self, 6.0s cast, single-target, visual (multi-hit tower)
-    DeepThunderTowerShort = 36688, // Helper->self, 9.0s cast, range 6 circle, visual (tower vfx for 3 hits)
-    DeepThunderTowerLong = 36689, // Helper->self, 11.0s cast, range 6 circle, visual (tower vfx for 5 hits)
-    DeepThunderAOE = 36690, // Helper->self, no cast, range 6 circle stack
-    DeepThunderRest = 36691, // Boss->self, no cast, single-target, visual (subsequent hits)
-    DeepThunderEnd = 36692, // Boss->self, no cast, single-target, visual (finish mechanic)
+    DeepThunderTower1 = 36688, // Helper->self, 9.0s cast, range 6 circle
+    DeepThunderTower2 = 36689, // Helper->self, 11.0s cast, range 6 circle
+    DeepThunderVisual1 = 36687, // Boss->self, 6.0s cast, single-target
+    DeepThunderVisual2 = 36691, // Boss->self, no cast, single-target
+    DeepThunderVisual3 = 36692, // Boss->self, no cast, single-target
+    DeepThunderRepeat = 36690, // Helper->self, no cast, range 6 circle
+    BigBurst = 36693, // Helper->self, no cast, range 60 circle, tower fail
 
-    RingingBlowsRL = 36694, // Boss->self, 7.0+2.0s cast, single-target, visual (knockback + cleaves right->left)
-    RingingBlowsLR = 36695, // Boss->self, 7.0+2.0s cast, single-target, visual (knockback + cleaves left->right)
-    RingingBlowsStonecarverAOE1 = 36696, // Helper->self, 11.1s cast, range 40 width 20 rect
-    RingingBlowsStonecarverAOE2 = 36697, // Helper->self, 13.6s cast, range 40 width 20 rect
-    RingingBlowsStonecarverVisual1 = 36699, // Boss->self, no cast, single-target, visual (first/right? cleave)
-    RingingBlowsStonecarverVisual2 = 36700, // Boss->self, no cast, single-target, visual (second/left? cleave)
-    RingingBlowsSkullcrushAOE = 36666, // Helper->self, 9.0s cast, range 10 circle
-    RingingBlowsSkullcrushImpact = 36667, // Helper->self, 9.0s cast, range 60 circle knockback 18
+    RingingBlows1 = 36694, // Boss->self, 7.0+2.0s cast, single-target
+    RingingBlows2 = 36695, // Boss->self, 7.0+2.0s cast, single-target
 
-    ColossalImpact1 = 36704, // Boss->self, 6.0+2.0s cast, single-target, visual (knockback + spread/stack ?)
-    ColossalImpact2 = 36705, // Boss->self, 6.0+2.0s cast, single-target, visual (knockback + spread/stack ?)
-    ColossalImpactAOE = 36706, // Helper->self, 8.0s cast, range 10 circle
-    ColossalImpactImpact = 36707, // Helper->self, 8.0s cast, range 60 circle knockback 20
+    WroughtFireVisual = 39121, // Boss->self, 4.0+1.0s cast, single-target
+    WroughtFire = 39122, // Helper->player, 5.0s cast, range 6 circle
+
+    ColossalImpactVisual1 = 36704, // Boss->self, 6.0+2.0s cast, single-target
+    ColossalImpactVisual2 = 36705, // Boss->self, 6.0+2.0s cast, single-target
+    ColossalImpact = 36706, // Helper->self, 8.0s cast, range 10 circle
+
+    BuildingHeat = 36710, // Helper->players, 7.0s cast, range 6 circle
+
+    AshlayerVisual = 36711, // Boss->self, 3.0+2.0s cast, single-target
+    Ashlayer = 36712 // Helper->self, no cast, range 60 circle
 }
 
-public enum IconID : uint
+sealed class Stonecarver(BossModule module) : Components.GenericAOEs(module)
 {
-    DestructiveHeat = 375, // player
-    WroughtFire = 344, // player
-    BuildingHeat = 317, // player
-}
+    public readonly List<AOEInstance> AOEs = new(2);
+    private static readonly AOEShapeRect rect = new(40f, 10f);
+    private Impact2? _kb;
 
-class Stonecarver(BossModule module) : Components.GenericAOEs(module)
-{
-    public readonly List<AOEInstance> AOEs = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var count = AOEs.Count;
+        if (count == 0)
+            return [];
+        var aoes = CollectionsMarshal.AsSpan(AOEs);
+        ref var aoe0 = ref aoes[0];
+        aoe0.Risky = true;
+        if (count > 1)
+        {
+            aoe0.Color = Colors.Danger;
+        }
 
-    private static readonly AOEShapeRect _shape = new(40, 10);
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => AOEs.Take(1);
+        return aoes;
+    }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.StonecarverAOE1 or AID.StonecarverAOE2 or AID.RingingBlowsStonecarverAOE1 or AID.RingingBlowsStonecarverAOE2)
+        switch (spell.Action.ID)
         {
-            AOEs.Add(new(_shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
-            AOEs.SortBy(aoe => aoe.Activation);
+            case (uint)AID.Stonecarver1:
+            case (uint)AID.Stonecarver2:
+            case (uint)AID.Stonecarver3:
+            case (uint)AID.Stonecarver4:
+                AOEs.Add(new(rect, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell), risky: false));
+                if (AOEs.Count == 2)
+                {
+                    _kb ??= Module.FindComponent<Impact2>();
+
+                    var aoes = CollectionsMarshal.AsSpan(AOEs);
+                    ref var aoe1 = ref aoes[0];
+                    ref var aoe2 = ref aoes[1];
+                    if (aoe1.Activation > aoe2.Activation)
+                    {
+                        (aoe1, aoe2) = (aoe2, aoe1);
+                    }
+                }
+                break;
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.StonecarverAOE1 or AID.StonecarverAOE2 or AID.RingingBlowsStonecarverAOE1 or AID.RingingBlowsStonecarverAOE2 && AOEs.Count > 0)
-            AOEs.RemoveAt(0);
+        if (AOEs.Count != 0)
+        {
+            switch (spell.Action.ID)
+            {
+                case (uint)AID.Stonecarver1:
+                case (uint)AID.Stonecarver2:
+                case (uint)AID.Stonecarver3:
+                case (uint)AID.Stonecarver4:
+                    AOEs.RemoveAt(0);
+                    break;
+            }
+        }
     }
-}
-
-class ImpactAOE(BossModule module) : Components.GenericAOEs(module)
-{
-    private readonly List<AOEInstance> _aoes = [];
-
-    private static readonly AOEShapeCircle _shape = new(10);
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.SkullcrushAOE or AID.RingingBlowsSkullcrushAOE or AID.ColossalImpactAOE)
-            _aoes.Add(new(_shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
-    }
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.SkullcrushAOE or AID.RingingBlowsSkullcrushAOE or AID.ColossalImpactAOE)
-            _aoes.Clear();
-    }
-}
-
-class Impact(BossModule module) : Components.Knockback(module)
-{
-    public readonly List<Source> AOEs = [];
-    private readonly Stonecarver? _cleaves = module.FindComponent<Stonecarver>();
-
-    public override IEnumerable<Source> Sources(int slot, Actor actor) => AOEs;
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (AOEs.Count == 0)
-            return;
-
-        var origin = AOEs[0].Origin;
-        if (Math.Abs(origin.X - Module.Center.X) > 5)
+        base.AddAIHints(slot, actor, assignment, hints);
+        if (AOEs.Count != 0)
         {
-            // knockback from corner -> aim to opposite corner
-            hints.AddForbiddenZone(SafeSpotInDirection(origin, (Module.Center - origin).Normalized()), AOEs[0].Activation);
-        }
-        else if (_cleaves?.AOEs.Count > 0)
-        {
-            // knockback to the corner that won't be cleaved, but not too far to easily move to other side
-            hints.AddForbiddenZone(SafeSpotInDirection(origin, (_cleaves.AOEs[0].Origin.X > Module.Center.X ? -15.Degrees() : 15.Degrees()).ToDirection()), AOEs[0].Activation);
-        }
-        else
-        {
-            // knockback to any of the corners
-            var c1 = SafeSpotInDirection(origin, (-35).Degrees().ToDirection());
-            var c2 = SafeSpotInDirection(origin, 35.Degrees().ToDirection());
-            hints.AddForbiddenZone(p => c1(p) && c2(p), AOEs[0].Activation);
+            hints.AddForbiddenZone(new SDInvertedRect(Arena.Center, new WDir(1f, default), 1.5f, 1.5f, 40f), _kb!.Casters.Count != 0 ? _kb.Casters.Ref(0).Activation : AOEs.Ref(0).Activation);
         }
     }
+}
 
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+sealed class Shatter(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly List<AOEInstance> _aoes = new(2);
+    private static readonly AOEShapeRect rectCenter = new(40f, 10f), rectSides = new(45f, 11f);
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        var distance = (AID)spell.Action.ID switch
+        var count = _aoes.Count;
+        if (count == 0)
         {
-            AID.SkullcrushImpact or AID.RingingBlowsSkullcrushImpact => 18,
-            AID.ColossalImpactImpact => 20,
-            _ => 0
-        };
-        if (distance > 0)
-            AOEs.Add(new(caster.Position, distance, Module.CastFinishAt(spell)));
+            return [];
+        }
+        var aoes = CollectionsMarshal.AsSpan(_aoes);
+        if (aoes[0].Activation.AddSeconds(-6d) <= WorldState.CurrentTime)
+        {
+            return aoes;
+        }
+        return [];
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.SkullcrushImpact or AID.RingingBlowsSkullcrushImpact or AID.ColossalImpactImpact)
-            AOEs.Clear();
+        void AddAOE(AOEShapeRect rect, WPos pos, Angle rot) => _aoes.Add(new(rect, pos, rot, Module.CastFinishAt(spell, 15.1d)));
+        switch (spell.Action.ID)
+        {
+            case (uint)AID.MaulworkFirstCenter:
+            case (uint)AID.MaulworkSecondCenter:
+                AddAOE(rectCenter, spell.LocXZ, spell.Rotation);
+                break;
+            case (uint)AID.MaulworkFirstSides:
+            case (uint)AID.MaulworkSecondSides:
+                var z = -453.025f;
+                AddAOE(rectSides, new(91.539f, z), -17.004f.Degrees());
+                AddAOE(rectSides, new(108.415f, z), 16.999f.Degrees());
+                break;
+            case (uint)AID.ShatterCenter:
+            case (uint)AID.ShatterLR1:
+            case (uint)AID.ShatterLR2:
+                _aoes.Clear();
+                break;
+        }
     }
-
-    private Func<WPos, bool> SafeSpotInDirection(WPos origin, WDir dir) => ShapeContains.InvertedCircle(origin + dir * 11, 1);
 }
 
-class DestructiveBuildingHeat(BossModule module) : Components.CastStackSpread(module, AID.BuildingHeat, AID.DestructiveHeat, 6, 6, 4, alwaysShowSpreads: true)
+abstract class Impact(BossModule module, uint aid, float distance) : Components.SimpleKnockbacks(module, aid, distance, stopAfterWall: true)
 {
-    private readonly Impact? impact = module.FindComponent<Impact>();
+    protected float halfWidth = 19f;
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        // only start spreading after knockback is done
-        if (impact == null || impact.AOEs.Count == 0)
-            base.AddAIHints(slot, actor, assignment, hints);
+        if (Casters.Count != 0)
+        {
+            ref readonly var c = ref Casters.Ref(0);
+            var dist = Distance;
+
+            // square intentionally slightly smaller to prevent sus knockback
+            hints.AddForbiddenZone(new SDKnockbackInAABBSquareAwayFromOrigin(Arena.Center, c.Origin, dist, halfWidth), c.Activation);
+        }
     }
 }
 
-class Landing(BossModule module) : Components.StandardAOEs(module, AID.Landing, 8);
-class ShatterCenter(BossModule module) : Components.StandardAOEs(module, AID.ShatterCenter, new AOEShapeRect(40, 10));
-class ShatterSideR(BossModule module) : Components.StandardAOEs(module, AID.ShatterSideR, new AOEShapeRect(45, 11));
-class ShatterSideL(BossModule module) : Components.StandardAOEs(module, AID.ShatterSideL, new AOEShapeRect(45, 11));
+sealed class Impact1(BossModule module) : Impact(module, (uint)AID.Impact1, 18f);
 
-class DeepThunder(BossModule module) : Components.GenericTowers(module)
+sealed class Impact2(BossModule module) : Impact(module, (uint)AID.Impact2, 18f)
 {
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        foreach (var t in Towers)
-            hints.AddForbiddenZone(ShapeContains.InvertedCircle(t.Position, t.Radius));
-    }
+    private readonly Stonecarver _aoe = module.FindComponent<Stonecarver>()!;
 
+    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => _aoe.AOEs.Count != 0 && _aoe.AOEs.Ref(0).Check(pos) || !Arena.InBounds(pos);
+}
+
+sealed class Impact3(BossModule module) : Impact(module, (uint)AID.Impact3, 20f)
+{
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.DeepThunderTowerShort or AID.DeepThunderTowerLong)
-            Towers.Add(new(caster.Position, 6, 4, 4));
+        base.OnCastStarted(caster, spell);
+        if (spell.Action.ID == (uint)AID.BuildingHeat)
+        {
+            halfWidth = 14f;
+        }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.DeepThunderTowerShort or AID.DeepThunderTowerLong)
-            Towers.Clear();
+        base.OnCastFinished(caster, spell);
+        if (spell.Action.ID == (uint)AID.BuildingHeat)
+        {
+            halfWidth = 19f;
+        }
     }
 }
 
-class WroughtFire(BossModule module) : Components.BaitAwayCast(module, AID.WroughtFireAOE, new AOEShapeCircle(6), true);
-class Ashlayer(BossModule module) : Components.RaidwideCast(module, AID.Ashlayer);
+sealed class ColossalImpactSkullcrush(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.ColossalImpact, (uint)AID.Skullcrush1, (uint)AID.Skullcrush2], 10f);
 
-class D033MaulskullStates : StateMachineBuilder
+sealed class DestructiveHeat(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.DestructiveHeat, 6f)
+{
+    private readonly Impact1 _kb1 = module.FindComponent<Impact1>()!;
+    private readonly Impact2 _kb2 = module.FindComponent<Impact2>()!;
+    private readonly Impact3 _kb3 = module.FindComponent<Impact3>()!;
+    private WPos origin;
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Spreads.Count != 0)
+        {
+            if (_kb1.Casters.Count != 0)
+            {
+                origin = new(100f, -400f);
+            }
+            else if (_kb2.Casters.Count != 0)
+            {
+                origin = _kb2.Casters.Ref(0).Origin;
+            }
+            else if (_kb3.Casters.Count != 0)
+            {
+                origin = _kb3.Casters.Ref(0).Origin;
+            }
+            if (origin != default)
+            {
+                base.AddAIHints(slot, actor, assignment, hints);
+                hints.AddForbiddenZone(new SDInvertedCircle(origin, 15f), Spreads.Ref(0).Activation);
+            }
+            else
+            { }
+        }
+    }
+}
+
+sealed class Landing(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Landing, 8f);
+
+abstract class DeepThunder(BossModule module, uint aid) : Components.CastTowers(module, aid, 6f, 4, 4);
+sealed class DeepThunder1(BossModule module) : DeepThunder(module, (uint)AID.DeepThunderTower1);
+sealed class DeepThunder2(BossModule module) : DeepThunder(module, (uint)AID.DeepThunderTower2);
+
+sealed class WroughtFire(BossModule module) : Components.BaitAwayCast(module, (uint)AID.WroughtFire, 6f, tankbuster: true, damageType: AIHints.PredictedDamageType.Tankbuster);
+sealed class BuildingHeat(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.BuildingHeat, 6f, 4, 4);
+sealed class Ashlayer(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.AshlayerVisual, (uint)AID.Ashlayer, 2.2d);
+
+sealed class D033MaulskullStates : StateMachineBuilder
 {
     public D033MaulskullStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<Stonecarver>()
-            .ActivateOnEnter<ImpactAOE>()
-            .ActivateOnEnter<Impact>()
-            .ActivateOnEnter<DestructiveBuildingHeat>()
+            .ActivateOnEnter<Impact1>()
+            .ActivateOnEnter<Impact2>()
+            .ActivateOnEnter<Impact3>()
+            .ActivateOnEnter<ColossalImpactSkullcrush>()
+            .ActivateOnEnter<DestructiveHeat>()
             .ActivateOnEnter<Landing>()
-            .ActivateOnEnter<ShatterCenter>()
-            .ActivateOnEnter<ShatterSideR>()
-            .ActivateOnEnter<ShatterSideL>()
-            .ActivateOnEnter<DeepThunder>()
+            .ActivateOnEnter<Shatter>()
+            .ActivateOnEnter<DeepThunder1>()
+            .ActivateOnEnter<DeepThunder2>()
             .ActivateOnEnter<WroughtFire>()
+            .ActivateOnEnter<BuildingHeat>()
             .ActivateOnEnter<Ashlayer>();
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 829, NameID = 12728)]
-public class D033Maulskull(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, -430), new ArenaBoundsSquare(20));
+[ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus, LTS)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 829, NameID = 12728)]
+public sealed class D033Maulskull(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, -430f), new ArenaBoundsSquare(20f));

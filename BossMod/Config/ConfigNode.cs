@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Reflection;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace BossMod;
@@ -10,26 +11,17 @@ public sealed class ConfigDisplayAttribute : Attribute
     public string? Name { get; set; }
     public int Order { get; set; }
     public Type? Parent { get; set; }
-    public string? Since { get; set; }
     public string[]? Tags { get; set; }
-}
-
-[AttributeUsage(AttributeTargets.Field)]
-public sealed class SectionStartAttribute(string label = "", bool separator = true) : Attribute
-{
-    public string Label { get; } = label;
-    public bool Separator { get; } = separator;
 }
 
 // attribute that specifies how config node field or enumeration value is shown in the UI
 [AttributeUsage(AttributeTargets.Field)]
-public sealed class PropertyDisplayAttribute(string label, uint color = 0xffffffff, string tooltip = "", string? since = null, string? depends = null, string[]? tags = null) : Attribute
+public sealed class PropertyDisplayAttribute(string label, uint color = default, string tooltip = "", bool separator = false, string[]? tags = null) : Attribute
 {
     public string Label { get; } = label;
-    public uint Color { get; } = color;
+    public uint Color { get; } = color == default ? Colors.TextColor1 : color;
     public string Tooltip { get; } = tooltip;
-    public string? Since { get; } = since;
-    public string? Depends { get; } = depends;
+    public bool Separator { get; } = separator;
     public string[] Tags { get; } = tags ?? [];
 }
 
@@ -48,13 +40,12 @@ public sealed class PropertyComboAttribute(string[] values) : Attribute
 [AttributeUsage(AttributeTargets.Field)]
 public sealed class PropertySliderAttribute(float min, float max) : Attribute
 {
-    public float Speed { get; set; } = 1;
+    public float Speed { get; set; } = 1f;
     public float Min { get; } = min;
     public float Max { get; } = max;
     public bool Logarithmic { get; set; }
 }
 
-// compatibility attribute used by some imported config UIs to provide fixed ordering labels
 [AttributeUsage(AttributeTargets.Field)]
 public sealed class PropertyStringOrderAttribute(string[] values) : Attribute
 {
@@ -72,6 +63,31 @@ public abstract class ConfigNode
     // draw custom contents; override this for complex config nodes
     public virtual void DrawCustom(UITree tree, WorldState ws) { }
 
+    private static readonly ConcurrentDictionary<Type, FieldInfo[]> _fieldsCache = [];
+
+    protected static FieldInfo[] GetSerializableFields(Type t)
+    {
+        if (_fieldsCache.TryGetValue(t, out var cachedFields))
+        {
+            return cachedFields;
+        }
+
+        var fields = t.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+        var len = fields.Length;
+        var discoveredFields = new FieldInfo[len];
+        var index = 0;
+        for (var i = 0; i < len; ++i)
+        {
+            ref readonly var field = ref fields[i];
+            if (!field.IsStatic && !field.IsDefined(typeof(JsonIgnoreAttribute), false))
+            {
+                discoveredFields[index++] = field;
+            }
+        }
+
+        return _fieldsCache[t] = discoveredFields[..index];
+    }
+
     // deserialize fields from json; default implementation should work fine for most cases
     public virtual void Deserialize(JsonElement j, JsonSerializerOptions ser)
     {
@@ -80,32 +96,52 @@ public abstract class ConfigNode
         var type = GetType();
         foreach (var jfield in j.EnumerateObject())
         {
-            var field = type.GetField(jfield.Name);
+            var field = type.GetField(jfield.Name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             if (field != null)
             {
-                try
+                if (field.IsStatic)
                 {
-                    var value = jfield.Value.Deserialize(field.FieldType, ser);
-                    if (value != null)
-                    {
-                        field.SetValue(this, value);
-                    }
+                    continue;
                 }
-                catch (JsonException jsonException)
+
+                if (field.GetCustomAttribute<JsonIgnoreAttribute>() != null)
                 {
-                    agg.Add(jsonException);
+                    continue;
+                }
+
+                var value = jfield.Value.Deserialize(field.FieldType, ser);
+                if (value != null)
+                {
+                    field.SetValue(this, value);
                 }
             }
         }
-
-        if (agg.Count > 0)
-            throw new AggregateException($"While loading {type.Name}:", agg);
     }
 
-    // serialize node to json; default implementation should work fine for most cases
-    public virtual void Serialize(Utf8JsonWriter jwriter, JsonSerializerOptions ser)
+    // serialize node to json;
+    public virtual void Serialize(Utf8JsonWriter writer, JsonSerializerOptions options)
     {
-        JsonSerializer.Serialize(jwriter, this, GetType(), ser);
+        writer.WriteStartObject();
+
+        var fields = GetSerializableFields(GetType());
+        var len = fields.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            ref readonly var field = ref fields[i];
+            var fieldValue = field.GetValue(this);
+
+            writer.WritePropertyName(field.Name);
+            if (fieldValue is ConfigNode subNode)
+            {
+                subNode.Serialize(writer, options);
+            }
+            else
+            {
+                JsonSerializer.Serialize(writer, fieldValue, field.FieldType, options);
+            }
+        }
+
+        writer.WriteEndObject();
     }
 }
 

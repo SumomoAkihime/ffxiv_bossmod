@@ -2,73 +2,118 @@ namespace BossMod.Heavensward.Dungeon.D03Aery.D031Rangda;
 
 public enum OID : uint
 {
-    Boss = 0xEA6, // R4.900, x?
-    Rangda = 0x1144, // R0.500, x?, mixed types
-    Leyak = 0xEA7, // R3.600, x?
-    BlackenedStatue = 0xEA8, // R1.400, x?
-    Helper = 0x233C, // x3
+    Boss = 0xEA6, // R4.9
+    BlackenedStatue = 0xEA8, // R1.4
+    Leyak = 0xEA7, // R3.6
+    Helper = 0x1144
 }
 
 public enum AID : uint
 {
-    AutoAttack = 872, // EA6/1098/1093/3970->player, no cast, single-target
-    ElectricPredation = 3887, // EA6->self, no cast, range 8+R ?-degree cone
-    ElectricCachexia = 3889, // EA6->self, 7.0s cast, range 60+R circle
-    IonosphericCharge = 3888, // EA6->self, 3.0s cast, single-target
-    LightningBolt = 3893, // 1144->location, 3.0s cast, range 3 circle
-    LightningRod = 2573,
-    Ground = 3892, // 1144->player/EA8, no cast, single-target
-    Electrocution = 3890, // EA6->self, 3.0s cast, single-target
-    Electrocution2 = 3891, // 1144->self, no cast, range 60+R width 5 rect
-    //Leyak
-    Attack = 870, // 1091/1090/1095/1092/EA7/1097/1099/1096/109A/109B/109C/11AE->player, no cast, single-target
-    Reflux = 3894, // EA7->player, no cast, single-target
+    AutoAttack1 = 872, // Boss->player, no cast, single-target
+    AutoAttack2 = 870, // Leyak->player, no cast, single-target
+
+    ElectricPredation = 3887, // Boss->self, no cast, range 8+R 90-degree cone
+    ElectricCachexia = 3889, // Boss->self, 7.0s cast, range 8-60 donut
+    IonosphericCharge = 3888, // Boss->self, 3.0s cast, single-target
+    Ground = 3892, // Rangda->player/BlackenedStatue, no cast, single-target, failed to give tether to rod
+    ElectrocutionVisual = 3890, // Boss->self, 3.0s cast, single-target
+    Electrocution = 3891, // Rangda->self, no cast, range 60+R width 5 rect, targets 3 seemingly random players after visual, knockback 15 away from source
+    LightningBolt = 3893, // Rangda->location, 3.0s cast, range 3 circle
+    Reflux = 3894 // Leyak->player, no cast, single-target
 }
-public enum GID : uint
-{
-    LightningRod = 2574,
-}
+
 public enum TetherID : uint
 {
-    LightningRod = 6,
+    Lightning = 6 // Boss->player/BlackenedStatue
 }
 
-class ElectricPredation(BossModule module) : Components.Cleave(module, AID.ElectricPredation, new AOEShapeCone(8, 45.Degrees()));
-class ElectricCachexia(BossModule module) : Components.StandardAOEs(module, AID.ElectricCachexia, new AOEShapeDonut(7, 60));
-class LightningBolt(BossModule module) : Components.StandardAOEs(module, AID.LightningBolt, 3);
-class LightningRod(BossModule module) : BossComponent(module)
-{
-    private IEnumerable<Actor> Statues => Module.Enemies(OID.BlackenedStatue).Where(e => e.FindStatus(GID.LightningRod) == null && !e.IsDead);
+class ElectricPredation(BossModule module) : Components.Cleave(module, (uint)AID.ElectricPredation, new AOEShapeCone(12.9f, 60.Degrees()));
 
-    private int LightningRodTarget => WorldState.Party.WithSlot().Where(x => x.Item2.FindStatus(GID.LightningRod) != null).Select(x => x.Item1).FirstOrDefault(-1);
+class Electrocution(BossModule module) : Components.GenericBaitAway(module)
+{
+    private static readonly AOEShapeRect rect = new(64.9f, 2.5f);
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.ElectrocutionVisual)
+        {
+            var party = Module.Raid.WithoutSlot(false, true, true);
+            var len = party.Length;
+            var act = Module.CastFinishAt(spell, 0.9d);
+            for (var i = 0; i < len; ++i)
+            {
+                CurrentBaits.Add(new(caster, party[i], rect, act));
+            }
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == (uint)AID.Electrocution)
+        {
+            ++NumCasts;
+            if (NumCasts == 3 || NumCasts == CurrentBaits.Count) // hits upto 3 random players
+            {
+                CurrentBaits.Clear();
+                NumCasts = 0;
+            }
+        }
+    }
+}
+
+class IonosphericCharge(BossModule module) : Components.BaitAwayTethers(module, 0f, (uint)TetherID.Lightning, activationDelay: 10.1f)
+{
+    private readonly List<Actor> statues = module.Enemies((uint)OID.BlackenedStatue);
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        if (slot == LightningRodTarget)
-            hints.Add("Bait tether to a statue!");
+        if (IsBaitTarget(actor))
+        {
+            hints.Add("Pass the tether to a statue!");
+        }
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (slot == LightningRodTarget)
+        if (!IsBaitTarget(actor))
         {
-            var closestTower = Statues.MinBy(actor.DistanceToHitbox)!;
-            hints.AddForbiddenZone(new AOEShapeDonut(5, 60), closestTower.Position);
+            return;
         }
+
+        var count = statues.Count;
+        if (count == 0)
+        {
+            return;
+        }
+        var forbidden = new ShapeDistance[count];
+        for (var i = 0; i < count; ++i)
+        {
+            forbidden[i] = new SDInvertedCircle(statues[i].Position, 4f);
+        }
+
+        hints.AddForbiddenZone(new SDIntersection(forbidden), CurrentBaits.Ref(0).Activation);
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        Arena.Actors(Statues, ArenaColor.Object, true);
+        if (!IsBaitTarget(pc))
+        {
+            return;
+        }
+        base.DrawArenaForeground(pcSlot, pc);
 
-        if (pcSlot == LightningRodTarget)
-            foreach (var enemy in Statues)
-                Arena.AddCircle(enemy.Position, 6, ArenaColor.Safe);
+        Arena.Actors(statues, Colors.Object, true);
+        var count = statues.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            Arena.AddCircle(statues[i].Position, 4f, Colors.Safe);
+        }
     }
 }
-// electrocution also involves a random line baits mechanic but it does so little damage it's not worth hinting
-class Electrocution(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Electrocution, 17, stopAtWall: true);
-class Adds(BossModule module) : Components.Adds(module, (uint)OID.Leyak, 2);
+
+class ElectricCachexia(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ElectricCachexia, new AOEShapeDonut(8f, 60f));
+class LightningBolt(BossModule module) : Components.SimpleAOEs(module, (uint)AID.LightningBolt, 3f);
 
 class D031RangdaStates : StateMachineBuilder
 {
@@ -76,14 +121,48 @@ class D031RangdaStates : StateMachineBuilder
     {
         TrivialPhase()
             .ActivateOnEnter<ElectricPredation>()
-            .ActivateOnEnter<ElectricCachexia>()
             .ActivateOnEnter<LightningBolt>()
-            .ActivateOnEnter<LightningRod>()
-            .ActivateOnEnter<Electrocution>()
-            .ActivateOnEnter<Adds>();
+            .ActivateOnEnter<IonosphericCharge>()
+            .ActivateOnEnter<ElectricCachexia>()
+            .ActivateOnEnter<Electrocution>();
 
     }
 }
 
-[ModuleInfo(Contributors = "VeraNala, xan", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 39, NameID = 3452)]
-public class D031Rangda(WorldState ws, Actor primary) : BossModule(ws, primary, new(334.9f, -203), new ArenaBoundsCircle(26));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 39, NameID = 3452)]
+public class D031Rangda(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
+{
+    private static readonly WPos[] vertices = [new(332.34f, -228.43f), new(337.76f, -228.37f), new(338.36f, -228.27f), new(343.49f, -227.03f), new(344.03f, -226.78f),
+    new(348.5f, -224.57f), new(348.95f, -224.28f), new(353.31f, -220.68f), new(356.57f, -216.48f), new(356.89f, -215.99f),
+    new(359.19f, -211.05f), new(359.34f, -210.45f), new(360.39f, -205.52f), new(360.44f, -204.98f), new(360.38f, -199.62f),
+    new(360.27f, -199.1f), new(359.12f, -194.36f), new(358.97f, -193.81f), new(356.49f, -189.12f), new(356.18f, -188.66f),
+    new(353.12f, -184.91f), new(352.73f, -184.54f), new(352.12f, -184.63f), new(351.55f, -184.35f), new(336.81f, -174.73f),
+    new(336.3f, -174.57f), new(335.79f, -174.58f), new(335.24f, -174.57f), new(332.67f, -174.66f), new(323.57f, -174.39f),
+    new(322.99f, -174.43f), new(319.75f, -179.36f), new(313.09f, -188.8f), new(312.74f, -189.25f), new(310.34f, -194.39f),
+    new(310.2f, -194.89f), new(309.86f, -196.48f), new(309.73f, -196.98f), new(309.06f, -200.14f), new(309.13f, -205.8f),
+    new(309.23f, -206.4f), new(310.42f, -211.32f), new(310.6f, -211.81f), new(312.87f, -216.37f), new(313.13f, -216.84f),
+    new(316.64f, -221.13f), new(317.1f, -221.53f), new(320.95f, -224.51f), new(321.45f, -224.86f), new(326.29f, -227.11f),
+    new(326.84f, -227.29f), new(332.07f, -228.41f)];
+
+    private static readonly ArenaBoundsCustom arena = new([new PolygonCustom(vertices)]);
+
+    protected override void DrawEnemies(int pcSlot, Actor pc)
+    {
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.Leyak));
+    }
+
+    protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
+            {
+                (uint)OID.Leyak => 1,
+                _ => 0
+            };
+        }
+    }
+}

@@ -1,4 +1,4 @@
-﻿namespace BossMod.Shadowbringers.Dungeon.D12MatoyasRelict.D123MotherPorxie;
+namespace BossMod.Shadowbringers.Dungeon.D12MatoyasRelict.D123MotherPorxie;
 
 public enum OID : uint
 {
@@ -40,128 +40,158 @@ public enum AID : uint
     NeerDoneWell = 20045, // Helper->self, 8.0s cast, range 5-40 donut (on limit break fail)
 
     OpenFlameVisual = 22818, // Boss->self, 6.0s cast, single-target
-    OpenFlame = 22819, // Helper->player, no cast, range 5 circle, spread
+    OpenFlame = 22819 // Helper->player, no cast, range 5 circle, spread
 }
 
 public enum IconID : uint
 {
     Tankbuster = 198, // player
-    Spreadmarker = 169, // player
+    Spreadmarker = 169 // player
 }
 
-class TenderLoin(BossModule module) : Components.RaidwideCastDelay(module, AID.TenderLoinVisual, AID.TenderLoin, 0.8f);
-class MincedMeat(BossModule module) : Components.SingleTargetCastDelay(module, AID.MincedMeatVisual, AID.MincedMeat, 0.9f);
-class OpenFlame(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.Spreadmarker, AID.OpenFlame, 5, 6.7f);
-class MeatMallet(BossModule module) : Components.StandardAOEs(module, AID.MeatMallet, 30);
-class BarbequeCircle(BossModule module) : Components.StandardAOEs(module, AID.BarbequeCircle, 5);
-class BarbequeRect(BossModule module) : Components.StandardAOEs(module, AID.BarbequeRect, new AOEShapeRect(50, 2.5f));
-class Buffet(BossModule module) : Components.StandardAOEs(module, AID.Buffet, new AOEShapeRect(40, 3));
+class TenderLoin(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.TenderLoinVisual, (uint)AID.TenderLoin, 0.8f);
+class MincedMeat(BossModule module) : Components.SingleTargetCastDelay(module, (uint)AID.MincedMeatVisual, (uint)AID.MincedMeat, 0.9f);
+class OpenFlame(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.Spreadmarker, (uint)AID.OpenFlame, 5f, 6.7f);
+class MeatMallet(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MeatMallet, 30f);
+class BarbequeCircle(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BarbequeCircle, 5f);
+class BarbequeRect(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BarbequeRect, new AOEShapeRect(50f, 2.5f));
+class Buffet(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Buffet, new AOEShapeRect(40f, 3f));
 
-class HuffAndPuff(BossModule module) : Components.Knockback(module, stopAtWall: true)
+sealed class MediumRearNeerDoneWell(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.MediumRear1, (uint)AID.MediumRear2, (uint)AID.NeerDoneWell], new AOEShapeDonut(5f, 40f))
 {
-    private Actor? MediumRear;
-    private Actor? PuffCast;
-    private (Actor? Caster, DateTime? Activation) PuffInstant;
+    private readonly HuffAndPuff1 _kb1 = module.FindComponent<HuffAndPuff1>()!;
+    private readonly HuffAndPuff2 _kb2 = module.FindComponent<HuffAndPuff2>()!;
 
-    public override IEnumerable<Source> Sources(int slot, Actor actor)
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (PuffCast is Actor puffer)
-            yield return new Source(puffer.Position, 15, Module.CastFinishAt(puffer.CastInfo), Direction: puffer.Rotation, Kind: Kind.DirForward);
-        if (PuffInstant is (Actor c, DateTime t))
-            yield return new Source(c.Position, 15, t, Direction: c.Rotation, Kind: Kind.DirForward);
+        if (_kb1.Casters.Count == 0 && _kb2.KB.Length == 0)
+        {
+            base.AddAIHints(slot, actor, assignment, hints);
+        }
+    }
+}
+
+class HuffAndPuff1(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.HuffAndPuff1, 15f, true, stopAtWall: true, kind: Kind.DirForward)
+{
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Casters.Count != 0)
+            hints.AddForbiddenZone(new SDInvertedCircle(Casters.Ref(0).Origin, 5f));
+    }
+}
+
+class HuffAndPuff2(BossModule module) : Components.GenericKnockback(module, stopAtWall: true)
+{
+    private Knockback[] _kbCache = [];
+    public Knockback[] KB = [];
+
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor) => KB;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.HuffAndPuffVisual)
+        {
+            _kbCache = [new(spell.LocXZ, 15f, default, null, spell.Rotation, Kind.DirForward, ignoreImmunes: true)];
+        }
+        else if (_kbCache.Length != 0 && spell.Action.ID == (uint)AID.NeerDoneWell)
+        {
+            ref readonly var kb = ref _kbCache[0];
+            KB = [new(kb.Origin, 50f, WorldState.FutureTime(5.4d), null, kb.Direction, kb.Kind, ignoreImmunes: true)];
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (_kbCache.Length != 0 && spell.Action.ID == (uint)AID.Explosion)
+        {
+            ref readonly var kb = ref _kbCache[0];
+            KB = [new(kb.Origin, 15f, WorldState.FutureTime(10.9d), null, kb.Direction, kb.Kind, ignoreImmunes: true)];
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID is (uint)AID.HuffAndPuff2 or (uint)AID.BlowItAllDown)
+        {
+            KB = [];
+            _kbCache = [];
+        }
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (KB.Length != 0)
+        {
+            ref readonly var kb = ref KB[0];
+            hints.AddForbiddenZone(new SDInvertedCircle(kb.Origin, 5f));
+        }
+    }
+}
+
+class Barbeque(BossModule module) : Components.GenericAOEs(module)
+{
+    private static readonly AOEShapeRect rect = new(10f, 20f);
+    private AOEInstance[] _aoe = [];
+    private bool imminent;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
+
+    public override void OnMapEffect(byte index, uint state)
+    {
+        if (index == 0x10 && state == 0x00020001u)
+        {
+            _aoe = [new(rect, new(-19.5f, default), Angle.AnglesCardinals[3])]; // activates 22.2s later, but should never be entered anyway, since you must go to the opposite of the arena
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.Barbeque)
+        {
+            imminent = true;
+        }
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        if (spell.Action.ID == (uint)AID.BarbequeRect)
         {
-            case AID.HuffAndPuff1:
-                PuffCast = caster;
-                break;
-            case AID.MediumRear1:
-            case AID.MediumRear2:
-                MediumRear = caster;
-                break;
-            case AID.HuffAndPuffVisual:
-                PuffInstant.Caster = caster;
-                break;
+            imminent = false;
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        if (spell.Action.ID == (uint)AID.ToACrisp)
         {
-            case AID.HuffAndPuff1:
-                PuffCast = null;
-                break;
-            case AID.MediumRear1:
-            case AID.MediumRear2:
-                MediumRear = null;
-                break;
-            case AID.Explosion:
-                PuffInstant.Activation = WorldState.FutureTime(10.9f);
-                break;
-            case AID.HuffAndPuff2:
-                PuffInstant = (null, null);
-                break;
+            _aoe = [];
         }
-    }
-
-    public override void DrawArenaBackground(int pcSlot, Actor pc)
-    {
-        base.DrawArenaBackground(pcSlot, pc);
-
-        if (MediumRear is Actor rear)
-            Arena.ZoneDonut(rear.Position, 5, 40, ArenaColor.AOE);
-    }
-
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => MediumRear != null && !pos.InCircle(MediumRear.Position, 5);
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        base.AddAIHints(slot, actor, assignment, hints);
-
-        if (MediumRear is not Actor p)
-            return;
-
-        foreach (var movement in CalculateMovements(slot, actor))
-        {
-            var offset = movement.from - movement.to;
-            hints.AddForbiddenZone(ShapeContains.InvertedCircle(p.Position + offset, 5), Module.CastFinishAt(p.CastInfo));
-            break;
-        }
-    }
-}
-
-class Barbeque(BossModule module) : BossComponent(module)
-{
-    private bool active;
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID == AID.Barbeque)
-            active = true;
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if ((AID)spell.Action.ID == AID.ToACrisp)
-            active = false;
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (active)
-            hints.GoalZones.Add(p => p.X >= 15 ? 50 : 0);
+        if (_aoe.Length != 0)
+        {
+            hints.AddForbiddenZone(new SDInvertedRect(new(imminent ? 18.5f : actor.PosRot.X + 0.1f, default), new(19f, default), 20f));
+        }
+    }
+
+    public override void AddGlobalHints(GlobalHints hints)
+    {
+        if (imminent)
+        {
+            hints.Add("Go to the opposite side of the arena and work against getting sucked in!");
+        }
     }
 }
 
-class MotherPorxieStates : StateMachineBuilder
+class D123MotherPorxieStates : StateMachineBuilder
 {
-    public MotherPorxieStates(BossModule module) : base(module)
+    public D123MotherPorxieStates(BossModule module) : base(module)
     {
         TrivialPhase()
+            .ActivateOnEnter<HuffAndPuff1>()
+            .ActivateOnEnter<HuffAndPuff2>()
             .ActivateOnEnter<TenderLoin>()
             .ActivateOnEnter<MincedMeat>()
             .ActivateOnEnter<OpenFlame>()
@@ -169,17 +199,17 @@ class MotherPorxieStates : StateMachineBuilder
             .ActivateOnEnter<BarbequeCircle>()
             .ActivateOnEnter<BarbequeRect>()
             .ActivateOnEnter<Buffet>()
-            .ActivateOnEnter<HuffAndPuff>()
+            .ActivateOnEnter<MediumRearNeerDoneWell>()
             .ActivateOnEnter<Barbeque>();
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 746, NameID = 9741, Contributors = "Malediktus, xan")]
-public class MotherPorxie(WorldState ws, Actor primary) : BossModule(ws, primary, default, new ArenaBoundsSquare(19.5f))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 746u, NameID = 9741u)]
+public class D123MotherPorxie(WorldState ws, Actor primary) : BossModule(ws, primary, default, new ArenaBoundsSquare(19.5f))
 {
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        base.DrawEnemies(pcSlot, pc);
-        Arena.Actors(Enemies(OID.AeolianCaveSprite), ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.AeolianCaveSprite));
     }
 }

@@ -4,7 +4,7 @@ namespace BossMod.Autorotation.MiscAI;
 
 public sealed class AutoTarget(RotationModuleManager manager, Actor player) : RotationModule(manager, player)
 {
-    public enum Track { General, Retarget, QuestBattle, DeepDungeon, EpicEcho, Hunt, FATE, Everything, CollectFATE, Treasure, MaxTargets }
+    public enum Track { General, Retarget, QuestBattle, DeepDungeon, EpicEcho, Hunt, FATE, TreasureHunt, Everything, CollectFATE, MaxTargets }
     public enum GeneralStrategy { Aggressive, Passive }
     public enum RetargetStrategy { NoTarget, Hostiles, Always, Never }
     public enum Flag { Disabled, Enabled }
@@ -43,43 +43,40 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-        res.Define(Track.Everything).As<Flag>("Everything", "Prioritize EVERYTHING", renderer: typeof(DefaultOffRenderer), uiPriority: -100)
+        res.Define(Track.TreasureHunt).As<Flag>("TreasureHunt", "Prioritize mobs inside treasure hunt dungeons", renderer: typeof(DefaultOffRenderer), uiPriority: -100)
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-        res.Define(Track.CollectFATE).As<Flag>("CollectFATE", "Ignore passive mobs in hand-in FATEs", renderer: typeof(DefaultOffRenderer), uiPriority: -110)
+        res.Define(Track.Everything).As<Flag>("Everything", "Prioritize EVERYTHING", renderer: typeof(DefaultOffRenderer), uiPriority: -110)
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-        res.Define(Track.Treasure).As<Flag>("Treasure", "Open treasure chests", renderer: typeof(DefaultOffRenderer))
+        res.Define(Track.CollectFATE).As<Flag>("CollectFATE", "Ignore passive mobs in hand-in FATEs", renderer: typeof(DefaultOffRenderer), uiPriority: -120)
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-        res.DefineInt(Track.MaxTargets, "Maximum targets to pull (0 = no max)", minValue: 0, maxValue: 30, uiPriority: -120);
+        res.DefineInt(Track.MaxTargets, "Maximum targets to pull (0 = no max)", minValue: 0, maxValue: 30, uiPriority: -130);
 
         return res;
     }
 
-    public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         var generalOpt = strategy.Option(Track.General);
         var generalStrategy = generalOpt.As<GeneralStrategy>();
         if (generalStrategy == GeneralStrategy.Passive)
             return;
 
-        if (strategy.Option(Track.Treasure).As<Flag>() == Flag.Enabled)
-            Hints.InteractWithTarget ??= World.Actors.Where(a => a.Type == ActorType.Treasure && a.IsTargetable && !a.IsOpenTreasure).OrderBy(a => (a.Position - Player.Position).LengthSq()).FirstOrDefault();
-
         var maxTargets = strategy.GetInt(Track.MaxTargets);
         var canPullMore = maxTargets == 0 || World.Actors.Count(a => a.AggroPlayer && !a.IsDead) < maxTargets;
 
         Actor? bestTarget = null; // non-null if we bump any priorities
-        (bool, int, float) bestTargetKey = (false, 0, float.MinValue); // "force target" flag, priority, and negated squared distance
+        (int, float) bestTargetKey = (0, float.MinValue); // priority and negated squared distance
         void prioritize(AIHints.Enemy e, int prio)
         {
             e.Priority = prio;
 
-            var key = (e.ShouldBeTargeted, e.Priority, -(e.Actor.Position - Player.Position).LengthSq());
+            var key = (e.Priority, -(e.Actor.Position - Player.Position).LengthSq());
             if (key.CompareTo(bestTargetKey) > 0)
             {
                 bestTarget = e.Actor;
@@ -92,11 +89,14 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
         if (strategy.Option(Track.QuestBattle).As<Flag>() == Flag.Enabled)
             allowAll |= Bossmods.LoadedModules is [{ Info.Category: BossModuleInfo.Category.Quest }];
 
-        if (strategy.Option(Track.DeepDungeon).As<Flag>() == Flag.Enabled && !World.Party.WithoutSlot(includeDead: true, excludeNPCs: true).Skip(1).Any())
+        if (strategy.Option(Track.TreasureHunt).As<Flag>() == Flag.Enabled)
+            allowAll |= Bossmods.LoadedModules is [{ Info.Category: BossModuleInfo.Category.TreasureHunt }];
+
+        if (strategy.Option(Track.DeepDungeon).As<Flag>() == Flag.Enabled)
             allowAll |= Bossmods.LoadedModules is [{ Info.Category: BossModuleInfo.Category.DeepDungeon }];
 
         if (strategy.Option(Track.EpicEcho).As<Flag>() == Flag.Enabled)
-            allowAll |= Utils.IsPlayerUnsynced(World);
+            allowAll |= Player.Statuses.Any(static s => s.ID == 2734u);
 
         ulong huntTarget = 0;
 
@@ -143,7 +143,7 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
 
             if (targetFates && target.Actor.FateID == World.Client.ActiveFate.ID)
             {
-                if (target.Actor.NameID is 6737 or 6738)
+                if (target.Actor.NameID is 6737u or 6738u)
                 {
                     prioritize(target, 1);
                     continue;
@@ -164,7 +164,7 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
         if (bestTarget == null)
             return;
 
-        Hints.PotentialTargets.SortByReverse(x => x.Priority);
+        Hints.PotentialTargets.Sort(static (b, a) => a.Priority.CompareTo(b.Priority));
         Hints.HighestPotentialTargetPriority = Math.Max(0, Hints.PotentialTargets[0].Priority);
 
         var retargetStrategy = strategy.Option(Track.Retarget).As<RetargetStrategy>();

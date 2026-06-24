@@ -1,11 +1,10 @@
-namespace BossMod.Heavensward.Alliance.A33ProtoUltima;
+﻿namespace BossMod.Heavensward.Alliance.A33ProtoUltima;
 
-sealed class A33ProtoUltimaStates : StateMachineBuilder
+class A33ProtoUltimaStates : StateMachineBuilder
 {
     public A33ProtoUltimaStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<AetherialPool>()
             .ActivateOnEnter<WreckingBall>()
             .ActivateOnEnter<AetherochemicalFlare>()
             .ActivateOnEnter<AetherochemicalLaser1>()

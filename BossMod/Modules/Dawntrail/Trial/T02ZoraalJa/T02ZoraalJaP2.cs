@@ -1,80 +1,27 @@
-namespace BossMod.Dawntrail.Trial.T02ZoraalJaP2;
+﻿namespace BossMod.Dawntrail.Trial.T02ZoraalJaP2;
 
-class SmitingCircuitHalfCircuitDonut(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.SmitingCircuitDonut, (uint)AID.HalfCircuitDonut], new AOEShapeDonut(10, 30));
-class SmitingCircuitHalfCircuitCircle(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.SmitingCircuitCircle, (uint)AID.HalfCircuitCircle], 10);
-class BitterReaping(BossModule module) : Components.SingleTargetCast(module, AID.BitterReaping);
-class FireIII(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.Spreadmarker, AID.FireIII, 6, 5.1f);
+sealed class SmitingCircuitHalfCircuitDonut(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.SmitingCircuitDonut, (uint)AID.HalfCircuitDonut], new AOEShapeDonut(10f, 30f));
+sealed class SmitingCircuitHalfCircuitCircle(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.SmitingCircuitCircle, (uint)AID.HalfCircuitCircle], 10f);
+sealed class DawnOfAnAgeActualize(BossModule module) : Components.RaidwideCasts(module, [(uint)AID.DawnOfAnAge, (uint)AID.Actualize]);
+sealed class BitterReaping(BossModule module) : Components.SingleTargetCast(module, (uint)AID.BitterReaping);
 
-class DawnOfAnAgeActualize(BossModule module) : Components.CastHint(module, null, "Raidwide")
+abstract class HalfRect(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, new AOEShapeRect(60f, 30f));
+sealed class HalfFull(BossModule module) : HalfRect(module, (uint)AID.HalfFull)
 {
-    private readonly List<DateTime> _activations = [];
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    private readonly ChasmOfVollok _aoe = module.FindComponent<ChasmOfVollok>()!;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if ((AID)spell.Action.ID is AID.DawnOfAnAge or AID.Actualize)
-        {
-            _activations.Add(Module.CastFinishAt(spell));
-            _activations.Sort();
-        }
-    }
-
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        if (_activations.Count > 0)
-            hints.Add(Hint);
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if ((AID)spell.Action.ID is AID.DawnOfAnAge or AID.Actualize)
-        {
-            ++NumCasts;
-            if (_activations.Count > 0)
-                _activations.RemoveAt(0);
-        }
+        return Casters.Count != 0 && _aoe.AOEs.Count == 0 ? CollectionsMarshal.AsSpan(Casters)[..1] : [];
     }
 }
 
-abstract class HalfRect(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, new AOEShapeRect(60, 30));
+sealed class HalfCircuitRect(BossModule module) : HalfRect(module, (uint)AID.HalfCircuitRect);
 
-class HalfFull(BossModule module) : Components.GenericAOEs(module)
-{
-    private readonly ChasmOfVollok _chasm = module.FindComponent<ChasmOfVollok>()!;
-    private readonly List<AOEInstance> _aoes = [];
-    private static readonly AOEShapeRect Shape = new(60, 30);
+sealed class FireIII(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.Spreadmarker, (uint)AID.FireIII, 6f, 5.1d);
+sealed class DutysEdge(BossModule module) : Components.LineStack(module, aidMarker: (uint)AID.DutysEdgeMarker, (uint)AID.DutysEdge, 5.4d, 100f, minStackSize: 8, maxStackSize: 8, maxCasts: 4, markerIsFinalTarget: false);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID == AID.HalfFull)
-            _aoes.Add(new(Shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
-    }
-
-    public override void Update()
-    {
-        if (_chasm.AOEs.Count != 0)
-            _aoes.Clear();
-    }
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID == AID.HalfFull)
-            _aoes.Clear();
-    }
-}
-
-class HalfCircuitRect(BossModule module) : HalfRect(module, (uint)AID.HalfCircuitRect);
-
-class DutysEdge(BossModule module) : Components.SimpleLineStack(
-    module,
-    4,
-    100,
-    AID.DutysEdgeMarker,
-    AID.DutysEdge,
-    5.4f);
-
-class T02ZoraalJaP2States : StateMachineBuilder
+// P2 is a checkpoint so we can't make it one module since it would prevent reloading the module incase of wipes
+sealed class T02ZoraalJaP2States : StateMachineBuilder
 {
     public T02ZoraalJaP2States(BossModule module) : base(module)
     {
@@ -93,5 +40,5 @@ class T02ZoraalJaP2States : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.WIP, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 995, NameID = 12882)]
-public class T02ZoraalJaP2(WorldState ws, Actor primary) : T02ZoraalJa.ZoraalJa(ws, primary);
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus, LTS)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 995, NameID = 12882, SortOrder = 2)]
+public sealed class T02ZoraalJaP2(WorldState ws, Actor primary) : T02ZoraalJa.ZoraalJa(ws, primary);

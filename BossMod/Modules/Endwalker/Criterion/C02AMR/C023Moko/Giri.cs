@@ -1,19 +1,26 @@
-﻿namespace BossMod.Endwalker.Criterion.C02AMR.C023Moko;
+﻿namespace BossMod.Endwalker.VariantCriterion.C02AMR.C023Moko;
 
 // the main complexity is that first status and cast-start happen at the same time, so we can receive them in arbitrary order
 // we need cast to know proper rotation (we can't use actor's rotation, since it's interpolated)
-class TripleKasumiGiri(BossModule module) : Components.GenericAOEs(module)
+sealed class TripleKasumiGiri(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<string> _hints = [];
     private readonly List<Angle> _directionOffsets = [];
     private BitMask _ins; // [i] == true if i'th aoe is in
     private readonly List<AOEInstance> _aoes = [];
 
-    private static readonly AOEShapeCone _shapeCone = new(60, 135.Degrees());
-    private static readonly AOEShapeCircle _shapeOut = new(6);
-    private static readonly AOEShapeDonut _shapeIn = new(6, 40);
+    private static readonly AOEShapeCone _shapeCone = new(60f, 135f.Degrees());
+    private static readonly AOEShapeCircle _shapeOut = new(6f);
+    private static readonly AOEShapeDonut _shapeIn = new(6f, 40f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Take(2);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var count = _aoes.Count;
+        if (count == 0)
+            return [];
+        var max = count > 2 ? 2 : count;
+        return CollectionsMarshal.AsSpan(_aoes)[..max];
+    }
 
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -21,21 +28,21 @@ class TripleKasumiGiri(BossModule module) : Components.GenericAOEs(module)
             hints.Add($"Safespots: {string.Join(" > ", _hints)}");
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Giri)
+        if (status.ID == (uint)SID.Giri)
         {
             var (dir, donut, hint) = status.Extra switch
             {
-                0x24C => (0.Degrees(), false, "out/back"),
-                0x24D => (-90.Degrees(), false, "out/left"),
-                0x24E => (180.Degrees(), false, "out/front"),
-                0x24F => (90.Degrees(), false, "out/right"),
-                0x250 => (0.Degrees(), true, "in/back"),
-                0x251 => (-90.Degrees(), true, "in/left"),
-                0x252 => (180.Degrees(), true, "in/front"),
-                0x253 => (90.Degrees(), true, "in/right"),
-                _ => (0.Degrees(), false, "")
+                0x24C => (default, false, "out/back"),
+                0x24D => (-90f.Degrees(), false, "out/left"),
+                0x24E => (180f.Degrees(), false, "out/front"),
+                0x24F => (90f.Degrees(), false, "out/right"),
+                0x250 => (default, true, "in/back"),
+                0x251 => (-90f.Degrees(), true, "in/left"),
+                0x252 => (180f.Degrees(), true, "in/front"),
+                0x253 => (90f.Degrees(), true, "in/right"),
+                _ => (default, false, "")
             };
             if (hint.Length == 0)
             {
@@ -46,12 +53,6 @@ class TripleKasumiGiri(BossModule module) : Components.GenericAOEs(module)
             _ins[_directionOffsets.Count] = donut;
             _directionOffsets.Add(dir);
             _hints.Add(hint);
-
-            //var activation = _aoes.Count > 0 ? _aoes[^1].Activation.AddSeconds(3.1f) : Module.CastFinishAt(actor.CastInfo?) ?? WorldState.FutureTime(12);
-            //var rotation = (_aoes.Count > 0 ? _aoes[^1].Rotation : actor.Rotation) + dir;
-            //_aoes.Add(new(donut ? _shapeIn : _shapeOut, actor.Position, rotation, activation));
-            //_aoes.Add(new(_shapeCone, actor.Position, rotation, activation));
-            //_hints.Add(hint);
         }
     }
 
@@ -87,7 +88,7 @@ class TripleKasumiGiri(BossModule module) : Components.GenericAOEs(module)
         if (order < 0)
             return; // irrelevant spell
 
-        if ((order == 0) != (NumCasts == 0))
+        if (order == 0 != (NumCasts == 0))
             ReportError($"Unexpected cast order: spell {order} at num-casts {NumCasts}");
         if (_aoes.Count != 2)
             ReportError("No predicted casts");
@@ -105,47 +106,48 @@ class TripleKasumiGiri(BossModule module) : Components.GenericAOEs(module)
         // predict next set of aoes
         if (NumCasts < _directionOffsets.Count)
         {
-            var activation = WorldState.FutureTime(3.1f);
+            var activation = WorldState.FutureTime(3.1d);
             var rotation = spell.Rotation + _directionOffsets[NumCasts];
-            _aoes.Add(new(_ins[NumCasts] ? _shapeIn : _shapeOut, caster.Position, rotation, activation));
-            _aoes.Add(new(_shapeCone, caster.Position, rotation, activation));
+            var pos = caster.Position.Quantized();
+            _aoes.Add(new(_ins[NumCasts] ? _shapeIn : _shapeOut, pos, rotation, activation));
+            _aoes.Add(new(_shapeCone, pos, rotation, activation));
         }
     }
 
-    private (Angle, bool, int) ClassifyAction(ActionID action) => (AID)action.ID switch
+    private static (Angle, bool, int) ClassifyAction(ActionID action) => action.ID switch
     {
-        AID.NTripleKasumiGiriOutFrontFirst or AID.STripleKasumiGiriOutFrontFirst => (0.Degrees(), false, 0),
-        AID.NTripleKasumiGiriOutRightFirst or AID.STripleKasumiGiriOutRightFirst => (-90.Degrees(), false, 0),
-        AID.NTripleKasumiGiriOutBackFirst or AID.STripleKasumiGiriOutBackFirst => (180.Degrees(), false, 0),
-        AID.NTripleKasumiGiriOutLeftFirst or AID.STripleKasumiGiriOutLeftFirst => (90.Degrees(), false, 0),
-        AID.NTripleKasumiGiriInFrontFirst or AID.STripleKasumiGiriInFrontFirst => (0.Degrees(), true, 0),
-        AID.NTripleKasumiGiriInRightFirst or AID.STripleKasumiGiriInRightFirst => (-90.Degrees(), true, 0),
-        AID.NTripleKasumiGiriInBackFirst or AID.STripleKasumiGiriInBackFirst => (180.Degrees(), true, 0),
-        AID.NTripleKasumiGiriInLeftFirst or AID.STripleKasumiGiriInLeftFirst => (90.Degrees(), true, 0),
-        AID.NTripleKasumiGiriOutFrontRest or AID.STripleKasumiGiriOutFrontRest => (0.Degrees(), false, 1),
-        AID.NTripleKasumiGiriOutRightRest or AID.STripleKasumiGiriOutRightRest => (-90.Degrees(), false, 1),
-        AID.NTripleKasumiGiriOutBackRest or AID.STripleKasumiGiriOutBackRest => (180.Degrees(), false, 1),
-        AID.NTripleKasumiGiriOutLeftRest or AID.STripleKasumiGiriOutLeftRest => (90.Degrees(), false, 1),
-        AID.NTripleKasumiGiriInFrontRest or AID.STripleKasumiGiriInFrontRest => (0.Degrees(), true, 1),
-        AID.NTripleKasumiGiriInRightRest or AID.STripleKasumiGiriInRightRest => (-90.Degrees(), true, 1),
-        AID.NTripleKasumiGiriInBackRest or AID.STripleKasumiGiriInBackRest => (180.Degrees(), true, 1),
-        AID.NTripleKasumiGiriInLeftRest or AID.STripleKasumiGiriInLeftRest => (90.Degrees(), true, 1),
-        _ => (0.Degrees(), false, -1)
+        (uint)AID.NTripleKasumiGiriOutFrontFirst or (uint)AID.STripleKasumiGiriOutFrontFirst => (default, false, 0),
+        (uint)AID.NTripleKasumiGiriOutRightFirst or (uint)AID.STripleKasumiGiriOutRightFirst => (-90f.Degrees(), false, 0),
+        (uint)AID.NTripleKasumiGiriOutBackFirst or (uint)AID.STripleKasumiGiriOutBackFirst => (180f.Degrees(), false, 0),
+        (uint)AID.NTripleKasumiGiriOutLeftFirst or (uint)AID.STripleKasumiGiriOutLeftFirst => (90f.Degrees(), false, 0),
+        (uint)AID.NTripleKasumiGiriInFrontFirst or (uint)AID.STripleKasumiGiriInFrontFirst => (default, true, 0),
+        (uint)AID.NTripleKasumiGiriInRightFirst or (uint)AID.STripleKasumiGiriInRightFirst => (-90f.Degrees(), true, 0),
+        (uint)AID.NTripleKasumiGiriInBackFirst or (uint)AID.STripleKasumiGiriInBackFirst => (180f.Degrees(), true, 0),
+        (uint)AID.NTripleKasumiGiriInLeftFirst or (uint)AID.STripleKasumiGiriInLeftFirst => (90f.Degrees(), true, 0),
+        (uint)AID.NTripleKasumiGiriOutFrontRest or (uint)AID.STripleKasumiGiriOutFrontRest => (default, false, 1),
+        (uint)AID.NTripleKasumiGiriOutRightRest or (uint)AID.STripleKasumiGiriOutRightRest => (-90f.Degrees(), false, 1),
+        (uint)AID.NTripleKasumiGiriOutBackRest or (uint)AID.STripleKasumiGiriOutBackRest => (180f.Degrees(), false, 1),
+        (uint)AID.NTripleKasumiGiriOutLeftRest or (uint)AID.STripleKasumiGiriOutLeftRest => (90f.Degrees(), false, 1),
+        (uint)AID.NTripleKasumiGiriInFrontRest or (uint)AID.STripleKasumiGiriInFrontRest => (default, true, 1),
+        (uint)AID.NTripleKasumiGiriInRightRest or (uint)AID.STripleKasumiGiriInRightRest => (-90f.Degrees(), true, 1),
+        (uint)AID.NTripleKasumiGiriInBackRest or (uint)AID.STripleKasumiGiriInBackRest => (180f.Degrees(), true, 1),
+        (uint)AID.NTripleKasumiGiriInLeftRest or (uint)AID.STripleKasumiGiriInLeftRest => (90f.Degrees(), true, 1),
+        _ => (default, false, -1)
     };
 }
 
 class IaiGiriBait : Components.GenericBaitAway
 {
-    public class Instance(Actor source)
+    public sealed class Instance(Actor source)
     {
         public Actor Source = source;
-        public Actor FakeSource = new(0, 0, -1, 0, "", 0, ActorType.None, Class.None, 0, new());
+        public Actor FakeSource = new(default, default, default, default, default!, default, default, default, default, default);
         public Actor? Target;
         public List<Angle> DirOffsets = [];
         public List<string> Hints = [];
     }
 
-    public float Distance;
+    public readonly float Distance;
     public List<Instance> Instances = [];
     private readonly float _jumpOffset;
     private bool _baitsDirty;
@@ -159,32 +161,43 @@ class IaiGiriBait : Components.GenericBaitAway
 
     public override void Update()
     {
-        foreach (var inst in Instances)
+        var count = Instances.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            var inst = Instances[i];
             if (inst.Target != null)
+            {
                 inst.FakeSource.PosRot = inst.Target.PosRot - _jumpOffset * inst.Target.Rotation.ToDirection().ToVec4();
+            }
+        }
 
         // these typically are assigned over a single frame
         if (_baitsDirty)
         {
             _baitsDirty = false;
             CurrentBaits.Clear();
-            foreach (var i in Instances)
-                if (i.Target != null && i.DirOffsets.Count > 0)
-                    CurrentBaits.Add(new(i.FakeSource, i.Target, new AOEShapeCone(Distance - 3, 135.Degrees(), i.DirOffsets[0]))); // distance-3 is a hack for better double kasumi-giri bait indicator
+            for (var i = 0; i < count; ++i)
+            {
+                var inst = Instances[i];
+                if (inst.Target != null && inst.DirOffsets.Count > 0)
+                {
+                    CurrentBaits.Add(new(inst.FakeSource, inst.Target, new AOEShapeCone(Distance - 3f, 135f.Degrees(), inst.DirOffsets[0]))); // distance-3 is a hack for better double kasumi-giri bait indicator
+                }
+            }
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Giri)
+        if (status.ID == (uint)SID.Giri)
         {
             var (dir, hint) = status.Extra switch
             {
-                0x248 => (0.Degrees(), "back"),
-                0x249 => (-90.Degrees(), "left"),
-                0x24A => (180.Degrees(), "front"),
-                0x24B => (90.Degrees(), "right"),
-                _ => (0.Degrees(), "")
+                0x248 => (default, "back"),
+                0x249 => (-90f.Degrees(), "left"),
+                0x24A => (180f.Degrees(), "front"),
+                0x24B => (90f.Degrees(), "right"),
+                _ => (default, "")
             };
             if (hint.Length == 0)
             {
@@ -199,7 +212,7 @@ class IaiGiriBait : Components.GenericBaitAway
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID is (uint)TetherID.RatAndMouse)
         {
@@ -208,9 +221,9 @@ class IaiGiriBait : Components.GenericBaitAway
         }
     }
 
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.FleetingIaiGiri or AID.DoubleIaiGiri)
+        if (spell.Action.ID is (uint)AID.FleetingIaiGiriJump or (uint)AID.ShadowKasumiGiriJump)
             CurrentBaits.Clear(); // TODO: this is a hack, if we ever mark baits as dirty again, they will be recreated - but we need instances for resolve
     }
 
@@ -226,9 +239,9 @@ class IaiGiriBait : Components.GenericBaitAway
     }
 }
 
-class IaiGiriResolve(BossModule module) : Components.GenericAOEs(module)
+sealed class IaiGiriResolve(BossModule module) : Components.GenericAOEs(module)
 {
-    public class Instance(Actor source)
+    public sealed class Instance(Actor source)
     {
         public Actor Source = source;
         public List<AOEInstance> AOEs = [];
@@ -236,50 +249,80 @@ class IaiGiriResolve(BossModule module) : Components.GenericAOEs(module)
 
     private readonly List<Instance> _instances = [];
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        foreach (var i in _instances)
-            if (i.AOEs.Count > 0)
-                yield return i.AOEs[0];
+        var count = _instances.Count;
+        if (count == 0)
+        {
+            return [];
+        }
+        var aoes = new List<AOEInstance>();
+        for (var i = 0; i < count; ++i)
+        {
+            var ins = _instances[i];
+            if (ins.AOEs.Count != 0)
+            {
+                aoes.Add(ins.AOEs.Ref(0));
+            }
+        }
+        return CollectionsMarshal.AsSpan(aoes);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID
-            is AID.NFleetingIaiGiriFront or AID.NFleetingIaiGiriRight or AID.NFleetingIaiGiriLeft or AID.SFleetingIaiGiriFront or AID.SFleetingIaiGiriRight or AID.SFleetingIaiGiriLeft
-            or AID.NShadowKasumiGiriFrontFirst or AID.NShadowKasumiGiriRightFirst or AID.NShadowKasumiGiriBackFirst or AID.NShadowKasumiGiriLeftFirst
-            or AID.SShadowKasumiGiriFrontFirst or AID.SShadowKasumiGiriRightFirst or AID.SShadowKasumiGiriBackFirst or AID.SShadowKasumiGiriLeftFirst
-            or AID.NShadowKasumiGiriFrontSecond or AID.NShadowKasumiGiriRightSecond or AID.NShadowKasumiGiriBackSecond or AID.NShadowKasumiGiriLeftSecond
-            or AID.SShadowKasumiGiriFrontSecond or AID.SShadowKasumiGiriRightSecond or AID.SShadowKasumiGiriBackSecond or AID.SShadowKasumiGiriLeftSecond)
+        switch (spell.Action.ID)
         {
-            var inst = _instances.Find(i => i.Source == caster);
-            if (inst == null)
-            {
-                ReportError($"Did not predict cast for {caster.InstanceID:X}");
-                return;
-            }
-
-            // update all aoe positions, first rotation/activation
-            bool first = true;
-            foreach (ref var aoe in inst.AOEs.AsSpan())
-            {
-                aoe.Origin = caster.Position;
-                if (first)
+            case (uint)AID.NFleetingIaiGiriFront:
+            case (uint)AID.NFleetingIaiGiriRight:
+            case (uint)AID.NFleetingIaiGiriLeft:
+            case (uint)AID.SFleetingIaiGiriFront:
+            case (uint)AID.SFleetingIaiGiriRight:
+            case (uint)AID.SFleetingIaiGiriLeft:
+            case (uint)AID.NShadowKasumiGiriFrontFirst:
+            case (uint)AID.NShadowKasumiGiriRightFirst:
+            case (uint)AID.NShadowKasumiGiriBackFirst:
+            case (uint)AID.NShadowKasumiGiriLeftFirst:
+            case (uint)AID.SShadowKasumiGiriFrontFirst:
+            case (uint)AID.SShadowKasumiGiriRightFirst:
+            case (uint)AID.SShadowKasumiGiriBackFirst:
+            case (uint)AID.SShadowKasumiGiriLeftFirst:
+            case (uint)AID.NShadowKasumiGiriFrontSecond:
+            case (uint)AID.NShadowKasumiGiriRightSecond:
+            case (uint)AID.NShadowKasumiGiriBackSecond:
+            case (uint)AID.NShadowKasumiGiriLeftSecond:
+            case (uint)AID.SShadowKasumiGiriFrontSecond:
+            case (uint)AID.SShadowKasumiGiriRightSecond:
+            case (uint)AID.SShadowKasumiGiriBackSecond:
+            case (uint)AID.SShadowKasumiGiriLeftSecond:
+                var inst = _instances.Find(i => i.Source == caster);
+                if (inst == null)
                 {
-                    first = false;
-                    aoe.Rotation = spell.Rotation;
-                    aoe.Activation = Module.CastFinishAt(spell);
+                    ReportError($"Did not predict cast for {caster.InstanceID:X}");
+                    return;
                 }
-            }
+
+                // update all aoe positions, first rotation/activation
+                var first = true;
+                foreach (ref var aoe in inst.AOEs.AsSpan())
+                {
+                    aoe.Origin = spell.LocXZ;
+                    if (first)
+                    {
+                        first = false;
+                        aoe.Rotation = spell.Rotation;
+                        aoe.Activation = Module.CastFinishAt(spell);
+                    }
+                }
+                break;
         }
     }
 
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.FleetingIaiGiri:
-            case AID.DoubleIaiGiri:
+            case (uint)AID.FleetingIaiGiriJump:
+            case (uint)AID.DoubleIaiGiri:
                 var comp = Module.FindComponent<IaiGiriBait>();
                 var bait = comp?.Instances.Find(i => i.Source == caster);
                 if (bait?.Target == null)
@@ -290,37 +333,44 @@ class IaiGiriResolve(BossModule module) : Components.GenericAOEs(module)
 
                 var inst = new Instance(caster);
                 var curRot = bait.Target.Rotation;
-                var nextActivation = WorldState.FutureTime(2.7f);
+                var nextActivation = WorldState.FutureTime(2.7d);
                 foreach (var off in bait.DirOffsets)
                 {
                     curRot += off;
-                    inst.AOEs.Add(new(new AOEShapeCone(comp!.Distance, 135.Degrees()), bait.FakeSource.Position, curRot, nextActivation));
-                    nextActivation = nextActivation.AddSeconds(3.1f);
+                    inst.AOEs.Add(new(new AOEShapeCone(comp!.Distance, 135f.Degrees()), bait.FakeSource.Position, curRot, nextActivation));
+                    nextActivation = nextActivation.AddSeconds(3.1d);
                 }
                 _instances.Add(inst);
                 break;
-            case AID.NFleetingIaiGiriFront:
-            case AID.NFleetingIaiGiriRight:
-            case AID.NFleetingIaiGiriLeft:
-            case AID.SFleetingIaiGiriFront:
-            case AID.SFleetingIaiGiriRight:
-            case AID.SFleetingIaiGiriLeft:
-            case AID.NShadowKasumiGiriFrontFirst:
-            case AID.NShadowKasumiGiriRightFirst:
-            case AID.NShadowKasumiGiriBackFirst:
-            case AID.NShadowKasumiGiriLeftFirst:
-            case AID.SShadowKasumiGiriFrontFirst:
-            case AID.SShadowKasumiGiriRightFirst:
-            case AID.SShadowKasumiGiriBackFirst:
-            case AID.SShadowKasumiGiriLeftFirst:
-            case AID.NShadowKasumiGiriFrontSecond:
-            case AID.NShadowKasumiGiriRightSecond:
-            case AID.NShadowKasumiGiriBackSecond:
-            case AID.NShadowKasumiGiriLeftSecond:
-            case AID.SShadowKasumiGiriFrontSecond:
-            case AID.SShadowKasumiGiriRightSecond:
-            case AID.SShadowKasumiGiriBackSecond:
-            case AID.SShadowKasumiGiriLeftSecond:
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        switch (spell.Action.ID)
+        {
+            case (uint)AID.NFleetingIaiGiriFront:
+            case (uint)AID.NFleetingIaiGiriRight:
+            case (uint)AID.NFleetingIaiGiriLeft:
+            case (uint)AID.SFleetingIaiGiriFront:
+            case (uint)AID.SFleetingIaiGiriRight:
+            case (uint)AID.SFleetingIaiGiriLeft:
+            case (uint)AID.NShadowKasumiGiriFrontFirst:
+            case (uint)AID.NShadowKasumiGiriRightFirst:
+            case (uint)AID.NShadowKasumiGiriBackFirst:
+            case (uint)AID.NShadowKasumiGiriLeftFirst:
+            case (uint)AID.SShadowKasumiGiriFrontFirst:
+            case (uint)AID.SShadowKasumiGiriRightFirst:
+            case (uint)AID.SShadowKasumiGiriBackFirst:
+            case (uint)AID.SShadowKasumiGiriLeftFirst:
+            case (uint)AID.NShadowKasumiGiriFrontSecond:
+            case (uint)AID.NShadowKasumiGiriRightSecond:
+            case (uint)AID.NShadowKasumiGiriBackSecond:
+            case (uint)AID.NShadowKasumiGiriLeftSecond:
+            case (uint)AID.SShadowKasumiGiriFrontSecond:
+            case (uint)AID.SShadowKasumiGiriRightSecond:
+            case (uint)AID.SShadowKasumiGiriBackSecond:
+            case (uint)AID.SShadowKasumiGiriLeftSecond:
                 ++NumCasts;
                 var instance = _instances.Find(i => i.Source == caster);
                 if (instance?.AOEs.Count > 0)
@@ -330,7 +380,7 @@ class IaiGiriResolve(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class FleetingIaiGiriBait(BossModule module) : IaiGiriBait(module, 3, 60)
+sealed class FleetingIaiGiriBait(BossModule module) : IaiGiriBait(module, 3f, 60f)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -339,11 +389,23 @@ class FleetingIaiGiriBait(BossModule module) : IaiGiriBait(module, 3, 60)
     }
 }
 
-class DoubleIaiGiriBait(BossModule module) : IaiGiriBait(module, 1, 23)
+sealed class DoubleIaiGiriBait(BossModule module) : IaiGiriBait(module, 1f, 23f)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
-        var safespots = string.Join(", ", Instances.Where(i => i.Hints.Count == 2).Select(i => i.Hints[1]));
+        var count = Instances.Count;
+        if (count == 0)
+            return;
+        List<string> safespotsList = new(count);
+
+        for (var i = 0; i < count; ++i)
+        {
+            var instance = Instances[i];
+            if (instance.Hints.Count == 2)
+                safespotsList.Add(instance.Hints[1]);
+        }
+
+        var safespots = string.Join(", ", safespotsList);
         if (safespots.Length > 0)
             hints.Add($"Second safespots: {safespots}");
     }

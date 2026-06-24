@@ -1,83 +1,42 @@
 ﻿namespace BossMod.Endwalker.Savage.P3SPhoinix;
 
 // state related to flames of asphodelos mechanic
-class FlamesOfAsphodelos(BossModule module) : BossComponent(module)
+class FlamesOfAsphodelos(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly Angle?[] _directions = new Angle?[3];
+    private static readonly AOEShapeCone cone = new(60f, 30f.Degrees());
+    private readonly List<AOEInstance> _aoes = [];
 
-    public override void AddHints(int slot, Actor actor, TextHints hints)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if (InAOE(_directions[1], actor.Position) || InAOE(_directions[0] != null ? _directions[0] : _directions[2], actor.Position))
+        var count = _aoes.Count;
+        if (count == 0)
+            return [];
+        var max = count > 4 ? 4 : count;
+        var aoes = CollectionsMarshal.AsSpan(_aoes)[..max];
+        var min = count > 2 ? 2 : count;
+        for (var i = 0; i < min; ++i)
         {
-            hints.Add("GTFO from cone!");
+            ref var aoe = ref aoes[i];
+            if (max > 2)
+                aoe.Color = Colors.Danger;
+            aoe.Risky = true;
         }
-    }
-
-    public override void DrawArenaBackground(int pcSlot, Actor pc)
-    {
-        if (_directions[0] != null)
-        {
-            DrawZone(_directions[0], ArenaColor.Danger);
-            DrawZone(_directions[1], ArenaColor.AOE);
-        }
-        else if (_directions[1] != null)
-        {
-            DrawZone(_directions[1], ArenaColor.Danger);
-            DrawZone(_directions[2], ArenaColor.AOE);
-        }
-        else
-        {
-            DrawZone(_directions[2], ArenaColor.Danger);
-        }
+        return aoes;
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        if (spell.Action.ID is (uint)AID.FlamesOfAsphodelosAOE1 or (uint)AID.FlamesOfAsphodelosAOE2 or (uint)AID.FlamesOfAsphodelosAOE3)
         {
-            case AID.FlamesOfAsphodelosAOE1:
-                _directions[0] = caster.Rotation;
-                break;
-            case AID.FlamesOfAsphodelosAOE2:
-                _directions[1] = caster.Rotation;
-                break;
-            case AID.FlamesOfAsphodelosAOE3:
-                _directions[2] = caster.Rotation;
-                break;
+            _aoes.Add(new(cone, caster.Position, spell.Rotation, Module.CastFinishAt(spell), risky: false));
+            if (_aoes.Count == 6)
+                SortHelpers.SortAOEByActivation(_aoes);
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
-        {
-            case AID.FlamesOfAsphodelosAOE1:
-                _directions[0] = null;
-                break;
-            case AID.FlamesOfAsphodelosAOE2:
-                _directions[1] = null;
-                break;
-            case AID.FlamesOfAsphodelosAOE3:
-                _directions[2] = null;
-                break;
-        }
-    }
-
-    private void DrawZone(Angle? dir, uint color)
-    {
-        if (dir != null)
-        {
-            Arena.ZoneIsoscelesTri(Module.Center, dir.Value, 30.Degrees(), 50, color);
-            Arena.ZoneIsoscelesTri(Module.Center, dir.Value + 180.Degrees(), 30.Degrees(), 50, color);
-        }
-    }
-
-    private bool InAOE(Angle? dir, WPos pos)
-    {
-        if (dir == null)
-            return false;
-
-        var toPos = (pos - Module.Center).Normalized();
-        return MathF.Abs(dir.Value.ToDirection().Dot(toPos)) >= MathF.Cos(MathF.PI / 6);
+        if (_aoes.Count != 0 && spell.Action.ID is (uint)AID.FlamesOfAsphodelosAOE1 or (uint)AID.FlamesOfAsphodelosAOE2 or (uint)AID.FlamesOfAsphodelosAOE3)
+            _aoes.RemoveAt(0);
     }
 }

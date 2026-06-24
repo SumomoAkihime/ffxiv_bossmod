@@ -3,7 +3,6 @@
 public enum OID : uint
 {
     BossP1 = 0x459B, // R5.004, x1
-    Helper = 0x233C, // R0.500, x24, Helper type
     FatebreakersImage = 0x459C, // R5.004, x15
     FatebreakersImageHelper = 0x45B0, // R1.800, x8
     HaloOfFlame = 0x459D, // R1.000, x0 (spawn during fight)
@@ -40,6 +39,8 @@ public enum OID : uint
 
     BossP5 = 0x45AF, // R7.000, x0 (spawn during fight)
     FulgentBladeLine = 0x1EBBF7, // R0.500, x0 (spawn during fight), EventObj type
+
+    Helper = 0x233C
 }
 
 public enum AID : uint

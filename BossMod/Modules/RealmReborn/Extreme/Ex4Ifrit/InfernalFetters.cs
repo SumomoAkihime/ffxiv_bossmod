@@ -9,9 +9,9 @@ class InfernalFetters(BossModule module) : BossComponent(module)
     {
         if (Fetters[slot] && actor.Role != Role.Tank)
         {
-            var partner = Raid.WithSlot().Exclude(slot).IncludedInMask(Fetters).FirstOrDefault().Item2;
+            var partner = Raid.WithSlot(false, true, true).Exclude(slot).IncludedInMask(Fetters).FirstOrDefault().Item2;
             if (partner != null)
-                hints.AddForbiddenZone(ShapeContains.InvertedCircle(partner.Position, 10)); // TODO: tweak range...
+                hints.AddForbiddenZone(new SDInvertedCircle(partner.Position, 10)); // TODO: tweak range...
         }
     }
 
@@ -24,11 +24,11 @@ class InfernalFetters(BossModule module) : BossComponent(module)
             var from = Raid[Fetters.LowestSetBit()];
             var to = Raid[Fetters.HighestSetBit()];
             if (from != null && to != null)
-                Arena.AddLine(from.Position, to.Position, _fettersStrength > 1 ? ArenaColor.Danger : ArenaColor.Safe);
+                Arena.AddLine(from.Position, to.Position, _fettersStrength > 1 ? Colors.Danger : Colors.Safe);
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         if ((SID)status.ID == SID.InfernalFetters)
         {
@@ -37,7 +37,7 @@ class InfernalFetters(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
         if ((SID)status.ID == SID.InfernalFetters)
         {

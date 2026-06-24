@@ -1,29 +1,23 @@
 ﻿namespace BossMod.Dawntrail.Extreme.Ex2ZoraalJa;
 
-class MultidirectionalDivide(BossModule module) : Components.StandardAOEs(module, AID.MultidirectionalDivide, new AOEShapeCross(30, 2));
-class MultidirectionalDivideMain(BossModule module) : Components.StandardAOEs(module, AID.MultidirectionalDivideMain, new AOEShapeCross(30, 4));
-class MultidirectionalDivideExtra(BossModule module) : Components.StandardAOEs(module, AID.MultidirectionalDivideExtra, new AOEShapeCross(40, 2));
-class RegicidalRage(BossModule module) : Components.TankbusterTether(module, AID.RegicidalRageAOE, (uint)TetherID.RegicidalRage, 8);
-class BitterWhirlwind(BossModule module) : Components.TankSwap(module, AID.BitterWhirlwind, AID.BitterWhirlwindAOEFirst, AID.BitterWhirlwindAOERest, 3.1f, new AOEShapeCircle(5), true);
-class BurningChains(BossModule module) : Components.Chains(module, (uint)TetherID.BurningChains, AID.BurningChainsAOE);
-class HalfCircuitRect(BossModule module) : Components.StandardAOEs(module, AID.HalfCircuitAOERect, new AOEShapeRect(60, 60));
-class HalfCircuitDonut(BossModule module) : Components.StandardAOEs(module, AID.HalfCircuitAOEDonut, new AOEShapeDonut(10, 30));
-class HalfCircuitCircle(BossModule module) : Components.StandardAOEs(module, AID.HalfCircuitAOECircle, new AOEShapeCircle(10));
+sealed class MultidirectionalDivide(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MultidirectionalDivide, new AOEShapeCross(30f, 2f));
+sealed class MultidirectionalDivideMain(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MultidirectionalDivideMain, new AOEShapeCross(30f, 4f));
+sealed class MultidirectionalDivideExtra(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MultidirectionalDivideExtra, new AOEShapeCross(40f, 2f));
+sealed class RegicidalRage(BossModule module) : Components.TankbusterTether(module, (uint)AID.RegicidalRageAOE, (uint)TetherID.RegicidalRage, 8f);
+sealed class BitterWhirlwind(BossModule module) : Components.TankSwap(module, (uint)AID.BitterWhirlwind, (uint)AID.BitterWhirlwindAOEFirst, (uint)AID.BitterWhirlwindAOERest, default, 3.1d, 5f, true);
+sealed class BurningChains(BossModule module) : Components.Chains(module, (uint)TetherID.BurningChains, (uint)AID.BurningChainsAOE);
+sealed class HalfCircuitRect(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HalfCircuitAOERect, new AOEShapeRect(60f, 60f));
+sealed class HalfCircuitDonut(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HalfCircuitAOEDonut, new AOEShapeDonut(10f, 30f));
+sealed class HalfCircuitCircle(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HalfCircuitAOECircle, 10f);
+sealed class DutysEdge(BossModule module) : Components.LineStack(module, aidMarker: (uint)AID.DutysEdgeTarget, (uint)AID.DutysEdgeAOE, 5.3d, 100f, 4f, 8, 8, 4, false);
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 996, NameID = 12882, PlanLevel = 100)]
-public class Ex2ZoraalJa(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), NormalBounds)
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 996, NameID = 12882, PlanLevel = 100)]
+public sealed class Ex2ZoraalJa(WorldState ws, Actor primary) : Trial.T02ZoraalJa.ZoraalJa(ws, primary)
 {
-    public static readonly WPos NormalCenter = new(100, 100);
-    public static readonly ArenaBoundsRect NormalBounds = new(20, 20, 45.Degrees());
-    public static readonly ArenaBoundsRect SmallBounds = new(10, 10, 45.Degrees(), 20);
-    public static readonly ArenaBoundsCustom NWPlatformBounds = BuildTwoPlatformsBounds(135.Degrees());
-    public static readonly ArenaBoundsCustom NEPlatformBounds = BuildTwoPlatformsBounds(-135.Degrees());
+    private static readonly Angle a135 = 135f.Degrees();
+    private static readonly WDir dir135 = 15f * a135.ToDirection();
+    private static readonly WDir dirM135 = 15f * (-a135).ToDirection();
 
-    private static ArenaBoundsCustom BuildTwoPlatformsBounds(Angle orientation)
-    {
-        var dir = orientation.ToDirection();
-        var main = new PolygonClipper.Operand(CurveApprox.Rect(-15 * dir, dir, 10, 10));
-        var side = new PolygonClipper.Operand(CurveApprox.Rect(+15 * dir, dir, 10, 10));
-        return new(20, NormalBounds.Clipper.Union(main, side));
-    }
+    public static readonly ArenaBoundsCustom NWPlatformBounds = new([new Square(ArenaCenter - dir135, 10f, a135), new Square(ArenaCenter + dir135, 10f, a135)], ScaleFactor: 1.24f);
+    public static readonly ArenaBoundsCustom NEPlatformBounds = new([new Square(ArenaCenter - dirM135, 10f, -a135), new Square(ArenaCenter + dirM135, 10f, -a135)], ScaleFactor: 1.24f);
 }

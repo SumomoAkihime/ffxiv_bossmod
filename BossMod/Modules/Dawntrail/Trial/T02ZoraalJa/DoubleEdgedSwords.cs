@@ -1,32 +1,29 @@
 namespace BossMod.Dawntrail.Trial.T02ZoraalJa;
 
-class DoubleEdgedSwords(BossModule module) : Components.GenericAOEs(module)
+sealed class DoubleEdgedSwords(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = [];
-    private static readonly AOEShapeCone Cone = new(30, 90.Degrees());
+    private readonly List<AOEInstance> _aoes = new(2);
+    private static readonly AOEShapeCone cone = new(30f, 90f.Degrees());
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if (_aoes.Count == 0)
-            yield break;
-
-        // first cleave is the immediate danger; keep second visible but non-risky
-        var first = _aoes[0];
-        first.Risky = true;
-        yield return first;
-        for (var i = 1; i < _aoes.Count; ++i)
-            yield return _aoes[i];
+        var count = _aoes.Count;
+        if (count == 0)
+            return [];
+        var aoes = CollectionsMarshal.AsSpan(_aoes);
+        aoes[0].Risky = true;
+        return aoes;
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.DoubleEdgedSwords)
-            _aoes.Add(new(Cone, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell), _aoes.Count == 0 ? ArenaColor.Danger : default, false));
+        if (spell.Action.ID == (uint)AID.DoubleEdgedSwords)
+            _aoes.Add(new(cone, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell), _aoes.Count == 0 ? Colors.Danger : default, false));
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (_aoes.Count > 0 && (AID)spell.Action.ID == AID.DoubleEdgedSwords)
+        if (_aoes.Count != 0 && spell.Action.ID == (uint)AID.DoubleEdgedSwords)
             _aoes.RemoveAt(0);
     }
 }

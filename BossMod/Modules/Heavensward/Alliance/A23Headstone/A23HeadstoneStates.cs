@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Alliance.A23Headstone;
+﻿namespace BossMod.Heavensward.Alliance.A23Headstone;
 
 class A23HeadstoneStates : StateMachineBuilder
 {

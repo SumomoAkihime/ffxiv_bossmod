@@ -2,40 +2,45 @@ namespace BossMod.Global.MaskedCarnivale.Stage14.Act2;
 
 public enum OID : uint
 {
-    Boss = 0x271E, //R=2.0
+    Boss = 0x271E //R=2.0
 }
 
 public enum AID : uint
 {
-    Syrup = 14757, // 271E->player, no cast, range 4 circle, applies heavy to player
-    TheLastSong = 14756, // 271E->self, 6.0s cast, range 60 circle, heavy dmg, applies silence to player
+    Syrup = 14757, // Boss->player, no cast, range 4 circle, applies heavy to player
+    TheLastSong = 14756 // Boss->self, 6.0s cast, range 60 circle, heavy dmg, applies silence to player
 }
 
-class LastSong(BossModule module) : Components.GenericLineOfSightAOE(module, AID.TheLastSong, 60, true); //TODO: find a way to use the obstacles on the map and draw proper AOEs, this does nothing right now
-
-class LastSongHint(BossModule module) : BossComponent(module)
+sealed class LastSong(BossModule module) : Components.CastLineOfSightAOEComplex(module, (uint)AID.TheLastSong, Layouts.LayoutBigQuadBlockers);
+sealed class LastSongHint(BossModule module) : BossComponent(module)
 {
-    public bool casting;
+    public bool Casting;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.TheLastSong)
-            casting = true;
+        if (spell.Action.ID == (uint)AID.TheLastSong)
+        {
+            Casting = true;
+        }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.TheLastSong)
-            casting = false;
+        if (spell.Action.ID == (uint)AID.TheLastSong)
+        {
+            Casting = false;
+        }
     }
     public override void AddGlobalHints(GlobalHints hints)
     {
-        if (casting)
+        if (Casting)
+        {
             hints.Add("Use the cube to take cover!");
+        }
     }
 }
 
-class Hints(BossModule module) : BossComponent(module)
+sealed class Hints(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -43,7 +48,7 @@ class Hints(BossModule module) : BossComponent(module)
     }
 }
 
-class Stage14Act2States : StateMachineBuilder
+sealed class Stage14Act2States : StateMachineBuilder
 {
     public Stage14Act2States(BossModule module) : base(module)
     {
@@ -51,22 +56,22 @@ class Stage14Act2States : StateMachineBuilder
             .DeactivateOnEnter<Hints>()
             .ActivateOnEnter<LastSong>()
             .ActivateOnEnter<LastSongHint>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && !module.FindComponent<LastSongHint>()!.casting;
+            .Raw.Update = () => AllDeadOrDestroyed((uint)OID.Boss) && !module.FindComponent<LastSongHint>()!.Casting;
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 624, NameID = 8108, SortOrder = 2)]
-public class Stage14Act2 : BossModule
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 624, NameID = 8108, SortOrder = 2)]
+public sealed class Stage14Act2 : BossModule
 {
-    public Stage14Act2(WorldState ws, Actor primary) : base(ws, primary, new(100, 100), new ArenaBoundsCircle(25))
+    public Stage14Act2(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.LayoutBigQuad)
     {
         ActivateComponent<Hints>();
-        ActivateComponent<LayoutBigQuad>();
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        foreach (var s in Enemies(OID.Boss))
-            Arena.Actor(s, ArenaColor.Enemy);
+        Arena.Actors(Enemies((uint)OID.Boss));
     }
+
+    protected override bool CheckPull() => IsAnyActorInCombat((uint)OID.Boss);
 }

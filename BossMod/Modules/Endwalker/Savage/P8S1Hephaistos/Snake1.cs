@@ -31,7 +31,7 @@ class Snake1(BossModule module) : PetrifactionCommon(module)
         {
             // show circle around assigned snake
             if (state.AssignedSnake >= 0)
-                Arena.AddCircle(ActiveGorgons[state.AssignedSnake].caster.Position, 2, ArenaColor.Safe);
+                Arena.AddCircle(ActiveGorgons[state.AssignedSnake].caster.Position, 2, Colors.Safe);
 
             if (state.IsExplode)
                 DrawExplode(pc, state.Order == 1 && NumCasts < 2);
@@ -40,7 +40,7 @@ class Snake1(BossModule module) : PetrifactionCommon(module)
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         switch ((SID)status.ID)
         {
@@ -59,7 +59,7 @@ class Snake1(BossModule module) : PetrifactionCommon(module)
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
         switch ((SID)status.ID)
         {
@@ -108,7 +108,7 @@ class Snake1(BossModule module) : PetrifactionCommon(module)
         if (ActiveGorgons[option1].priority > ActiveGorgons[option2].priority)
             Utils.Swap(ref option1, ref option2);
 
-        bool flex = _players[assignedSlots[0]].IsExplode == _players[assignedSlots[1]].IsExplode;
+        var flex = _players[assignedSlots[0]].IsExplode == _players[assignedSlots[1]].IsExplode;
         _players[assignedSlots[0]].AssignedSnake = option1;
         _players[assignedSlots[1]].AssignedSnake = flex ? option2 : option1;
         _players[assignedSlots[2]].AssignedSnake = flex ? option1 : option2;

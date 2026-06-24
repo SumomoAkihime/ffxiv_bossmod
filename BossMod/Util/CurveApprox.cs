@@ -2,150 +2,225 @@
 
 // a bunch of utilities for approximating curves with line segments
 // we need them, since clipping and rendering works with polygons
+[SkipLocalsInit]
 public static class CurveApprox
 {
-    public const float ScreenError = 0.1f; // typical maximal screen-space error; tradeoff between performance and fidelity
+    public const float ScreenError = 0.05f;
 
     public static int CalculateCircleSegments(float radius, Angle angularLength, float maxError)
     {
         // select max angle such that tesselation error is smaller than desired
         // error = R * (1 - cos(phi/2)) => cos(phi/2) = 1 - error/R
-        float tessAngle = 2 * MathF.Acos(1 - MathF.Min(maxError / radius, 1));
-        int tessNumSegments = (int)MathF.Ceiling(angularLength.Rad / tessAngle);
-        tessNumSegments = (tessNumSegments + 1) & ~1; // round up to even for symmetry
+        var tessAngle = 2 * MathF.Acos(1 - Math.Min(maxError / radius, 1));
+        var tessNumSegments = (int)MathF.Ceiling(angularLength.Rad / tessAngle);
+        tessNumSegments = (tessNumSegments + 1) & ~1;
         return Math.Clamp(tessNumSegments, 4, 512);
     }
 
     // return polygon points approximating full circle; implicitly closed path - last point is not included
     // winding: points are in CCW order
-    public static IEnumerable<WDir> Circle(float radius, float maxError)
+    public static WDir[] Circle(float Radius, float maxError)
     {
-        int numSegments = CalculateCircleSegments(radius, (2 * MathF.PI).Radians(), maxError);
-        var angle = (2 * MathF.PI / numSegments).Radians();
-        for (int i = 0; i < numSegments; ++i) // note: do not include last point
-            yield return PolarToCartesian(radius, i * angle);
+        var radius = Radius;
+        var numSegments = CalculateCircleSegments(radius, 360f.Degrees(), maxError);
+        var angleIncrement = (Angle.DoublePI / numSegments).Radians();
+        var points = new WDir[numSegments];
+        for (var i = 0; i < numSegments; ++i) // note: do not include last point
+        {
+            points[i] = PolarToCartesian(radius, i * angleIncrement);
+        }
+        return points;
     }
-    public static IEnumerable<WPos> Circle(WPos center, float radius, float maxError) => Circle(radius, maxError).Select(off => center + off);
 
-    // return polygon points approximating circle arc; both start and end points are included
-    // winding: points are either in CCW order (if length is positive) or CW order (if length is negative)
-    public static IEnumerable<WDir> CircleArc(float radius, Angle angleStart, Angle angleEnd, float maxError)
+    public static WDir[] CircleArc(float Radius, Angle angleStart, Angle angleEnd, float maxError)
     {
         var length = angleEnd - angleStart;
-        int numSegments = CalculateCircleSegments(radius, length.Abs(), maxError);
-        var angle = length / numSegments;
-        for (int i = 0; i <= numSegments; ++i)
-            yield return PolarToCartesian(radius, angleStart + i * angle);
+        var radius = Radius;
+        var numSegments = CalculateCircleSegments(radius, length.Abs(), maxError);
+        var angleIncrement = length / numSegments;
+        var points = new WDir[numSegments + 1];
+        for (var i = 0; i <= numSegments; ++i)
+        {
+            var angle = angleStart + i * angleIncrement;
+            points[i] = PolarToCartesian(radius, angle);
+        }
+        return points;
     }
-    public static IEnumerable<WPos> CircleArc(WPos center, float radius, Angle angleStart, Angle angleEnd, float maxError) => CircleArc(radius, angleStart, angleEnd, maxError).Select(off => center + off);
 
     // return polygon points approximating circle sector; implicitly closed path - center + arc
-    public static IEnumerable<WDir> CircleSector(float radius, Angle angleStart, Angle angleEnd, float maxError)
+    public static WDir[] CircleSector(float radius, Angle angleStart, Angle angleEnd, float maxError)
     {
-        yield return default;
-        foreach (var v in CircleArc(radius, angleStart, angleEnd, maxError))
-            yield return v;
+        var arcPoints = CircleArc(radius, angleStart, angleEnd, maxError);
+        var length = arcPoints.Length;
+        var points = new WDir[length + 1];
+        points[0] = default;
+        Array.Copy(arcPoints, 0, points, 1, length);
+        return points;
     }
-    public static IEnumerable<WPos> CircleSector(WPos center, float radius, Angle angleStart, Angle angleEnd, float maxError) => CircleSector(radius, angleStart, angleEnd, maxError).Select(off => center + off);
-
-    public static IEnumerable<WDir> Ellipse(float axis1, float axis2, float maxError)
-    {
-        int numSegments = CalculateCircleSegments((axis1 + axis2) / 2f, (2 * MathF.PI).Radians(), maxError);
-        var angle = (2 * MathF.PI / numSegments).Radians();
-        for (int i = 0; i < numSegments; ++i)
-        {
-            var t = i * angle;
-            yield return new WDir(axis1 * t.Cos(), axis2 * t.Sin());
-        }
-    }
-    public static IEnumerable<WPos> Ellipse(WPos center, float axis1, float axis2, float maxError) => Ellipse(axis1, axis2, maxError).Select(off => center + off);
 
     // return polygon points approximating full donut; implicitly closed path - outer arc + inner arc
-    public static IEnumerable<WDir> Donut(float innerRadius, float outerRadius, float maxError)
+    public static WDir[] Donut(float innerRadius, float outerRadius, float maxError)
     {
-        foreach (var v in Circle(outerRadius, maxError))
-            yield return v;
-        yield return PolarToCartesian(outerRadius, 0.0f.Radians());
-        yield return PolarToCartesian(innerRadius, 0.0f.Radians());
-        foreach (var v in Circle(innerRadius, maxError).Reverse())
-            yield return v;
+        var outerCircle = Circle(outerRadius, maxError);
+        var innerCircle = Circle(innerRadius, maxError);
+        var outerLength = outerCircle.Length;
+        var innerLength = innerCircle.Length;
+        var points = new WDir[outerLength + innerLength + 2];
+
+        for (var i = 0; i < outerLength; ++i)
+        {
+            points[i] = outerCircle[i];
+        }
+
+        points[outerLength] = PolarToCartesian(outerRadius, default);
+        points[outerLength + 1] = PolarToCartesian(innerRadius, default);
+        var index = outerLength + 2;
+        var innerAdj = innerLength - 1;
+        for (var i = innerAdj; i >= 0; --i)
+        {
+            points[index++] = innerCircle[i];
+        }
+
+        return points;
     }
-    public static IEnumerable<WPos> Donut(WPos center, float innerRadius, float outerRadius, float maxError) => Donut(innerRadius, outerRadius, maxError).Select(off => center + off);
 
     // return polygon points approximating donut sector; implicitly closed path - outer arc + inner arc
-    public static IEnumerable<WDir> DonutSector(float innerRadius, float outerRadius, Angle angleStart, Angle angleEnd, float maxError)
+    public static WDir[] DonutSector(float innerRadius, float outerRadius, Angle angleStart, Angle angleEnd, float maxError)
     {
-        foreach (var v in CircleArc(outerRadius, angleStart, angleEnd, maxError))
-            yield return v;
-        foreach (var v in CircleArc(innerRadius, angleEnd, angleStart, maxError))
-            yield return v;
+        var outerArc = CircleArc(outerRadius, angleStart, angleEnd, maxError);
+        var innerArc = CircleArc(innerRadius, angleEnd, angleStart, maxError);
+        var outerLength = outerArc.Length;
+        var innerLength = innerArc.Length;
+        var totalPoints = outerLength + innerLength;
+        var points = new WDir[totalPoints];
+
+        for (var i = 0; i < outerLength; ++i)
+        {
+            points[i] = outerArc[i];
+        }
+
+        for (var i = 0; i < innerLength; ++i)
+        {
+            points[outerLength + i] = innerArc[i];
+        }
+
+        return points;
     }
-    public static IEnumerable<WPos> DonutSector(WPos center, float innerRadius, float outerRadius, Angle angleStart, Angle angleEnd, float maxError) => DonutSector(innerRadius, outerRadius, angleStart, angleEnd, maxError).Select(off => center + off);
 
     // return polygon points for rectangle - it's not really a curve, but whatever...
-    public static IEnumerable<WDir> Rect(WDir dx, WDir dz)
+    public static WDir[] Rect(WDir dx, WDir dz) => [
+            dx - dz,
+            dx + dz,
+            -dx + dz,
+            -dx - dz
+        ];
+
+    public static WDir[] Rect(WDir dirZ, float halfWidth, float halfHeight)
     {
-        yield return dx - dz;
-        yield return dx + dz;
-        yield return -dx + dz;
-        yield return -dx - dz;
+        var dx = dirZ.OrthoL() * halfWidth;
+        var dz = dirZ * halfHeight;
+        return Rect(dx, dz);
     }
-    public static IEnumerable<WDir> Rect(WDir dirZ, float halfWidth, float halfHeight) => Rect(dirZ.OrthoL() * halfWidth, dirZ * halfHeight);
-    public static IEnumerable<WDir> Rect(WDir center, WDir dx, WDir dz) => Rect(dx, dz).Select(off => center + off);
-    public static IEnumerable<WDir> Rect(WDir center, WDir dirZ, float halfWidth, float halfHeight) => Rect(center, dirZ.OrthoL() * halfWidth, dirZ * halfHeight);
-    public static IEnumerable<WPos> Rect(WPos center, WDir dx, WDir dz) => Rect(dx, dz).Select(off => center + off);
-    public static IEnumerable<WPos> Rect(WPos center, WDir dirZ, float halfWidth, float halfHeight) => Rect(center, dirZ.OrthoL() * halfWidth, dirZ * halfHeight);
-
-    [Flags]
-    public enum Corners : byte
-    {
-        None = 0,
-        NE = 1,
-        NW = 2,
-        SW = 4,
-        SE = 8,
-
-        All = NW | NE | SE | SW
-    }
-
-    public static IEnumerable<WDir> TruncatedRect(WDir dx, WDir dz, float size, Corners corners)
-    {
-        if (corners.HasFlag(Corners.NE))
-        {
-            yield return dx - dz - new WDir(size, 0);
-            yield return dx - dz + new WDir(0, size);
-        }
-        else
-            yield return dx - dz;
-
-        if (corners.HasFlag(Corners.SE))
-        {
-            yield return dx + dz - new WDir(0, size);
-            yield return dx + dz - new WDir(size, 0);
-        }
-        else
-            yield return dx + dz;
-
-        if (corners.HasFlag(Corners.SW))
-        {
-            yield return -dx + dz + new WDir(size, 0);
-            yield return -dx + dz - new WDir(0, size);
-        }
-        else
-            yield return -dx + dz;
-
-        if (corners.HasFlag(Corners.NW))
-        {
-            yield return -dx - dz + new WDir(0, size);
-            yield return -dx - dz + new WDir(size, 0);
-        }
-        else
-            yield return -dx - dz;
-    }
-
-    public static IEnumerable<WDir> TruncatedRect(WDir dirZ, float halfWidth, float halfHeight, float size, Corners corners) => TruncatedRect(dirZ.OrthoL() * halfWidth, dirZ * halfHeight, size, corners);
-    public static IEnumerable<WDir> TruncatedRect(WDir center, WDir dx, WDir dz, float size, Corners corners) => TruncatedRect(dx, dz, size, corners).Select(off => center + off);
 
     // for angles, we use standard FF convention: 0 is 'south'/down/(0, -r), and then increases clockwise
     private static WDir PolarToCartesian(float r, Angle phi) => r * phi.ToDirection();
+
+    public static WDir[] Capsule(WDir dir, float length, float radius, float maxError)
+    {
+        var p0 = default(WDir);
+        var p1 = length * dir;
+        var dirPerp = dir.OrthoL();
+        var angleDir = Angle.FromDirection(dir);
+        var a90 = 90f.Degrees();
+        var angleStartP1 = angleDir - a90;
+        var angleEnd = angleDir + a90;
+        var angleEndP0 = angleDir + 270f.Degrees();
+        var radiusDirPerp = radius * dirPerp;
+
+        var arcP1 = CircleArc(radius, angleStartP1, angleEnd, maxError);
+        var arcP0 = CircleArc(radius, angleEnd, angleEndP0, maxError);
+
+        var arcP0Length = arcP0.Length;
+        var arcP1Length = arcP1.Length;
+        var totalPoints = 4 + arcP0Length + arcP1Length;
+        var points = new WDir[totalPoints];
+        var index = 0;
+
+        points[index++] = p0 + radiusDirPerp;
+        points[index++] = p1 + radiusDirPerp;
+
+        for (var i = 0; i < arcP1Length; ++i)
+        {
+            points[index++] = p1 + arcP1[i];
+        }
+
+        points[index++] = p1 - radiusDirPerp;
+        points[index++] = p0 - radiusDirPerp;
+
+        for (var i = 0; i < arcP0Length; ++i)
+        {
+            points[index++] = p0 + arcP0[i];
+        }
+
+        return points;
+    }
+
+    public static WDir[] ArcCapsule(WDir toOrbitCenter, Angle angularLength, float radius, float maxError)
+    {
+        var C = toOrbitCenter;
+        var R = C.Length();
+
+        var outerR = R + radius;
+        var innerR = R - radius;
+
+        var theta0 = Angle.FromDirection(-C); // orbitCenter -> start
+        var theta1 = theta0 + angularLength;
+        var a90 = 90f.Degrees();
+
+        var s = Math.Sign(angularLength.Rad);
+        if (s == 0)
+        {
+            s = 1;
+        }
+
+        // segment counts
+        var lenAbs = angularLength.Abs();
+        var nOut = CalculateCircleSegments(outerR, lenAbs, maxError);
+        var n = CalculateCircleSegments(innerR, lenAbs, maxError);
+        var nCap = CalculateCircleSegments(radius, 180f.Degrees(), maxError);
+
+        // total vertices (we keep joint duplicates)
+        var total = nOut + nCap + n + nCap + 4;
+        var pts = new WDir[total];
+
+        // outer
+        var idx = 0;
+        idx = WriteArc(pts, idx, C, outerR, theta0, theta1, nOut);
+
+        // end cap
+        var p1 = C + PolarToCartesian(R, theta1);
+        var t1 = theta1 + (s > 0 ? a90 : -a90);
+        idx = WriteArc(pts, idx, p1, radius, t1 - a90, t1 + a90, nCap);
+
+        // inner
+        idx = WriteArc(pts, idx, C, innerR, theta1, theta0, n);
+
+        // start cap
+        var t0 = theta0 + (s < 0 ? a90 : -a90);
+        WriteArc(pts, idx, default, radius, t0 - a90, t0 + a90, nCap);
+
+        return pts;
+
+        static int WriteArc(WDir[] dst, int startIndex, WDir center, float radius, Angle a0, Angle a1, int segments)
+        {
+            var inc = (a1 - a0) / segments;
+            var k = startIndex;
+            for (var i = 0; i <= segments; ++i)
+            {
+                var a = a0 + i * inc;
+                dst[k++] = center + PolarToCartesian(radius, a);
+            }
+            return k;
+        }
+    }
 }

@@ -6,6 +6,7 @@ class P3HeavensfallTrio(BossModule module) : BossComponent(module)
     private Actor? _twin;
     private Actor? _baha;
     private readonly WPos[] _safeSpots = new WPos[PartyState.MaxPartySize];
+    private readonly UCOBConfig _config = Service.Config.Get<UCOBConfig>();
 
     public bool Active => _nael != null;
 
@@ -14,25 +15,25 @@ class P3HeavensfallTrio(BossModule module) : BossComponent(module)
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        Arena.Actor(_nael, ArenaColor.Object, true);
+        Arena.Actor(_nael, Colors.Object, true);
         var safespot = _safeSpots[pcSlot];
         if (safespot != default)
-            Arena.AddCircle(safespot, 1, ArenaColor.Safe);
+            Arena.AddCircle(safespot, 1, Colors.Safe);
     }
 
     public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
     {
-        if ((OID)actor.OID == OID.NaelDeusDarnus && id == 0x1E43)
+        if (actor.OID == (uint)OID.NaelDeusDarnus && id == 0x1E43)
         {
             _nael = actor;
             InitIfReady();
         }
-        else if ((OID)actor.OID == OID.Twintania && id == 0x1E44)
+        else if (actor.OID == (uint)OID.Twintania && id == 0x1E44)
         {
             _twin = actor;
             InitIfReady();
         }
-        else if ((OID)actor.OID == OID.BahamutPrime && id == 0x1E43)
+        else if (actor.OID == (uint)OID.BahamutPrime && id == 0x1E43)
         {
             _baha = actor;
             InitIfReady();
@@ -44,9 +45,9 @@ class P3HeavensfallTrio(BossModule module) : BossComponent(module)
         if (_nael == null || _twin == null || _baha == null)
             return;
 
-        var dirToNael = Angle.FromDirection(_nael.Position - Module.Center);
-        var dirToTwin = Angle.FromDirection(_twin.Position - Module.Center);
-        var dirToBaha = Angle.FromDirection(_baha.Position - Module.Center);
+        var dirToNael = Angle.FromDirection(_nael.Position - Arena.Center);
+        var dirToTwin = Angle.FromDirection(_twin.Position - Arena.Center);
+        var dirToBaha = Angle.FromDirection(_baha.Position - Arena.Center);
 
         var twinRel = (dirToTwin - dirToNael).Normalized();
         var bahaRel = (dirToBaha - dirToNael).Normalized();
@@ -54,32 +55,34 @@ class P3HeavensfallTrio(BossModule module) : BossComponent(module)
             ? (0.Degrees(), _offsetsNaelCenter)
             : ((twinRel + bahaRel) * 0.5f, _offsetsNaelSide);
         var dirSymmetry = dirToNael + offsetSymmetry;
-        foreach (var p in Service.Config.Get<UCOBConfig>().P3QuickmarchTrioAssignments.Resolve(Raid))
+        foreach (var p in _config.P3QuickmarchTrioAssignments.Resolve(Raid))
         {
-            bool left = p.group < 4;
-            int order = p.group & 3;
+            var left = p.group < 4;
+            var order = p.group & 3;
             var offset = offsets[order];
             var dir = dirSymmetry + (left ? offset : -offset);
-            _safeSpots[p.slot] = Module.Center + 20 * dir.ToDirection();
+            _safeSpots[p.slot] = Arena.Center + 20 * dir.ToDirection();
         }
     }
 }
 
-class P3HeavensfallTowers(BossModule module) : Components.CastTowers(module, AID.MegaflareTower, 3)
+class P3HeavensfallTowers(BossModule module) : Components.CastTowers(module, (uint)AID.MegaflareTower, 3)
 {
+    private readonly UCOBConfig _config = Service.Config.Get<UCOBConfig>();
+
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         base.OnCastStarted(caster, spell);
 
-        if (spell.Action == WatchedAction && Towers.Count == 8)
+        if (spell.Action.ID == WatchedAction && Towers.Count == 8)
         {
-            var nael = Module.Enemies(OID.NaelDeusDarnus).FirstOrDefault();
+            var nael = Module.Enemies((uint)OID.NaelDeusDarnus).FirstOrDefault();
             if (nael != null)
             {
-                var dirToNael = Angle.FromDirection(nael.Position - Module.Center);
-                var orders = Towers.Select(t => TowerSortKey(Angle.FromDirection(t.Position - Module.Center), dirToNael)).ToList();
+                var dirToNael = Angle.FromDirection(nael.Position - Arena.Center);
+                var orders = Towers.Select(t => TowerSortKey(Angle.FromDirection(t.Position - Arena.Center), dirToNael)).ToList();
                 MemoryExtensions.Sort(orders.AsSpan(), Towers.AsSpan());
-                foreach (var p in Service.Config.Get<UCOBConfig>().P3HeavensfallTrioTowers.Resolve(Raid))
+                foreach (var p in _config.P3HeavensfallTrioTowers.Resolve(Raid))
                 {
                     Towers.Ref(p.group).ForbiddenSoakers = new(~(1ul << p.slot));
                 }
@@ -97,4 +100,4 @@ class P3HeavensfallTowers(BossModule module) : Components.CastTowers(module, AID
     }
 }
 
-class P3HeavensfallFireball(BossModule module) : Components.StackWithIcon(module, (uint)IconID.Fireball, AID.Fireball, 4, 5.3f, 8);
+class P3HeavensfallFireball(BossModule module) : Components.StackWithIcon(module, (uint)IconID.Fireball, (uint)AID.Fireball, 4f, 5.3f, 8, 8);

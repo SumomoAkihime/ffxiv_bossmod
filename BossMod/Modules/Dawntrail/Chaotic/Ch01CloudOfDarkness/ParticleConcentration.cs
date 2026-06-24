@@ -44,7 +44,7 @@
 // 47-56 = 1-man tower falling orb
 // 57-66 = 2-man tower falling orb
 // 67-6E = 3-man tower falling orb
-class ParticleConcentration(BossModule module) : Components.GenericTowers(module)
+sealed class ParticleConcentration(BossModule module) : Components.GenericTowers(module)
 {
     private BitMask _innerPlayers;
     private BitMask _outerPlayers;
@@ -52,31 +52,35 @@ class ParticleConcentration(BossModule module) : Components.GenericTowers(module
 
     public void ShowOuterTowers()
     {
-        var activation = Towers.Count > 0 ? Towers[0].Activation : default;
-        Towers.AddRange(_outerTowers.Select(p => new Tower(p, 3, 3, 3, _innerPlayers, activation)));
+        var activation = Towers.Count != 0 ? Towers.Ref(0).Activation : default;
+        var count = _outerTowers.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            Towers.Add(new(_outerTowers[i], 3f, 3, 3, _innerPlayers, activation));
+        }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.InnerDarkness:
+            case (uint)SID.InnerDarkness:
                 _innerPlayers.Set(Raid.FindSlot(actor.InstanceID));
                 break;
-            case SID.OuterDarkness:
+            case (uint)SID.OuterDarkness:
                 _outerPlayers.Set(Raid.FindSlot(actor.InstanceID));
                 break;
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.InnerDarkness:
+            case (uint)SID.InnerDarkness:
                 _innerPlayers.Clear(Raid.FindSlot(actor.InstanceID));
                 break;
-            case SID.OuterDarkness:
+            case (uint)SID.OuterDarkness:
                 _outerPlayers.Clear(Raid.FindSlot(actor.InstanceID));
                 break;
         }
@@ -84,67 +88,80 @@ class ParticleConcentration(BossModule module) : Components.GenericTowers(module
 
     public override void OnMapEffect(byte index, uint state)
     {
-        if (state != 0x00020001) // appear
+        if (state != 0x00020001u) // appear
             return;
 
         var (offset, count) = index switch
         {
-            0x1F => (new(-9, -15), 1),
-            0x20 => (new(+9, -15), 1),
-            0x21 => (new(-21, -15), 1),
-            0x22 => (new(+21, -15), 1),
-            0x23 => (new(-15, -9), 1),
-            0x24 => (new(+15, -9), 1),
-            0x25 => (new(-15, -21), 1),
-            0x26 => (new(+15, -21), 1),
-            0x27 => (new(-9, +15), 1),
-            0x28 => (new(+9, +15), 1),
-            0x29 => (new(-21, +15), 1),
-            0x2A => (new(+21, +15), 1),
-            0x2B => (new(-15, +9), 1),
-            0x2C => (new(+15, +9), 1),
-            0x2D => (new(-15, +21), 1),
-            0x2E => (new(+15, +21), 1),
-            0x2F => (new(-12, -15), 2),
-            0x30 => (new(+12, -15), 2),
-            0x31 => (new(-18, -15), 2),
-            0x32 => (new(+18, -15), 2),
-            0x33 => (new(-15, -12), 2),
-            0x34 => (new(+15, -12), 2),
-            0x35 => (new(-15, -18), 2),
-            0x36 => (new(+15, -18), 2),
-            0x37 => (new(-12, +15), 2),
-            0x38 => (new(+12, +15), 2),
-            0x39 => (new(-18, +15), 2),
-            0x3A => (new(+18, +15), 2),
-            0x3B => (new(-15, +12), 2),
-            0x3C => (new(+15, +12), 2),
-            0x3D => (new(-15, +18), 2),
-            0x3E => (new(+15, +18), 2),
+            0x1F => (new(-9f, -15f), 1),
+            0x20 => (new(9f, -15f), 1),
+            0x21 => (new(-21f, -15f), 1),
+            0x22 => (new(21f, -15f), 1),
+            0x23 => (new(-15f, -9f), 1),
+            0x24 => (new(15f, -9f), 1),
+            0x25 => (new(-15f, -21f), 1),
+            0x26 => (new(15f, -21f), 1),
+            0x27 => (new(-9f, 15f), 1),
+            0x28 => (new(9f, 15f), 1),
+            0x29 => (new(-21f, 15f), 1),
+            0x2A => (new(21f, 15f), 1),
+            0x2B => (new(-15f, 9f), 1),
+            0x2C => (new(15f, 9f), 1),
+            0x2D => (new(-15f, 21f), 1),
+            0x2E => (new(15f, 21f), 1),
+            0x2F => (new(-12f, -15f), 2),
+            0x30 => (new(12f, -15f), 2),
+            0x31 => (new(-18f, -15f), 2),
+            0x32 => (new(18f, -15f), 2),
+            0x33 => (new(-15f, -12f), 2),
+            0x34 => (new(15f, -12f), 2),
+            0x35 => (new(-15f, -18f), 2),
+            0x36 => (new(15f, -18f), 2),
+            0x37 => (new(-12f, 15f), 2),
+            0x38 => (new(12f, 15f), 2),
+            0x39 => (new(-18f, 15f), 2),
+            0x3A => (new(18f, 15f), 2),
+            0x3B => (new(-15f, 12f), 2),
+            0x3C => (new(15f, 12f), 2),
+            0x3D => (new(-15f, 18f), 2),
+            0x3E => (new(15f, 18f), 2),
             0x3F => (new(-26.5f, -4.5f), 3),
-            0x40 => (new(-22, 0), 3),
+            0x40 => (new(-22f, 0f), 3),
             0x41 => (new(-26.5f, +4.5f), 3),
-            0x42 => (new(-31, 0), 3),
+            0x42 => (new(-31f, 0f), 3),
             0x43 => (new(+26.5f, -4.5f), 3),
-            0x44 => (new(+22, 0), 3),
+            0x44 => (new(+22f, 0f), 3),
             0x45 => (new(+26.5f, +4.5f), 3),
-            0x46 => (new(+31, 0), 3),
-            _ => (default(WDir), 0)
+            0x46 => (new(+31f, 0f), 3),
+            _ => ((WDir)default, 0)
         };
 
         if (count == 3)
-            _outerTowers.Add(Module.Center + offset);
+        {
+            _outerTowers.Add(Arena.Center + offset);
+        }
         else if (count > 0)
-            Towers.Add(new(Module.Center + offset, 3, count, count, _outerPlayers, WorldState.FutureTime(10.1f)));
+        {
+            Towers.Add(new(Arena.Center + offset, 3f, count, count, _outerPlayers, WorldState.FutureTime(10.1d)));
+        }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.ParticleBeam1 or AID.ParticleBeam2 or AID.ParticleBeam3)
+        if (spell.Action.ID is (uint)AID.ParticleBeam1 or (uint)AID.ParticleBeam2 or (uint)AID.ParticleBeam3)
         {
             ++NumCasts;
-            if (Towers.RemoveAll(t => t.Position.AlmostEqual(caster.Position, 1)) != 1)
-                ReportError($"Unexpected tower position @ {caster.Position}");
+            var count = Towers.Count;
+            var pos = caster.Position;
+            var towers = CollectionsMarshal.AsSpan(Towers);
+            for (var i = 0; i < count; ++i)
+            {
+                if (towers[i].Position == pos)
+                {
+                    Towers.RemoveAt(i);
+                    return;
+                }
+            }
         }
     }
 }

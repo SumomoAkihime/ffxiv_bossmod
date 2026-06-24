@@ -1,6 +1,6 @@
 ﻿namespace BossMod.QuestBattle.Heavensward.ClassJobQuests.AST;
 
-[ZoneModuleInfo(412)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 412)]
 internal class SlingsAndArrows(WorldState ws) : QuestBattle(ws)
 {
     public override List<QuestObjective> DefineObjectives(WorldState ws) => [

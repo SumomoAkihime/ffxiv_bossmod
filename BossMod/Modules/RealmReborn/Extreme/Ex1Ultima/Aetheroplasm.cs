@@ -19,13 +19,13 @@ class Aetheroplasm(BossModule module) : BossComponent(module)
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var orb in Module.Enemies(OID.Aetheroplasm).Where(a => !_explodedOrbs.Contains(a.InstanceID)))
+        foreach (var orb in Module.Enemies((uint)OID.Aetheroplasm).Where(a => !_explodedOrbs.Contains(a.InstanceID)))
         {
             // TODO: + line to kiter
-            hints.AddForbiddenZone(ShapeContains.Circle(orb.Position, _explosionRadius + 1));
+            hints.AddForbiddenZone(new SDCircle(orb.Position, _explosionRadius + 1));
             var kiter = MostLikelyKiter(orb);
             if (kiter != null && kiter != actor)
-                hints.AddForbiddenZone(ShapeContains.Rect(orb.Position, kiter.Position, 2));
+                hints.AddForbiddenZone(new SDRect(orb.Position, kiter.Position, 2));
         }
     }
 
@@ -34,13 +34,13 @@ class Aetheroplasm(BossModule module) : BossComponent(module)
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (var orb in Module.Enemies(OID.Aetheroplasm).Where(a => !_explodedOrbs.Contains(a.InstanceID)))
+        foreach (var orb in Module.Enemies((uint)OID.Aetheroplasm).Where(a => !_explodedOrbs.Contains(a.InstanceID)))
         {
-            Arena.Actor(orb, ArenaColor.Object, true);
-            Arena.AddCircle(orb.Position, _explosionRadius, ArenaColor.Danger);
+            Arena.Actor(orb, Colors.Object, true);
+            Arena.AddCircle(orb.Position, _explosionRadius, Colors.Danger);
             var kiter = MostLikelyKiter(orb);
             if (kiter != null)
-                Arena.AddLine(orb.Position, kiter.Position, ArenaColor.Danger);
+                Arena.AddLine(orb.Position, kiter.Position, Colors.Danger);
         }
     }
 
@@ -67,6 +67,6 @@ class Aetheroplasm(BossModule module) : BossComponent(module)
         if (_kiters.None())
             return null;
         var orbDir = orb.Rotation.ToDirection();
-        return Raid.WithSlot().IncludedInMask(_kiters).MaxBy(a => (a.Item2.Position - orb.Position).Normalized().Dot(orbDir)).Item2;
+        return Raid.WithSlot(false, true, true).IncludedInMask(_kiters).MaxBy(a => (a.Item2.Position - orb.Position).Normalized().Dot(orbDir)).Item2;
     }
 }

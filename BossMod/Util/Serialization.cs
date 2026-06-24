@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace BossMod;
 
+[SkipLocalsInit]
 public static class Serialization
 {
     public class JsonTypeConverter : JsonConverter<Type>
@@ -41,6 +42,8 @@ public static class Serialization
     public static unsafe void WriteStruct<T>(this Stream stream, in T value) where T : unmanaged
     {
         fixed (T* ptr = &value)
+        {
             stream.Write(new(ptr, sizeof(T)));
+        }
     }
 }

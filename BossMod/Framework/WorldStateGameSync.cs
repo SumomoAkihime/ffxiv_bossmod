@@ -1,5 +1,4 @@
-﻿using BossMod.Services;
-using Dalamud.Game.ClientState.Conditions;
+﻿using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
 using Dalamud.Memory;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -14,16 +13,15 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.Interop;
-using System.Runtime.InteropServices;
-using System.Text;
 
 namespace BossMod;
 
 // utility that updates a world state to correspond to game state
-sealed class WorldStateGameSync : IWorldStateGameSync
+sealed class WorldStateGameSync : IDisposable
 {
     private const int ObjectTableSize = 819; // should match CS; note that different ranges are used for different purposes - consider splitting?..
     private const uint InvalidEntityId = 0xE0000000;
+    private const float Thousandth = 1e-3f;
 
     private readonly WorldState _ws;
     private readonly ActionManagerEx _amex;
@@ -48,6 +46,7 @@ sealed class WorldStateGameSync : IWorldStateGameSync
     private readonly EventSubscriptions _subscriptions;
 
     private unsafe delegate void ProcessPacketActorCastDelegate(uint casterId, Network.ServerIPC.ActorCast* packet);
+
     private readonly Hook<ProcessPacketActorCastDelegate> _processPacketActorCastHook;
 
     private unsafe delegate void ProcessPacketEffectResultDelegate(uint targetID, byte* packet, byte replaying);
@@ -74,6 +73,9 @@ sealed class WorldStateGameSync : IWorldStateGameSync
 
     private unsafe delegate void ProcessPacketRSVDataDelegate(byte* packet);
     private readonly Hook<ProcessPacketRSVDataDelegate> _processPacketRSVDataHook;
+
+    private unsafe delegate void ProcessPacketOpenTreasureDelegate(uint actorID, byte* packet);
+    private readonly Hook<ProcessPacketOpenTreasureDelegate> _processPacketOpenTreasureHook;
 
     private unsafe delegate void* ProcessSystemLogMessageDelegate(uint entityId, uint logMessageId, int* args, byte argCount);
     private readonly Hook<ProcessSystemLogMessageDelegate> _processSystemLogMessageHook;
@@ -141,7 +143,9 @@ sealed class WorldStateGameSync : IWorldStateGameSync
 
         var mapEffectAddrs = Service.SigScanner.ScanAllText("40 55 41 57 48 83 EC ?? 48 83 B9");
         if (mapEffectAddrs.Length != 3)
+        {
             throw new InvalidOperationException($"expected 3 matches for multi-MapEffect handlers, but got {mapEffectAddrs.Length}");
+        }
 
         _processMapEffect1Hook = Service.Hook.HookFromAddress<ProcessMapEffectNDelegate>(mapEffectAddrs[0], ProcessMapEffect1Detour);
         _processMapEffect1Hook.Enable();
@@ -158,6 +162,10 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         _processSystemLogMessageHook = Service.Hook.HookFromSignature<ProcessSystemLogMessageDelegate>("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 0F B6 47 28", ProcessSystemLogMessageDetour);
         _processSystemLogMessageHook.Enable();
         Service.Log($"[WSG] ProcessSystemLogMessage address = 0x{_processSystemLogMessageHook.Address:X}");
+
+        _processPacketOpenTreasureHook = Service.Hook.HookFromSignature<ProcessPacketOpenTreasureDelegate>("40 53 48 83 EC 20 48 8B DA 48 8D 0D ?? ?? ?? ?? 8B 52 10 E8 ?? ?? ?? ?? 48 85 C0 74 1B", ProcessPacketOpenTreasureDetour);
+        _processPacketOpenTreasureHook.Enable();
+        Service.Log($"[WSG] ProcessPacketOpenTreasure address = 0x{_processPacketOpenTreasureHook.Address:X}");
 
         _processPacketFateInfoHook = Service.Hook.HookFromSignature<ProcessPacketFateInfoDelegate>("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 0F B7 4F 10 48 8D 57 12 41 B8", ProcessPacketFateInfoDetour);
         _processPacketFateInfoHook.Enable();
@@ -203,6 +211,7 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         _processMapEffectHook.Dispose();
         _processPacketRSVDataHook.Dispose();
         _processSystemLogMessageHook.Dispose();
+        _processPacketOpenTreasureHook.Dispose();
         _processPacketFateTradeHook.Dispose();
         _processPacketFateInfoHook.Dispose();
         _getActionInRangeOrLoSHook.Dispose();
@@ -235,18 +244,23 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         var proxy = fwk->NetworkModuleProxy->ReceiverCallback;
         var scramble = Network.IDScramble.Get();
         if (_ws.Network.IDScramble != scramble)
-            _ws.Execute(new NetworkState.OpIDScramble(scramble));
-
-        foreach (var op in _globalOps)
         {
-            _ws.Execute(op);
+            _ws.Execute(new NetworkState.OpIDScramble(scramble));
+        }
+
+        var count = _globalOps.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            _ws.Execute(_globalOps[i]);
         }
         _globalOps.Clear();
 
         _playerEnmity.Clear();
         var uiState = UIState.Instance();
-        for (var i = 0; i < uiState->Hater.HaterCount; i++)
+        for (var i = 0; i < uiState->Hater.HaterCount; ++i)
+        {
             _playerEnmity.Add(uiState->Hater.Haters[i].EntityId);
+        }
 
         UpdateWaymarks();
         UpdateActors();
@@ -260,9 +274,12 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         var wm = Waymark.A;
         foreach (ref var marker in MarkingController.Instance()->FieldMarkers)
         {
-            Vector3? pos = marker.Active ? new(marker.X / 1000.0f, marker.Y / 1000.0f, marker.Z / 1000.0f) : null;
+            Vector3? pos = marker.Active ? new(marker.X * Thousandth, marker.Y * Thousandth, marker.Z * Thousandth) : null;
             if (_ws.Waymarks[wm] != pos)
+            {
                 _ws.Execute(new WaymarkState.OpWaymarkChange(wm, pos));
+            }
+
             ++wm;
         }
 
@@ -271,7 +288,10 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         {
             var id = SanitizedObjectID(marker.Id);
             if (_ws.Waymarks[sgn] != id)
+            {
                 _ws.Execute(new WaymarkState.OpSignChange(sgn, id));
+            }
+
             ++sgn;
         }
     }
@@ -284,20 +304,22 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         // so we have to process deletion events first, then creation events; otherwise if an actor is moved to an earlier SpawnIndex, we get data corruption
         // i.e. two copies of the same actor at different indices, then subsequent iterations attempt to delete both actors, throwing an exception on the second attempt
         // TODO: deduplicate code, i really hate touching this function
-        for (int i = 0; i < _actorsByIndex.Length; ++i)
+        var len = _actorsByIndex.Length;
+        for (var i = 0; i < len; ++i)
         {
             var actor = _actorsByIndex[i];
             var obj = mgr->Objects.IndexSorted[i].Value;
 
             if (obj != null && obj->EntityId == InvalidEntityId)
+            {
                 obj = null; // ignore non-networked objects (really?..)
+            }
 
             if (obj != null && (obj->EntityId & 0xFF000000) == 0xFF000000)
             {
                 Service.LogVerbose($"[WorldState] Skipping bad object #{i} with id {obj->EntityId:X}");
                 obj = null;
             }
-
             var existing = obj != null ? _ws.Actors.Find(obj->EntityId) : null;
 
             if (actor != null && (obj == null || existing == null || actor.InstanceID != obj->EntityId))
@@ -308,29 +330,36 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             }
         }
 
-        for (int i = 0; i < _actorsByIndex.Length; ++i)
+        for (var i = 0; i < len; ++i)
         {
             var actor = _actorsByIndex[i];
             var obj = mgr->Objects.IndexSorted[i].Value;
-
             if (obj == null || obj->EntityId == InvalidEntityId || (obj->EntityId & 0xFF000000) == 0xFF000000)
+            {
                 continue;
+            }
 
             if (actor != _ws.Actors.Find(obj->EntityId))
+            {
                 Service.Log($"[WorldState] Actor position mismatch for #{i} {actor}");
+            }
 
             UpdateActor(obj, i, actor);
         }
 
         foreach (var (id, ops) in _actorOps)
+        {
             Service.Log($"[WorldState] {ops.Count} actor events for unknown entity {id:X}");
+        }
+
         _actorOps.Clear();
     }
 
     private void RemoveActor(Actor actor)
     {
-        DispatchActorEvents(actor.InstanceID);
-        _ws.Execute(new ActorState.OpDestroy(actor.InstanceID));
+        var id = actor.InstanceID;
+        DispatchActorEvents(id);
+        _ws.Execute(new ActorState.OpDestroy(id));
     }
 
     private unsafe void UpdateActor(GameObject* obj, int index, Actor? act)
@@ -342,7 +371,7 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         var level = chr != null ? chr->Level : 0;
         var posRot = new Vector4(*obj->GetPosition(), obj->Rotation);
         var hpmp = new ActorHPMP();
-        bool inCombat = false;
+        var inCombat = false;
         if (chr != null)
         {
             hpmp.CurHP = chr->Health;
@@ -353,6 +382,7 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             inCombat = chr->InCombat;
         }
         var targetable = obj->GetIsTargetable();
+        var renderflags = (int)obj->RenderFlags;
         var friendly = chr == null || ActionManager.ClassifyTarget(chr) != ActionManager.TargetCategory.Enemy;
         var isDead = obj->IsDead();
         var hasAggro = _playerEnmity.IndexOf(obj->EntityId) >= 0;
@@ -363,57 +393,105 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         var mountId = chr != null ? chr->Mount.MountId : 0u;
         var forayInfoPtr = chr != null ? chr->GetForayInfo() : null;
         var forayInfo = forayInfoPtr == null ? default : new ActorForayInfo(forayInfoPtr->Level, forayInfoPtr->Element);
-        var isOpenTreasure = obj->ObjectKind == ObjectKind.Treasure && ((Treasure*)obj)->Flags.HasFlag(Treasure.TreasureFlags.Opened);
 
         if (act == null)
         {
             var type = (ActorType)(((int)obj->ObjectKind << 8) + obj->SubKind);
-            _ws.Execute(new ActorState.OpCreate(obj->EntityId, obj->BaseId, index, obj->LayoutId, name, nameID, type, classID, level, posRot, radius, hpmp, targetable, friendly, SanitizedObjectID(obj->OwnerId), obj->FateId));
+            _ws.Execute(new ActorState.OpCreate(obj->EntityId, obj->BaseId, index, obj->LayoutId, name, nameID, type, classID, level, posRot, radius, hpmp, targetable, friendly, SanitizedObjectID(obj->OwnerId), obj->FateId, renderflags));
             act = _actorsByIndex[index] = _ws.Actors.Find(obj->EntityId)!;
 
             // note: for now, we continue relying on network messages for tether changes, since sometimes multiple changes can happen in a single frame, and some components rely on seeing all of them...
             var tether = chr != null ? new ActorTetherInfo(chr->Vfx.Tethers[0].Id, chr->Vfx.Tethers[0].TargetId) : default;
-            if (tether.ID != 0)
+            if (tether.ID != default)
+            {
                 _ws.Execute(new ActorState.OpTether(act.InstanceID, tether));
+            }
         }
         else
         {
+            var id = act.InstanceID;
             if (act.NameID != nameID || act.Name != name)
-                _ws.Execute(new ActorState.OpRename(act.InstanceID, name, nameID));
+            {
+                _ws.Execute(new ActorState.OpRename(id, name, nameID));
+            }
+
             if (act.Class != classID || act.Level != level)
-                _ws.Execute(new ActorState.OpClassChange(act.InstanceID, classID, level));
+            {
+                _ws.Execute(new ActorState.OpClassChange(id, classID, level));
+            }
+
             if (act.PosRot != posRot)
-                _ws.Execute(new ActorState.OpMove(act.InstanceID, posRot));
+            {
+                _ws.Execute(new ActorState.OpMove(id, posRot));
+            }
+
             if (act.HitboxRadius != radius)
-                _ws.Execute(new ActorState.OpSizeChange(act.InstanceID, radius));
+            {
+                _ws.Execute(new ActorState.OpSizeChange(id, radius));
+            }
+
             if (act.HPMP != hpmp)
-                _ws.Execute(new ActorState.OpHPMP(act.InstanceID, hpmp));
+            {
+                _ws.Execute(new ActorState.OpHPMP(id, hpmp));
+            }
+
             if (act.IsTargetable != targetable)
-                _ws.Execute(new ActorState.OpTargetable(act.InstanceID, targetable));
+            {
+                _ws.Execute(new ActorState.OpTargetable(id, targetable));
+            }
+
             if (act.IsAlly != friendly)
-                _ws.Execute(new ActorState.OpAlly(act.InstanceID, friendly));
+            {
+                _ws.Execute(new ActorState.OpAlly(id, friendly));
+            }
+
+            if (act.Renderflags != renderflags)
+            {
+                _ws.Execute(new ActorState.OpRenderflags(id, renderflags));
+            }
+        }
+        var instanceID = act.InstanceID;
+        if (act.IsDead != isDead)
+        {
+            _ws.Execute(new ActorState.OpDead(instanceID, isDead));
         }
 
-        if (act.IsDead != isDead)
-            _ws.Execute(new ActorState.OpDead(act.InstanceID, isDead));
         if (act.InCombat != inCombat)
-            _ws.Execute(new ActorState.OpCombat(act.InstanceID, inCombat));
-        if (act.AggroPlayer != hasAggro)
-            _ws.Execute(new ActorState.OpAggroPlayer(act.InstanceID, hasAggro));
-        if (act.ModelState != modelState)
-            _ws.Execute(new ActorState.OpModelState(act.InstanceID, modelState));
-        if (act.EventState != eventState)
-            _ws.Execute(new ActorState.OpEventState(act.InstanceID, eventState));
-        if (act.TargetID != target)
-            _ws.Execute(new ActorState.OpTarget(act.InstanceID, target));
-        if (act.MountId != mountId)
-            _ws.Execute(new ActorState.OpMount(act.InstanceID, mountId));
-        if (act.ForayInfo != forayInfo)
-            _ws.Execute(new ActorState.OpForayInfo(act.InstanceID, forayInfo));
-        if (!act.IsOpenTreasure && isOpenTreasure)
-            _ws.Execute(new ActorState.OpEventOpenTreasure(act.InstanceID));
+        {
+            _ws.Execute(new ActorState.OpCombat(instanceID, inCombat));
+        }
 
-        DispatchActorEvents(act.InstanceID);
+        if (act.AggroPlayer != hasAggro)
+        {
+            _ws.Execute(new ActorState.OpAggroPlayer(instanceID, hasAggro));
+        }
+
+        if (act.ModelState != modelState)
+        {
+            _ws.Execute(new ActorState.OpModelState(instanceID, modelState));
+        }
+
+        if (act.EventState != eventState)
+        {
+            _ws.Execute(new ActorState.OpEventState(instanceID, eventState));
+        }
+
+        if (act.TargetID != target)
+        {
+            _ws.Execute(new ActorState.OpTarget(instanceID, target));
+        }
+
+        if (act.MountId != mountId)
+        {
+            _ws.Execute(new ActorState.OpMount(instanceID, mountId));
+        }
+
+        if (act.ForayInfo != forayInfo)
+        {
+            _ws.Execute(new ActorState.OpForayInfo(act.InstanceID, forayInfo));
+        }
+
+        DispatchActorEvents(instanceID);
 
         var castInfo = chr != null ? chr->GetCastInfo() : null;
         if (castInfo != null)
@@ -427,7 +505,7 @@ sealed class WorldStateGameSync : IWorldStateGameSync
                     Location = _lastCastPositions.GetValueOrDefault(act.InstanceID, castInfo->TargetLocation),
                     ElapsedTime = castInfo->CurrentCastTime,
                     TotalTime = castInfo->BaseCastTime,
-                    Interruptible = castInfo->Interruptible
+                    Interruptible = castInfo->Interruptible,
                 } : null;
             UpdateActorCastInfo(act, curCast);
         }
@@ -435,36 +513,42 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         var sm = chr != null ? chr->GetStatusManager() : null;
         if (sm != null)
         {
-            for (int i = 0; i < sm->NumValidStatuses; ++i)
+            var count = sm->NumValidStatuses;
+            for (var i = 0; i < count; ++i)
             {
                 // note: sometimes (Ocean Fishing) remaining-time is weird (I assume too large?) and causes exception in AddSeconds - so we just clamp it to some reasonable range
                 // note: self-cast buffs with duration X will have duration -X until EffectResult (~0.6s later); see autorotation for more details
-                ActorStatus curStatus = new();
                 ref var s = ref sm->Status[i];
-                if (s.StatusId != 0)
+                if (s.StatusId != default)
                 {
-                    var dur = Math.Min(Math.Abs(s.RemainingTime), 100000);
-                    curStatus.ID = s.StatusId;
-                    curStatus.SourceID = SanitizedObjectID(s.SourceObject);
-                    curStatus.Extra = s.Param;
-                    curStatus.ExpireAt = _ws.CurrentTime.AddSeconds(dur);
+                    var dur = Math.Min(MathF.Abs(s.RemainingTime), 100000f);
+                    ActorStatus curStatus = new(s.StatusId, s.Param, _ws.CurrentTime.AddSeconds(dur), SanitizedObjectID(s.SourceObject));
+                    UpdateActorStatus(act, i, ref curStatus);
                 }
-                UpdateActorStatus(act, i, curStatus);
+                else
+                {
+                    ActorStatus curStatus = default;
+                    UpdateActorStatus(act, i, ref curStatus);
+                }
             }
         }
 
         var aeh = chr != null ? chr->GetActionEffectHandler() : null;
         if (aeh != null)
         {
-            for (int i = 0; i < aeh->IncomingEffects.Length; ++i)
+            var len = aeh->IncomingEffects.Length;
+            for (var i = 0; i < len; ++i)
             {
                 ref var eff = ref aeh->IncomingEffects[i];
                 ref var prev = ref act.IncomingEffects[i];
                 if ((prev.GlobalSequence, prev.TargetIndex) != (eff.GlobalSequence != 0 ? (eff.GlobalSequence, eff.TargetIndex) : (0, 0)))
                 {
                     var effects = new ActionEffects();
-                    for (int j = 0; j < ActionEffects.MaxCount; ++j)
+                    for (var j = 0; j < ActionEffects.MaxCount; ++j)
+                    {
                         effects[j] = *(ulong*)eff.Effects.Effects.GetPointer(j);
+                    }
+
                     _ws.Execute(new ActorState.OpIncomingEffect(act.InstanceID, i, new(eff.GlobalSequence, eff.TargetIndex, eff.Source, new((ActionType)eff.ActionType, eff.ActionId), effects)));
                 }
             }
@@ -473,14 +557,17 @@ sealed class WorldStateGameSync : IWorldStateGameSync
 
     private void UpdateActorCastInfo(Actor act, ActorCastInfo? cast)
     {
-        if (cast == null && act.CastInfo == null)
+        var castInfo = act.CastInfo;
+        if (cast == null && castInfo == null)
+        {
             return; // was not casting and is not casting
+        }
 
-        if (cast != null && act.CastInfo != null && cast.Action == act.CastInfo.Action && cast.TargetID == act.CastInfo.TargetID && cast.TotalTime == act.CastInfo.TotalTime && Math.Abs(cast.ElapsedTime - act.CastInfo.ElapsedTime) < 0.2)
+        if (cast != null && castInfo != null && cast.Action == castInfo.Action && cast.TargetID == castInfo.TargetID && cast.TotalTime == castInfo.TotalTime && Math.Abs(cast.ElapsedTime - castInfo.ElapsedTime) < 0.2)
         {
             // continuing casting same spell
             // TODO: consider *not* ignoring elapsed differences, these probably mean we're doing something wrong...
-            act.CastInfo.ElapsedTime = cast.ElapsedTime;
+            castInfo.ElapsedTime = cast.ElapsedTime;
             return;
         }
 
@@ -488,12 +575,12 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         _ws.Execute(new ActorState.OpCastInfo(act.InstanceID, cast));
     }
 
-    private void UpdateActorStatus(Actor act, int index, ActorStatus value)
+    private void UpdateActorStatus(Actor act, int index, ref readonly ActorStatus value)
     {
         // note: some statuses have non-zero remaining time but never tick down (e.g. FC buffs); currently we ignore that fact, to avoid log spam...
         // note: RemainingTime is not monotonously decreasing (I assume because it is really calculated by game and frametime fluctuates...), we ignore 'slight' duration increases (<1 sec)
-        var prev = act.Statuses[index];
-        if (prev.ID == value.ID && prev.SourceID == value.SourceID && prev.Extra == value.Extra && (value.ExpireAt - prev.ExpireAt).TotalSeconds <= 1)
+        ref readonly var prev = ref act.Statuses[index];
+        if (prev.ID == value.ID && prev.SourceID == value.SourceID && prev.Extra == value.Extra && (value.ExpireAt - prev.ExpireAt).TotalSeconds <= 1d)
         {
             act.Statuses[index].ExpireAt = value.ExpireAt;
             return;
@@ -517,11 +604,13 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         // update limit break
         var lb = LimitBreakController.Instance();
         if (_ws.Party.LimitBreakCur != lb->CurrentUnits || _ws.Party.LimitBreakMax != lb->BarUnits)
+        {
             _ws.Execute(new PartyState.OpLimitBreakChange(lb->CurrentUnits, lb->BarUnits));
+        }
     }
 
-    // returns player contentID
-    private unsafe ulong UpdatePartyPlayer(bool recorderPlaybackMode, GroupManager.Group* group)
+    // returns player entry in game's group
+    private unsafe PartyMember* UpdatePartyPlayer(bool recorderPlaybackMode, GroupManager.Group* group)
     {
         // in worldstate, player is always in slot #0
         // in game, there are several considerations:
@@ -546,15 +635,22 @@ sealed class WorldStateGameSync : IWorldStateGameSync
                 var inCutscene = Service.Condition[ConditionFlag.OccupiedInCutSceneEvent] || Service.Condition[ConditionFlag.WatchingCutscene78] || Service.Condition[ConditionFlag.Occupied33] || Service.Condition[ConditionFlag.BetweenAreas] || Service.Condition[ConditionFlag.OccupiedInQuestEvent];
                 player = new(ui->PlayerState.ContentId, ui->PlayerState.EntityId, inCutscene, ui->PlayerState.CharacterNameString);
                 if (pc != null && (pc->ContentId != player.ContentId || pc->EntityId != player.InstanceId))
+                {
                     Service.Log($"[WSG] Object #0 is valid ({pc->AccountId:X}.{pc->ContentId:X}, {pc->EntityId:X8} '{pc->NameString}') but different from playerstate ({player})");
+                }
             }
             else
             {
                 // player not logged in, just do some sanity checks
                 if (pc != null)
+                {
                     Service.Log($"[WSG] Object #0 is valid ({pc->AccountId:X}.{pc->ContentId:X}, {pc->EntityId:X8} '{pc->NameString}') while player is not logged in");
-                if (group->MemberCount > 0)
+                }
+
+                if (group != null && group->MemberCount > 0)
+                {
                     Service.Log($"[WGS] Group is non-empty while player is not logged in");
+                }
             }
         }
         else
@@ -567,18 +663,23 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             // else: just assume there's no player for now...
         }
 
-        // in duty support, GetPartyMemberByEntityId returns null, even for the player ID
-        var member = player.InstanceId != 0 ? group->GetPartyMemberByEntityId((uint)player.InstanceId) : null;
+        var member = player.InstanceId != default && group != null ? group->GetPartyMemberByEntityId((uint)player.InstanceId) : null;
         if (member != null)
-            player.InCutscene |= (member->Flags & 0x10) != 0;
+        {
+            player.InCutscene |= (member->Flags & 0x10) != default;
+        }
+
         UpdatePartySlot(PartyState.PlayerSlot, player);
-        return member == null ? player.ContentId : member->ContentId;
+        return member;
     }
 
-    private unsafe void UpdatePartyNormal(GroupManager.Group* group, ulong playerContentId)
+    private unsafe void UpdatePartyNormal(GroupManager.Group* group, PartyMember* player)
     {
+        if (group == null)
+            return;
+
         // first iterate over previous members, search for match in game state, and reconcile differences - update or remove
-        for (int i = PartyState.PlayerSlot + 1; i < PartyState.MaxPartySize; ++i)
+        for (var i = PartyState.PlayerSlot + 1; i < PartyState.MaxPartySize; ++i)
         {
             ref var m = ref _ws.Party.Members[i];
             if (m.ContentId != 0)
@@ -591,29 +692,38 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             {
                 // slot was occupied by trust => see if it's still in party
                 if (!HasBuddy(m.InstanceId))
+                {
                     UpdatePartySlot(i, PartyState.EmptySlot); // buddy is no longer in party => clear slot
+                }
                 // else: no reason to update...
             }
             // else: slot was empty, skip
         }
 
         // now iterate through game state and add new members; note that there's no need to update existing, it was done in the previous loop
-        for (int i = 0; i < group->MemberCount; ++i)
+        for (var i = 0; i < group->MemberCount; ++i)
         {
             var member = group->PartyMembers.GetPointer(i);
-            if (member->ContentId != playerContentId && Array.FindIndex(_ws.Party.Members, m => m.ContentId == member->ContentId) < 0)
+            if (player != null && member->ContentId != player->ContentId && Array.FindIndex(_ws.Party.Members, m => m.ContentId == member->ContentId) < 0)
+            {
                 AddPartyMember(BuildPartyMember(member));
+            }
+            else if (player == null && Array.FindIndex(_ws.Party.Members, m => m.ContentId == member->ContentId) < 0)
+            {
+                AddPartyMember(BuildPartyMember(member));
+            }
             // else: member is either a player (it was handled by a different function) or already exists in party state
         }
         // consider buddies as party members too
         var ui = UIState.Instance();
-        for (int i = 0; i < ui->Buddy.DutyHelperInfo.ENpcIds.Length; ++i)
+        var len = ui->Buddy.DutyHelperInfo.ENpcIds.Length;
+        for (var i = 0; i < len; ++i)
         {
-            var instanceID = ui->Buddy.DutyHelperInfo.DutyHelpers[i].EntityId;
+            ref var instanceID = ref ui->Buddy.DutyHelperInfo.DutyHelpers[i].EntityId;
             if (instanceID != InvalidEntityId && _ws.Party.FindSlot(instanceID) < 0)
             {
                 var obj = GameObjectManager.Instance()->Objects.GetObjectByEntityId(instanceID);
-                AddPartyMember(new(0, instanceID, false, obj != null ? obj->NameString : ""));
+                AddPartyMember(new(default, instanceID, false, obj != null ? obj->NameString : ""));
             }
             // else: buddy is non-existent or already updated, skip
         }
@@ -621,44 +731,55 @@ sealed class WorldStateGameSync : IWorldStateGameSync
 
     private unsafe void UpdatePartyAlliance(GroupManager.Group* group)
     {
+        if (group == null)
+            return;
+
         // note: we don't support small-group alliance (should we?)
         // unlike normal party, game's alliance slots never change, so we just keep 1:1 mapping
         var isNormalAlliance = group->IsAlliance && !group->IsSmallGroupAlliance;
-        for (int i = PartyState.MaxPartySize; i < PartyState.MaxAllianceSize; ++i)
+        for (var i = PartyState.MaxPartySize; i < PartyState.MaxAllianceSize; ++i)
         {
             var member = isNormalAlliance ? group->AllianceMembers.GetPointer(i - PartyState.MaxPartySize) : null;
             if (member != null && !member->IsValidAllianceMember())
+            {
                 member = null;
+            }
+
             UpdatePartySlot(i, BuildPartyMember(member));
         }
     }
 
     private unsafe void UpdatePartyNPCs()
     {
-        var treatAlliesAsParty = _ws.CurrentCFCID != 0; // TODO: think more about it, do we ever care about allies in overworld?..
-        for (int i = PartyState.MaxAllianceSize; i < PartyState.MaxAllies; ++i)
+        for (var i = PartyState.MaxAllianceSize; i < PartyState.MaxAllies; ++i)
         {
             ref var m = ref _ws.Party.Members[i];
             if (m.InstanceId != 0)
             {
-                var actor = treatAlliesAsParty ? _ws.Actors.Find(m.InstanceId) : null;
+                var actor = _ws.Actors.Find(m.InstanceId);
                 if (actor == null || !actor.IsFriendlyNPC)
+                {
                     UpdatePartySlot(i, PartyState.EmptySlot);
+                }
             }
         }
-        if (!treatAlliesAsParty)
-            return;
+
         foreach (var actor in _ws.Actors)
         {
             if (!actor.IsFriendlyNPC)
+            {
                 continue;
+            }
+
             if (_ws.Party.FindSlot(actor.InstanceID) == -1)
             {
                 var slot = FindFreePartySlot(PartyState.MaxAllianceSize, PartyState.MaxAllies);
                 if (slot > 0)
+                {
                     UpdatePartySlot(slot, new PartyState.Member(0, actor.InstanceID, false, actor.Name));
-                else
-                    Service.Log($"[WorldState] Failed to find empty slot for allied NPC {actor.InstanceID:X}");
+                }
+                // else
+                //     Service.Log($"[WorldState]  slot for allied NPC {actor.InstanceID:X}");
             }
         }
     }
@@ -666,17 +787,28 @@ sealed class WorldStateGameSync : IWorldStateGameSync
     private unsafe bool HasBuddy(ulong instanceID)
     {
         var ui = UIState.Instance();
-        for (int i = 0; i < ui->Buddy.DutyHelperInfo.ENpcIds.Length; ++i)
+        var len = ui->Buddy.DutyHelperInfo.ENpcIds.Length;
+        for (var i = 0; i < len; ++i)
+        {
             if (ui->Buddy.DutyHelperInfo.DutyHelpers[i].EntityId == instanceID)
+            {
                 return true;
+            }
+        }
+
         return false;
     }
 
     private int FindFreePartySlot(int firstSlot, int lastSlot)
     {
-        for (int i = firstSlot; i < lastSlot; ++i)
+        for (var i = firstSlot; i < lastSlot; ++i)
+        {
             if (!_ws.Party.Members[i].IsValid())
+            {
                 return i;
+            }
+        }
+
         return -1;
     }
 
@@ -686,18 +818,19 @@ sealed class WorldStateGameSync : IWorldStateGameSync
     {
         var freeSlot = FindFreePartySlot(1, PartyState.MaxPartySize);
         if (freeSlot >= 0)
-            _ws.Execute(new PartyState.OpModify(freeSlot, m));
-        else
         {
-            Service.Log($"[WorldState] Failed to find empty slot for party member {m.ContentId:X}:{m.InstanceId:X} ({_ws.Actors.Find(m.InstanceId)})");
-            Service.Log($"[WorldState] Current slots: {string.Join(", ", _ws.Party.Members.Select(m => _ws.Actors.Find(m.InstanceId)?.ToString() ?? "<unknown>"))}");
+            _ws.Execute(new PartyState.OpModify(freeSlot, m));
         }
+        // else
+        //     Service.Log($"[WorldState] Failed to find empty slot for party member {m.ContentId:X}:{m.InstanceId:X}");
     }
 
     private void UpdatePartySlot(int slot, PartyState.Member m)
     {
         if (_ws.Party.Members[slot] != m)
+        {
             _ws.Execute(new PartyState.OpModify(slot, m));
+        }
     }
 
     [StructLayout(LayoutKind.Explicit)]
@@ -711,20 +844,28 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         var countdownAgent = AgentCountDownSettingDialog.Instance();
         float? countdown = countdownAgent != null && countdownAgent->Active ? countdownAgent->TimeRemaining : null;
         if (_ws.Client.CountdownRemaining != countdown)
+        {
             _ws.Execute(new ClientState.OpCountdownChange(countdown));
+        }
 
         var actionManager = ActionManager.Instance();
         if (_ws.Client.AnimationLock != actionManager->AnimationLock)
+        {
             _ws.Execute(new ClientState.OpAnimationLockChange(actionManager->AnimationLock));
+        }
 
         var combo = new ClientState.Combo(actionManager->Combo.Action, actionManager->Combo.Timer);
         if (_ws.Client.ComboState != combo)
+        {
             _ws.Execute(new ClientState.OpComboChange(combo));
+        }
 
         var uiState = UIState.Instance();
         var stats = new ClientState.Stats(uiState->PlayerState.Attributes[45], uiState->PlayerState.Attributes[46], uiState->PlayerState.Attributes[47]);
         if (_ws.Client.PlayerStats != stats)
+        {
             _ws.Execute(new ClientState.OpPlayerStatsChange(stats));
+        }
 
         var pc = (Character*)GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
         if (pc != null)
@@ -734,7 +875,9 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             var factor = _calculateMoveSpeedMulti((ContainerInterface*)&c8);
             var speed = baseSpeed * factor;
             if (_ws.Client.MoveSpeed != speed)
+            {
                 _ws.Execute(new ClientState.OpMoveSpeedChange(speed));
+            }
         }
 
         Span<Cooldown> cooldowns = stackalloc Cooldown[_ws.Client.Cooldowns.Length];
@@ -742,55 +885,86 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         if (!MemoryExtensions.SequenceEqual(_ws.Client.Cooldowns.AsSpan(), cooldowns))
         {
             if (cooldowns.IndexOfAnyExcept(default(Cooldown)) < 0)
+            {
                 _ws.Execute(new ClientState.OpCooldown(true, []));
+            }
             else
+            {
                 _ws.Execute(new ClientState.OpCooldown(false, CalcCooldownDifference(cooldowns, _ws.Client.Cooldowns.AsSpan())));
+            }
         }
 
         var dutyActions = _amex.GetDutyActions();
         if (!MemoryExtensions.SequenceEqual(_ws.Client.DutyActions.AsSpan(), dutyActions))
+        {
             _ws.Execute(new ClientState.OpDutyActionsChange(dutyActions));
+        }
 
         Span<byte> bozjaHolster = stackalloc byte[_ws.Client.BozjaHolster.Length];
         bozjaHolster.Clear();
         var bozjaState = PublicContentBozja.GetState();
         if (bozjaState != null)
-            foreach (var action in bozjaState->HolsterActions)
-                if (action != 0)
-                    ++bozjaHolster[action];
+        {
+            var actions = bozjaState->HolsterActions;
+            var len = actions.Length;
+            for (var i = 0; i < len; ++i)
+            {
+                var action = actions[i];
+                {
+                    if (action != 0)
+                    {
+                        ++bozjaHolster[action];
+                    }
+                }
+            }
+        }
         if (!MemoryExtensions.SequenceEqual(_ws.Client.BozjaHolster.AsSpan(), bozjaHolster))
+        {
             _ws.Execute(new ClientState.OpBozjaHolsterChange(CalcBozjaHolster(bozjaHolster)));
-
+        }
         if (!MemoryExtensions.SequenceEqual(_ws.Client.BlueMageSpells.AsSpan(), actionManager->BlueMageActions))
-            _ws.Execute(new ClientState.OpBlueMageSpellsChange(actionManager->BlueMageActions.ToArray()));
-
+        {
+            _ws.Execute(new ClientState.OpBlueMageSpellsChange([.. actionManager->BlueMageActions]));
+        }
         var levels = uiState->PlayerState.ClassJobLevels;
         if (!MemoryExtensions.SequenceEqual(_ws.Client.ClassJobLevels.AsSpan(), levels))
-            _ws.Execute(new ClientState.OpClassJobLevelsChange(levels.ToArray()));
+        {
+            _ws.Execute(new ClientState.OpClassJobLevelsChange([.. levels]));
+        }
 
         var curFate = FateManager.Instance()->CurrentFate;
         ClientState.Fate activeFate = curFate != null ? new(curFate->FateId, curFate->Location, curFate->Radius, curFate->Progress, curFate->HandInCount, Utils.ReadField<uint>(curFate, 0x14)) : default;
         if (_ws.Client.ActiveFate != activeFate)
+        {
             _ws.Execute(new ClientState.OpActiveFateChange(activeFate));
+        }
 
-        var petinfo = uiState->Buddy.PetInfo;
+        ref var petinfo = ref uiState->Buddy.PetInfo;
         var pet = new ClientState.Pet(petinfo.Pet->EntityId, petinfo.Order, petinfo.Stance);
         if (_ws.Client.ActivePet != pet)
+        {
             _ws.Execute(new ClientState.OpActivePetChange(pet));
+        }
 
         var chocoinfo = uiState->Buddy.CompanionInfo;
         var chocobo = new ClientState.Companion(chocoinfo.Companion->EntityId, chocoinfo.ActiveCommand, chocoinfo.TimeLeft, PlayerState.Instance()->IsPlayerStateFlagSet(PlayerStateFlag.IsBuddyInStable));
         if (_ws.Client.ActiveCompanion != chocobo)
+        {
             _ws.Execute(new ClientState.OpActiveCompanionChange(chocobo));
+        }
 
         var focusTarget = TargetSystem.Instance()->FocusTarget;
-        var focusTargetId = focusTarget != null ? SanitizedObjectID(focusTarget->GetGameObjectId()) : 0;
+        var focusTargetId = focusTarget != null ? SanitizedObjectID(focusTarget->GetGameObjectId()) : default;
         if (_ws.Client.FocusTargetId != focusTargetId)
+        {
             _ws.Execute(new ClientState.OpFocusTargetChange(focusTargetId));
+        }
 
         var forcedMovementDir = MovementOverride.ForcedMovementDirection->Radians();
         if (_ws.Client.ForcedMovementDirection != forcedMovementDir)
+        {
             _ws.Execute(new ClientState.OpForcedMovementDirectionChange(forcedMovementDir));
+        }
 
         var contentKeyValue = uiState->PlayerState.ContentKeyValueData;
         var ckArray = new uint[]
@@ -803,27 +977,40 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             contentKeyValue[2].Item2
         };
         if (!MemoryExtensions.SequenceEqual(ckArray, _ws.Client.ContentKeyValueData))
+        {
             _ws.Execute(new ClientState.OpContentKVDataChange(ckArray));
+        }
 
         var hate = uiState->Hate;
         var hatePrimary = hate.HateTargetId;
         var hateTargets = new ClientState.Hate[32];
-        for (var i = 0; i < hate.HateArrayLength; i++)
+        for (var i = 0; i < hate.HateArrayLength; ++i)
+        {
             hateTargets[i] = new(hate.HateInfo[i].EntityId, hate.HateInfo[i].Enmity);
+        }
 
         if (hatePrimary != _ws.Client.CurrentTargetHate.InstanceID || !MemoryExtensions.SequenceEqual(hateTargets, _ws.Client.CurrentTargetHate.Targets))
+        {
             _ws.Execute(new ClientState.OpHateChange(hatePrimary, hateTargets));
+        }
 
         var timers = actionManager->ProcTimers[1..];
         if (!MemoryExtensions.SequenceEqual(timers, _ws.Client.ProcTimers))
+        {
             _ws.Execute(new ClientState.OpProcTimersChange(timers.ToArray()));
+        }
 
         void updateQuantity(uint itemId, uint count)
         {
-            if (itemId == 0)
+            if (itemId == default)
+            {
                 return;
+            }
+
             if (count != _ws.Client.GetInventoryItemQuantity(itemId))
+            {
                 _ws.Execute(new ClientState.OpInventoryChange(itemId, count));
+            }
         }
 
         if (_needInventoryUpdate)
@@ -832,13 +1019,21 @@ sealed class WorldStateGameSync : IWorldStateGameSync
             // update tracked items
             foreach (var id in ActionDefinitions.Instance.SupportedItems)
             {
-                var count = im->GetInventoryItemCount(id % 500000, id > 1000000, checkEquipped: false, checkArmory: false);
+                var count = im->GetInventoryItemCount(id % 500000u, id > 1000000u, checkEquipped: false, checkArmory: false);
                 updateQuantity(id, (uint)count);
             }
 
             // update all key items (smaller set)
             var ic = im->GetInventoryContainer(InventoryType.KeyItems);
-            var heldKeyItems = _ws.Client.Inventory.Keys.Where(i => i > 2000000).ToHashSet();
+            var heldKeyItems = new HashSet<uint>();
+            foreach (var i in _ws.Client.Inventory.Keys)
+            {
+                if (i > 2000000)
+                {
+                    heldKeyItems.Add(i);
+                }
+            }
+
             if (ic->IsLoaded)
             {
                 for (var i = 0; i < ic->Size; i++)
@@ -853,7 +1048,9 @@ sealed class WorldStateGameSync : IWorldStateGameSync
                 }
                 // delete items that disappeared from the inventory (e.g. after fate handin)
                 foreach (var remaining in heldKeyItems)
+                {
                     updateQuantity(remaining, 0);
+                }
             }
             _needInventoryUpdate = false;
         }
@@ -878,10 +1075,14 @@ sealed class WorldStateGameSync : IWorldStateGameSync
 
             var progress = new DeepDungeonState.DungeonProgress(dd->Floor, tileset, dd->WeaponLevel, dd->ArmorLevel, dd->SyncedGearLevel, dd->HoardCount, dd->ReturnProgress, dd->PassageProgress, (Utils.ReadField<byte>(dd, 0x20C6) & 1) != 0);
             if (fullUpdate || progress != _ws.DeepDungeon.Progress)
+            {
                 _ws.Execute(new DeepDungeonState.OpProgressChange(currentId, progress));
+            }
 
             if (fullUpdate || !MemoryExtensions.SequenceEqual(_ws.DeepDungeon.Rooms.AsSpan(), dd->MapData))
+            {
                 _ws.Execute(new DeepDungeonState.OpMapDataChange(dd->MapData.ToArray()));
+            }
 
             Span<DeepDungeonState.PartyMember> party = stackalloc DeepDungeonState.PartyMember[DeepDungeonState.NumPartyMembers];
             for (var i = 0; i < DeepDungeonState.NumPartyMembers; ++i)
@@ -890,7 +1091,9 @@ sealed class WorldStateGameSync : IWorldStateGameSync
                 party[i] = new(SanitizedObjectID(p.EntityId), SanitizeDeepDungeonRoom(p.RoomIndex));
             }
             if (fullUpdate || !MemoryExtensions.SequenceEqual(_ws.DeepDungeon.Party.AsSpan(), party))
+            {
                 _ws.Execute(new DeepDungeonState.OpPartyStateChange(party.ToArray()));
+            }
 
             Span<DeepDungeonState.PomanderState> pomanders = stackalloc DeepDungeonState.PomanderState[DeepDungeonState.NumPomanderSlots];
             for (var i = 0; i < DeepDungeonState.NumPomanderSlots; ++i)
@@ -899,7 +1102,9 @@ sealed class WorldStateGameSync : IWorldStateGameSync
                 pomanders[i] = new(item.Count, item.Flags);
             }
             if (fullUpdate || !MemoryExtensions.SequenceEqual(_ws.DeepDungeon.Pomanders.AsSpan(), pomanders))
+            {
                 _ws.Execute(new DeepDungeonState.OpPomandersChange(pomanders.ToArray()));
+            }
 
             Span<DeepDungeonState.Chest> chests = stackalloc DeepDungeonState.Chest[DeepDungeonState.NumChests];
             for (var i = 0; i < DeepDungeonState.NumChests; ++i)
@@ -908,10 +1113,14 @@ sealed class WorldStateGameSync : IWorldStateGameSync
                 chests[i] = new(c.ChestType, SanitizeDeepDungeonRoom(c.RoomIndex));
             }
             if (fullUpdate || !MemoryExtensions.SequenceEqual(_ws.DeepDungeon.Chests.AsSpan(), chests))
+            {
                 _ws.Execute(new DeepDungeonState.OpChestsChange(chests.ToArray()));
+            }
 
             if (fullUpdate || !MemoryExtensions.SequenceEqual(_ws.DeepDungeon.Magicite.AsSpan(), dd->Magicite))
+            {
                 _ws.Execute(new DeepDungeonState.OpMagiciteChange(dd->Magicite.ToArray()));
+            }
         }
         else if (_ws.DeepDungeon.DungeonId != DeepDungeonState.DungeonType.None)
         {
@@ -928,28 +1137,47 @@ sealed class WorldStateGameSync : IWorldStateGameSync
     {
         var ops = _actorOps.GetValueOrDefault(instanceID);
         if (ops == null)
+        {
             return;
+        }
 
-        foreach (var op in ops)
-            _ws.Execute(op);
+        var count = ops.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            _ws.Execute(ops[i]);
+        }
         _actorOps.Remove(instanceID);
     }
 
     private List<(int, Cooldown)> CalcCooldownDifference(Span<Cooldown> values, ReadOnlySpan<Cooldown> reference)
     {
-        var res = new List<(int, Cooldown)>();
-        for (int i = 0, cnt = Math.Min(values.Length, reference.Length); i < cnt; ++i)
-            if (values[i] != reference[i])
-                res.Add((i, values[i]));
+        var lenValues = values.Length;
+        var lenReference = reference.Length;
+        var max = lenValues < lenReference ? lenValues : lenReference;
+        var res = new List<(int, Cooldown)>(max);
+        for (int i = 0, cnt = max; i < cnt; ++i)
+        {
+            ref var value = ref values[i];
+            if (value != reference[i])
+            {
+                res.Add((i, value));
+            }
+        }
         return res;
     }
 
     private List<(BozjaHolsterID, byte)> CalcBozjaHolster(Span<byte> contents)
     {
-        var res = new List<(BozjaHolsterID, byte)>();
-        for (int i = 0; i < contents.Length; ++i)
-            if (contents[i] != 0)
-                res.Add(((BozjaHolsterID)i, contents[i]));
+        var len = contents.Length;
+        var res = new List<(BozjaHolsterID, byte)>(len);
+        for (var i = 0; i < len; ++i)
+        {
+            ref var content = ref contents[i];
+            if (content != 0)
+            {
+                res.Add(((BozjaHolsterID)i, content));
+            }
+        }
         return res;
     }
 
@@ -965,9 +1193,14 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         // targetServerActor is always a player?..
         var ipc = new NetworkState.ServerIPC(id, opcode, epoch, sourceServerActor, sendTimestamp, [.. payload]);
         if (_netConfig.Data.RecordServerPackets)
+        {
             _globalOps.Add(new NetworkState.OpServerIPC(ipc));
+        }
+
         if (_netConfig.Data.DumpServerPackets && (!_netConfig.Data.DumpServerPacketsPlayerOnly || sourceServerActor == UIState.Instance()->PlayerState.EntityId))
+        {
             _decoder.LogNode(_decoder.Decode(ipc, DateTime.UtcNow), "");
+        }
     }
 
     private unsafe void ClientIPCSent(uint opcode, Span<byte> payload)
@@ -975,26 +1208,20 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         if (_netConfig.Data.DumpClientPackets)
         {
             var sb = new StringBuilder($"Client IPC [0x{opcode:X4}]: data=");
-            foreach (byte b in payload)
+            foreach (var b in payload)
+            {
                 sb.Append($"{b:X2}");
+            }
+
             _decoder.LogNode(new(sb.ToString()), "");
         }
     }
 
-    private void OnActionRequested(ClientActionRequest arg)
-    {
-        _globalOps.Add(new ClientState.OpActionRequest(arg));
-    }
+    private void OnActionRequested(ClientActionRequest arg) => _globalOps.Add(new ClientState.OpActionRequest(arg));
 
-    private void OnActionEffect(ulong casterID, ActorCastEvent info)
-    {
-        _actorOps.GetOrAdd(casterID).Add(new ActorState.OpCastEvent(casterID, info));
-    }
+    private void OnActionEffect(ulong casterID, ActorCastEvent info) => _actorOps.GetOrAdd(casterID).Add(new ActorState.OpCastEvent(casterID, info));
 
-    private void OnEffectResult(ulong targetID, uint seq, int targetIndex)
-    {
-        _actorOps.GetOrAdd(targetID).Add(new ActorState.OpEffectResult(targetID, seq, targetIndex));
-    }
+    private void OnEffectResult(ulong targetID, uint seq, int targetIndex) => _actorOps.GetOrAdd(targetID).Add(new ActorState.OpEffectResult(targetID, seq, targetIndex));
 
     private unsafe void ProcessPacketActorCastDetour(uint casterId, Network.ServerIPC.ActorCast* packet)
     {
@@ -1006,7 +1233,7 @@ sealed class WorldStateGameSync : IWorldStateGameSync
     {
         var count = packet[0];
         var p = (Network.ServerIPC.EffectResultEntry*)(packet + 4);
-        for (int i = 0; i < count; ++i)
+        for (var i = 0; i < count; ++i)
         {
             OnEffectResult(targetID, p->RelatedActionSequence, p->RelatedTargetIndex);
             ++p;
@@ -1018,7 +1245,7 @@ sealed class WorldStateGameSync : IWorldStateGameSync
     {
         var count = packet[0];
         var p = (Network.ServerIPC.EffectResultBasicEntry*)(packet + 4);
-        for (int i = 0; i < count; ++i)
+        for (var i = 0; i < count; ++i)
         {
             OnEffectResult(targetID, p->RelatedActionSequence, p->RelatedTargetIndex);
             ++p;
@@ -1085,6 +1312,13 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         _globalOps.Add(new WorldState.OpRSVData(MemoryHelper.ReadStringNullTerminated((nint)(packet + 4)), MemoryHelper.ReadString((nint)(packet + 0x34), *(int*)packet)));
     }
 
+    private unsafe void ProcessPacketOpenTreasureDetour(uint playerID, byte* packet)
+    {
+        _processPacketOpenTreasureHook.Original(playerID, packet);
+        var actorID = *(uint*)(packet + 16);
+        _actorOps.GetOrAdd(actorID).Add(new ActorState.OpEventOpenTreasure(actorID));
+    }
+
     private unsafe void* ProcessSystemLogMessageDetour(uint entityId, uint messageId, int* args, byte argCount)
     {
         var res = _processSystemLogMessageHook.Original(entityId, messageId, args, argCount);
@@ -1125,7 +1359,8 @@ sealed class WorldStateGameSync : IWorldStateGameSync
 
     private unsafe void ProcessMapEffect(byte* data, byte offLow, byte offIndex)
     {
-        for (var i = 0; i < *data; i++)
+        var count = *data;
+        for (var i = 0; i < count; ++i)
         {
             var low = *(ushort*)(data + 2 * i + offLow);
             var high = *(ushort*)(data + 2 * i + 2);
@@ -1152,20 +1387,26 @@ sealed class WorldStateGameSync : IWorldStateGameSync
         _processPlayActionTimelineSyncHook.Original(data);
         List<(ulong, ushort)> actions = [];
 
-        uint owner = 0;
-        for (var i = 0; i < 10; i++)
+        uint owner = default;
+        for (var i = 0; i < 10; ++i)
         {
             var id = data->EntityIds[i];
             if (id == 0xE0000000)
+            {
                 break;
-            if (owner == 0)
+            }
+            if (owner == default)
+            {
                 owner = id;
+            }
 
             actions.Add((id, data->TimelineIds[i]));
         }
 
         if (owner > 0)
+        {
             _actorOps.GetOrAdd(owner).Add(new ActorState.OpPlayActionTimelineSync(owner, actions));
+        }
     }
 
     private unsafe uint GetActionInRangeOrLoSDetour(uint actionId, GameObject* sourceObject, GameObject* targetObject)

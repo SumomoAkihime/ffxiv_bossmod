@@ -22,9 +22,14 @@ public sealed unsafe class DebugAddon : IDisposable
     public void Dispose()
     {
         foreach (var h in _rcvAddonHooks.Values)
+        {
             h.Dispose();
+        }
+
         foreach (var h in _rcvAgentHooks.Values)
+        {
             h.Dispose();
+        }
     }
 
     public void Draw()
@@ -34,7 +39,9 @@ public sealed unsafe class DebugAddon : IDisposable
         {
             var hook = _rcvAddonHooks[v];
             if (ImGui.Button($"{(hook.Enabled ? "Disable" : "Enable")} {k} ({v:X})"))
+            {
                 hook.Enabled ^= true;
+            }
         }
 
         ImGui.TextUnformatted("Agents:");
@@ -42,16 +49,18 @@ public sealed unsafe class DebugAddon : IDisposable
         {
             var hook = _rcvAgentHooks[v];
             if (ImGui.Button($"{(hook.Enabled ? "Disable" : "Enable")} {k} ({v:X})"))
+            {
                 hook.Enabled ^= true;
+            }
         }
 
         ImGui.InputText("Addon name / agent id", ref _newHook, 256);
-        if (_newHook.Length > 0 && !_addonRcvs.ContainsKey(_newHook) && (AtkUnitBase*)(Service.GameGui.GetAddonByName(_newHook).Address) is var addon && addon != null)
+        if (_newHook.Length > 0 && !_addonRcvs.ContainsKey(_newHook) && Service.GameGui.GetAddonByName(_newHook) is var addon && addon != null)
         {
             ImGui.SameLine();
             if (ImGui.Button("Hook addon!"))
             {
-                var address = (nint)addon->VirtualTable->ReceiveEvent;
+                var address = addon.Address;
                 _addonRcvs[_newHook] = address;
                 if (!_rcvAddonHooks.ContainsKey(address))
                 {
@@ -87,11 +96,14 @@ public sealed unsafe class DebugAddon : IDisposable
 
     private string AtkValuesString(AtkValue* values, int count)
     {
-        string res = "[";
-        for (int i = 0; i < count; ++i)
+        var res = "[";
+        for (var i = 0; i < count; ++i)
         {
             if (i > 0)
+            {
                 res += ", ";
+            }
+
             res += values[i].Type switch
             {
                 AtkValueType.Int => $"int {values[i].Int}",

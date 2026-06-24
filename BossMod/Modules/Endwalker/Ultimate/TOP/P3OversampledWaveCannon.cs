@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Ultimate.TOP;
 
-class P3OversampledWaveCannon(BossModule module) : BossComponent(module)
+sealed class P3OversampledWaveCannon(BossModule module) : BossComponent(module)
 {
     private Actor? _boss;
     private Angle _bossAngle;
@@ -11,9 +11,9 @@ class P3OversampledWaveCannon(BossModule module) : BossComponent(module)
     private readonly TOPConfig _config = Service.Config.Get<TOPConfig>();
 
     private DateTime _resolve;
-    private readonly ArcList[] _safeAngles = Utils.GenArray(PartyState.MaxPartySize, () => new ArcList(default, 50));
+    private readonly ArcList[] _safeAngles = Utils.GenArray(PartyState.MaxPartySize, () => new ArcList(default, 50f));
 
-    private static readonly AOEShapeCone _shape = new(40, 90.Degrees());
+    private static readonly AOEShapeCone _shape = new(40f, 90f.Degrees());
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
@@ -28,7 +28,7 @@ class P3OversampledWaveCannon(BossModule module) : BossComponent(module)
     public override void AddMovementHints(int slot, Actor actor, MovementHints movementHints)
     {
         foreach (var p in SafeSpots(slot).Where(p => p.assigned))
-            movementHints.Add(actor.Position, p.pos, ArenaColor.Safe);
+            movementHints.Add(actor.Position, p.pos, Colors.Safe);
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -61,15 +61,15 @@ class P3OversampledWaveCannon(BossModule module) : BossComponent(module)
         var angleLeft = actor.AngleTo(safeConePlayers[1]);
 
         // forbid angle ranges that don't face the player toward or away from their intended targets
-        al.ForbidArc(angleLeft, (angleRight + 180.Degrees()).Normalized());
-        al.ForbidArc((angleLeft + 180.Degrees()).Normalized(), angleRight);
+        al.ForbidArc(angleLeft, (angleRight + 180f.Degrees()).Normalized());
+        al.ForbidArc((angleLeft + 180f.Degrees()).Normalized(), angleRight);
 
         // forbid any angle that would hit the boss with the monitor; eliminates one of the two remaining facing cones
         var dirToUnsafeCleave = actor.DirectionTo(Arena.Center).ToAngle() - _playerAngles[slot];
-        al.ForbidArc(dirToUnsafeCleave - 90.Degrees(), dirToUnsafeCleave + 90.Degrees());
+        al.ForbidArc(dirToUnsafeCleave - 90.Degrees(), dirToUnsafeCleave + 90f.Degrees());
 
-        foreach (var (min, max) in al.Allowed(2.Degrees()))
-            hints.ForbiddenDirections.Add(((max + min) / 2, (max - min) / 2, _resolve));
+        foreach (var (min, max) in al.Allowed(2f.Degrees()))
+            hints.ForbiddenDirections.Add(((max + min) / 2f, (max - min) / 2f, _resolve));
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
@@ -77,27 +77,27 @@ class P3OversampledWaveCannon(BossModule module) : BossComponent(module)
         foreach (var a in AOEs(pcSlot))
         {
             if (a.source)
-                _shape.Outline(Arena, a.origin, a.rot, ArenaColor.Danger);
+                _shape.Outline(Arena, a.origin, a.rot);
             else
-                _shape.Draw(Arena, a.origin, a.rot, a.safe ? ArenaColor.SafeFromAOE : ArenaColor.AOE);
+                _shape.Draw(Arena, a.origin, a.rot, a.safe ? Colors.SafeFromAOE : default);
         }
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         foreach (var p in SafeSpots(pcSlot))
-            Arena.AddCircle(p.pos, 1, p.assigned ? ArenaColor.Safe : ArenaColor.Danger);
+            Arena.AddCircle(p.pos, 1f, p.assigned ? Colors.Safe : default);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        var angle = (SID)status.ID switch
+        var angle = status.ID switch
         {
-            SID.OversampledWaveCannonLoadingL => 90.Degrees(),
-            SID.OversampledWaveCannonLoadingR => -90.Degrees(),
+            (uint)SID.OversampledWaveCannonLoadingL => 90f.Degrees(),
+            (uint)SID.OversampledWaveCannonLoadingR => -90f.Degrees(),
             _ => default
         };
-        if (angle != default && Raid.TryFindSlot(actor.InstanceID, out var slot))
+        if (angle != default && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
         {
             _playerAngles[slot] = angle;
             if (++_numPlayerAngles == 3)
@@ -115,10 +115,10 @@ class P3OversampledWaveCannon(BossModule module) : BossComponent(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        var angle = (AID)spell.Action.ID switch
+        var angle = spell.Action.ID switch
         {
-            AID.OversampledWaveCannonL => 90.Degrees(),
-            AID.OversampledWaveCannonR => -90.Degrees(),
+            (uint)AID.OversampledWaveCannonL => 90f.Degrees(),
+            (uint)AID.OversampledWaveCannonR => -90f.Degrees(),
             _ => default
         };
         if (angle != default)
@@ -131,37 +131,39 @@ class P3OversampledWaveCannon(BossModule module) : BossComponent(module)
 
     private bool IsMonitor(int slot) => _playerAngles[slot] != default;
 
-    private IEnumerable<(WPos pos, bool assigned)> SafeSpots(int slot)
+    private List<(WPos pos, bool assigned)> SafeSpots(int slot)
     {
         if (_numPlayerAngles < 3 || _bossAngle == default)
-            yield break;
+            return [];
 
-        WPos adjust(float x, float z) => Module.Center + new WDir(_bossAngle.Rad < 0 ? -x : x, z);
+        WPos adjust(float x, float z) => Arena.Center + new WDir(_bossAngle.Rad < 0 ? -x : x, z);
+        var safespots = new List<(WPos, bool)>(5);
         if (IsMonitor(slot))
         {
             var nextSlot = 0;
             if (!_config.P3LastMonitorSouth)
-                yield return (adjust(10, -11), _playerOrder[slot] == ++nextSlot);
-            yield return (adjust(-11, -9), _playerOrder[slot] == ++nextSlot);
-            yield return (adjust(-11, +9), _playerOrder[slot] == ++nextSlot);
+                safespots.Add((adjust(10f, -11f), _playerOrder[slot] == ++nextSlot));
+            safespots.Add((adjust(-11f, -9f), _playerOrder[slot] == ++nextSlot));
+            safespots.Add((adjust(-11f, +9f), _playerOrder[slot] == ++nextSlot));
             if (_config.P3LastMonitorSouth)
-                yield return (adjust(10, 11), _playerOrder[slot] == ++nextSlot);
+                safespots.Add((adjust(10f, 11f), _playerOrder[slot] == ++nextSlot));
         }
         else
         {
             var nextSlot = 0;
-            yield return (adjust(1, -15), _playerOrder[slot] == ++nextSlot);
+            safespots.Add((adjust(1f, -15f), _playerOrder[slot] == ++nextSlot));
             if (_config.P3LastMonitorSouth)
-                yield return (adjust(10, -11), _playerOrder[slot] == ++nextSlot);
-            yield return (adjust(15, -4), _playerOrder[slot] == ++nextSlot);
-            yield return (adjust(15, +4), _playerOrder[slot] == ++nextSlot);
+                safespots.Add((adjust(10f, -11f), _playerOrder[slot] == ++nextSlot));
+            safespots.Add((adjust(15f, -4f), _playerOrder[slot] == ++nextSlot));
+            safespots.Add((adjust(15f, +4f), _playerOrder[slot] == ++nextSlot));
             if (!_config.P3LastMonitorSouth)
-                yield return (adjust(10, 11), _playerOrder[slot] == ++nextSlot);
-            yield return (adjust(1, 15), _playerOrder[slot] == ++nextSlot);
+                safespots.Add((adjust(10f, 11f), _playerOrder[slot] == ++nextSlot));
+            safespots.Add((adjust(1f, 15f), _playerOrder[slot] == ++nextSlot));
         }
+        return safespots;
     }
 
-    private IEnumerable<(WPos origin, Angle rot, bool safe, bool source)> AOEs(int slot)
+    private (WPos origin, Angle rot, bool safe, bool source)[] AOEs(int slot)
     {
         var isMonitor = IsMonitor(slot);
         int order;
@@ -189,33 +191,46 @@ class P3OversampledWaveCannon(BossModule module) : BossComponent(module)
                 _ => 3, // N4/N5 are hit by M3
             };
         }
-        foreach (var aoe in AOEs())
+        var aoes = AOEs();
+        var len = aoes.Length;
+        var aoesNew = new (WPos, Angle, bool, bool)[len];
+        var index = 0;
+        for (var i = 0; i < len; ++i)
+        {
+            ref var aoe = ref aoes[i];
             if (aoe.origin != null)
-                yield return (aoe.origin.Position, aoe.origin.Rotation + aoe.offset, aoe.order == order, isMonitor && aoe.order == _playerOrder[slot]);
+            {
+                aoesNew[index++] = (aoe.origin.Position, aoe.origin.Rotation + aoe.offset, aoe.order == order, isMonitor && aoe.order == _playerOrder[slot]);
+            }
+        }
+        return aoesNew[..index];
     }
 
-    private IEnumerable<(Actor? origin, Angle offset, int order)> AOEs()
+    private (Actor? origin, Angle offset, int order)[] AOEs()
     {
-        yield return (_boss, _bossAngle, 0);
-        for (int i = 0; i < _monitorOrder.Count; ++i)
+        var count = _monitorOrder.Count;
+        var aoes = new (Actor?, Angle, int)[count + 1];
+        aoes[0] = (_boss, _bossAngle, 0);
+        for (var i = 0; i < _monitorOrder.Count; ++i)
         {
             var slot = _monitorOrder[i];
-            yield return (Raid[slot], _playerAngles[slot], i + 1);
+            aoes[i + 1] = (Raid[slot], _playerAngles[slot], i + 1);
         }
+        return aoes;
     }
 }
 
-class P3OversampledWaveCannonSpread(BossModule module) : Components.UniformStackSpread(module, 0, 7)
+sealed class P3OversampledWaveCannonSpread(BossModule module) : Components.UniformStackSpread(module, default, 7f)
 {
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.OversampledWaveCannonR or AID.OversampledWaveCannonL)
-            AddSpreads(Raid.WithoutSlot(true), Module.CastFinishAt(spell));
+        if (spell.Action.ID is (uint)AID.OversampledWaveCannonR or (uint)AID.OversampledWaveCannonL)
+            AddSpreads(Raid.WithoutSlot(true, true, true), Module.CastFinishAt(spell));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.OversampledWaveCannonAOE)
+        if (spell.Action.ID == (uint)AID.OversampledWaveCannonAOE)
             Spreads.Clear();
     }
 }

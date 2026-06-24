@@ -3,184 +3,159 @@ namespace BossMod.Shadowbringers.Dungeon.D03QitanaRavel.D033Eros;
 public enum OID : uint
 {
     Boss = 0x27B1, //R=7.02
-    Helper = 0x233C, //R=0.5
     PoisonVoidzone = 0x1E972C,
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
     AutoAttack = 872, // Boss->player, no cast, single-target
+    Jump = 15519, // Boss->location, no cast, single-target, visual
+
     Rend = 15513, // Boss->player, 4.0s cast, single-target, tankbuster
     HoundOutOfHeaven = 15514, // Boss->self, 5.0s cast, single-target
-    HoundOutOfHeavenTetherStretchSuccess = 17079, // Boss->player, no cast, single-target, tether break success
-    HoundOutOfHeavenTetherStretchFail = 17080, // Boss->player, no cast, single-target, tether break fail
+    HoundOutOfHeavenSuccess = 17079, // Boss->player, no cast, single-target, tether stretch success
+    HoundOutOfHeavenFail = 17080, // Boss->player, no cast, single-target, tether stretch fail
     Glossolalia = 15515, // Boss->self, 3.0s cast, range 50 circle, raidwide
     ViperPoison = 15516, // Boss->self, 6.0s cast, single-target
     ViperPoisonPatterns = 15518, // Helper->location, 6.0s cast, range 6 circle
-    ViperPoisonBaitAway = 15517, // Helper->player, 6.0s cast, range 6 circle
-    Jump = 15519, // Boss->location, no cast, single-target, visual?
+    ViperPoisonBait = 15517, // Helper->player, 6.0s cast, range 6 circle
+
     Inhale = 17168, // Boss->self, 4.0s cast, range 50 circle, attract 50 between centers
+
+    HeavingBreathVisual = 16923, // Helper->self, 3.5s cast, range 42 width 30 rect
     HeavingBreath = 15520, // Boss->self, 3.5s cast, range 50 circle, knockback 35 forward
-    HeavingBreath2 = 16923, // Helper->self, 3.5s cast, range 42 width 30 rect, visual?
-    ConfessionOfFaith = 15524, // Boss->self, 5.0s cast, single-target
-    ConfessionOfFaith2 = 15521, // Boss->self, 5.0s cast, single-target
-    ConfessionOfFaithLeft = 15526, // Helper->self, 5.5s cast, range 60 41-degree cone
-    ConfessionOfFaithRight = 15527, // Helper->self, 5.5s cast, range 60 41-degree cone
+
+    ConfessionOfFaithVisual1 = 15524, // Boss->self, 5.0s cast, single-target, left/right breath
+    ConfessionOfFaithVisual2 = 15521, // Boss->self, 5.0s cast, single-target, center breath
+    ConfessionOfFaithLeft = 15526, // Helper->self, 5.5s cast, range 60 60-degree cone
+    ConfessionOfFaithRight = 15527, // Helper->self, 5.5s cast, range 60 60-degree cone
+    ConfessionOfFaithCenter = 15522, // Helper->self, 5.5s cast, range 60 60-degree cone
     ConfessionOfFaithStack = 15525, // Helper->players, 5.8s cast, range 6 circle, stack
-    ConfessionOfFaithCenter = 15522, // Helper->self, 5.5s cast, range 60 40-degree cone
-    ConfessionOfFaithSpread = 15523, // Helper->player, 5.8s cast, range 5 circle, spread
+    ConfessionOfFaithSpread = 15523 // Helper->player, 5.8s cast, range 5 circle, spread
 }
 
-public enum IconID : uint
+class HoundOutOfHeaven(BossModule module) : Components.StretchTetherDuo(module, 19f, 5.2f);
+class ViperPoisonVoidzone(BossModule module) : Components.VoidzoneAtCastTarget(module, 6f, (uint)AID.ViperPoisonPatterns, GetVoidzones, 0.8f)
 {
-    tankbuster = 198, // player
-    stack = 62, // player
-    poisonbait = 171, // player
-    spread = 96, // player
-}
-
-public enum TetherID : uint
-{
-    HoundOutOfHeavenTetherGood = 1, // Boss->player
-    HoundOutOfHeavenTetherStretch = 57, // Boss->player
-}
-
-class HoundOutOfHeavenGood(BossModule module) : Components.BaitAwayTethers(module, new AOEShapeCone(0, 0.Degrees()), (uint)TetherID.HoundOutOfHeavenTetherGood) // TODO: consider generalizing stretched tethers?
-{
-    private ulong target;
-
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    private static Actor[] GetVoidzones(BossModule module)
     {
-        base.OnTethered(source, tether);
-        if (tether.ID == (uint)TetherID.HoundOutOfHeavenTetherGood)
-            target = tether.Target;
-    }
+        var enemies = module.Enemies((uint)OID.PoisonVoidzone);
+        var count = enemies.Count;
+        if (count == 0)
+            return [];
 
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
-    {
-        if (DrawTethers && target == pc.InstanceID && CurrentBaits.Count > 0)
+        var voidzones = new Actor[count];
+        var index = 0;
+        for (var i = 0; i < count; ++i)
         {
-            foreach (var b in ActiveBaits)
+            var z = enemies[i];
+            if (z.EventState != 7)
+                voidzones[index++] = z;
+        }
+        return voidzones[..index];
+    }
+}
+class ConfessionOfFaithStack(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.ConfessionOfFaithStack, 6f, 4, 4);
+class ConfessionOfFaithSpread(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.ConfessionOfFaithSpread, 5f);
+
+abstract class Breath(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, new AOEShapeCone(60f, 30f.Degrees()));
+class ConfessionOfFaithCenter(BossModule module) : Breath(module, (uint)AID.ConfessionOfFaithCenter);
+class ConfessionOfFaithLeft(BossModule module) : Breath(module, (uint)AID.ConfessionOfFaithLeft);
+class ConfessionOfFaithRight(BossModule module) : Breath(module, (uint)AID.ConfessionOfFaithRight);
+
+class ViperPoisonBait(BossModule module) : Components.BaitAwayCast(module, (uint)AID.ViperPoisonBait, 6f)
+{
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        base.AddAIHints(slot, actor, assignment, hints);
+        if (IsBaitTarget(actor))
+        {
+            hints.AddForbiddenZone(new SDRect(new(17f, -518f), new(17f, -558f), 13f));
+        }
+    }
+}
+
+class Inhale(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.Inhale, 50f, kind: Kind.TowardsOrigin)
+{
+    private readonly ViperPoisonVoidzone _aoe = module.FindComponent<ViperPoisonVoidzone>()!;
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Casters.Count != 0)
+        {
+            var aoes = _aoe.ActiveAOEs(slot, actor);
+            var len = aoes.Length;
+            var forbidden = new ShapeDistance[len];
+            for (var i = 0; i < len; ++i)
             {
-                if (Arena.Config.ShowOutlinesAndShadows)
-                    Arena.AddLine(b.Source.Position, b.Target.Position, 0xFF000000, 2);
-                Arena.AddLine(b.Source.Position, b.Target.Position, ArenaColor.Safe);
+                ref readonly var aoe = ref aoes[0];
+                forbidden[i] = new SDRect(aoe.Origin, Module.PrimaryActor.Rotation, 40f, default, 6f);
+            }
+            if (forbidden.Length != 0)
+            {
+                hints.AddForbiddenZone(new SDUnion(forbidden), Casters.Ref(0).Activation);
             }
         }
     }
 
-    public override void AddHints(int slot, Actor actor, TextHints hints)
+    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos)
     {
-        if (target == actor.InstanceID && CurrentBaits.Count > 0)
-            hints.Add("Tether is stretched!", false);
-    }
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        base.AddAIHints(slot, actor, assignment, hints);
-        if (target == actor.InstanceID && CurrentBaits.Count > 0)
-            hints.AddForbiddenZone(ShapeContains.Circle(Module.PrimaryActor.Position, 15));
+        var aoes = _aoe.ActiveAOEs(slot, actor);
+        var len = aoes.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            ref readonly var aoe = ref aoes[i];
+            if (aoe.Check(pos))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
-class HoundOutOfHeavenBad(BossModule module) : Components.BaitAwayTethers(module, new AOEShapeCone(0, 0.Degrees()), (uint)TetherID.HoundOutOfHeavenTetherStretch)
+class HeavingBreath(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.HeavingBreath, 35f, kind: Kind.DirForward, stopAtWall: true)
 {
-    private ulong target;
+    private readonly ViperPoisonVoidzone _aoe = module.FindComponent<ViperPoisonVoidzone>()!;
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        base.OnTethered(source, tether);
-        if (tether.ID == (uint)TetherID.HoundOutOfHeavenTetherStretch)
-            target = tether.Target;
-    }
-
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
-    {
-        if (DrawTethers && target == pc.InstanceID && CurrentBaits.Count > 0)
+        if (Casters.Count != 0)
         {
-            foreach (var b in ActiveBaits)
+            var aoes = _aoe.ActiveAOEs(slot, actor);
+            var len = aoes.Length;
+            var forbidden = new ShapeDistance[len];
+            for (var i = 0; i < len; ++i)
             {
-                if (Arena.Config.ShowOutlinesAndShadows)
-                    Arena.AddLine(b.Source.Position, b.Target.Position, 0xFF000000, 2);
-                Arena.AddLine(b.Source.Position, b.Target.Position, ArenaColor.Danger);
+                ref readonly var aoe = ref aoes[0];
+                forbidden[i] = new SDRect(aoe.Origin, new WDir(default, 1f), 40f, 40f, 6f);
+            }
+            if (forbidden.Length != 0)
+            {
+                hints.AddForbiddenZone(new SDUnion(forbidden), Casters.Ref(0).Activation);
             }
         }
     }
 
-    public override void AddHints(int slot, Actor actor, TextHints hints)
+    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos)
     {
-        if (target == actor.InstanceID && CurrentBaits.Count > 0)
-            hints.Add("Stretch tether further!");
-    }
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        base.AddAIHints(slot, actor, assignment, hints);
-        if (target == actor.InstanceID && CurrentBaits.Count > 0)
-            hints.AddForbiddenZone(ShapeContains.Circle(Module.PrimaryActor.Position, 15));
-    }
-}
-
-class ViperPoisonPatterns(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 6, AID.ViperPoisonPatterns, m => m.Enemies(OID.PoisonVoidzone).Where(z => z.EventState != 7), 0);
-class ConfessionOfFaithLeft(BossModule module) : Components.StandardAOEs(module, AID.ConfessionOfFaithLeft, new AOEShapeCone(60, 46.Degrees(), 20.Degrees())); // TODO: verify; there should not be an offset in reality here...
-class ConfessionOfFaithRight(BossModule module) : Components.StandardAOEs(module, AID.ConfessionOfFaithRight, new AOEShapeCone(60, 46.Degrees(), -20.Degrees())); // TODO: verify; there should not be an offset in reality here...
-class ConfessionOfFaithStack(BossModule module) : Components.StackWithCastTargets(module, AID.ConfessionOfFaithStack, 6);
-class ConfessionOfFaithCenter(BossModule module) : Components.StandardAOEs(module, AID.ConfessionOfFaithCenter, new AOEShapeCone(60, 40.Degrees()));
-class ConfessionOfFaithSpread(BossModule module) : Components.SpreadFromCastTargets(module, AID.ConfessionOfFaithSpread, 5);
-
-class ViperPoisonBait(BossModule module) : Components.GenericBaitAway(module)
-{
-    private bool targeted;
-    private Actor? target;
-
-    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
-    {
-        if (iconID == (uint)IconID.poisonbait)
+        var aoes = _aoe.ActiveAOEs(slot, actor);
+        var len1 = aoes.Length;
+        for (var i = 0; i < len1; ++i)
         {
-            CurrentBaits.Add(new(actor, actor, new AOEShapeCircle(6)));
-            targeted = true;
-            target = actor;
+            ref readonly var aoe = ref aoes[i];
+            if (aoe.Check(pos))
+            {
+                return true;
+            }
         }
-    }
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID == AID.ViperPoisonBaitAway)
-        {
-            CurrentBaits.Clear();
-            targeted = false;
-        }
-    }
-
-    public override void AddHints(int slot, Actor actor, TextHints hints)
-    {
-        base.AddHints(slot, actor, hints);
-        if (target == actor && targeted)
-            hints.Add("Bait voidzone away!");
-    }
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        base.AddAIHints(slot, actor, assignment, hints);
-        if (target == actor && targeted)
-            hints.AddForbiddenZone(ShapeContains.Rect(new(17, -518), new(17, -558), 13));
+        return false;
     }
 }
 
-class Inhale(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Inhale, 50, kind: Kind.TowardsOrigin)
-{
-    //TODO: consider testing if path is unsafe in addition to destination
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => Module.FindComponent<ViperPoisonPatterns>()?.ActiveAOEs(slot, actor).Any(z => z.Shape.Check(pos, z.Origin, z.Rotation)) ?? false;
-}
-
-class HeavingBreath(BossModule module) : Components.KnockbackFromCastTarget(module, AID.HeavingBreath, 35, kind: Kind.DirForward, stopAtWall: true)
-{
-    //TODO: consider testing if path is unsafe in addition to destination
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => Module.FindComponent<ViperPoisonPatterns>()?.ActiveAOEs(slot, actor).Any(z => z.Shape.Check(pos, z.Origin, z.Rotation)) ?? false;
-}
-
-class Glossolalia(BossModule module) : Components.RaidwideCast(module, AID.Glossolalia);
-class Rend(BossModule module) : Components.SingleTargetDelayableCast(module, AID.Rend);
+class Glossolalia(BossModule module) : Components.RaidwideCast(module, (uint)AID.Glossolalia);
+class Rend(BossModule module) : Components.SingleTargetDelayableCast(module, (uint)AID.Rend);
 
 class D033ErosStates : StateMachineBuilder
 {
@@ -188,20 +163,19 @@ class D033ErosStates : StateMachineBuilder
     {
         TrivialPhase()
             .ActivateOnEnter<ViperPoisonBait>()
-            .ActivateOnEnter<ViperPoisonPatterns>()
+            .ActivateOnEnter<ViperPoisonVoidzone>()
             .ActivateOnEnter<Rend>()
-            .ActivateOnEnter<HoundOutOfHeavenGood>()
-            .ActivateOnEnter<HoundOutOfHeavenBad>()
+            .ActivateOnEnter<HoundOutOfHeaven>()
             .ActivateOnEnter<Glossolalia>()
-            .ActivateOnEnter<ConfessionOfFaithLeft>()
-            .ActivateOnEnter<ConfessionOfFaithRight>()
-            .ActivateOnEnter<ConfessionOfFaithSpread>()
             .ActivateOnEnter<ConfessionOfFaithCenter>()
+            .ActivateOnEnter<ConfessionOfFaithRight>()
+            .ActivateOnEnter<ConfessionOfFaithLeft>()
+            .ActivateOnEnter<ConfessionOfFaithSpread>()
             .ActivateOnEnter<ConfessionOfFaithStack>()
             .ActivateOnEnter<HeavingBreath>()
             .ActivateOnEnter<Inhale>();
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 651, NameID = 8233)]
-public class D033Eros(WorldState ws, Actor primary) : BossModule(ws, primary, new(17, -538), new ArenaBoundsRect(15, 20));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 651, NameID = 8233)]
+public class D033Eros(WorldState ws, Actor primary) : BossModule(ws, primary, new(17, -538), new ArenaBoundsRect(14.5f, 19.5f));

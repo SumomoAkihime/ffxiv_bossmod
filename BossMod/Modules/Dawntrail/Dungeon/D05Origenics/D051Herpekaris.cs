@@ -2,103 +2,152 @@
 
 public enum OID : uint
 {
-    Boss = 0x4185, // R8.400, x1
-    Helper = 0x233C, // R0.500, x32, Helper type
-    VasoconstrictorVoidzone = 0x1E9E3C, // R0.500, x0 (spawn during fight), EventObj type
+    Boss = 0x4185, // R8.4
+    PoisonVoidzone = 0x1E9E3C, // R0.5
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
     AutoAttack = 872, // Boss->player, no cast, single-target
     Teleport = 36520, // Boss->location, no cast, single-target
-    StridentShriek = 36519, // Boss->self, 5.0s cast, range 60 circle, raidwide
-    Vasoconstrictor = 36459, // Boss->self, 3.0+1.2s cast, single-target, visual (poison zones)
-    PoisonHeartVoidzone = 36460, // Helper->location, 4.2s cast, range 2 circle voidzones
-    VenomspillFirstL = 37451, // Boss->self, 5.0s cast, single-target, visual (hit left puddle)
-    VenomspillFirstR = 36452, // Boss->self, 5.0s cast, single-target, visual (hit right puddle)
-    VenomspillSecondR = 36453, // Boss->self, 4.0s cast, single-target, visual (hit right puddle)
-    VenomspillSecondL = 36454, // Boss->self, 4.0s cast, single-target, visual (hit left puddle)
-    PodBurstFirst = 38518, // Helper->location, 5.0s cast, range 6 circle
-    PodBurstRest = 38519, // Helper->location, 4.0s cast, range 6 circle
-    WrithingRiot = 36463, // Boss->self, 9.0s cast, single-target, visual (three sweeps)
-    WrithingRiotRight = 36465, // Helper->self, 2.0s cast, range 25 210-degree cone, visual (telegraph)
-    WrithingRiotLeft = 36466, // Helper->self, 2.0s cast, range 25 210-degree cone, visual (telegraph)
-    WrithingRiotRear = 36467, // Helper->self, 2.0s cast, range 25 90-degree cone, visual (telegraph)
-    RightSweep = 36469, // Boss->self, no cast, range 25 ?-degree cone
-    LeftSweep = 36470, // Boss->self, no cast, range 25 ?-degree cone
-    RearSweep = 36471, // Boss->self, no cast, range 25 ?-degree cone
-    PoisonHeartSpread = 37921, // Helper->player, 8.0s cast, range 5 circle spread
-    CollectiveAgony = 36473, // Boss->self/players, 5.5s cast, range 50 width 8 rect line stack
-    CollectiveAgonyTargetSelect = 36474, // Helper->player, no cast, single-target, visual (target select)
-    ConvulsiveCrush = 36518, // Boss->player, 5.0s cast, single-target, tankbuster
+
+    StridentShriek = 36519, // Boss->self, 5.0s cast, range 60 circle  raidwide
+
+    Vasoconstrictor = 36459, // Boss->self, 3.0+1.2s cast, single-target, spawns poison
+    PoisonHeartVoidzone = 36460, // Helper->location, 4.2s cast, range 2 circle
+    PoisonHeartSpread = 37921, // Helper->player, 8.0s cast, range 5 circle
+
+    PodBurst1 = 38518, // Helper->location, 5.0s cast, range 6 circle
+    PodBurst2 = 38519, // Helper->location, 4.0s cast, range 6 circle
+
+    Venomspill1 = 37451, // Boss->self, 5.0s cast, single-target
+    Venomspill2 = 36452, // Boss->self, 5.0s cast, single-target
+    Venomspill3 = 36453, // Boss->self, 4.0s cast, single-target
+    Venomspill4 = 36454, // Boss->self, 4.0s cast, single-target
+
+    WrithingRiotVisual = 36463, // Boss->self, 9.0s cast, single-target
+    RightSweepTelegraph = 36465, // Helper->self, 2.0s cast, range 25 210-degree cone
+    LeftSweepTelegraph = 36466, // Helper->self, 2.0s cast, range 25 210-degree cone
+    RearSweepTelegraph = 36467, // Helper->self, 2.0s cast, range 25 90-degree cone
+    RightSweep = 36469, // Boss->self, no cast, range 25 210-degree cone
+    LeftSweep = 36470, // Boss->self, no cast, range 25 210-degree cone
+    RearSweep = 36471, // Boss->self, no cast, range 25 90-degree cone
+
+    CollectiveAgonyMarker = 36474, // Helper->player, no cast, single-target
+    CollectiveAgony = 36473, // Boss->self/players, 5.5s cast, range 50 width 8 rect
+    ConvulsiveCrush = 36518, // Boss->player, 5.0s cast, single-target, tb
 }
 
-public enum IconID : uint
+sealed class CollectiveAgony(BossModule module) : Components.LineStack(module, aidMarker: (uint)AID.CollectiveAgonyMarker, (uint)AID.CollectiveAgony, 5.6d);
+sealed class StridentShriek(BossModule module) : Components.RaidwideCast(module, (uint)AID.StridentShriek);
+sealed class ConvulsiveCrush(BossModule module) : Components.SingleTargetDelayableCast(module, (uint)AID.ConvulsiveCrush);
+sealed class PoisonHeartSpread(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.PoisonHeartSpread, 5f);
+sealed class PoisonHeartVoidzone(BossModule module) : Components.VoidzoneAtCastTarget(module, 2f, (uint)AID.PoisonHeartVoidzone, GetVoidzones, 0.9d)
 {
-    PoisonHeartSpread = 345, // player
-    ConvulsiveCrush = 218, // player
-}
-
-class StridentShriek(BossModule module) : Components.RaidwideCast(module, AID.StridentShriek);
-class PoisonHeartVoidzone(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 2, AID.PoisonHeartVoidzone, m => m.Enemies(OID.VasoconstrictorVoidzone).Where(z => z.EventState != 7), 0.5f);
-class PodBurstFirst(BossModule module) : Components.StandardAOEs(module, AID.PodBurstFirst, 6);
-class PodBurstRest(BossModule module) : Components.StandardAOEs(module, AID.PodBurstRest, 6);
-
-class WrithingRiot(BossModule module) : Components.GenericAOEs(module)
-{
-    private readonly List<AOEInstance> _aoes = [];
-
-    private static readonly AOEShapeCone _shapeSide = new(25, 105.Degrees());
-    private static readonly AOEShapeCone _shapeRear = new(25, 45.Degrees());
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    private static Actor[] GetVoidzones(BossModule module)
     {
-        if (_aoes.Count > 1)
-            yield return _aoes[1];
-        if (_aoes.Count > 0)
-            yield return _aoes[0] with { Color = ArenaColor.Danger };
+        var enemies = module.Enemies((uint)OID.PoisonVoidzone);
+        var count = enemies.Count;
+        if (count == 0)
+            return [];
+
+        var voidzones = new Actor[count];
+        var index = 0;
+        for (var i = 0; i < count; ++i)
+        {
+            var z = enemies[i];
+            if (z.EventState != 7)
+                voidzones[index++] = z;
+        }
+        return voidzones[..index];
+    }
+}
+
+sealed class PodBurst(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.PodBurst1, (uint)AID.PodBurst2], 6f);
+
+sealed class WrithingRiot(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly List<AOEInstance> _aoes = new(3);
+    private static readonly AOEShapeCone coneLeftRight = new(25f, 105f.Degrees());
+    private static readonly AOEShapeCone coneRear = new(25f, 45f.Degrees());
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var count = _aoes.Count;
+        if (count == 0)
+            return [];
+        var max = count > 2 ? 2 : count;
+        var aoes = CollectionsMarshal.AsSpan(_aoes);
+        for (var i = 0; i < max; ++i)
+        {
+            ref var aoe = ref aoes[i];
+            if (i == 0)
+            {
+                if (count > 1)
+                    aoe.Color = Colors.Danger;
+                aoe.Risky = true;
+            }
+            else if (aoe.Shape == aoes[0].Shape)
+                aoe.Risky = false;
+        }
+        return aoes[..max];
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        AOEShape? shape = (AID)spell.Action.ID switch
+        void AddAOE(AOEShape shape) => _aoes.Add(new(shape, spell.LocXZ, spell.Rotation, WorldState.FutureTime(7.3d - _aoes.Count * 1d)));
+        switch (spell.Action.ID)
         {
-            AID.WrithingRiotRight or AID.WrithingRiotLeft => _shapeSide,
-            AID.WrithingRiotRear => _shapeRear,
-            _ => null
-        };
-        if (shape != null)
-        {
-            _aoes.Add(new(shape, caster.Position, spell.Rotation, _aoes.Count > 0 ? _aoes[^1].Activation.AddSeconds(2) : Module.CastFinishAt(spell, 7.3f)));
+            case (uint)AID.RightSweepTelegraph:
+            case (uint)AID.LeftSweepTelegraph:
+                AddAOE(coneLeftRight);
+                break;
+            case (uint)AID.RearSweepTelegraph:
+                AddAOE(coneRear);
+                break;
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.RightSweep or AID.LeftSweep or AID.RearSweep && _aoes.Count > 0)
-            _aoes.RemoveAt(0);
+        if (_aoes.Count != 0)
+            switch (spell.Action.ID)
+            {
+                case (uint)AID.RearSweep:
+                case (uint)AID.LeftSweep:
+                case (uint)AID.RightSweep:
+                    _aoes.RemoveAt(0);
+                    break;
+            }
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        base.AddAIHints(slot, actor, assignment, hints);
+        // stay close to the middle if there is next imminent aoe
+        if (_aoes.Count > 1)
+        {
+            ref var aoe = ref _aoes.Ref(0);
+            hints.AddForbiddenZone(new SDInvertedCircle(aoe.Origin, 3f), aoe.Activation);
+        }
     }
 }
 
-class PoisonHeartSpread(BossModule module) : Components.SpreadFromCastTargets(module, AID.PoisonHeartSpread, 5);
-class CollectiveAgony(BossModule module) : Components.SimpleLineStack(module, 4, 50, AID.CollectiveAgonyTargetSelect, AID.CollectiveAgony, 5.6f);
-class ConvulsiveCrush(BossModule module) : Components.SingleTargetCast(module, AID.ConvulsiveCrush);
-
-class D051HerpekarisStates : StateMachineBuilder
+sealed class D051HerpekarisStates : StateMachineBuilder
 {
     public D051HerpekarisStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<StridentShriek>()
-            .ActivateOnEnter<PoisonHeartVoidzone>()
-            .ActivateOnEnter<PodBurstFirst>()
-            .ActivateOnEnter<PodBurstRest>()
-            .ActivateOnEnter<WrithingRiot>()
-            .ActivateOnEnter<PoisonHeartSpread>()
             .ActivateOnEnter<CollectiveAgony>()
+            .ActivateOnEnter<StridentShriek>()
+            .ActivateOnEnter<PoisonHeartSpread>()
+            .ActivateOnEnter<PoisonHeartVoidzone>()
+            .ActivateOnEnter<PodBurst>()
+            .ActivateOnEnter<WrithingRiot>()
             .ActivateOnEnter<ConvulsiveCrush>();
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 825, NameID = 12741)]
-public class D051Herpekaris(WorldState ws, Actor primary) : BossModule(ws, primary, new(-88, -180), new ArenaBoundsSquare(18));
+[ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus, LTS)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 825, NameID = 12741, SortOrder = 1)]
+public sealed class D051Herpekaris(WorldState ws, Actor primary) : BossModule(ws, primary, new(-88f, -180f), new ArenaBoundsSquare(17.5f));

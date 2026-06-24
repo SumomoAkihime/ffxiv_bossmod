@@ -1,46 +1,64 @@
 ﻿namespace BossMod.Endwalker.Alliance.A33Oschon;
 
-class P2WanderingVolleyDownhill(BossModule module) : Components.StandardAOEs(module, AID.WanderingVolleyDownhillAOE, 8);
+sealed class P2WanderingVolleyDownhill(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WanderingVolleyDownhillAOE, 8f);
 
-class P2WanderingVolleyKnockback(BossModule module) : Components.Knockback(module)
+sealed class P2WanderingVolleyKnockback(BossModule module) : Components.GenericKnockback(module)
 {
     private readonly P2WanderingVolleyDownhill? _downhill = module.FindComponent<P2WanderingVolleyDownhill>();
-    private readonly List<Source> _sources = [];
-    private static readonly AOEShapeCone _shape = new(30, 90.Degrees());
+    private readonly List<Knockback> _sources = new(2);
+    private static readonly AOEShapeCone _shape = new(30f, 90f.Degrees());
 
-    public override IEnumerable<Source> Sources(int slot, Actor actor) => _sources;
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => !Module.InBounds(pos) || (_downhill?.ActiveAOEs(slot, actor).Any(z => z.Check(pos)) ?? false);
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor) => CollectionsMarshal.AsSpan(_sources);
+
+    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos)
+    {
+        if (_downhill == null)
+            return false;
+        var aoes = _downhill.ActiveAOEs(slot, actor);
+        var len = aoes.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            ref readonly var aoe = ref aoes[i];
+            if (aoe.Check(pos))
+            {
+                return true;
+            }
+        }
+        return !Arena.InBounds(pos);
+    }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.WanderingVolleyN or AID.WanderingVolleyS)
+        if (spell.Action.ID is (uint)AID.WanderingVolleyN or (uint)AID.WanderingVolleyS)
         {
             _sources.Clear();
             // happens through center, so create two sources with origin at center looking orthogonally
-            _sources.Add(new(Module.Center, 12, Module.CastFinishAt(spell), _shape, spell.Rotation + 90.Degrees(), Kind.DirForward));
-            _sources.Add(new(Module.Center, 12, Module.CastFinishAt(spell), _shape, spell.Rotation - 90.Degrees(), Kind.DirForward));
+            _sources.Add(new(Arena.Center, 12f, Module.CastFinishAt(spell), _shape, spell.Rotation + 90f.Degrees(), Kind.DirForward));
+            _sources.Add(new(Arena.Center, 12f, Module.CastFinishAt(spell), _shape, spell.Rotation - 90f.Degrees(), Kind.DirForward));
         }
     }
 }
 
-class P2WanderingVolleyAOE(BossModule module) : Components.GenericAOEs(module)
+sealed class P2WanderingVolleyAOE(BossModule module) : Components.GenericAOEs(module)
 {
-    private AOEInstance? _aoe;
-    private static readonly AOEShapeRect _shape = new(40, 5);
+    private AOEInstance[] _aoe = [];
+    private static readonly AOEShapeRect _shape = new(40f, 5f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.ZeroOrOne(_aoe);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.WanderingVolleyN or AID.WanderingVolleyS)
-            _aoe = new(_shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell));
+        if (spell.Action.ID is (uint)AID.WanderingVolleyN or (uint)AID.WanderingVolleyS)
+        {
+            _aoe = [new(_shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell))];
+        }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.WanderingVolleyN or AID.WanderingVolleyS)
+        if (spell.Action.ID is (uint)AID.WanderingVolleyN or (uint)AID.WanderingVolleyS)
         {
-            _aoe = null;
+            _aoe = [];
             ++NumCasts;
         }
     }

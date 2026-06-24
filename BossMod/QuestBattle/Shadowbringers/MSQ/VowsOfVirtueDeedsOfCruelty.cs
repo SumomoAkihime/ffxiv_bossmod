@@ -1,11 +1,13 @@
 ﻿namespace BossMod.QuestBattle.Shadowbringers.MSQ;
 
-class AutoEstinien(WorldState ws) : UnmanagedRotation(ws, 10)
+class AutoEstinien(WorldState ws) : UnmanagedRotation(ws, 10f)
 {
     protected override void Exec(Actor? primaryTarget)
     {
         if (primaryTarget == null)
+        {
             return;
+        }
 
         var gcd = ComboAction switch
         {
@@ -15,31 +17,34 @@ class AutoEstinien(WorldState ws) : UnmanagedRotation(ws, 10)
         };
 
         UseAction(gcd, primaryTarget);
-        if (Player.HPMP.CurHP * 2 < Player.HPMP.MaxHP)
-            UseAction(Roleplay.AID.AquaVitae, Player, -10);
+        var hpmp = Player.HPMP;
+        if (hpmp.CurHP * 2u < hpmp.MaxHP)
+        {
+            UseAction(Roleplay.AID.AquaVitae, Player, -10f);
+        }
 
-        UseAction(Roleplay.AID.SkydragonDive, primaryTarget, -10);
+        UseAction(Roleplay.AID.SkydragonDive, primaryTarget, -10f);
     }
 }
 
-[ZoneModuleInfo(702)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 702u)]
 public class VowsOfVirtueDeedsOfCruelty(WorldState ws) : QuestBattle(ws)
 {
     private readonly AutoEstinien _ai = new(ws);
 
     public override List<QuestObjective> DefineObjectives(WorldState ws) => [
         new QuestObjective(ws)
-            .WithConnection(new Vector3(134, 0, 400))
+            .WithConnection(new Vector3(134f, default, 400f))
             .With(obj => {
                 obj.OnConditionChange += (flag, val) => obj.CompleteIf(flag == Dalamud.Game.ClientState.Conditions.ConditionFlag.Jumping61 && !val);
             })
             .Hints((player, hints) => {
-                hints.PathfindMapCenter = player.Position with { Z = 400 };
-                hints.PathfindMapBounds = new ArenaBoundsRect(20, 14);
+                hints.PathfindMapCenter = new(player.PosRot.X, 400f);
+                hints.PathfindMapBounds = new ArenaBoundsRect(20f, 14f);
             }),
 
         new QuestObjective(ws)
-            .WithConnection(new Vector3(240, -40, 287))
+            .WithConnection(new Vector3(240f, -40f, 287f))
     ];
 
     public override void AddQuestAIHints(Actor player, AIHints hints) => _ai.Execute(player, hints);

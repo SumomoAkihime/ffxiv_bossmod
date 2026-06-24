@@ -15,12 +15,12 @@ class SunshadowTether(BossModule module) : BossComponent(module)
         _playersInAOE.Reset();
         foreach (var bird in ActiveBirds())
         {
-            ulong targetID = BirdTarget(bird);
+            var targetID = BirdTarget(bird);
             var target = targetID != 0 ? WorldState.Actors.Find(targetID) : null;
             if (target != null && target.Position != bird.Position)
             {
                 var dir = (target.Position - bird.Position).Normalized();
-                foreach ((int i, var player) in Raid.WithSlot().Exclude(target))
+                foreach ((var i, var player) in Raid.WithSlot(false, true, true).Exclude(target))
                 {
                     if (player.Position.InRect(bird.Position, dir, 50, 0, _chargeHalfWidth))
                     {
@@ -35,7 +35,7 @@ class SunshadowTether(BossModule module) : BossComponent(module)
     {
         foreach (var bird in ActiveBirds())
         {
-            ulong birdTarget = BirdTarget(bird);
+            var birdTarget = BirdTarget(bird);
             if (birdTarget == actor.InstanceID && bird.Tether.ID != (uint)TetherID.LargeBirdFar)
             {
                 hints.Add("Too close!");
@@ -52,12 +52,12 @@ class SunshadowTether(BossModule module) : BossComponent(module)
     {
         foreach (var bird in ActiveBirds())
         {
-            ulong targetID = BirdTarget(bird);
+            var targetID = BirdTarget(bird);
             var target = (targetID != 0 && targetID != pc.InstanceID) ? WorldState.Actors.Find(targetID) : null;
             if (target != null && target.Position != bird.Position)
             {
                 var dir = (target.Position - bird.Position).Normalized();
-                Arena.ZoneRect(bird.Position, dir, 50, 0, _chargeHalfWidth, ArenaColor.AOE);
+                Arena.ZoneRect(bird.Position, dir, 50, 0, _chargeHalfWidth, Colors.AOE);
             }
         }
     }
@@ -68,15 +68,15 @@ class SunshadowTether(BossModule module) : BossComponent(module)
             return;
 
         // draw all players
-        foreach ((int i, var player) in Raid.WithSlot())
-            Arena.Actor(player, _playersInAOE[i] ? ArenaColor.PlayerInteresting : ArenaColor.PlayerGeneric);
+        foreach ((var i, var player) in Raid.WithSlot(false, true, true))
+            Arena.Actor(player, _playersInAOE[i] ? Colors.PlayerInteresting : Colors.PlayerGeneric);
 
         // draw my tether
-        var myBird = Module.Enemies(OID.Sunshadow).FirstOrDefault(bird => BirdTarget(bird) == pc.InstanceID);
+        var myBird = Module.Enemies((uint)OID.Sunshadow).FirstOrDefault(bird => BirdTarget(bird) == pc.InstanceID);
         if (myBird != null && !_chargedSunshadows.Contains(myBird.InstanceID))
         {
-            Arena.AddLine(myBird.Position, pc.Position, myBird.Tether.ID != (uint)TetherID.LargeBirdFar ? ArenaColor.Danger : ArenaColor.Safe);
-            Arena.Actor(myBird, ArenaColor.Enemy);
+            Arena.AddLine(myBird.Position, pc.Position, myBird.Tether.ID != (uint)TetherID.LargeBirdFar ? Colors.Danger : Colors.Safe);
+            Arena.Actor(myBird);
         }
     }
 
@@ -95,6 +95,6 @@ class SunshadowTether(BossModule module) : BossComponent(module)
 
     private IEnumerable<Actor> ActiveBirds()
     {
-        return Module.Enemies(OID.Sunshadow).Where(bird => !_chargedSunshadows.Contains(bird.InstanceID));
+        return Module.Enemies((uint)OID.Sunshadow).Where(bird => !_chargedSunshadows.Contains(bird.InstanceID));
     }
 }

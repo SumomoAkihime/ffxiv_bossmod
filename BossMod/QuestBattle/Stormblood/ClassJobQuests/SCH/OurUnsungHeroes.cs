@@ -1,6 +1,6 @@
 ﻿namespace BossMod.QuestBattle.Stormblood.ClassJobQuests.SCH;
 
-[ZoneModuleInfo(265)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 265)]
 internal class OurUnsungHeroes(WorldState ws) : QuestBattle(ws)
 {
     public override List<QuestObjective> DefineObjectives(WorldState ws) => [

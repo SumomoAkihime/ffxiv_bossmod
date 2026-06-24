@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Unreal.Un3Sophia;
 
-class Tilt(BossModule module) : Components.Knockback(module, AID.QuasarTilt)
+class Tilt(BossModule module) : Components.GenericKnockback(module, (uint)AID.QuasarTilt)
 {
     public const float DistanceShort = 28;
     public const float DistanceLong = 37;
@@ -9,16 +9,17 @@ class Tilt(BossModule module) : Components.Knockback(module, AID.QuasarTilt)
     public Angle Direction;
     public DateTime Activation;
 
-    public override IEnumerable<Source> Sources(int slot, Actor actor)
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
         if (Distance > 0)
-            yield return new(new(), Distance, Activation, null, Direction, Kind.DirForward);
+            return new Knockback[1] { new(default, Distance, Activation, null, Direction, Kind.DirForward) };
+        return [];
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         base.OnEventCast(caster, spell);
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
             Distance = 0;
     }
 }
@@ -30,24 +31,24 @@ class ScalesOfWisdom(BossModule module) : Tilt(module)
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         base.OnEventCast(caster, spell);
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.ScalesOfWisdomStart:
+            case (uint)AID.ScalesOfWisdomStart:
                 // prepare for first tilt
                 Distance = DistanceShort;
-                Direction = -90.Degrees();
-                Activation = WorldState.FutureTime(8);
+                Direction = -90f.Degrees();
+                Activation = WorldState.FutureTime(8d);
                 break;
-            case AID.QuasarTilt:
+            case (uint)AID.QuasarTilt:
                 if (NumCasts == 1)
                 {
                     // prepare for second tilt
                     Distance = DistanceShort;
                     Direction = 90.Degrees();
-                    Activation = WorldState.FutureTime(4.9f);
+                    Activation = WorldState.FutureTime(4.9d);
                 }
                 break;
-            case AID.ScalesOfWisdomRaidwide:
+            case (uint)AID.ScalesOfWisdomRaidwide:
                 RaidwideDone = true;
                 break;
         }
@@ -69,7 +70,7 @@ class Quasar(BossModule module) : Tilt(module)
         };
         if (weight != 0)
         {
-            if (caster.Position.X < 0)
+            if (caster.PosRot.X < 0)
                 WeightLeft += weight;
             else
                 WeightRight += weight;

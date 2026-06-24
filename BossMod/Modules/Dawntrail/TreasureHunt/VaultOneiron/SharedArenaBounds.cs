@@ -1,2 +1,3 @@
-// Compatibility placeholder for Reborn treasure-hunt split naming; local fork currently has no standalone VaultOneiron module set.
+namespace BossMod.Dawntrail.TreasureHunt.VaultOneiron;
 
+public abstract class SharedBoundsBoss(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 100f), new ArenaBoundsSquare(19.5f));

@@ -1,37 +1,34 @@
 ﻿namespace BossMod.Endwalker.Alliance.A10Lions;
 
-class DoubleImmolation(BossModule module) : Components.RaidwideCast(module, AID.DoubleImmolation);
+class DoubleImmolation(BossModule module) : Components.RaidwideCast(module, (uint)AID.DoubleImmolation);
 
 class A10LionsStates : StateMachineBuilder
 {
     public A10LionsStates(A10Lions module) : base(module)
     {
-        SimplePhase(0, id => SimpleState(id, 600, "???"), "Single phase")
+        SimplePhase(default, id => SimpleState(id, 600f, "???"), "Single phase")
             .ActivateOnEnter<DoubleImmolation>()
             .ActivateOnEnter<SlashAndBurn>()
             .ActivateOnEnter<RoaringBlaze>()
-            .Raw.Update = () => (module.Lion()?.IsDeadOrDestroyed ?? true) && (module.Lioness()?.IsDeadOrDestroyed ?? true);
+            .Raw.Update = () => module.PrimaryActor.IsDeadOrDestroyed && (module.Lioness?.IsDeadOrDestroyed ?? true);
     }
 }
 
-[ModuleInfo(PrimaryActorOID = (uint)OID.Lion, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 866, NameID = 11294, SortOrder = 4)]
-public class A10Lions(WorldState ws, Actor primary) : BossModule(ws, primary, new(-677.25f, -606.25f), new ArenaBoundsCircle(20))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.Lion, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 866u, NameID = 11294u, SortOrder = 4)]
+public class A10Lions(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
 {
-    private Actor? _lioness;
-
-    public Actor? Lion() => PrimaryActor;
-    public Actor? Lioness() => _lioness;
+    private static readonly ArenaBoundsCustom arena = new([new Polygon(new(-677.256f, -606.256f), 24.5f * CosPI.Pi148th, 148)], [new Rectangle(new(-677f, -581f), 20f, 1.5f),
+    new Rectangle(new(-677f, -631f), 20f, 1f)]);
+    public Actor? Lioness;
 
     protected override void UpdateModule()
     {
-        // TODO: this is an ugly hack, think how multi-actor fights can be implemented without it...
-        // the problem is that on wipe, any actor can be deleted and recreated in the same frame
-        _lioness ??= StateMachine.ActivePhaseIndex == 0 ? Enemies(OID.Lioness).FirstOrDefault() : null;
+        Lioness ??= GetActor((uint)OID.Lioness);
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        Arena.Actor(_lioness, ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actor(Lioness);
     }
 }

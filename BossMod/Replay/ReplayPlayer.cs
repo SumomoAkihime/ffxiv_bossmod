@@ -1,7 +1,7 @@
 ﻿namespace BossMod;
 
 // utility for applying replay operations to world state, accurate scrolling, etc.
-public class ReplayPlayer(Replay r)
+public sealed class ReplayPlayer(Replay r)
 {
     public Replay Replay = r;
     public WorldState WorldState = new(r.QPF, r.GameVersion);
@@ -18,11 +18,16 @@ public class ReplayPlayer(Replay r)
     public bool TickForward()
     {
         if (_nextOp == Replay.Ops.Count)
+        {
             return false;
+        }
 
         var ts = Replay.Ops[_nextOp].Timestamp;
         while (_nextOp < Replay.Ops.Count && Replay.Ops[_nextOp].Timestamp == ts)
+        {
             WorldState.Execute(Replay.Ops[_nextOp++]);
+        }
+
         return true;
     }
 
@@ -42,9 +47,14 @@ public class ReplayPlayer(Replay r)
     public DateTime PrevTimestamp()
     {
         var curr = CurrTimestamp();
-        for (int i = _nextOp - 1; i >= 0; i--)
+        for (var i = _nextOp - 1; i >= 0; --i)
+        {
             if (Replay.Ops[i].Timestamp < curr)
+            {
                 return Replay.Ops[i].Timestamp;
+            }
+        }
+
         return default;
     }
 }

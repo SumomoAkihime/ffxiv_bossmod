@@ -1,76 +1,87 @@
-﻿namespace BossMod.Dawntrail.Alliance.A11Prishe;
+namespace BossMod.Dawntrail.Alliance.A11Prishe;
 
-class BanishStorm(BossModule module) : Components.Exaflare(module, 6)
+sealed class BanishStorm(BossModule module) : Components.Exaflare(module, 6f)
 {
     public bool Done;
 
+    private static readonly WPos[] positions = [new(815f, 415f), new(800f, 385f), new(785f, 400f), new(785f, 385f), new(815f, 400f), new(800f, 415f)];
+    private static readonly WDir[] directions =
+    [
+        4f * (-0.003f).Degrees().ToDirection(),
+        4f * 119.997f.Degrees().ToDirection(),
+        4f * (-120.003f).Degrees().ToDirection(),
+        4f * 180f.Degrees().ToDirection(),
+        4f * (-60.005f).Degrees().ToDirection(),
+        4f * 60f.Degrees().ToDirection(),
+        4f * 89.999f.Degrees().ToDirection(),
+        4f * (-150.001f).Degrees().ToDirection(),
+        4f * (-30.001f).Degrees().ToDirection(),
+        4f * (-90.004f).Degrees().ToDirection(),
+        4f * 29.996f.Degrees().ToDirection(),
+        4f * 149.996f.Degrees().ToDirection()
+    ];
+    private static readonly Dictionary<byte, (int position, int[] directions, int[] numExplosions)> LineConfigs = new()
+    {
+        { 0x0A, (0, [0, 1, 2], [5, 5, 14]) },
+        { 0x34, (0, [0, 1, 2], [5, 5, 14]) },
+        { 0x0D, (0, [3, 5, 4], [13, 5, 9]) },
+        { 0x05, (3, [0, 1, 2], [13, 9, 5]) },
+        { 0x02, (3, [3, 5, 4], [5, 14, 5]) },
+        { 0x32, (3, [3, 5, 4], [5, 14, 5]) },
+        { 0x0B, (1, [3, 4, 5], [5, 10, 10]) },
+        { 0x35, (1, [3, 4, 5], [5, 10, 10]) },
+        { 0x08, (1, [0, 2, 1], [13, 9, 9]) },
+        { 0x09, (2, [9, 11, 10], [5, 10, 10]) },
+        { 0x0C, (2, [6, 7, 8], [13, 9, 9]) },
+        { 0x03, (4, [6, 7, 8], [5, 10, 10]) },
+        { 0x06, (4, [9, 11, 10], [13, 9, 9]) },
+        { 0x07, (5, [0, 1, 2], [5, 10, 10]) },
+        { 0x33, (5, [0, 1, 2], [5, 10, 10]) },
+        { 0x04, (5, [3, 5, 4], [13, 9, 9]) }
+    };
+
     public override void OnMapEffect(byte index, uint state)
     {
-        if (index is < 2 or > 13 and < 50 or > 53)
-            return;
-        switch (state)
+        if (LineConfigs.TryGetValue(index, out var config))
         {
-            case 0x00020001: // rod appear
-                Done = false;
-                var (offset, rot) = index switch
+            if (state == 0x00020001u) // rod appear
+            {
+                var activation1 = WorldState.FutureTime(9.1d);
+                var activation2 = WorldState.FutureTime(9.8d);
+
+                for (var i = 0; i < 3; ++i)
                 {
-                    // these are for triple exaflares
-                    2 => (new(-15, -15), 180.Degrees()),
-                    3 => (new(+15, 0), 90.Degrees()),
-                    4 => (new(0, +15), 180.Degrees()),
-                    5 => (new(-15, -15), 0.Degrees()),
-                    6 => (new(+15, 0), -90.Degrees()),
-                    7 => (new(0, +15), 0.Degrees()),
-                    8 => (new(0, -15), 0.Degrees()),
-                    9 => (new(-15, 0), -90.Degrees()),
-                    10 => (new(+15, +15), 0.Degrees()),
-                    11 => (new(0, -15), 180.Degrees()),
-                    12 => (new(-15, 0), 90.Degrees()),
-                    13 => (new(+15, +15), 180.Degrees()),
-                    // these are for double exaflares
-                    50 => (new(-15, -15), 180.Degrees()),
-                    51 => (new(0, +15), 0.Degrees()),
-                    52 => (new(+15, +15), 0.Degrees()),
-                    53 => (new(0, -15), 180.Degrees()),
-                    _ => (new WDir(), 0.Degrees())
-                };
-                AddLine(offset, rot);
-                AddLine(offset, rot + 120.Degrees());
-                AddLine(offset, rot - 120.Degrees());
-                break;
-            case 0x00080004: // rod disappear
+                    Lines.Add(new(next: positions[config.position] + (i > 0 ? directions[config.directions[i]] : default), directions[config.directions[i]],
+                    i == 0 ? activation1 : activation2, 0.7d, config.numExplosions[i], config.numExplosions[i]));
+                }
+            }
+            else if (state == 0x00080004u) // rod disappear
+            {
                 Done = true;
-                //foreach (var l in Lines)
-                //    ReportError($"Unfinished line at {l.Next}, {l.ExplosionsLeft} left, next in {(l.NextExplosion - WorldState.CurrentTime).TotalSeconds:f3}s");
-                //Lines.Clear();
-                break;
-            default:
-                // 0x00200010 - aoe direction indicator appear
-                // 0x00800040 - aoe direction indicator disappear
-                break;
+            }
+            // 0x00200010 - aoe direction indicator appear
+            // 0x00800040 - aoe direction indicator disappear
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.Banish)
+        if (spell.Action.ID == (uint)AID.Banish)
         {
             ++NumCasts;
-            for (int i = 0; i < Lines.Count; ++i)
+            var count = Lines.Count;
+            var pos = caster.Position;
+            for (var i = 0; i < count; ++i)
             {
-                if (!Lines[i].Next.AlmostEqual(caster.Position, 1))
-                    continue;
-                AdvanceLine(Lines[i], caster.Position);
-                if (Lines[i].ExplosionsLeft == 0)
-                    Lines.RemoveAt(i--);
+                var line = Lines[i];
+                if (line.Next.AlmostEqual(pos, 1f))
+                {
+                    AdvanceLine(line, pos);
+                    if (line.ExplosionsLeft == 0)
+                        Lines.RemoveAt(i);
+                    break;
+                }
             }
         }
-    }
-
-    private void AddLine(WDir origin, Angle rotation)
-    {
-        var dir = rotation.ToDirection();
-        var count = (int)((Module.Bounds.IntersectRay(origin, dir) - 1) / 4) + 1;
-        Lines.Add(new() { Next = Module.Center + origin, Advance = 4 * dir, Rotation = rotation, NextExplosion = WorldState.FutureTime(9.1f), TimeToMove = 0.8f, ExplosionsLeft = count, MaxShownExplosions = 100 });
     }
 }

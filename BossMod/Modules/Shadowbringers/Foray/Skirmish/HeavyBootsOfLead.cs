@@ -35,7 +35,7 @@ sealed class MagitekLaser(BossModule module) : Components.SimpleAOEs(module, (ui
 sealed class Pulverize(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Pulverize, 15f);
 sealed class Ventilate(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Ventilate, 8f);
 sealed class Compress(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Compress, new AOEShapeCross(50f, 3.5f));
-sealed class Accelerate(BossModule module) : Components.StackWithCastTargets(module, AID.Accelerate, 6f, 8);
+sealed class Accelerate(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.Accelerate, 6f, 8);
 sealed class Dispose(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Dispose, new AOEShapeCone(40f, 30f.Degrees()));
 
 sealed class Shatter(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Shatter, 6f);
@@ -57,16 +57,16 @@ sealed class HeavyBootsOfLeadStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.BozjaCE, GroupID = 735, NameID = 1612)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.ForayFATE, GroupID = 735, NameID = 1612)]
 public sealed class HeavyBootsOfLead(WorldState ws, Actor primary) : SimpleBossModule(ws, primary)
 {
-    private static readonly OID[] Adds = [OID.BozjanDoblyn, OID.BozjanSabotender, OID.FourthLegionVanguard, OID.ForthLegionGunship, OID.Viy];
+    private static readonly uint[] adds = [(uint)OID.BozjanDoblyn, (uint)OID.BozjanSabotender, (uint)OID.FourthLegionVanguard, (uint)OID.ForthLegionGunship,
+    (uint)OID.Viy];
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var oid in Adds)
-            Arena.Actors(Enemies(oid), ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(this, adds);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)

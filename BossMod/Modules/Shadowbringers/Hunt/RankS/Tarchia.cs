@@ -16,40 +16,38 @@ public enum AID : uint
     MightySpin2 = 18093, // Boss->self, no cast, range 14 circle, after 1s after boss wakes up and 4s after every Groundstorm
     Trounce = 18027, // Boss->self, 4.0s cast, range 40 60-degree cone
     MetamorphicBlast = 18031, // Boss->self, 4.0s cast, range 40 circle
-    Groundstorm = 18023, // Boss->self, 5.0s cast, range 5-40 donut
+    Groundstorm = 18023 // Boss->self, 5.0s cast, range 5-40 donut
 }
 
-class WildHorn(BossModule module) : Components.StandardAOEs(module, AID.WildHorn, new AOEShapeCone(17, 60.Degrees()));
-class Trounce(BossModule module) : Components.StandardAOEs(module, AID.Trounce, new AOEShapeCone(40, 30.Degrees()));
-class Groundstorm(BossModule module) : Components.StandardAOEs(module, AID.Groundstorm, new AOEShapeDonut(5, 40));
-class MightySpin(BossModule module) : Components.StandardAOEs(module, AID.MightySpin, new AOEShapeCircle(14));
-class ForestFire(BossModule module) : Components.StandardAOEs(module, AID.ForestFire, new AOEShapeCircle(15));
-class BafflementBulb(BossModule module) : Components.CastHint(module, AID.BafflementBulb, "Pull + Temporary Misdirection -> Donut -> Out");
-class MetamorphicBlast(BossModule module) : Components.RaidwideCast(module, AID.MetamorphicBlast);
+class WildHorn(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WildHorn, new AOEShapeCone(17f, 60f.Degrees()));
+class Trounce(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Trounce, new AOEShapeCone(40f, 30f.Degrees()));
+class Groundstorm(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Groundstorm, new AOEShapeDonut(5f, 40f));
+class MightySpin(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MightySpin, 14f);
+class ForestFire(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ForestFire, 15f);
+class BafflementBulb(BossModule module) : Components.TemporaryMisdirection(module, (uint)AID.BafflementBulb, "Pull + Temporary Misdirection -> Donut -> Out");
+class MetamorphicBlast(BossModule module) : Components.RaidwideCast(module, (uint)AID.MetamorphicBlast);
 
 class MightySpin2(BossModule module) : Components.GenericAOEs(module)
 {
-    private DateTime _activation;
-    private static readonly AOEShapeCircle circle = new(14);
+    private static readonly AOEShapeCircle circle = new(14f);
+    private AOEInstance[] _aoe = [new(circle, module.PrimaryActor.Position.Quantized())];
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        if (_activation != default || NumCasts == 0)
-            yield return new(circle, Module.PrimaryActor.Position, default, _activation);
-    }
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.Groundstorm)
-            _activation = Module.CastFinishAt(spell, 4);
+        if (spell.Action.ID == (uint)AID.Groundstorm)
+        {
+            _aoe = [new(circle, spell.LocXZ, default, Module.CastFinishAt(spell, 4d))];
+        }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.MightySpin2 or AID.Trounce or AID.AutoAttack or AID.MightySpin or AID.WildHorn or AID.Groundstorm or AID.BafflementBulb or AID.MetamorphicBlast or AID.Groundstorm) //everything but Mightyspin2 is a failsafe incase player joins fight/starts replay record late and Numcasts is 0 because of it
-            ++NumCasts;
-        if ((AID)spell.Action.ID == AID.MightySpin2)
-            _activation = default;
+        if (spell.Action.ID != (uint)AID.Groundstorm)
+        {
+            _aoe = [];
+        }
     }
 }
 
@@ -68,7 +66,7 @@ class TarchiaStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.S, NameID = 8900)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.S, NameID = 8900)]
 public class Tarchia : SimpleBossModule
 {
     public Tarchia(WorldState ws, Actor primary) : base(ws, primary)

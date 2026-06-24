@@ -1,110 +1,135 @@
-﻿namespace BossMod.Endwalker.Dungeon.D04KtisisHyperboreia.D042LadonLord;
+namespace BossMod.Endwalker.Dungeon.D04KtisisHyperboreia.D042LadonLord;
 
 public enum OID : uint
 {
-    Boss = 0x3425, // R3.995, x1
+    Boss = 0x3425, // R=3.99
+    PyricSphere = 0x3426, // R=0.7
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    PyricBreathFront = 25734, // Boss->self, 7.0s cast, range 40 ?-degree cone
-    PyricBreathLeft = 25735, // Boss->self, 7.0s cast, range 40 ?-degree cone
-    PyricBreathRight = 25736, // Boss->self, 7.0s cast, range 40 ?-degree cone
-    PyricBreathFront2 = 25737, // Boss->self, no cast, range 40 ?-degree cone
-    PyricBreathLeft2 = 25738, // Boss->self, no cast, range 40 ?-degree cone
-    PyricBreathRight2 = 25739, // Boss->self, no cast, range 40 ?-degree cone
-    Intimidation = 25741, // Boss->self, 6.0s cast, range 40 circle
-    PyricBlast = 25742, // Boss->none, 4.0s cast, range 6 circle
-    Scratch = 25743, // Boss->none, 5.0s cast, single-target
-    PyricSphere = 25745, // 233C->self, 10.0s cast, range 50 width 4 cross
+    AutoAttack = 872, // Boss->player, no cast, single-target
+
+    Teleport = 25733, // Boss->location, no cast, single-target
+    Inhale1 = 25732, // Boss->self, 4.0s cast, single-target
+    Inhale2 = 25915, // Boss->self, no cast, single-target
+    Intimidation = 25741, // Boss->self, 6.0s cast, range 40 circle, raidwide
+    PyricBlast = 25742, // Boss->players, 4.0s cast, range 6 circle, stack
+    PyricBreathFront = 25734, // Boss->self, 7.0s cast, range 40 120-degree cone
+    PyricBreathLeft = 25735, // Boss->self, 7.0s cast, range 40 120-degree cone
+    PyricBreathRight = 25736, // Boss->self, 7.0s cast, range 40 120-degree cone
+    PyricBreathFront2 = 25737, // Boss->self, no cast, range 40 120-degree cone
+    PyricBreathLeft2 = 25738, // Boss->self, no cast, range 40 120-degree cone
+    PyricBreathRight2 = 25739, // Boss->self, no cast, range 40 120-degree cone
+    PyricSphereVisual = 25744, // PyricSphere->self, 5.0s cast, single-target
+    PyricSphere = 25745, // Helper->self, 10.0s cast, range 50 width 4 cross
+    Scratch = 25743, // Boss->player, 5.0s cast, single-target, tankbuster
+    SpawnSpheres = 25740 // Boss->self, no cast, ???
 }
 
 public enum SID : uint
 {
-    Front = 2812, // none->Boss, extra=0x9F6
-    Left = 2813, // none->Boss, extra=0x177F
-    Right = 2814, // none->Boss, extra=0x21A8
+    MiddleHead = 2812, // none->Boss, extra=0x9F6
+    LeftHead = 2813, // none->Boss, extra=0x177F
+    RightHead = 2814 // none->Boss, extra=0x21A8
 }
-
-class Scratch(BossModule module) : Components.SingleTargetCast(module, AID.Scratch);
 
 class PyricBreath(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = [];
-    private readonly List<SID> _buffs = [];
-    private static readonly AOEShapeCone shape = new(40, 60.Degrees());
+    private readonly List<AOEInstance> _aoes = new(2);
+    private readonly List<uint> buffs = new(2);
+    private static readonly Angle angle = 120f.Degrees();
+    private static readonly AOEShapeCone cone = new(40f, 60f.Degrees());
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        for (var i = 0; i < _aoes.Count; i++)
-            yield return _aoes[i] with { Color = i == 0 ? ArenaColor.Danger : ArenaColor.AOE };
+        var count = _aoes.Count;
+        if (count == 0)
+            return [];
+        var aoes = new AOEInstance[count];
+        for (var i = 0; i < count; ++i)
+        {
+            var aoe = _aoes[i];
+            if (i == 0)
+                aoes[i] = count > 1 ? aoe with { Color = Colors.Danger } : aoe;
+            else
+                aoes[i] = aoe;
+        }
+        return aoes;
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID is SID.Front or SID.Left or SID.Right)
-            _buffs.Add((SID)status.ID);
+        if (status.ID is (uint)SID.MiddleHead or (uint)SID.LeftHead or (uint)SID.RightHead)
+            buffs.Add(status.ID);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.PyricBreathFront or AID.PyricBreathRight or AID.PyricBreathLeft)
+        if (spell.Action.ID is (uint)AID.PyricBreathFront or (uint)AID.PyricBreathLeft or (uint)AID.PyricBreathRight)
         {
-            _aoes.Add(new(shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
-            if (_buffs.Count == 2)
-                _aoes.Add(new(shape, caster.Position, spell.Rotation - BuffRelative(_buffs[0]) + BuffRelative(_buffs[1]), Module.CastFinishAt(spell, 2.1f)));
+            void AddAOE(Angle offset = default, float delay = 2.1f) => _aoes.Add(new(cone, spell.LocXZ, spell.Rotation + offset, Module.CastFinishAt(spell, delay)));
+            AddAOE(delay: default);
+            if (buffs.Count == 2)
+            {
+                var buff = buffs[0];
+                switch (buffs[1])
+                {
+                    case (uint)SID.RightHead:
+                        AddAOE(buff == (uint)SID.MiddleHead ? -angle : -2f * angle);
+                        break;
+                    case (uint)SID.LeftHead:
+                        AddAOE(buff == (uint)SID.MiddleHead ? angle : 2f * angle);
+                        break;
+                    case (uint)SID.MiddleHead:
+                        AddAOE(buff == (uint)SID.LeftHead ? -angle : angle);
+                        break;
+                }
+            }
         }
-    }
-
-    private Angle BuffRelative(SID sid) => sid switch
-    {
-        SID.Front => default,
-        SID.Left => 120.Degrees(),
-        SID.Right => -120.Degrees(),
-        _ => WrongAngle(sid)
-    };
-
-    private Angle WrongAngle(SID sid)
-    {
-        ReportError($"Wrong SID for angle {sid}");
-        return default;
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.PyricBreathFront or AID.PyricBreathRight or AID.PyricBreathLeft)
+        if (spell.Action.ID is (uint)AID.PyricBreathFront or (uint)AID.PyricBreathLeft or (uint)AID.PyricBreathRight)
         {
-            _aoes.RemoveAt(0);
-            _buffs.RemoveAt(0);
+            ++NumCasts;
+            if (_aoes.Count != 0 && buffs.Count != 0)
+            {
+                _aoes.RemoveAt(0);
+                buffs.RemoveAt(0);
+            }
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.PyricBreathFront2 or AID.PyricBreathLeft2 or AID.PyricBreathRight2)
+        if (spell.Action.ID is (uint)AID.PyricBreathFront2 or (uint)AID.PyricBreathLeft2 or (uint)AID.PyricBreathRight2)
         {
             _aoes.Clear();
-            _buffs.Clear();
+            buffs.Clear();
         }
     }
 }
 
-class PyricSphere(BossModule module) : Components.StandardAOEs(module, AID.PyricSphere, new AOEShapeCross(50, 2));
-class PyricBlast(BossModule module) : Components.StackWithCastTargets(module, AID.PyricBlast, 6, 4);
-class Intimidation(BossModule module) : Components.RaidwideCast(module, AID.Intimidation);
+class PyricSphere(BossModule module) : Components.SimpleAOEs(module, (uint)AID.PyricSphere, new AOEShapeCross(50f, 2f)); // we could draw this almost 5s earlier, but why bother with 10s cast time
+class PyricBlast(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.PyricBlast, 6f, 4, 4);
+class Scratch(BossModule module) : Components.SingleTargetCast(module, (uint)AID.Scratch);
+class Intimidation(BossModule module) : Components.RaidwideCast(module, (uint)AID.Intimidation);
 
 class D042LadonLordStates : StateMachineBuilder
 {
     public D042LadonLordStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<Scratch>()
             .ActivateOnEnter<PyricBreath>()
             .ActivateOnEnter<PyricSphere>()
             .ActivateOnEnter<PyricBlast>()
+            .ActivateOnEnter<Scratch>()
             .ActivateOnEnter<Intimidation>();
     }
 }
 
-[ModuleInfo(Contributors = "xan", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 787, NameID = 10398)]
-public class D042LadonLord(WorldState ws, Actor primary) : BossModule(ws, primary, new(0, 48), new ArenaBoundsSquare(19.5f));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus, LTS)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 787, NameID = 10398)]
+public class D042LadonLord(WorldState ws, Actor primary) : BossModule(ws, primary, new(default, 48f), new ArenaBoundsSquare(19.5f));

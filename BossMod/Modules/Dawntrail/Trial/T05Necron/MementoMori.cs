@@ -1,11 +1,11 @@
-﻿namespace BossMod.Dawntrail.Trial.T05Necron;
+namespace BossMod.Dawntrail.Trial.T05Necron;
 
 sealed class MementoMori(BossModule module) : Components.GenericAOEs(module)
 {
     private AOEInstance[] _aoe = [];
     private static readonly AOEShapeRect rect = new(37f, 6f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
@@ -39,13 +39,13 @@ sealed class ChokingGrasp(BossModule module) : Components.GenericAOEs(module)
     private bool fearOfDeath;
     private bool mementoMori;
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
     public override void OnActorCreated(Actor actor)
     {
         if ((fearOfDeath || mementoMori) && actor.OID == (uint)OID.IcyHands1)
         {
-            _aoes.Add(new(rect, actor.Position, actor.Rotation, WorldState.FutureTime(fearOfDeath ? 13.7f : 11.1f)));
+            _aoes.Add(new(rect, actor.Position.Quantized(), actor.Rotation, WorldState.FutureTime(fearOfDeath ? 13.7d : 11.1d)));
         }
     }
 
@@ -55,17 +55,17 @@ sealed class ChokingGrasp(BossModule module) : Components.GenericAOEs(module)
         {
             case (uint)AID.FearOfDeath:
                 fearOfDeath = true;
-                AddAOEs(13.7f);
+                AddAOEs(13.7d);
                 break;
             case (uint)AID.MementoMori:
                 mementoMori = true;
-                AddAOEs(11.1f);
+                AddAOEs(11.1d);
                 break;
             case (uint)AID.ChokingGrasp when caster.OID != (uint)OID.IcyHands1:
                 _aoes.Add(new(rect, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
                 break;
         }
-        void AddAOEs(float delay)
+        void AddAOEs(double delay)
         {
             var enemies = Module.Enemies((uint)OID.IcyHands1);
             var count = enemies.Count;
@@ -73,7 +73,7 @@ sealed class ChokingGrasp(BossModule module) : Components.GenericAOEs(module)
             for (var i = 0; i < count; ++i)
             {
                 var e = enemies[i];
-                _aoes.Add(new(rect, e.Position, e.Rotation, act));
+                _aoes.Add(new(rect, e.Position.Quantized(), e.Rotation, act));
             }
         }
     }
@@ -94,4 +94,3 @@ sealed class ChokingGrasp(BossModule module) : Components.GenericAOEs(module)
         }
     }
 }
-

@@ -2,54 +2,52 @@
 
 public enum OID : uint
 {
-    Boss = 0x477C, // R2.200, x1
-    GolemSoulstone = 0x477D, // R2.200, x1, Part type, and more spawn during fight; applies vuln down to boss while alive
+    Boss = 0x477C, // R2.2
+    GolemSoulstone = 0x477D // R2.2
 }
 
 public enum AID : uint
 {
     AutoAttack = 872, // Boss->player, no cast, single-target
-    BoulderClap = 42234, // Boss->self, 2.5s cast, range 12+R 120-degree cone aoe
-    TrueGrit = 42235, // Boss->self, 3.0s cast, range 12+R 120-degree cone aoe
-    Rockslide = 42236, // Boss->self, 2.5s cast, range 14+R width 8 rect aoe
-    StoneSkull = 42237, // Boss->player, no cast, random single-target stun + knockback
-    Obliterate = 42238, // Boss->self, 2.0s cast, raidwide
+
+    BoulderClap = 42234, // Boss->self, 2.5s cast, range 12+R 120-degree cone
+    TrueGrit = 42235, // Boss->self, 3.0s cast, range 12+R 120-degree cone
+    Rockslide = 42236, // Boss->self, 2.5s cast, range 14+R width 8 rect
+    StoneSkull = 42237, // Boss->player, no cast, single-target
+    Obliterate = 42238 // Boss->self, 2.0s cast, range 60 circle
 }
 
-public enum SID : uint
-{
-    Stun = 2, // Boss->player, extra=0x0
-    VulnerabilityDown = 350, // None->boss, extra=0x0
-}
+sealed class BoulderClapTrueGrit(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BoulderClap, (uint)AID.TrueGrit], new AOEShapeCone(14.2f, 60.Degrees()));
+sealed class Rockslide(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Rockslide, new AOEShapeRect(16.2f, 4f));
+sealed class Obliterate(BossModule module) : Components.RaidwideCast(module, (uint)AID.Obliterate);
 
-class BoulderClap(BossModule module) : Components.StandardAOEs(module, AID.BoulderClap, new AOEShapeCone(14.2f, 60.Degrees()));
-class TrueGrit(BossModule module) : Components.StandardAOEs(module, AID.TrueGrit, new AOEShapeCone(14.2f, 60.Degrees()));
-class Rockslide(BossModule module) : Components.StandardAOEs(module, AID.Rockslide, new AOEShapeRect(16.2f, 4));
-class Obliterate(BossModule module) : Components.RaidwideCast(module, AID.Obliterate);
-
-class D082TempleGuardianStates : StateMachineBuilder
+sealed class D082TempleGuardianStates : StateMachineBuilder
 {
     public D082TempleGuardianStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<BoulderClap>()
-            .ActivateOnEnter<TrueGrit>()
+            .ActivateOnEnter<BoulderClapTrueGrit>()
             .ActivateOnEnter<Rockslide>()
             .ActivateOnEnter<Obliterate>();
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 9, NameID = 1569)]
-public class D082TempleGuardian(WorldState ws, Actor primary) : BossModule(ws, primary, new(50, -10), new ArenaBoundsCircle(15))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus, Chuggalo", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 9, NameID = 1569)]
+public sealed class D082TempleGuardian(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
 {
+    public static readonly ArenaBoundsCustom arena = new([new PolygonCustom([new(66.5f, -33.7f), new(58.6f, -25), new(51.4f, -22.5f),
+    new(39.3f, -16.5f), new(36.6f, -5), new(39.3f, 5.7f), new(41.1f, 16),
+    new(56.5f, 14.8f), new(63.6f, 7.1f), new(64.7f, 3.3f), new(70.3f, -3.9f), new(72.6f, -33.3f)])]);
+
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.GolemSoulstone => 2,
-                OID.Boss => 1,
+                (uint)OID.GolemSoulstone => 1,
                 _ => 0
             };
         }

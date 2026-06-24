@@ -12,9 +12,9 @@ public enum AID : uint
     Mow = 14879, // Boss->self, 3.0s cast, range 6+R 120-degree cone
 }
 
-class Mow(BossModule module) : Components.StandardAOEs(module, AID.Mow, new AOEShapeCone(7.4f, 60.Degrees()));
+sealed class Mow(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Mow, new AOEShapeCone(7.4f, 60f.Degrees()));
 
-class Hints(BossModule module) : BossComponent(module)
+sealed class Hints(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -22,31 +22,31 @@ class Hints(BossModule module) : BossComponent(module)
     }
 }
 
-class Stage13Act1States : StateMachineBuilder
+sealed class Stage13Act1States : StateMachineBuilder
 {
     public Stage13Act1States(BossModule module) : base(module)
     {
         TrivialPhase()
             .DeactivateOnEnter<Hints>()
             .ActivateOnEnter<Mow>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.Vodoriga).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed(Stage13Act1.Trash);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 623, NameID = 8104, SortOrder = 1)]
-public class Stage13Act1 : BossModule
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 623, NameID = 8104, SortOrder = 1)]
+public sealed class Stage13Act1 : BossModule
 {
-    public Stage13Act1(WorldState ws, Actor primary) : base(ws, primary, new(100, 100), new ArenaBoundsCircle(25))
+    public Stage13Act1(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleBig)
     {
         ActivateComponent<Hints>();
     }
+    public static readonly uint[] Trash = [(uint)OID.Boss, (uint)OID.Vodoriga];
 
-    protected override bool CheckPull() { return PrimaryActor.IsTargetable && PrimaryActor.InCombat || Enemies(OID.Vodoriga).Any(e => e.InCombat); }
+    protected override bool CheckPull() => IsAnyActorInCombat(Trash);
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.Vodoriga))
-            Arena.Actor(s, ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.Vodoriga));
     }
 }

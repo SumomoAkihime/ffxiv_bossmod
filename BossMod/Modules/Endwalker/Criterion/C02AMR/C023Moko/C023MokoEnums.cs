@@ -1,4 +1,4 @@
-﻿namespace BossMod.Endwalker.Criterion.C02AMR.C023Moko;
+﻿namespace BossMod.Endwalker.VariantCriterion.C02AMR.C023Moko;
 
 public enum OID : uint
 {
@@ -22,7 +22,7 @@ public enum AID : uint
 {
     AutoAttack = 34055, // *Boss->player, no cast, single-target
     Teleport = 34223, // Boss->location, no cast, single-target
-    //_Weaponskill_ = 34591, // *Boss->self, no cast, single-target, ???
+    Visual = 34591, // NBoss->self, no cast, single-target, ???
     StopMoving = 34592, // *Boss->self, no cast, single-target, visual (???)
 
     NKenkiRelease = 34272, // NBoss->self, 5.0s cast, range 60 circle, raidwide
@@ -137,7 +137,8 @@ public enum AID : uint
     SIronStormFirst = 34303, // SAshigaruKyuhei->location, 15.0s cast, range 20 circle
     SIronRainSecond = 34729, // SAshigaruKyuhei->location, 1.0s cast, range 10 circle
     SIronStormSecond = 34730, // SAshigaruKyuhei->location, 1.0s cast, range 20 circle
-    //_Weaponskill_KenkiRelease = 34254, // NMokoShadow->self, 3.0s cast, range 60 circle
+
+    NKenkiReleaseShadow = 34254, // NMokoShadow->self, 3.0s cast, range 60 circle
 
     Enrage = 34273, // *Boss->self, 10.0s cast, range 60 circle
 }

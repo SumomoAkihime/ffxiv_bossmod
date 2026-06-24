@@ -1,45 +1,57 @@
 ﻿namespace BossMod.Shadowbringers.Ultimate.TEA;
 
-class P2IntermissionLimitCut(BossModule module) : LimitCut(module, 3.2f);
+[SkipLocalsInit]
+sealed class P2IntermissionLimitCut(BossModule module) : LimitCut(module, 3.2d);
 
-class P2IntermissionHawkBlaster(BossModule module) : Components.GenericAOEs(module, AID.HawkBlasterIntermission)
+[SkipLocalsInit]
+sealed class P2IntermissionHawkBlaster(BossModule module) : Components.GenericAOEs(module, (uint)AID.HawkBlasterIntermission)
 {
     private Angle _blasterStartingDirection;
+    private readonly TEAConfig _config = Service.Config.Get<TEAConfig>();
+    private const float _blasterOffset = 14f;
+    private readonly AOEShapeCircle _blasterShape = new(10f);
 
-    private const float _blasterOffset = 14;
-    private static readonly AOEShapeCircle _blasterShape = new(10);
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        foreach (var c in FutureBlasterCenters())
-            yield return new(_blasterShape, c, Risky: false);
-        foreach (var c in ImminentBlasterCenters())
-            yield return new(_blasterShape, c, Color: ArenaColor.Danger);
+        var future = FutureBlasterCenters();
+        var imminent = ImminentBlasterCenters();
+        var lenF = future.Length;
+        var lenI = imminent.Length;
+        var aoes = new AOEInstance[lenF + lenI];
+        for (var i = 0; i < lenF; ++i)
+        {
+            aoes[i] = new(_blasterShape, future[i], risky: false);
+        }
+        for (var i = 0; i < lenI; ++i)
+        {
+            aoes[i + lenF] = new(_blasterShape, imminent[i], color: Colors.Danger);
+        }
+        return aoes;
     }
 
     // TODO: reconsider
     public override void AddMovementHints(int slot, Actor actor, MovementHints movementHints)
     {
         if (SafeSpotHint(slot) is var safespot && safespot != null)
-            movementHints.Add(actor.Position, safespot.Value, ArenaColor.Safe);
+            movementHints.Add(actor.Position, safespot.Value, Colors.Safe);
     }
 
     // TODO: reconsider
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         if (SafeSpotHint(pcSlot) is var safespot && safespot != null)
-            Arena.AddCircle(safespot.Value, 1, ArenaColor.Safe);
+            Arena.AddCircle(safespot.Value, 1f, Colors.Safe);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
         {
             if (NumCasts == 0)
             {
-                var offset = spell.TargetXZ - Module.Center;
+                var offset = spell.TargetXZ - Arena.Center;
                 // a bit of a hack: most strats (lpdu etc) select a half between W and NE inclusive to the 'first' group; ensure 'starting' direction is one of these
-                bool invert = Math.Abs(offset.Z) < 2 ? offset.X > 0 : offset.Z > 0;
+                var invert = Math.Abs(offset.Z) < 2f ? offset.X > 0f : offset.Z > 0f;
                 if (invert)
                     offset = -offset;
                 _blasterStartingDirection = Angle.FromDirection(offset);
@@ -64,7 +76,7 @@ class P2IntermissionHawkBlaster(BossModule module) : Components.GenericAOEs(modu
         _ => 10
     };
 
-    private IEnumerable<WPos> BlasterCenters(int index)
+    private WPos[] BlasterCenters(int index)
     {
         switch (index)
         {
@@ -73,30 +85,35 @@ class P2IntermissionHawkBlaster(BossModule module) : Components.GenericAOEs(modu
             case 2:
             case 3:
                 {
-                    var dir = (_blasterStartingDirection - index * 45.Degrees()).ToDirection();
-                    yield return Module.Center + _blasterOffset * dir;
-                    yield return Module.Center - _blasterOffset * dir;
+                    var dir = (_blasterStartingDirection - index * 45f.Degrees()).ToDirection();
+                    return
+                        [
+                            Arena.Center + _blasterOffset * dir,
+                            Arena.Center - _blasterOffset * dir
+                        ];
                 }
-                break;
             case 5:
             case 6:
             case 7:
             case 8:
                 {
-                    var dir = (_blasterStartingDirection - (index - 5) * 45.Degrees()).ToDirection();
-                    yield return Module.Center + _blasterOffset * dir;
-                    yield return Module.Center - _blasterOffset * dir;
+                    var dir = (_blasterStartingDirection - (index - 5) * 45f.Degrees()).ToDirection();
+                    return
+                        [
+                            Arena.Center + _blasterOffset * dir,
+                            Arena.Center - _blasterOffset * dir
+                        ];
                 }
-                break;
             case 4:
             case 9:
-                yield return Module.Center;
-                break;
+                return [Arena.Center];
+            default:
+                return [];
         }
     }
 
-    private IEnumerable<WPos> ImminentBlasterCenters() => NumCasts > 0 ? BlasterCenters(NextBlasterIndex) : [];
-    private IEnumerable<WPos> FutureBlasterCenters() => NumCasts > 0 ? BlasterCenters(NextBlasterIndex + 1) : [];
+    private WPos[] ImminentBlasterCenters() => NumCasts > 0 ? BlasterCenters(NextBlasterIndex) : [];
+    private WPos[] FutureBlasterCenters() => NumCasts > 0 ? BlasterCenters(NextBlasterIndex + 1) : [];
 
     // TODO: reconsider
     private WPos? SafeSpotHint(int slot)
@@ -111,12 +128,12 @@ class P2IntermissionHawkBlaster(BossModule module) : Components.GenericAOEs(modu
         if (NextBlasterIndex != 1)
             return null;
 
-        var strategy = Service.Config.Get<TEAConfig>().P2IntermissionHints;
+        var strategy = _config.P2IntermissionHints;
         if (strategy == TEAConfig.P2Intermission.None)
             return null;
 
-        bool invert = strategy == TEAConfig.P2Intermission.FirstForOddPairs && (Module.FindComponent<LimitCut>()?.PlayerOrder[slot] is 3 or 4 or 7 or 8);
+        var invert = strategy == TEAConfig.P2Intermission.FirstForOddPairs && Module.FindComponent<LimitCut>()?.PlayerOrder[slot] is 3 or 4 or 7 or 8;
         var offset = _blasterOffset * _blasterStartingDirection.ToDirection();
-        return Module.Center + (invert ? -offset : offset);
+        return Arena.Center + (invert ? -offset : offset);
     }
 }

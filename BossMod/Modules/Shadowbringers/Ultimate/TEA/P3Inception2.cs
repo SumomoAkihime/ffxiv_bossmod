@@ -1,17 +1,18 @@
 ﻿namespace BossMod.Shadowbringers.Ultimate.TEA;
 
 // baited flarethrowers
-class P3Inception2 : Components.GenericBaitAway
+[SkipLocalsInit]
+sealed class P3Inception2 : Components.GenericBaitAway
 {
-    private int _numAetheroplasmsDone;
+    private int _numAetheroplasmsDone, _numTetrashattersDone;
     private BitMask _taken;
 
-    private static readonly AOEShapeCone _shape = new(100, 45.Degrees()); // TODO: verify angle
+    private readonly AOEShapeCone _shape = new(100f, 45f.Degrees());
 
-    public P3Inception2(BossModule module) : base(module)
+    public P3Inception2(BossModule module) : base(module, onlyShowOutlines: true)
     {
         // assume first two are baited by tanks
-        ForbiddenPlayers = Raid.WithSlot(true).WhereActor(a => a.Role != Role.Tank).Mask();
+        ForbiddenPlayers = Raid.WithSlot(true, true, true).WhereActor(a => a.Role != Role.Tank).Mask();
     }
 
     public override void Update()
@@ -20,20 +21,27 @@ class P3Inception2 : Components.GenericBaitAway
         if (_numAetheroplasmsDone >= 4) // do not show anything until all aetheroplasms (part 1 of the mechanic) are done
         {
             var source = ((TEA)Module).BruteJustice();
-            var target = source != null ? Raid.WithoutSlot().Closest(source.Position) : null;
+            var target = source != null ? Raid.WithoutSlot(false, true, true).Closest(source.Position) : null;
             if (source != null && target != null)
                 CurrentBaits.Add(new(source, target, _shape));
+        }
+        if (_numTetrashattersDone == 4)
+        {
+            OnlyShowOutlines = false;
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.Aetheroplasm:
+            case (uint)AID.Aetheroplasm:
                 ++_numAetheroplasmsDone;
                 break;
-            case AID.FlarethrowerP3:
+            case (uint)AID.Tetrashatter:
+                ++_numTetrashattersDone;
+                break;
+            case (uint)AID.FlarethrowerP3:
                 ++NumCasts;
                 foreach (var t in spell.Targets)
                 {
@@ -41,7 +49,7 @@ class P3Inception2 : Components.GenericBaitAway
                     _taken.Set(slot);
                     ForbiddenPlayers.Set(slot);
                 }
-                if (ForbiddenPlayers.Raw == 0xff)
+                if (ForbiddenPlayers.Raw == 0xffUL)
                 {
                     // assume after both tanks have taken, rest is taken by raid
                     ForbiddenPlayers = _taken;

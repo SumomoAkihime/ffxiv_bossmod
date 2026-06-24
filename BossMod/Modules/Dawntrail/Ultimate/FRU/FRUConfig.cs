@@ -1,7 +1,7 @@
 ﻿namespace BossMod.Dawntrail.Ultimate.FRU;
 
 [ConfigDisplay(Order = 0x200, Parent = typeof(DawntrailConfig))]
-public class FRUConfig() : ConfigNode()
+public sealed class FRUConfig() : ConfigNode()
 {
     // TODO: fixed tethers option
     [PropertyDisplay("P1 Bound of Faith (light party tethers): group assignments & flex priority (lower number flexes)")]
@@ -72,13 +72,12 @@ public class FRUConfig() : ConfigNode()
     [GroupPreset("Default (healer N)", [2, 3, 0, 1, 4, 5, 6, 7])]
     public GroupAssignmentUnique P4DarklitDragonsongAssignments = new() { Assignments = [2, 3, 0, 1, 4, 5, 6, 7] };
 
-    [PropertyDisplay("P4 Crystallize Time: assignments for claws (lower prio goes west)")]
+    [PropertyDisplay("P4 Crystallize Time: assignments for claws (lower prio goes west)", separator: true)]
     [GroupDetails(["Prio 1", "Prio 2", "Prio 3", "Prio 4", "Prio 5", "Prio 6", "Prio 7", "Prio 8"])]
     [GroupPreset("Default HTMR", [3, 2, 1, 0, 4, 5, 6, 7])]
     public GroupAssignmentUnique P4CrystallizeTimeAssignments = new() { Assignments = [3, 2, 1, 0, 4, 5, 6, 7] };
 
     // ai-only settings
-    [SectionStart]
     [PropertyDisplay("P1 Cyclonic Break (proteans): bait clock spots (supports should be near dd to resolve pairs)", tooltip: "Only used by AI")]
     [GroupDetails(["N", "NE", "E", "SE", "S", "SW", "W", "NW"])]
     [GroupPreset("Default", [0, 4, 6, 2, 5, 3, 7, 1])]

@@ -1,30 +1,30 @@
 ﻿namespace BossMod.Endwalker.Ultimate.DSW2;
 
-class P2SanctityOfTheWard2HeavensStakeCircles(BossModule module) : Components.StandardAOEs(module, AID.HeavensStakeAOE, 7);
-class P2SanctityOfTheWard2HeavensStakeDonut(BossModule module) : Components.StandardAOEs(module, AID.HeavensStakeDonut, new AOEShapeDonut(15, 30));
-class P2SanctityOfTheWard2VoidzoneFire(BossModule module) : Components.PersistentVoidzone(module, 7, m => m.Enemies(OID.VoidzoneFire).Where(z => z.EventState != 7));
-class P2SanctityOfTheWard2VoidzoneIce(BossModule module) : Components.PersistentVoidzone(module, 7, m => m.Enemies(OID.VoidzoneIce).Where(z => z.EventState != 7));
+sealed class P2SanctityOfTheWard2HeavensStakeCircles(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HeavensStakeAOE, 7f);
+sealed class P2SanctityOfTheWard2HeavensStakeDonut(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HeavensStakeDonut, new AOEShapeDonut(15f, 30f));
+sealed class P2SanctityOfTheWard2VoidzoneFire(BossModule module) : Components.Voidzone(module, 7f, m => m.Enemies((uint)OID.VoidzoneFire).Where(z => z.EventState != 7));
+sealed class P2SanctityOfTheWard2VoidzoneIce(BossModule module) : Components.Voidzone(module, 7f, m => m.Enemies((uint)OID.VoidzoneIce).Where(z => z.EventState != 7));
 
-class P2SanctityOfTheWard2Knockback(BossModule module) : Components.KnockbackFromCastTarget(module, AID.FaithUnmoving, 16)
+sealed class P2SanctityOfTheWard2Knockback(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.FaithUnmoving, 16f)
 {
     private readonly DSW2Config _config = Service.Config.Get<DSW2Config>();
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (_config.P2Sanctity2AutomaticAntiKB && Casters.Count > 0 && !actor.Position.InCircle(Module.Center, 12))
+        if (_config.P2Sanctity2AutomaticAntiKB && Casters.Count > 0 && !actor.Position.InCircle(Arena.Center, 12f))
         {
-            var action = actor.Class.GetClassCategory() is ClassCategory.Healer or ClassCategory.Caster ? ActionID.MakeSpell(ClassShared.AID.Surecast) : ActionID.MakeSpell(ClassShared.AID.ArmsLength);
-            hints.ActionsToExecute.Push(action, actor, ActionQueue.Priority.High, Casters.FirstOrDefault()?.CastInfo?.NPCRemainingTime ?? 0);
+            var action = actor.Class.GetClassCategory() is ClassCategory.Healer or ClassCategory.Caster ? ActionDefinitions.Surecast : ActionDefinitions.Armslength;
+            hints.ActionsToExecute.Push(action, actor, ActionQueue.Priority.High, WorldState.Actors.Find(Casters.Ref(0).ActorID)?.CastInfo?.NPCRemainingTime ?? default);
         }
     }
 }
 
 // note: technically it's a 2-man stack, but that is not really helpful here...
-class P2SanctityOfTheWard2HiemalStorm(BossModule module) : Components.CastCounter(module, AID.HiemalStormAOE)
+sealed class P2SanctityOfTheWard2HiemalStorm(BossModule module) : Components.CastCounter(module, (uint)AID.HiemalStormAOE)
 {
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        Arena.AddCircle(pc.Position, 7, ArenaColor.Danger);
+        Arena.AddCircle(pc.Position, 7f, Colors.Danger);
     }
 }
 
@@ -33,7 +33,7 @@ class P2SanctityOfTheWard2HiemalStorm(BossModule module) : Components.CastCounte
 // - towers 1: [0,11] are outer towers in CW order, starting from '11 o'clock' (CCW tower of N quadrant); [12,15] are inner towers in CCW order, starting from NE (NE-SE-SW-NW)
 //   so, inner towers for quadrant k are [3*k, 3*k+2]; neighbouring inner are 12+k & 12+(k+3)%4
 // TODO: move hints for prey (position for new meteor is snapshotted approximately when previous meteors do their aoes; actual actor appears ~0.5s later)
-class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(module, AID.Conviction2AOE, 3)
+sealed class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(module, (uint)AID.Conviction2AOE, 3f)
 {
     struct PlayerData
     {
@@ -68,8 +68,8 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
     private string _preySwap = "";
     private string _preyHint = "";
 
-    private const float _stormPlacementOffset = 10;
-    private const float _cometLinkRange = 5;
+    private const float _stormPlacementOffset = 10f;
+    private const float _cometLinkRange = 5f;
 
     public bool Active => Towers.Count == 8;
 
@@ -100,13 +100,13 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
         if (Active && _players[slot].AssignedQuadrant >= 0)
         {
             var from = actor.Position;
-            var color = ArenaColor.Safe;
+            var color = Colors.Safe;
             if (!_stormsDone)
             {
                 var stormPos = StormPlacementPosition(_players[slot].AssignedQuadrant);
                 movementHints.Add(from, stormPos, color);
                 from = stormPos;
-                color = ArenaColor.Danger;
+                color = Colors.Danger;
             }
 
             foreach (var tower in Towers.Where(t => !t.ForbiddenSoakers[slot]))
@@ -129,21 +129,26 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         base.DrawArenaForeground(pcSlot, pc);
+        if (!_stormsDone && _players[pcSlot].AssignedQuadrant >= 0)
+{
+    Arena.AddCircle(StormPlacementPosition(_players[pcSlot].AssignedQuadrant), 1f, Colors.Safe);
+}
+
 
         if (Active)
         {
-            float diag = Module.Bounds.Radius / 1.414214f;
-            Arena.AddLine(Module.Center + new WDir(diag, diag), Module.Center - new WDir(diag, diag), ArenaColor.Border);
-            Arena.AddLine(Module.Center + new WDir(diag, -diag), Module.Center - new WDir(diag, -diag), ArenaColor.Border);
+            var diag = Arena.Bounds.Radius / 1.414214f;
+            Arena.AddLine(Arena.Center + new WDir(diag, diag), Arena.Center - new WDir(diag, diag), Colors.Border);
+            Arena.AddLine(Arena.Center + new WDir(diag, -diag), Arena.Center - new WDir(diag, -diag), Colors.Border);
         }
 
         // TODO: move to separate comet component...
         if (_preyTargets[pcSlot])
         {
-            foreach (var comet in Module.Enemies(OID.HolyComet))
+            foreach (var comet in Module.Enemies((uint)OID.HolyComet))
             {
-                Arena.Actor(comet, ArenaColor.Object, true);
-                Arena.AddCircle(comet.Position, _cometLinkRange, ArenaColor.Object);
+                Arena.Actor(comet, Colors.Object, true);
+                Arena.AddCircle(comet.Position, _cometLinkRange, Colors.Object);
             }
         }
     }
@@ -151,10 +156,10 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         base.OnCastStarted(caster, spell);
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
         {
             // mark tower as active
-            int index = ClassifyTower(spell.LocXZ);
+            var index = ClassifyTower(spell.LocXZ);
             _towerIndices[index] = Towers.Count - 1;
             _activeTowers.Set(index);
 
@@ -166,7 +171,7 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         base.OnEventCast(caster, spell);
-        if ((AID)spell.Action.ID is AID.HiemalStormAOE)
+        if (spell.Action.ID == (uint)AID.HiemalStormAOE)
             _stormsDone = true;
     }
 
@@ -178,21 +183,27 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
             _preyOnTH = actor.Class.IsSupport();
             _preyTargets.Set(Raid.FindSlot(actor.InstanceID));
         }
+         if (_preyTargets.NumSetBits() == 2)
+        {
+            var config = Service.Config.Get<DSW2Config>();
+            if (InitQuadrantAssignments(config))
+                InitQuadrantSwaps(config);
+        }
     }
 
     public int ClassifyTower(WPos tower)
     {
-        var offset = tower - Module.Center;
+        var offset = tower - Arena.Center;
         var dir = Angle.FromDirection(offset);
         if (offset.LengthSq() < 7 * 7)
         {
             // inner tower: intercardinal, ~6m from center
-            return 12 + (dir.Rad > 0 ? (dir.Rad > MathF.PI / 2 ? 0 : 1) : (dir.Rad < -MathF.PI / 2 ? 3 : 2));
+            return 12 + (dir.Rad > 0f ? (dir.Rad > Angle.HalfPi ? 0 : 1) : (dir.Rad < -Angle.HalfPi ? 3 : 2));
         }
         else
         {
             // outer tower: ~18m from center, at cardinal or +- 30 degrees
-            return (7 - (int)MathF.Round(dir.Rad / MathF.PI * 6)) % 12;
+            return (7 - (int)MathF.Round(dir.Rad / MathF.PI * 6f)) % 12;
         }
     }
 
@@ -232,13 +243,13 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
     // initial assignments, before swaps
     private bool InitQuadrantAssignments(DSW2Config config)
     {
-        bool validAssignments = false;
+        var validAssignments = false;
         foreach (var (slot, quadrant) in config.P2Sanctity2Pairs.Resolve(Raid))
         {
             validAssignments = true;
             _players[slot].AssignedQuadrant = quadrant;
 
-            bool isTH = Raid[slot]?.Role is Role.Tank or Role.Healer;
+            var isTH = Raid[slot]?.Role is Role.Tank or Role.Healer;
             if (isTH == _preyOnTH)
                 _quadrants[quadrant].PreySlot = slot;
             else
@@ -268,7 +279,7 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
             // cursed patterns are CW+CCW or CCW+CW
             var q1towers = OuterTowersMask(q1);
             var q2towers = OuterTowersMask(q2);
-            bool cursed = (q1towers & q2towers) == 0 && (q1towers | q2towers) == 0b101; // 100+001 or 001+100
+            var cursed = (q1towers & q2towers) == 0 && (q1towers | q2towers) == 0b101; // 100+001 or 001+100
             if (cursed)
             {
                 //_assignmentDebug |= AssignmentDebug.PreySwapCursed;
@@ -312,8 +323,8 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
         }
         else if (q1swap || q2swap)
         {
-            int swapQ1 = q1swap ? q1 : q2; // prey-role assigned to this quadrant is not a prey target
-            int swapQ2 = q1 ^ 1; // arbitrary
+            var swapQ1 = q1swap ? q1 : q2; // prey-role assigned to this quadrant is not a prey target
+            var swapQ2 = q1 ^ 1; // arbitrary
             if (!_preyTargets[_quadrants[swapQ2].PreySlot])
                 swapQ2 ^= 2; // we guessed wrong - our prey target to swap with is in remaining quadrant
             SwapPreyQuadrants(swapQ1, swapQ2);
@@ -327,8 +338,8 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
 
     private void SwapPreyQuadrants(int q1, int q2)
     {
-        int s1 = _quadrants[q1].PreySlot;
-        int s2 = _quadrants[q2].PreySlot;
+        var s1 = _quadrants[q1].PreySlot;
+        var s2 = _quadrants[q2].PreySlot;
         _quadrants[q1].PreySlot = s2;
         _quadrants[q2].PreySlot = s1;
         _players[s1].AssignedQuadrant = q2;
@@ -426,8 +437,8 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
         }
 
         // if we still have unassigned towers, assign each of them to each remaining player
-        var ambiguousSlots = _quadrants.Select(q => q.NonPreySlot).Where(slot => _players[slot].AssignedTowers.None()).ToArray();
-        for (int t = 12; t < _towerIndices.Length; ++t)
+        int[] ambiguousSlots = [.. _quadrants.Select(q => q.NonPreySlot).Where(slot => _players[slot].AssignedTowers.None())];
+        for (var t = 12; t < _towerIndices.Length; ++t)
         {
             if (TowerUnassigned(t))
             {
@@ -456,14 +467,14 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
     {
         while (true)
         {
-            int unambiguousInnerTower = -1;
-            int unambiguousQuadrant = -1;
-            for (int q = 0; q < _quadrants.Length; ++q)
+            var unambiguousInnerTower = -1;
+            var unambiguousQuadrant = -1;
+            for (var q = 0; q < _quadrants.Length; ++q)
             {
                 if (_players[_quadrants[q].NonPreySlot].AssignedTowers.Any())
                     continue;
 
-                int potential = FindUnassignedUnambiguousInnerTower(q);
+                var potential = FindUnassignedUnambiguousInnerTower(q);
                 if (potential == -1)
                     continue; // this quadrant has 2 or 0 unassigned inner towers
 
@@ -491,9 +502,9 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
 
     private void AssignInnerTowersCW()
     {
-        for (int distance = 0; distance < _quadrants.Length; ++distance)
+        for (var distance = 0; distance < _quadrants.Length; ++distance)
         {
-            for (int q = 0; q < _quadrants.Length; ++q)
+            for (var q = 0; q < _quadrants.Length; ++q)
             {
                 if (_players[_quadrants[q].NonPreySlot].AssignedTowers.None())
                 {
@@ -509,10 +520,10 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
 
     private int FindUnassignedUnambiguousInnerTower(int quadrant)
     {
-        int candidate1 = 12 + quadrant;
-        int candidate2 = 12 + ((quadrant + 3) & 3);
-        bool available1 = TowerUnassigned(candidate1);
-        bool available2 = TowerUnassigned(candidate2);
+        var candidate1 = 12 + quadrant;
+        var candidate2 = 12 + ((quadrant + 3) & 3);
+        var available1 = TowerUnassigned(candidate1);
+        var available2 = TowerUnassigned(candidate2);
         if (available1 == available2)
             return -1;
         else
@@ -522,7 +533,7 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
     private WPos StormPlacementPosition(int quadrant)
     {
         var dir = (180 - quadrant * 90).Degrees();
-        return Module.Center + _stormPlacementOffset * dir.ToDirection();
+        return Arena.Center + _stormPlacementOffset * dir.ToDirection();
     }
 
     private string QuadrantSwapHint(int quadrant)
@@ -558,7 +569,7 @@ class P2SanctityOfTheWard2Towers1(BossModule module) : Components.CastTowers(mod
 
 // identifiers used by this component:
 // - towers 2: [0,7] - CW order, starting from N
-class P2SanctityOfTheWard2Towers2(BossModule module) : Components.CastTowers(module, AID.Conviction3AOE, 3)
+sealed class P2SanctityOfTheWard2Towers2(BossModule module) : Components.CastTowers(module, (uint)AID.Conviction3AOE, 3)
 {
     private bool _preyOnTH;
     private BitMask _preyTargets;
@@ -569,11 +580,11 @@ class P2SanctityOfTheWard2Towers2(BossModule module) : Components.CastTowers(mod
         // note: not drawing any default hints here...
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Prey)
+        if (status.ID == (uint)SID.Prey)
         {
-            bool first = _preyTargets.None();
+            var first = _preyTargets.None();
             _preyOnTH = actor.Class.IsSupport();
             _preyTargets.Set(Raid.FindSlot(actor.InstanceID));
 
@@ -585,10 +596,10 @@ class P2SanctityOfTheWard2Towers2(BossModule module) : Components.CastTowers(mod
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
         {
             var index = ClassifyTower(spell.LocXZ);
-            var forbidden = Raid.WithSlot(true).WhereSlot(s => _playerTowers[s] >= 0 && _playerTowers[s] != index).Mask();
+            var forbidden = Raid.WithSlot(true, true, true).WhereSlot(s => _playerTowers[s] >= 0 && _playerTowers[s] != index).Mask();
             Towers.Add(new(spell.LocXZ, Radius, forbiddenSoakers: forbidden));
         }
     }
@@ -596,7 +607,7 @@ class P2SanctityOfTheWard2Towers2(BossModule module) : Components.CastTowers(mod
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         base.OnEventCast(caster, spell);
-        if ((AID)spell.Action.ID == AID.Conviction2AOE && !spell.TargetXZ.InCircle(Module.Center, 7))
+        if (spell.Action.ID == (uint)AID.Conviction2AOE && !spell.TargetXZ.InCircle(Arena.Center, 7f))
         {
             // we assign towers to prey role players according to the quadrant they were soaking their tower - this handles unexpected swaps on first towers gracefully
             foreach (var t in spell.Targets)
@@ -604,7 +615,7 @@ class P2SanctityOfTheWard2Towers2(BossModule module) : Components.CastTowers(mod
                 var slot = Raid.FindSlot(t.ID);
                 if (Raid[slot]?.Class.IsSupport() == _preyOnTH)
                 {
-                    var towerOffset = spell.TargetXZ - Module.Center;
+                    var towerOffset = spell.TargetXZ - Arena.Center;
                     var towerIndex = towerOffset.Z switch
                     {
                         < -10 => 0, // N tower
@@ -621,9 +632,9 @@ class P2SanctityOfTheWard2Towers2(BossModule module) : Components.CastTowers(mod
 
     private int ClassifyTower(WPos tower)
     {
-        var offset = tower - Module.Center;
+        var offset = tower - Arena.Center;
         var dir = Angle.FromDirection(offset);
-        return (4 - (int)MathF.Round(dir.Rad / MathF.PI * 4)) % 8;
+        return (4 - (int)MathF.Round(dir.Rad / MathF.PI * 4f)) & 7;
     }
 
     private void InitNonPreyAssignments()

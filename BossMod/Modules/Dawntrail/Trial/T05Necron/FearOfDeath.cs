@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Trial.T05Necron;
+namespace BossMod.Dawntrail.Trial.T05Necron;
 
 sealed class FearOfDeathAOE(BossModule module) : Components.GenericAOEs(module)
 {
@@ -6,13 +6,13 @@ sealed class FearOfDeathAOE(BossModule module) : Components.GenericAOEs(module)
     private static readonly AOEShapeCircle circle = new(3);
     private bool fearOfDeath;
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
     public override void OnActorCreated(Actor actor)
     {
         if (fearOfDeath && actor.OID == (uint)OID.IcyHands1)
         {
-            _aoes.Add(new(circle, actor.Position, default, WorldState.FutureTime(8f)));
+            _aoes.Add(new(circle, actor.Position.Quantized(), default, WorldState.FutureTime(8d)));
         }
     }
 
@@ -23,11 +23,11 @@ sealed class FearOfDeathAOE(BossModule module) : Components.GenericAOEs(module)
             fearOfDeath = true;
             var enemies = Module.Enemies((uint)OID.IcyHands1);
             var count = enemies.Count;
-            var act = WorldState.FutureTime(8f);
+            var act = WorldState.FutureTime(8d);
             for (var i = 0; i < count; ++i)
             {
                 var e = enemies[i];
-                _aoes.Add(new(circle, e.Position, default, act));
+                _aoes.Add(new(circle, e.Position.Quantized(), default, act));
             }
         }
     }
@@ -41,4 +41,3 @@ sealed class FearOfDeathAOE(BossModule module) : Components.GenericAOEs(module)
         }
     }
 }
-

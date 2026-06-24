@@ -1,8 +1,8 @@
 ﻿namespace BossMod.ReplayAnalysis;
 
-class UnknownActionEffects
+sealed class UnknownActionEffects
 {
-    class Entry(Replay replay, Replay.Action action, Replay.ActionTarget target, ActionEffect effect)
+    sealed class Entry(Replay replay, Replay.Action action, Replay.ActionTarget target, ActionEffect effect)
     {
         public Replay Replay = replay;
         public Replay.Action Action = action;
@@ -20,7 +20,7 @@ class UnknownActionEffects
             {
                 foreach (var target in action.Targets)
                 {
-                    foreach (var effect in target.Effects)
+                    foreach (var effect in target.Effects.ValidEffects())
                     {
                         var cat = ActionEffectParser.DescribeUnknown(effect);
                         if (cat.Length > 0)
@@ -44,7 +44,7 @@ class UnknownActionEffects
                 {
                     foreach (var target in tree.Nodes(entry.Action.Targets, target => new(ReplayUtils.ActionTargetString(target, entry.Action.Timestamp))))
                     {
-                        tree.LeafNodes(target.Effects, ReplayUtils.ActionEffectString);
+                        tree.LeafNodes(target.Effects.ValidEffects(), ReplayUtils.ActionEffectString);
                     }
                 }
             }

@@ -1,16 +1,16 @@
 ﻿namespace BossMod.Stormblood.Ultimate.UWU;
 
-class P4ViscousAetheroplasmApply(BossModule module) : Components.Cleave(module, AID.ViscousAetheroplasmApply, new AOEShapeCircle(2), (uint)OID.UltimaWeapon, originAtTarget: true);
+class P4ViscousAetheroplasmApply(BossModule module) : Components.Cleave(module, (uint)AID.ViscousAetheroplasmApply, new AOEShapeCircle(2f), [(uint)OID.UltimaWeapon], originAtTarget: true);
 
 // TODO: if aetheroplasm target is the same as homing laser target, assume it is being soaked solo; consider merging these two components
-class P4ViscousAetheroplasmResolve(BossModule module) : Components.UniformStackSpread(module, 4, 0, 7)
+class P4ViscousAetheroplasmResolve(BossModule module) : Components.UniformStackSpread(module, 4f, default, 7)
 {
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.HomingLasers)
+        if (spell.Action.ID == (uint)AID.HomingLasers)
         {
             // update avoid target to homing laser target
-            BitMask avoid = new();
+            BitMask avoid = default;
             avoid.Set(Raid.FindSlot(spell.TargetID));
             foreach (ref var s in Stacks.AsSpan())
                 s.ForbiddenPlayers = avoid;
@@ -19,17 +19,17 @@ class P4ViscousAetheroplasmResolve(BossModule module) : Components.UniformStackS
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.ViscousAetheroplasmApply:
+            case (uint)AID.ViscousAetheroplasmApply:
                 var target = WorldState.Actors.Find(spell.MainTargetID);
                 if (target != null)
-                    AddStack(target, default, Raid.WithSlot(true).WhereActor(a => a.InstanceID != spell.MainTargetID && a.Role == Role.Tank).Mask());
+                    AddStack(target, default, Raid.WithSlot(true, true, true).WhereActor(a => a.InstanceID != spell.MainTargetID && a.Role == Role.Tank).Mask());
                 break;
-            case AID.ViscousAetheroplasmResolve:
+            case (uint)AID.ViscousAetheroplasmResolve:
                 Stacks.Clear();
                 break;
-            case AID.HomingLasers:
+            case (uint)AID.HomingLasers:
                 foreach (ref var s in Stacks.AsSpan())
                     s.ForbiddenPlayers.Reset();
                 break;
@@ -37,24 +37,24 @@ class P4ViscousAetheroplasmResolve(BossModule module) : Components.UniformStackS
     }
 }
 
-class P5ViscousAetheroplasmTriple(BossModule module) : Components.UniformStackSpread(module, 4, 0, 8)
+class P5ViscousAetheroplasmTriple(BossModule module) : Components.UniformStackSpread(module, 4f, default, 8, 8)
 {
-    public int NumCasts { get; private set; }
+    public int NumCasts;
     private readonly List<(Actor target, DateTime resolve)> _aetheroplasms = [];
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.ViscousAetheroplasm)
+        if (status.ID == (uint)SID.ViscousAetheroplasm)
         {
             _aetheroplasms.Add((actor, status.ExpireAt));
-            _aetheroplasms.SortBy(a => a.resolve);
+            _aetheroplasms.Sort(static (a, b) => a.resolve.CompareTo(b.resolve));
             UpdateStackTargets();
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.ViscousAetheroplasmResolve)
+        if (spell.Action.ID == (uint)AID.ViscousAetheroplasmResolve)
         {
             ++NumCasts;
             _aetheroplasms.RemoveAll(a => a.target.InstanceID == spell.MainTargetID);
@@ -65,7 +65,7 @@ class P5ViscousAetheroplasmTriple(BossModule module) : Components.UniformStackSp
     private void UpdateStackTargets()
     {
         Stacks.Clear();
-        if (_aetheroplasms.Count > 0)
+        if (_aetheroplasms.Count != 0)
             AddStack(_aetheroplasms[0].target, _aetheroplasms[0].resolve);
     }
 }

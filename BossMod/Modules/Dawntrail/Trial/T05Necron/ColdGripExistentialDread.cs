@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Trial.T05Necron;
+namespace BossMod.Dawntrail.Trial.T05Necron;
 
 sealed class ColdGripExistentialDread(BossModule module) : Components.GenericAOEs(module)
 {
@@ -6,7 +6,7 @@ sealed class ColdGripExistentialDread(BossModule module) : Components.GenericAOE
     private readonly AOEShapeRect rect1 = new(30f, 6f), rect2 = new(30f, 12f);
     private float offset;
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
@@ -16,7 +16,7 @@ sealed class ColdGripExistentialDread(BossModule module) : Components.GenericAOE
                 _aoes.Add(new(rect1, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
                 if (offset != default)
                 {
-                    AddLastAOE(1.6f);
+                    AddLastAOE(1.6d);
                 }
                 break;
             case (uint)AID.ColdGripVisual1:
@@ -28,7 +28,7 @@ sealed class ColdGripExistentialDread(BossModule module) : Components.GenericAOE
                 AddLastAOE();
                 break;
         }
-        void AddLastAOE(float delay = 2.6f)
+        void AddLastAOE(double delay = 2.6d)
         {
             if (_aoes.Count == 2) // create 3rd AOE with small offset to leave a safespot in the right direction
             {
@@ -48,11 +48,10 @@ sealed class ColdGripExistentialDread(BossModule module) : Components.GenericAOE
                 if (count == 2) // update 3rd AOE to the actual position
                 {
                     ref var aoe = ref _aoes.Ref(0);
-                    aoe.Origin = new WPos(100f + offset, 85f);
+                    aoe.Origin = new WPos(100f + offset, 85f).Quantized();
                     offset = default;
                 }
             }
         }
     }
 }
-

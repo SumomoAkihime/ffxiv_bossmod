@@ -121,7 +121,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
 
     public const int AOEBreakpoint = 2;
 
-    private float InstantCastLeft => MathF.Max(TriplecastLeft, SwiftcastLeft);
+    private float InstantCastLeft => Math.Max(TriplecastLeft, SwiftcastLeft);
 
     protected override float GetCastTime(AID aid)
     {
@@ -230,7 +230,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
         InLeyLines = Player.FindStatus(SID.CircleOfPower) != null;
         HaveLeyLines = Player.FindStatus(SID.LeyLines) != null;
 
-        for (var i = 0; i < Hints.Enemies.Length; i++)
+        for (var i = 0; i < Hints.Enemies.Length; ++i)
             EnemyDotTimers[i] = CalculateDotTimer(Hints.Enemies[i]?.Actor);
 
         (BestAOETarget, NumAOETargets) = SelectTargetByHP(strategy, primaryTarget, 25, IsSplashTarget);
@@ -247,7 +247,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
             (BestThunderTarget, TargetThunderLeft) = SelectDotTarget(strategy, dotTarget, GetTargetThunderLeft, 2);
         }
 
-        (BestAOEThunderTarget, NumAOEDotTargets) = SelectTarget(strategy, dotTarget, 25, (primary, other) => DotExpiring(other) && Hints.TargetInAOECircle(other, primary.Position, 5));
+        (BestAOEThunderTarget, NumAOEDotTargets) = SelectTarget(strategy, dotTarget, 25, (primary, other) => DotExpiring(other) && TargetInAOECircle(other, primary.Position, 5));
 
         if (CountdownRemaining > 0)
         {
@@ -313,7 +313,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
                 PushGCD((AID)PhantomID.Iainuki, primaryTarget, GCDPriority.Max);
 
             if (ready <= GCD + GCDLength * 2)
-                Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget.Actor, 8));
+                Hints.GoalZones.Add(GoalSingleTarget(primaryTarget.Actor, 8));
         }
 
         if (strategy.AutoTimeMage.IsEnabled())

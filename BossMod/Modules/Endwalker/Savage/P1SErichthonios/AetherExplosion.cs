@@ -8,19 +8,17 @@ class AetherExplosion(BossModule module) : BossComponent(module)
     private Actor? _memberWithSOT; // if not null, then every update exploding cells are recalculated based on this raid member's position
     private Cell _explodingCells = Cell.None;
 
-    private const uint _colorSOTActor = 0xff8080ff;
-
     public bool SOTActive => _memberWithSOT != null;
 
     public override void Update()
     {
         if (_memberWithSOT != null)
-            _explodingCells = CellFromOffset(_memberWithSOT.Position - Module.Center);
+            _explodingCells = CellFromOffset(_memberWithSOT.Position - Arena.Center);
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        if (actor != _memberWithSOT && _explodingCells != Cell.None && _explodingCells == CellFromOffset(actor.Position - Module.Center))
+        if (actor != _memberWithSOT && _explodingCells != Cell.None && _explodingCells == CellFromOffset(actor.Position - Arena.Center))
         {
             hints.Add("Hit by aether explosion!");
         }
@@ -31,17 +29,17 @@ class AetherExplosion(BossModule module) : BossComponent(module)
         if (_explodingCells == Cell.None || pc == _memberWithSOT)
             return; // nothing to draw
 
-        if (Module.Bounds is not ArenaBoundsCircle)
+        if (Arena.Bounds is not ArenaBoundsCircle)
         {
             ReportError("Trying to draw aether AOE when cells mode is not active...");
             return;
         }
 
         var start = _explodingCells == Cell.Blue ? 0.Degrees() : 45.Degrees();
-        for (int i = 0; i < 4; ++i)
+        for (var i = 0; i < 4; ++i)
         {
-            Arena.ZoneCone(Module.Center, 0, P1S.InnerCircleRadius, start + 22.5f.Degrees(), 22.5f.Degrees(), ArenaColor.AOE);
-            Arena.ZoneCone(Module.Center, P1S.InnerCircleRadius, Module.Bounds.Radius, start + 67.5f.Degrees(), 22.5f.Degrees(), ArenaColor.AOE);
+            Arena.ZoneCone(Arena.Center, 0, P1S.InnerCircleRadius, start + 22.5f.Degrees(), 22.5f.Degrees(), Colors.AOE);
+            Arena.ZoneCone(Arena.Center, P1S.InnerCircleRadius, Arena.Bounds.Radius, start + 67.5f.Degrees(), 22.5f.Degrees(), Colors.AOE);
             start += 90.Degrees();
         }
     }
@@ -49,10 +47,10 @@ class AetherExplosion(BossModule module) : BossComponent(module)
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         if (_memberWithSOT != pc)
-            Arena.Actor(_memberWithSOT, _colorSOTActor);
+            Arena.Actor(_memberWithSOT, Colors.Other2);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         switch ((SID)status.ID)
         {
@@ -82,7 +80,7 @@ class AetherExplosion(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
         switch ((SID)status.ID)
         {
@@ -97,9 +95,9 @@ class AetherExplosion(BossModule module) : BossComponent(module)
     private static Cell CellFromOffset(WDir offsetFromCenter)
     {
         var phi = Angle.FromDirection(offsetFromCenter) + 180.Degrees();
-        int coneIndex = (int)(4 * phi.Rad / MathF.PI); // phi / (pi/4); range [0, 8]
-        bool oddCone = (coneIndex & 1) != 0;
-        bool outerCone = offsetFromCenter.LengthSq() > P1S.InnerCircleRadius * P1S.InnerCircleRadius;
+        var coneIndex = (int)(4 * phi.Rad / MathF.PI); // phi / (pi/4); range [0, 8]
+        var oddCone = (coneIndex & 1) != 0;
+        var outerCone = offsetFromCenter.LengthSq() > P1S.InnerCircleRadius * P1S.InnerCircleRadius;
         return (oddCone == outerCone) ? Cell.Blue : Cell.Red; // outer odd = inner even = blue
     }
 }

@@ -1,39 +1,44 @@
 ﻿namespace BossMod.Endwalker.Alliance.A14Naldthal;
 
-class HeatAboveFlamesBelow(BossModule module) : Components.GenericAOEs(module)
+sealed class HeatAboveFlamesBelow(BossModule module) : Components.GenericAOEs(module)
 {
     public List<AOEInstance> _aoes = [];
+    private static readonly AOEShapeCircle _shapeOut = new(8f);
+    private static readonly AOEShapeDonut _shapeIn = new(8f, 30f);
 
-    private static readonly AOEShapeCircle _shapeOut = new(8);
-    private static readonly AOEShapeDonut _shapeIn = new(8, 30);
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        var shape = ShapeForAction(spell.Action);
+        var shape = ShapeForAction(spell.Action.ID);
         if (shape != null)
-            _aoes.Add(new(shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
+        {
+            _aoes.Add(new(shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
+        }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        var shape = ShapeForAction(spell.Action);
+        var shape = ShapeForAction(spell.Action.ID);
         if (shape != null)
+        {
             _aoes.Clear();
+        }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        var shape = ShapeForAction(spell.Action);
+        var shape = ShapeForAction(spell.Action.ID);
         if (shape != null)
+        {
             ++NumCasts;
+        }
     }
 
-    private AOEShape? ShapeForAction(ActionID action) => (AID)action.ID switch
+    private static AOEShape? ShapeForAction(uint action) => action switch
     {
-        AID.FlamesOfTheDeadReal => _shapeIn,
-        AID.LivingHeatReal => _shapeOut,
+        (uint)AID.FlamesOfTheDeadReal => _shapeIn,
+        (uint)AID.LivingHeatReal => _shapeOut,
         _ => null
     };
 }

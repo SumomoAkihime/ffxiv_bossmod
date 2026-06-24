@@ -20,15 +20,15 @@ public enum AID : uint
     WhatIsRight = 25139 // Boss->self, 8.0s cast, range 20 180-degree cone
 }
 
-class Cleave(BossModule module, AID aid) : Components.StandardAOEs(module, aid, new AOEShapeCone(40, 90.Degrees()));
-class WhatIsLeft(BossModule module) : Cleave(module, AID.WhatIsLeft);
-class WhatIsRight(BossModule module) : Cleave(module, AID.WhatIsRight);
+class Cleave(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, new AOEShapeCone(40f, 90f.Degrees()));
+class WhatIsLeft(BossModule module) : Cleave(module, (uint)AID.WhatIsLeft);
+class WhatIsRight(BossModule module) : Cleave(module, (uint)AID.WhatIsRight);
 
-class LostHope(BossModule module) : Components.CastHint(module, AID.LostHope, "Applies temporary misdirection");
-class Vitriol(BossModule module) : Components.StandardAOEs(module, AID.Vitriol, new AOEShapeCircle(13));
-class NoteOfDespair(BossModule module) : Components.RaidwideCast(module, AID.NoteOfDespair);
-class Wallow(BossModule module) : Components.SpreadFromCastTargets(module, AID.Wallow, 6);
-class LastGasp(BossModule module) : Components.SingleTargetCast(module, AID.LastGasp);
+class LostHope(BossModule module) : Components.TemporaryMisdirection(module, (uint)AID.LostHope);
+class Vitriol(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Vitriol, 13f);
+class NoteOfDespair(BossModule module) : Components.RaidwideCast(module, (uint)AID.NoteOfDespair);
+class Wallow(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.Wallow, 6f);
+class LastGasp(BossModule module) : Components.SingleTargetCast(module, (uint)AID.LastGasp);
 
 class D031SnatcherStates : StateMachineBuilder
 {
@@ -45,5 +45,9 @@ class D031SnatcherStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(Contributors = "The Combat Reborn Team (LTS, Malediktus), Ported by Herculezz", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 789, NameID = 10717)]
-public class D031Snatcher(WorldState ws, Actor primary) : BossModule(ws, primary, new(-375, 85), new ArenaBoundsCircle(19.5f));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (LTS, Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 789, NameID = 10717)]
+public class D031Snatcher(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
+{
+    private static readonly ArenaBoundsCustom arena = new([new Polygon(new(-375f, 85f), 19.5f * CosPI.Pi36th, 36)],
+    [new Rectangle(new(-375f, 105f), 20f, 1.2f), new Rectangle(new(-375f, 61f), 20f, 2f, -30f.Degrees())]);
+}

@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Extreme.Ex7Zeromus;
 
-class NostalgiaDimensionalSurge(BossModule module) : Components.StandardAOEs(module, AID.NostalgiaDimensionalSurge, 5);
+class NostalgiaDimensionalSurge(BossModule module) : Components.SimpleAOEs(module, (uint)AID.NostalgiaDimensionalSurge, 5);
 
 class Nostalgia(BossModule module) : Components.CastCounter(module, default)
 {

@@ -1,31 +1,31 @@
 ﻿namespace BossMod.RealmReborn.Extreme.Ex4Ifrit;
 
-class Incinerate(BossModule module) : Components.Cleave(module, AID.Incinerate, CleaveShape)
+class Incinerate(BossModule module) : Components.Cleave(module, (uint)AID.Incinerate, CleaveShape)
 {
-    public static readonly AOEShapeCone CleaveShape = new(21, 60.Degrees());
+    public static readonly AOEShapeCone CleaveShape = new(21f, 60f.Degrees());
 }
 
-class RadiantPlume(BossModule module) : Components.StandardAOEs(module, AID.RadiantPlumeAOE, 8);
+class RadiantPlume(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RadiantPlumeAOE, 8f);
 
 // TODO: consider showing next charge before its cast starts...
-class CrimsonCyclone(BossModule module) : Components.StandardAOEs(module, AID.CrimsonCyclone, new AOEShapeRect(49, 9));
+class CrimsonCyclone(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CrimsonCyclone, new AOEShapeRect(49f, 9f));
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 63, NameID = 1185)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 63, NameID = 1185)]
 public class Ex4Ifrit : BossModule
 {
-    public IReadOnlyList<Actor> SmallNails;
-    public IReadOnlyList<Actor> LargeNails;
+    public readonly List<Actor> SmallNails;
+    public readonly List<Actor> LargeNails;
 
-    public Ex4Ifrit(WorldState ws, Actor primary) : base(ws, primary, new(0, 0), new ArenaBoundsCircle(20))
+    public Ex4Ifrit(WorldState ws, Actor primary) : base(ws, primary, default, Trial.T01IfritN.T01IfritN.IfritArena)
     {
-        SmallNails = Enemies(OID.InfernalNailSmall);
-        LargeNails = Enemies(OID.InfernalNailLarge);
+        SmallNails = Enemies((uint)OID.InfernalNailSmall);
+        LargeNails = Enemies((uint)OID.InfernalNailLarge);
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        Arena.Actors(SmallNails, ArenaColor.Object);
-        Arena.Actors(LargeNails, ArenaColor.Object);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(SmallNails, Colors.Object);
+        Arena.Actors(LargeNails, Colors.Object);
     }
 }

@@ -1,42 +1,46 @@
-﻿namespace BossMod.Endwalker.Criterion.C03AAI.C031Ketuduke;
+﻿namespace BossMod.Endwalker.VariantCriterion.C03AAI.C031Ketuduke;
 
 class AngrySeasAOE(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = [];
+    private AOEInstance[] _aoe = [];
 
-    private static readonly AOEShapeRect _shape = new(20, 5, 20);
+    private static readonly AOEShapeRect _shape = new(46f, 5f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.NAngrySeasAOE or AID.SAngrySeasAOE)
-            _aoes.Add(new(_shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
+        if (spell.Action.ID is (uint)AID.NAngrySeasAOE or (uint)AID.SAngrySeasAOE)
+        {
+            _aoe = [new(_shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell))];
+        }
     }
 }
 
 // TODO: generalize
-class AngrySeasKnockback(BossModule module) : Components.Knockback(module)
+class AngrySeasKnockback(BossModule module) : Components.GenericKnockback(module)
 {
-    private readonly List<Source> _sources = [];
-    private static readonly AOEShapeCone _shape = new(30, 90.Degrees());
+    private readonly List<Knockback> _sources = new(2);
+    private static readonly AOEShapeCone _shape = new(30f, 90f.Degrees());
 
-    public override IEnumerable<Source> Sources(int slot, Actor actor) => _sources;
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor) => CollectionsMarshal.AsSpan(_sources);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.NAngrySeasAOE or AID.SAngrySeasAOE)
+        if (spell.Action.ID is (uint)AID.NAngrySeasAOE or (uint)AID.SAngrySeasAOE)
         {
             _sources.Clear();
+            var activation = Module.CastFinishAt(spell);
+            var pos = Arena.Center;
             // charge always happens through center, so create two sources with origin at center looking orthogonally
-            _sources.Add(new(Module.Center, 12, Module.CastFinishAt(spell), _shape, spell.Rotation + 90.Degrees(), Kind.DirForward));
-            _sources.Add(new(Module.Center, 12, Module.CastFinishAt(spell), _shape, spell.Rotation - 90.Degrees(), Kind.DirForward));
+            _sources.Add(new(pos, 12f, activation, _shape, 90f.Degrees(), Kind.DirForward));
+            _sources.Add(new(pos, 12f, activation, _shape, -90f.Degrees(), Kind.DirForward));
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.NAngrySeasAOE or AID.SAngrySeasAOE)
+        if (spell.Action.ID is (uint)AID.NAngrySeasAOE or (uint)AID.SAngrySeasAOE)
         {
             _sources.Clear();
             ++NumCasts;

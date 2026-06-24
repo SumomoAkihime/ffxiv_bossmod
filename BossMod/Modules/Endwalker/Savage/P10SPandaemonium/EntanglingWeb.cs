@@ -1,10 +1,10 @@
 ﻿namespace BossMod.Endwalker.Savage.P10SPandaemonium;
 
-class EntanglingWebAOE(BossModule module) : Components.StandardAOEs(module, AID.EntanglingWebAOE, 5);
+class EntanglingWebAOE(BossModule module) : Components.SimpleAOEs(module, (uint)AID.EntanglingWebAOE, 5);
 
 class EntanglingWebHints(BossModule module) : BossComponent(module)
 {
-    private readonly IReadOnlyList<Actor> _pillars = module.Enemies(OID.Pillar);
+    private readonly List<Actor> _pillars = module.Enemies((uint)OID.Pillar);
     private readonly List<Actor> _targets = [];
 
     private const float _radius = 5;
@@ -27,14 +27,14 @@ class EntanglingWebHints(BossModule module) : BossComponent(module)
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        Arena.Actors(_pillars, ArenaColor.Object, true);
-        foreach (var t in _targets)
-            Arena.AddCircle(t.Position, _radius, ArenaColor.Danger);
+        Arena.Actors(_pillars, Colors.Object, true);
+        for (var i = 0; i < _targets.Count; ++i)
+            Arena.AddCircle(_targets[i].Position, _radius, Colors.Danger);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.EntanglingWebAOE && _targets.Count > 0)
+        if (spell.Action.ID == (uint)AID.EntanglingWebAOE && _targets.Count > 0)
             _targets.RemoveAt(0);
     }
 

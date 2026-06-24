@@ -1,409 +1,376 @@
-﻿namespace BossMod.Dawntrail.Extreme.Ex5Necron;
+namespace BossMod.Dawntrail.Extreme.Ex5Necron;
 
-class BlueShockwave(BossModule module) : Components.TankSwap(module, default(AID), AID.BlueShockwaveAOE, AID.BlueShockwaveAOE, 4.1f, new AOEShapeCone(100, 50.Degrees()), false)
+sealed class Ex5NecronStates : StateMachineBuilder
 {
-    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
+    private Wipe? wipe;
+    private Intermission? intermission;
+    private Prisons? doom;
+
+    public Ex5NecronStates(Ex5Necron module) : base(module)
     {
-        if (iconID == 615)
+        bool IsWipedOrLeftRaid()
         {
-            _source = actor;
-            _prevTarget = targetID;
-            _activation = WorldState.FutureTime(7.2f);
+            wipe ??= module.FindComponent<Wipe>();
+            return (wipe?.Wiped ?? false) || module.WorldState.CurrentCFCID != 1062u;
         }
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        base.OnEventCast(caster, spell);
-
-        if (NumCasts >= 2)
+        bool IntermissionStarted()
         {
-            CurrentBaits.Clear();
-            _source = null;
-            _activation = default;
+            intermission ??= module.FindComponent<Intermission>();
+            return intermission?.Started ?? false;
         }
-    }
-}
-
-class FearOfDeathAdds(BossModule module) : Components.StandardAOEs(module, AID.FearOfDeathPuddleAdds, 3);
-
-class IcyHandsAdds(BossModule module) : Components.AddsMulti(module, [OID.IcyHandsAdds, OID.BeckoningHands], 1)
-{
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        foreach (var a in ActiveActors)
+        bool TrackDoom()
         {
-            var e = hints.FindEnemy(a);
-            e?.Priority = 1;
-            e?.ForbidDOTs = true;
+            doom ??= module.FindComponent<Prisons>();
+            return doom?.NumDooms > 0 && module.PrimaryActor.IsTargetable;
         }
-    }
-}
-
-class ChokingGraspAdds(BossModule module) : Components.StandardAOEs(module, AID.ChokingGraspAdds, new AOEShapeRect(24, 3));
-
-class MutedStruggle(BossModule module) : Components.BaitAwayCast(module, AID.MutedStruggle, new AOEShapeRect(24, 3));
-class DarknessOfEternity(BossModule module) : Components.RaidwideCastDelay(module, AID.DarknessOfEternityCast, AID.DarknessOfEternityRaidwide, 6.4f);
-class Invitation(BossModule module) : Components.StandardAOEs(module, AID.Invitation, new AOEShapeRect(36, 5));
-
-class LoomingSpecter(BossModule module) : Components.GenericAOEs(module, AID.Invitation)
-{
-    private readonly List<(Actor, DateTime)> _predicted = [];
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _predicted.Select(p => new AOEInstance(new AOEShapeRect(36, 5), p.Item1.Position, p.Item1.Rotation, p.Item2));
-
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
-    {
-        if ((OID)source.OID == OID.LoomingSpecter1 && tether.ID == 102)
-            _predicted.Add((source, WorldState.FutureTime(12.1f)));
+        SimplePhase(default, Phase1, "P1")
+            .ActivateOnEnter<Wipe>()
+            .ActivateOnEnter<Intermission>()
+            .Raw.Update = () => module.PrimaryActor.IsDead || IsWipedOrLeftRaid() || IntermissionStarted();
+        SimplePhase(1u, Intermission, "P2")
+            .Raw.Update = () => module.PrimaryActor.IsDead || TrackDoom() || IsWipedOrLeftRaid();
+        SimplePhase(2u, Phase3, "P3")
+            .Raw.Update = () => module.PrimaryActor.IsDead || IsWipedOrLeftRaid();
     }
 
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    private void Phase1(uint id)
     {
-        if (spell.Action == WatchedAction)
-            _predicted.Clear();
-    }
-}
-
-class CircleOfLives(BossModule module) : Components.StandardAOEs(module, AID.CircleOfLives, new AOEShapeDonut(3, 50), maxCasts: 1);
-
-class Ex5NecronStates : StateMachineBuilder
-{
-    private static readonly WPos[] JailArenas = [
-        new(-100, -100),
-        new(100, -100),
-        new(-100, 100),
-        new(300, -100),
-        new(300, 100),
-        new(300, 300),
-        new(100, 300),
-        new(-100, 300),
-    ];
-
-    public Ex5NecronStates(BossModule module) : base(module)
-    {
-        SimplePhase(0, P1, "P1")
-            .Raw.Update = () => Module.Enemies(OID.IcyHandsDPSJail).Any() || Module.Enemies(OID.IcyHandsHealerJail).Any() || Module.Enemies(OID.IcyHandsTankJail).Any();
-        SimplePhase(1, PJail, "Intermission")
-            .OnEnter(() =>
-            {
-                // meh
-                if (Module.Raid.Player() is { } player)
-                {
-                    var center = JailArenas.MinBy(j => (j - player.Position).LengthSq());
-                    Module.Arena.Center = center;
-                    Module.Arena.Bounds = new ArenaBoundsCircle(9);
-                }
-            })
-            .Raw.Update = () => Module.PrimaryActor.IsTargetable;
-        SimplePhase(2, P2, "P2")
-            .OnEnter(() =>
-            {
-                Module.Arena.Center = new(100, 100);
-                Module.Arena.Bounds = new ArenaBoundsRect(18, 15);
-            })
-            // don't check for IsDestroyed because it will trigger if the player gets jailed during P2
-            .Raw.Update = () => Module.PrimaryActor.IsDead;
+        BlueShockwave(id, 7.2f);
+        FearOfDeath1(id + 0x10000u, 5f);
+        ColdGripExistentialDread(id + 0x20000u, 5.2f);
+        MementoMori(id + 0x30000u, 10.6f);
+        SoulReapingTwoFourfoldBlight1(id + 0x40000u, 15.6f);
+        FearOfDeath2(id + 0x50000u, 13.8f);
+        SoulReapingTwoFourfoldBlight2(id + 0x60000u, 7.1f);
+        GrandCross(id + 0x70000u, 14.8f);
+        SimpleState(id + 0x80000u, 9.6f, "Intermission");
     }
 
-    private void P1(uint id)
+    private void Intermission(uint id)
     {
-        BlueShockwave(id, 14.2f);
-        FearOfDeath(id + 0x100, 5);
-        ColdGrip(id + 0x10000, 0);
-        MementoMori(id + 0x20000, 5.6f);
-        SoulReaping(id + 0x30000, 2.2f);
-        GrandCross(id + 0x40000, 7.9f);
-        Adds(id + 0x50000, 14.6f);
+        DarknessOfEternity(id, 50.4f);
+        Prisons(id + 0x10000u, 13.5f);
     }
 
-    private void PJail(uint id)
+    private void Phase3(uint id)
     {
-        Timeout(id + 0x10, 50, "Doom")
-            .ActivateOnEnter<JailHands>()
-            .ActivateOnEnter<JailGrasp>()
-            .ActivateOnEnter<JailEnrage>()
-            .ActivateOnEnter<JailSlow>()
-            .ActivateOnEnter<JailInterrupt>()
-            .ActivateOnEnter<JailBuster>();
-    }
-
-    private void P2(uint id)
-    {
-        EndsEmbraceP2(id, 5.7f);
-        CropCircle(id + 0x10000, 6.6f);
-        Circles1(id + 0x20000, 6.8f);
-        MacabreMark(id + 0x30000, 7.7f);
-        ColdGrip(id + 0x40000, 0.9f);
-        CropCircle(id + 0x50000, 5.6f);
-        FearOfDeath(id + 0x60000, 1.7f);
-        Circles2(id + 0x70000, 1.3f);
-        MementoMori(id + 0x80000, 2.3f);
-        ColdGrip(id + 0x90000, 0, 4.2f);
-        GrandCross(id + 0xA0000, 4.6f);
-
-        Cast(id + 0xB0000, AID.DarknessOfEternityEnrage, 9.7f, 10, "Enrage");
+        SpecterOfDeathEndsEmbraceChokingGraspColdGrip(id, 17.9f);
+        RelentlessReapingSecondFourthSeason(id + 0x10000u, 40.1f);
+        CircleOfLivesSoulReaping(id + 0x20000u, 20.9f);
+        MassMacabre(id + 0x30000u, 12.9f);
+        RelentlessReapingSecondFourthSeason(id + 0x40000u, 39.2f);
+        FearOfDeath1(id + 0x50000u, 1.7f);
+        CircleOfLivesInvitation(id + 0x60000u, 15.3f);
+        MementoMori(id + 0x70000u, 7.3f);
+        ColdGripExistentialDread(id + 0x80000u, 4.7f);
+        GrandCross(id + 0x90000u, 11.6f);
+        Targetable(id + 0xA0000u, false, 19.7f, "Enrage");
     }
 
     private void BlueShockwave(uint id, float delay)
     {
-        ComponentCondition<BlueShockwave>(id, delay, b => b.NumCasts > 0, "Tankbuster 1")
+        ComponentCondition<BlueShockwave>(id, delay, comp => comp.CurrentBaits.Count != 0, "Tank swap")
             .ActivateOnEnter<BlueShockwave>();
-        ComponentCondition<BlueShockwave>(id + 0x10, 4.1f, b => b.NumCasts > 1, "Tankbuster 2")
+        ComponentCondition<BlueShockwave>(id + 0x10u, 7.2f, comp => comp.NumCasts != 0, "Tankbuster 1")
+            .SetHint(StateMachine.StateHint.Tankbuster);
+        ComponentCondition<BlueShockwave>(id + 0x20u, 4f, comp => comp.NumCasts == 2, "Tankbuster 2")
+            .SetHint(StateMachine.StateHint.Tankbuster)
             .DeactivateOnExit<BlueShockwave>();
     }
 
-    private void FearOfDeath(uint id, float delay)
+    private void FearOfDeath1(uint id, float delay)
     {
-        CastStart(id, AID.FearOfDeathRaidwide, delay)
-            .ActivateOnEnter<FearOfDeathRaidwide>()
-            .ActivateOnEnter<FearOfDeathPuddle>()
-            .ActivateOnEnter<ChokingGraspInstant>();
-
-        ComponentCondition<FearOfDeathRaidwide>(id + 0x10, 5, f => f.NumCasts > 0, "Raidwide")
-            .DeactivateOnExit<FearOfDeathRaidwide>();
-
-        ComponentCondition<FearOfDeathPuddle>(id + 0x20, 3, f => f.NumCasts > 0, "Hands appear")
-            .DeactivateOnExit<FearOfDeathPuddle>();
-
-        ComponentCondition<ChokingGraspInstant>(id + 0x30, 2.8f, c => c.NumCasts > 0, "Baits")
-            .DeactivateOnExit<ChokingGraspInstant>();
+        Cast(id, (uint)AID.FearOfDeath, delay, 5f, "Raidwide")
+            .ActivateOnEnter<FearOfDeath>()
+            .ActivateOnEnter<FearOfDeathAOE>()
+            .ActivateOnEnter<ChokingGraspBait1>()
+            .DeactivateOnExit<FearOfDeath>()
+            .SetHint(StateMachine.StateHint.Raidwide);
+        ComponentCondition<FearOfDeathAOE>(id + 0x10u, 3.2f, comp => comp.NumCasts != 0, "Circle AOEs")
+            .DeactivateOnExit<FearOfDeathAOE>();
+        ComponentCondition<ChokingGraspBait1>(id + 0x20u, 2.7f, comp => comp.NumCasts != 0, "Baited line AOEs")
+            .DeactivateOnExit<ChokingGraspBait1>()
+            .SetHint(StateMachine.StateHint.Raidwide);
     }
 
-    private void ColdGrip(uint id, float delay, float delay2 = 5.3f)
+    private void FearOfDeath2(uint id, float delay)
     {
-        CastStartMulti(id, [AID.ColdGripLeftSafe, AID.ColdGripRightSafe], delay)
-            .ActivateOnEnter<ColdGrip>()
-            .ActivateOnEnter<ExistentialDread>();
+        ComponentCondition<FearOfDeath>(id, delay, comp => comp.NumCasts != 0, "Raidwide")
+            .ActivateOnEnter<FearOfDeath>()
+            .ActivateOnEnter<FearOfDeathAOE>()
+            .ActivateOnEnter<ChokingGraspBait1>()
+            .DeactivateOnExit<FearOfDeath>()
+            .SetHint(StateMachine.StateHint.Raidwide);
+        ComponentCondition<FearOfDeathAOE>(id + 0x10u, 3.2f, comp => comp.NumCasts != 0, "Circle AOEs")
+            .DeactivateOnExit<FearOfDeathAOE>();
+        ComponentCondition<ChokingGraspBait1>(id + 0x20u, 2.7f, comp => comp.NumCasts != 0, "Baited line AOEs")
+            .DeactivateOnExit<ChokingGraspBait1>()
+            .SetHint(StateMachine.StateHint.Raidwide);
+        ComponentCondition<TheEndsEmbrace>(id + 0x30u, 4.3f, comp => comp.NumFinishedSpreads != 0, "Spreads resolve")
+            .ActivateOnEnter<TheEndsEmbrace>()
+            .DeactivateOnExit<TheEndsEmbrace>()
+            .SetHint(StateMachine.StateHint.Raidwide);
+        ComponentCondition<ChokingGraspBait2>(id + 0x40u, 0.6f, comp => comp.CurrentBaits.Count != 0, "Baited line AOEs start")
+            .ActivateOnEnter<ChokingGraspBait2>();
+        ComponentCondition<ChokingGrasp>(id + 0x50u, 2.5f, comp => comp.Casters.Count != 0, "Baited line AOEs end")
+            .ActivateOnEnter<ChokingGrasp>()
+            .DeactivateOnExit<ChokingGraspBait2>();
+        ComponentCondition<BlueShockwave>(id + 0x60u, 0.9f, comp => comp.CurrentBaits.Count != 0, "Tank swap")
+            .ActivateOnEnter<BlueShockwave>();
+        ComponentCondition<ChokingGrasp>(id + 0x70u, 2.4f, comp => comp.Casters.Count == 0, "Baited line AOEs resolve")
+            .DeactivateOnExit<ChokingGrasp>();
+        ComponentCondition<BlueShockwave>(id + 0x80u, 4.7f, comp => comp.NumCasts != 0, "Tankbuster 1")
+            .SetHint(StateMachine.StateHint.Tankbuster);
+        ComponentCondition<BlueShockwave>(id + 0x90u, 4.1f, comp => comp.NumCasts == 2, "Tankbuster 2")
+            .SetHint(StateMachine.StateHint.Tankbuster)
+            .DeactivateOnExit<BlueShockwave>();
+    }
 
-        ComponentCondition<ColdGrip>(id + 0x10, delay2, c => c.NumCasts > 0, "Line AOEs")
-            .DeactivateOnExit<ColdGrip>();
-
-        ComponentCondition<ExistentialDread>(id + 0x20, 1.6f, e => e.NumCasts > 0, "Safe side").DeactivateOnExit<ExistentialDread>();
+    private void ColdGripExistentialDread(uint id, float delay)
+    {
+        ComponentCondition<ColdGripExistentialDread>(id, delay, comp => comp.NumCasts != 0, "Cleaves 1")
+            .ActivateOnEnter<ColdGripExistentialDread>();
+        ComponentCondition<ColdGripExistentialDread>(id + 0x10u, 1.6f, comp => comp.NumCasts == 3, "Cleave 2")
+            .DeactivateOnExit<ColdGripExistentialDread>();
     }
 
     private void MementoMori(uint id, float delay)
     {
-        CastStartMulti(id, [AID.MementoMoriDarkRight, AID.MementoMoriDarkLeft], delay)
-            .ActivateOnEnter<MementoMoriLine>()
-            .ActivateOnEnter<MementoMoriVoidzone>()
+        ComponentCondition<MementoMori>(id, delay, comp => comp.NumCasts != 0, "Line AOE")
             .ActivateOnEnter<SmiteOfGloom>()
-            .ActivateOnEnter<CenterChokingGrasp>();
-
-        ComponentCondition<MementoMoriLine>(id + 0x10, 5, m => m.NumCasts > 0, "Line AOE")
-            .DeactivateOnExit<MementoMoriLine>();
-
-        ComponentCondition<CenterChokingGrasp>(id + 0x20, 6.2f, m => m.NumCasts > 0, "Hands")
-            .DeactivateOnExit<CenterChokingGrasp>();
-
-        ComponentCondition<SmiteOfGloom>(id + 0x30, 1, s => s.NumFinishedSpreads > 0, "Spreads")
+            .ActivateOnEnter<ChokingGraspMM>()
+            .ActivateOnEnter<MementoMori>();
+        ComponentCondition<MementoMori>(id + 0x10u, 1.1f, comp => Module.Arena.Bounds is not ArenaBoundsRect, "Arena split");
+        ComponentCondition<ChokingGraspMM>(id + 0x20u, 5.2f, comp => comp.NumCasts != 0, "Line AOEs")
+            .DeactivateOnExit<ChokingGraspMM>();
+        ComponentCondition<SmiteOfGloom>(id + 0x30u, 0.8f, comp => comp.NumCasts != 0, "Spreads resolve")
             .DeactivateOnExit<SmiteOfGloom>();
-
-        ComponentCondition<MementoMoriVoidzone>(id + 0x40, 4, m => !m.Active, "Voidzone disappear")
-            .DeactivateOnExit<MementoMoriVoidzone>();
+        ComponentCondition<MementoMori>(id + 0x40u, 4f, comp => Module.Arena.Bounds is ArenaBoundsRect, "Restore arena")
+            .DeactivateOnExit<MementoMori>();
     }
 
-    private void SoulReaping(uint id, float delay)
+    private void SoulReapingTwoFourfoldBlight1(uint id, float delay)
     {
-        Cast(id, AID.SoulReaping, delay, 4, "Store AOE")
-            .ActivateOnEnter<Aetherblight>()
-            .ActivateOnEnter<Shockwave>();
-
-        ComponentCondition<Aetherblight>(id + 0x10, 9.4f, a => a.NumCasts > 0);
-        ComponentCondition<Shockwave>(id + 0x12, 0.1f, s => s.NumCasts > 0, "Stored AOE + stacks")
-            .DeactivateOnExit<Shockwave>();
-
-        Cast(id + 0x20, AID.SoulReaping, 1.9f, 4, "Store AOE");
-
-        FearOfDeath(id + 0x100, 3.2f);
-
-        ComponentCondition<EndsEmbrace>(id + 0x200, 4.3f, e => e.NumFinishedSpreads > 0, "Spreads")
-            .ActivateOnEnter<EndsEmbrace>()
-            .ActivateOnEnter<EndsEmbraceBait>()
-            .ActivateOnEnter<DelayedChokingGrasp>();
-
-        ComponentCondition<EndsEmbraceBait>(id + 0x210, 1, e => e.CurrentBaits.Count > 0, "Hands 2 appear");
-
-        ComponentCondition<EndsEmbraceBait>(id + 0x220, 2.2f, e => e.Baited, "Baits")
-            .ActivateOnEnter<BlueShockwave>()
-            .DeactivateOnExit<EndsEmbrace>()
-            .DeactivateOnExit<EndsEmbraceBait>();
-
-        ComponentCondition<DelayedChokingGrasp>(id + 0x230, 3, e => e.NumCasts > 0, "Baits resolve")
-            .DeactivateOnExit<DelayedChokingGrasp>();
-
-        ComponentCondition<BlueShockwave>(id + 0x300, 5.1f, b => b.NumCasts > 0, "Tankbuster 1");
-        ComponentCondition<BlueShockwave>(id + 0x310, 4.1f, b => b.NumCasts > 1, "Tankbuster 2")
-            .DeactivateOnExit<BlueShockwave>();
-
-        ComponentCondition<Aetherblight>(id + 0x400, 7.1f, a => a.NumCasts > 1, "Stored AOE + stacks")
+        ComponentCondition<Aetherblight>(id, delay, comp => comp.NumCasts != 0, "AOE resolves")
             .ActivateOnEnter<Shockwave>()
+            .ExecOnExit<Aetherblight>(comp => comp.Show = false)
+            .ExecOnExit<Aetherblight>(comp => comp.NumCasts = 0)
+            .ActivateOnEnter<Aetherblight>();
+        ComponentCondition<Shockwave>(id + 0x10u, 0.2f, comp => comp.NumCasts != 0, "Stacks resolve")
+            .DeactivateOnExit<Shockwave>();
+    }
+
+    private void SoulReapingTwoFourfoldBlight2(uint id, float delay)
+    {
+        ComponentCondition<Aetherblight>(id, delay, comp => comp.NumCasts != 0, "AOE resolves")
+            .ActivateOnEnter<Shockwave>()
+            .ExecOnEnter<Aetherblight>(comp => comp.Show = true)
+            .ExecOnEnter<Aetherblight>(comp => comp.UpdateAOEs(7.1d))
             .DeactivateOnExit<Aetherblight>();
+        ComponentCondition<Shockwave>(id + 0x10u, 0.2f, comp => comp.NumCasts != 0, "Stacks resolve")
+            .DeactivateOnExit<Shockwave>();
     }
 
     private void GrandCross(uint id, float delay)
     {
-        Cast(id, AID.GrandCrossRaidwide, delay, 7, "Raidwide")
-            .ActivateOnEnter<GrandCrossArena>()
-            .ActivateOnEnter<GrandCrossRaidwide>()
-            .ActivateOnEnter<GrandCrossPuddle>()
+        ComponentCondition<GrandCross>(id, delay, comp => comp.NumCasts != 0, "Raidwide")
+            .ActivateOnEnter<GrandCross>()
+            .ActivateOnEnter<GrandCrossArenaChange>()
+            .ActivateOnEnter<GrandCrossRect>()
+            .SetHint(StateMachine.StateHint.Raidwide)
+            .DeactivateOnExit<GrandCross>();
+        ComponentCondition<GrandCrossArenaChange>(id + 0x10u, 1.1f, comp => Module.Arena.Bounds is not ArenaBoundsRect, "Arena change")
+            .DeactivateOnExit<GrandCrossArenaChange>();
+        ComponentCondition<GrandCrossBait>(id + 0x20u, 7.1f, comp => comp.NumCasts != 0, "Baited circle AOEs 1")
+            .ActivateOnEnter<GrandCrossBait>();
+        ComponentCondition<Shock>(id + 0x30u, 1f, comp => comp.Towers.Count != 0, "Spreads + Towers 1 appear")
             .ActivateOnEnter<GrandCrossSpread>()
-            .ActivateOnEnter<GrandCrossLine>()
-            .ActivateOnEnter<GrandCrossLineCast>()
             .ActivateOnEnter<Shock>();
-
-        ComponentCondition<GrandCrossArena>(id + 0x10, 1.1f, t => t.NumChanges > 0, "Arena change");
-
-        ComponentCondition<Shock>(id + 0x20, 13, s => s.NumCasts >= 4, "Towers 1")
-            .ExecOnExit<Shock>(s => s.Reset());
-        ComponentCondition<Shock>(id + 0x30, 11, s => s.NumCasts >= 8, "Towers 2")
-            .DeactivateOnExit<GrandCrossLine>()
-            .DeactivateOnExit<GrandCrossLineCast>()
+        ComponentCondition<GrandCrossBait>(id + 0x40u, 1f, comp => comp.NumCasts != 0, "Baited circle AOEs 2")
+            .ExecOnEnter<GrandCrossBait>(comp => comp.NumCasts = 0);
+        ComponentCondition<GrandCrossRect>(id + 0x50u, 0.5f, comp => comp.NumCasts != 0, "Line AOE 1");
+        ComponentCondition<GrandCrossRect>(id + 0x60u, 1.9f, comp => comp.NumCasts == 2, "Line AOE 2");
+        ComponentCondition<Shock>(id + 0x70u, 1.6f, comp => comp.Towers.Count == 0, "Spreads + Towers 1 resolve");
+        ComponentCondition<GrandCrossRect>(id + 0x80u, 3.1f, comp => comp.NumCasts == 3, "Line AOE 3");
+        ComponentCondition<Shock>(id + 0x90u, 2.9f, comp => comp.Towers.Count != 0, "Spreads + Towers 2 appear");
+        ComponentCondition<GrandCrossRect>(id + 0xA0u, 1.2f, comp => comp.NumCasts == 4, "Line AOE 4");
+        ComponentCondition<GrandCrossRect>(id + 0xB0u, 2.6f, comp => comp.NumCasts == 5, "Line AOE 5")
+            .DeactivateOnExit<GrandCrossRect>();
+        ComponentCondition<Shock>(id + 0xC0u, 1.2f, comp => comp.Towers.Count == 0, "Spreads + Towers 2 resolve")
             .DeactivateOnExit<GrandCrossSpread>()
             .DeactivateOnExit<Shock>();
-
-        ComponentCondition<GrandCrossProximity>(id + 0x100, 8.7f, g => g.NumCasts > 0, "Proximity")
-            .ActivateOnEnter<GrandCrossProximity>()
-            .DeactivateOnExit<GrandCrossPuddle>()
-            .DeactivateOnExit<GrandCrossProximity>();
-
-        Cast(id + 0x200, AID.NeutronRingCast, 3.1f, 7)
-            .ActivateOnEnter<NeutronRing>();
-
-        ComponentCondition<NeutronRing>(id + 0x210, 2.6f, n => n.NumCasts > 0, "Raidwide + restore arena");
+        ComponentCondition<GrandCrossBait>(id + 0xD0u, 7.1f, comp => comp.NumCasts != 0, "Baited circle AOEs 3")
+            .ActivateOnEnter<GrandCrossProx>()
+            .ActivateOnEnter<GrandCrossRW>()
+            .ExecOnEnter<GrandCrossBait>(comp => comp.NumCasts = 0);
+        ComponentCondition<GrandCrossProx>(id + 0xE0u, 1.6f, comp => comp.NumCasts != 0, "Proximity AOE")
+            .SetHint(StateMachine.StateHint.Raidwide)
+            .DeactivateOnExit<GrandCrossRW>()
+            .DeactivateOnExit<GrandCrossProx>();
+        ComponentCondition<GrandCrossBait>(id + 0xF0u, 0.4f, comp => comp.NumCasts != 0, "Baited circle AOEs 4")
+            .DeactivateOnExit<GrandCrossBait>()
+            .ExecOnEnter<GrandCrossBait>(comp => comp.NumCasts = 0);
+        ComponentCondition<NeutronRing>(id + 0x100u, 12.5f, comp => comp.NumCasts != 0, "Raidwide + restore Arena")
+            .ActivateOnEnter<NeutronRing>()
+            .SetHint(StateMachine.StateHint.Raidwide)
+            .OnEnter(() => Module.Arena.Bounds = new ArenaBoundsRect(18f, 15f))
+            .DeactivateOnExit<NeutronRing>();
     }
 
-    private void Adds(uint id, float delay)
+    private void DarknessOfEternity(uint id, float delay)
     {
-        Targetable(id, false, delay, "Boss disappears (adds)")
-            .ActivateOnEnter<FearOfDeathAdds>()
-            .ActivateOnEnter<IcyHandsAdds>()
-            .ActivateOnEnter<ChokingGraspAdds>()
+        CastStart(id, (uint)AID.DarknessOfEternityVisual, delay, "Raidwide or enrage")
+            .ActivateOnEnter<ChokingGrasp>()
+            .ActivateOnEnter<FearOfDeathAOE2>()
             .ActivateOnEnter<MutedStruggle>()
-            .ClearHint(StateMachine.StateHint.DowntimeStart);
-
-        Targetable(id + 0x100, true, 60, "Boss reappears")
-            .ActivateOnEnter<DarknessOfEternity>()
-            .DeactivateOnExit<FearOfDeathAdds>()
-            .DeactivateOnExit<IcyHandsAdds>()
-            .DeactivateOnExit<ChokingGraspAdds>()
+            .ActivateOnEnter<LimitBreakAdds>()
+            .ActivateOnExit<DarknessOfEternity>();
+        ComponentCondition<DarknessOfEternity>(id + 0x10u, 16.4f, comp => comp.NumCasts != 0, "Raidwide")
             .DeactivateOnExit<MutedStruggle>()
-            .ClearHint(StateMachine.StateHint.DowntimeEnd);
-
-        Targetable(id + 0x200, false, 16.4f, "Boss disappears (intermission)");
+            .DeactivateOnExit<ChokingGrasp>()
+            .DeactivateOnExit<FearOfDeathAOE2>()
+            .DeactivateOnExit<LimitBreakAdds>()
+            .SetHint(StateMachine.StateHint.Raidwide)
+            .SetHint(StateMachine.StateHint.DowntimeStart)
+            .DeactivateOnExit<DarknessOfEternity>();
     }
 
-    private void EndsEmbraceP2(uint id, float delay)
+    private void Prisons(uint id, float delay)
     {
-        Cast(id, AID.SpecterOfDeath, delay, 5)
+        ComponentCondition<Prisons>(id, delay, comp => comp.NumDooms > 0, "Prison start")
+            .ActivateOnEnter<Prisons>()
+            .ActivateOnEnter<PrisonAdds>()
+            .ActivateOnEnter<SpreadingFearEnrage>()
+            .ActivateOnEnter<SpreadingFearInterrupt>()
+            .ActivateOnEnter<ChokingGraspTB>()
+            .ActivateOnEnter<ChokingGraspHealer>()
+            .ActivateOnEnter<ChillingFingers>()
+            .ActivateOnEnter<ChokingGrasp3>()
+            .ActivateOnEnter<Slow>();
+        ComponentCondition<Prisons>(id + 0x10u, 50f, comp => comp.Doomed == default, "Prison end");
+        Targetable(id + 0x20u, true, 2.1f, "Boss targetable")
+            .SetHint(StateMachine.StateHint.DowntimeEnd);
+    }
+
+    private void SpecterOfDeathEndsEmbraceChokingGraspColdGrip(uint id, float delay)
+    {
+        ComponentCondition<Invitation>(id, delay, comp => comp.NumCasts != 0, "Line AOEs (prison!)")
             .ActivateOnEnter<Invitation>()
-            .ActivateOnEnter<LoomingSpecter>()
-            .ActivateOnEnter<EndsEmbrace>()
-            .ActivateOnEnter<EndsEmbraceBait>();
-
-        ComponentCondition<Invitation>(id + 0x2, 7.2f, i => i.NumCasts > 0, "Safe rect")
+            .ActivateOnEnter<TheEndsEmbrace>()
             .DeactivateOnExit<Invitation>();
-
-        ComponentCondition<EndsEmbrace>(id + 0x10, 1, e => e.NumFinishedSpreads > 0, "Spreads")
-            .ActivateOnEnter<DelayedChokingGrasp>()
-            .DeactivateOnExit<EndsEmbrace>()
-            .DeactivateOnExit<LoomingSpecter>();
-
-        CastStartMulti(id + 0x20, [AID.ColdGripLeftSafe, AID.ColdGripRightSafe], 2.1f)
-            .ActivateOnEnter<ColdGrip>()
-            .ActivateOnEnter<ExistentialDread>();
-
-        ComponentCondition<EndsEmbraceBait>(id + 0x30, 1, e => e.Baited, "Baits")
-            .DeactivateOnExit<EndsEmbraceBait>();
-
-        ComponentCondition<ColdGrip>(id + 0x40, 4.9f, c => c.NumCasts > 0, "Line AOEs")
-            .DeactivateOnExit<ColdGrip>();
-
-        ComponentCondition<ExistentialDread>(id + 0x50, 1.6f, e => e.NumCasts > 0, "Safe side")
-            .DeactivateOnExit<DelayedChokingGrasp>()
-            .DeactivateOnExit<ExistentialDread>();
+        ComponentCondition<TheEndsEmbrace>(id + 0x10u, 1f, comp => comp.NumFinishedSpreads != 0, "Spreads resolve")
+            .DeactivateOnExit<TheEndsEmbrace>()
+            .SetHint(StateMachine.StateHint.Raidwide);
+        ComponentCondition<ChokingGraspBait2>(id + 0x20u, 0.6f, comp => comp.CurrentBaits.Count != 0, "Baited line AOEs start")
+            .ActivateOnEnter<ChokingGraspBait2>();
+        ComponentCondition<ChokingGrasp>(id + 0x30u, 2.6f, comp => comp.Casters.Count != 0, "Baited line AOEs end")
+            .ActivateOnEnter<ChokingGrasp>()
+            .DeactivateOnExit<ChokingGraspBait2>();
+        ComponentCondition<ChokingGrasp>(id + 0x40u, 3.1f, comp => comp.Casters.Count == 0, "Baited line AOEs resolve")
+            .DeactivateOnExit<ChokingGrasp>();
+        ComponentCondition<ColdGripExistentialDread>(id + 0x50u, 1.7f, comp => comp.NumCasts != 0, "Cleaves 1")
+            .ActivateOnEnter<ColdGripExistentialDread>();
+        ComponentCondition<ColdGripExistentialDread>(id + 0x60u, 1.6f, comp => comp.NumCasts == 3, "Cleave 2")
+            .DeactivateOnExit<ColdGripExistentialDread>();
     }
 
-    private void CropCircle(uint id, float delay)
+    private void RelentlessReapingSecondFourthSeason(uint id, float delay)
     {
-        CastStart(id, AID.RelentlessReaping, delay)
-            .ActivateOnEnter<CropCircle>()
-            .ActivateOnEnter<Shockwave>()
-            .ExecOnEnter<Shockwave>(s => s.Enabled = false);
-
-        CastEnd(id + 1, 15);
-
-        Cast(id + 0x10, AID.CropRotation, 3.1f, 3);
-
-        CastStartMulti(id + 0x20, [AID.TheFourthSeason, AID.TheSecondSeason], 3.2f);
-
-        ComponentCondition<CropCircle>(id + 0x30, 9.3f, c => c.NumCasts > 0, "AOE 1");
-        ComponentCondition<CropCircle>(id + 0x31, 2.8f, c => c.NumCasts > 1, "AOE 2");
-        ComponentCondition<CropCircle>(id + 0x32, 2.8f, c => c.NumCasts > 2, "AOE 3")
-            .ExecOnEnter<Shockwave>(s => s.Enabled = true);
-        ComponentCondition<Shockwave>(id + 0x40, 2.9f, s => s.NumCasts > 0, "AOE 4 + stacks")
-            .DeactivateOnExit<CropCircle>()
+        for (var i = 1; i <= 4; ++i)
+        {
+            var offset = id + (uint)((i - 1) * 0x10u);
+            var time = i == 1 ? delay : 2.8f;
+            var desc = $"AOE resolve {i}";
+            var casts = i;
+            var hints = 4 - i;
+            var cond = ComponentCondition<Aetherblight>(offset, time, i == 1 ? comp => comp.NumCasts == casts : comp => comp.Hints.Count == hints, desc);
+            if (i == 1)
+            {
+                cond
+                    .ActivateOnEnter<Shockwave>()
+                    .ActivateOnEnter<Aetherblight>();
+            }
+            else if (i == 4)
+            {
+                cond
+                    .DeactivateOnExit<Aetherblight>();
+            }
+        }
+        ComponentCondition<Shockwave>(id + 0x40u, 0.2f, comp => comp.NumCasts != 0, "Stacks resolve")
             .DeactivateOnExit<Shockwave>();
     }
 
-    private void Circles1(uint id, float delay)
+    private void CircleOfLivesSoulReaping(uint id, float delay)
     {
-        CastStart(id, AID.CircleOfLivesCast, delay)
-            .ActivateOnEnter<CircleOfLives>()
+        ComponentCondition<CircleOfLives>(id, delay, comp => comp.NumCasts != 0, "Donut AOE 1")
             .ActivateOnEnter<Invitation>()
-            .ActivateOnEnter<Shockwave>()
-            .ActivateOnEnter<Aetherblight>();
-
-        ComponentCondition<CircleOfLives>(id + 0x10, 14, c => c.NumCasts > 0, "Circle 1");
-        ComponentCondition<CircleOfLives>(id + 0x11, 5, c => c.NumCasts > 1, "Circle 2");
-        ComponentCondition<CircleOfLives>(id + 0x12, 5, c => c.NumCasts > 2, "Circle 3");
-        ComponentCondition<CircleOfLives>(id + 0x13, 5, c => c.NumCasts > 3, "Circle 4");
-        ComponentCondition<CircleOfLives>(id + 0x14, 5, c => c.NumCasts > 4, "Circle 5")
-            .DeactivateOnExit<CircleOfLives>()
-            .DeactivateOnExit<Invitation>();
-
-        ComponentCondition<Shockwave>(id + 0x20, 6.7f, s => s.NumCasts > 0, "AOE + stacks")
-            .DeactivateOnExit<Shockwave>()
+            .ExecOnEnter<Invitation>(comp => comp.Show = false)
+            .ActivateOnEnter<CircleOfLives>();
+        ComponentCondition<CircleOfLives>(id + 0x10u, 4.9f, comp => comp.NumCasts == 2, "Donut AOE 2")
+            .ExecOnExit<Invitation>(comp => comp.Show = true)
+            .ExecOnEnter<Invitation>(comp => comp.NextIsDanger = true);
+        ComponentCondition<Invitation>(id + 0x20u, 2.7f, comp => comp.NumCasts != 0, "Line AOE (prison!)")
+            .DeactivateOnExit<Invitation>()
+            .ActivateOnExit<Aetherblight>()
+            .ExecOnExit<Aetherblight>(comp => comp.Show = false);
+        for (var i = 3; i <= 5; ++i)
+        {
+            var offset = id + 0x10u + (uint)((i - 1) * 0x10u);
+            var time = i == 3 ? 2.3f : 5f;
+            var desc = $"Donut AOE {i}";
+            var casts = i;
+            var cond = ComponentCondition<CircleOfLives>(offset, time, comp => comp.NumCasts == casts, desc);
+            if (i == 5)
+            {
+                cond
+                    .DeactivateOnExit<CircleOfLives>()
+                    .ExecOnExit<Aetherblight>(comp => comp.Show = true)
+                    .ActivateOnExit<Shockwave>();
+            }
+        }
+        ComponentCondition<Aetherblight>(id + 0x60u, 6.6f, comp => comp.NumCasts != 0, "AOE resolves")
             .DeactivateOnExit<Aetherblight>();
+        ComponentCondition<Shockwave>(id + 0x70u, 0.2f, comp => comp.NumCasts != 0, "Stacks resolve")
+            .DeactivateOnExit<Shockwave>();
     }
 
-    private void Circles2(uint id, float delay)
+    private void MassMacabre(uint id, float delay)
     {
-        CastStart(id, AID.CircleOfLivesCast, delay)
-            .ActivateOnEnter<CircleOfLives>()
-            .ActivateOnEnter<Invitation>();
-
-        ComponentCondition<CircleOfLives>(id + 0x10, 14.1f, c => c.NumCasts > 0, "Circle 1");
-        ComponentCondition<CircleOfLives>(id + 0x11, 5, c => c.NumCasts > 1, "Circle 2 + hands");
-        ComponentCondition<CircleOfLives>(id + 0x12, 5, c => c.NumCasts > 2, "Circle 3");
-        ComponentCondition<CircleOfLives>(id + 0x13, 5, c => c.NumCasts > 3, "Circle 4 + hands")
-            .DeactivateOnExit<CircleOfLives>()
-            .DeactivateOnExit<Invitation>();
-    }
-
-    private void MacabreMark(uint id, float delay)
-    {
-        CastStart(id, AID.MassMacabre, delay)
-            .ActivateOnEnter<MacabreMark>()
-            .ActivateOnEnter<MementoMoriLine>()
-            .ActivateOnEnter<MementoMoriVoidzone>()
-            .ActivateOnEnter<CenterChokingGrasp>()
-            .ExecOnEnter<MementoMoriLine>(m => m.HighlightSafe = false);
-
-        ComponentCondition<MementoMoriLine>(id + 0x10, 11.2f, m => m.NumCasts > 0, "Voidzone spawn")
-            .DeactivateOnExit<MementoMoriLine>();
-
-        CastStart(id + 0x20, AID.BlueShockwaveCast, 20)
-            .ActivateOnEnter<BlueShockwave>();
-
-        ComponentCondition<CenterChokingGrasp>(id + 0x30, 6.2f, m => m.NumCasts > 0, "Hand AOEs")
-            .DeactivateOnExit<CenterChokingGrasp>();
-
-        ComponentCondition<MementoMoriVoidzone>(id + 0x32, 4.9f, m => !m.Active, "Voidzone disappear")
-            .DeactivateOnExit<MementoMoriVoidzone>();
-
-        ComponentCondition<BlueShockwave>(id + 0x40, 0.6f, b => b.NumCasts > 0, "Tankbuster 1");
-        ComponentCondition<BlueShockwave>(id + 0x41, 4.1f, b => b.NumCasts > 1, "Tankbuster 2")
+        ComponentCondition<MassMacabre>(id, delay, comp => comp.Towers.Count > 2, "Towers spawn")
+            .ActivateOnEnter<MassMacabre>();
+        ComponentCondition<MementoMori>(id + 0x10u, 6f, comp => comp.NumCasts != 0, "Line AOE")
+            .ActivateOnEnter<ChokingGraspMM>()
+            .ExecOnEnter<ChokingGraspMM>(comp => comp.isRisky = false)
+            .ActivateOnExit<BlueShockwave>()
+            .ActivateOnEnter<MementoMori>();
+        ComponentCondition<MementoMori>(id + 0x20u, 1.1f, comp => Module.Arena.Bounds is not ArenaBoundsRect, "Arena split");
+        ComponentCondition<BlueShockwave>(id + 0x30u, 3.5f, comp => comp.CurrentBaits.Count != 0, "Tank swap");
+        ComponentCondition<ChokingGraspMM>(id + 0x40u, 1.5f, comp => comp.NumCasts != 0, "Line AOEs")
+            .DeactivateOnExit<ChokingGraspMM>();
+        ComponentCondition<MementoMori>(id + 0x50u, 5f, comp => Module.Arena.Bounds is ArenaBoundsRect, "Restore arena")
+            .DeactivateOnExit<MementoMori>();
+        ComponentCondition<BlueShockwave>(id + 0x60u, 0.6f, comp => comp.NumCasts != 0, "Tankbuster 1");
+        ComponentCondition<BlueShockwave>(id + 0x70u, 4.1f, comp => comp.NumCasts == 2, "Tankbuster 2")
             .DeactivateOnExit<BlueShockwave>();
+        ComponentCondition<MassMacabre>(id + 0x80u, 1.1f, comp => comp.Towers.Count == 0, "Towers resolve")
+            .ActivateOnEnter<ColdGripExistentialDread>();
+        ComponentCondition<ColdGripExistentialDread>(id + 0x90u, 5.8f, comp => comp.NumCasts != 0, "Cleaves 1", 10f);
+        ComponentCondition<ColdGripExistentialDread>(id + 0xA0u, 1.6f, comp => comp.NumCasts == 3, "Cleave 2")
+            .DeactivateOnExit<ColdGripExistentialDread>();
+    }
+
+    private void CircleOfLivesInvitation(uint id, float delay)
+    {
+        ComponentCondition<CircleOfLives>(id, delay, comp => comp.NumCasts != 0, "Donut AOE 1")
+            .ActivateOnEnter<Invitation>()
+            .ActivateOnEnter<CircleOfLives>();
+        ComponentCondition<CircleOfLives>(id + 0x10u, 4.9f, comp => comp.NumCasts == 2, "Donut AOE 2");
+        ComponentCondition<Invitation>(id + 0x20u, 0.3f, comp => comp.NumCasts == 2, "Line AOEs (prison!) 1");
+        ComponentCondition<CircleOfLives>(id + 0x30u, 4.9f, comp => comp.NumCasts == 3, "Donut AOE 3");
+        ComponentCondition<Invitation>(id + 0x40u, 4.9f, comp => comp.NumCasts == 3, "Line AOE (prison!) 2");
+        ComponentCondition<CircleOfLives>(id + 0x50u, 0.1f, comp => comp.NumCasts == 4, "Donut AOE 4")
+            .DeactivateOnExit<CircleOfLives>();
+        ComponentCondition<Invitation>(id + 0x20u, 2.7f, comp => comp.NumCasts != 0, "Line AOE (prison!)")
+            .DeactivateOnExit<Invitation>();
     }
 }

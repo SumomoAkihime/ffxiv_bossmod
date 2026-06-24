@@ -11,7 +11,7 @@ class WreathOfThorns5(BossModule module) : BossComponent(module)
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        int order = _playersOrder.IndexOf(actor.InstanceID);
+        var order = _playersOrder.IndexOf(actor.InstanceID);
         if (order >= 0)
         {
             hints.Add($"Order: {order + 1}", false);
@@ -24,7 +24,7 @@ class WreathOfThorns5(BossModule module) : BossComponent(module)
 
         if (_playersOrder.Count < 8)
         {
-            hints.Add("Spread!", Raid.WithoutSlot().InRadiusExcluding(actor, _impulseAOERadius).Any());
+            hints.Add("Spread!", Raid.WithoutSlot(false, true, true).InRadiusExcluding(actor, _impulseAOERadius).Any());
         }
     }
 
@@ -35,25 +35,25 @@ class WreathOfThorns5(BossModule module) : BossComponent(module)
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        int order = _playersOrder.IndexOf(pc.InstanceID);
+        var order = _playersOrder.IndexOf(pc.InstanceID);
         if (order >= _castsDone && order < _towersOrder.Count)
-            Arena.AddCircle(_towersOrder[order].Position, P4S2.WreathTowerRadius, ArenaColor.Safe);
+            Arena.AddCircle(_towersOrder[order].Position, P4S2.WreathTowerRadius, Colors.Safe);
 
         var pcTetherTarget = WorldState.Actors.Find(pc.Tether.Target);
         if (pcTetherTarget != null)
         {
-            Arena.AddLine(pc.Position, pcTetherTarget.Position, pc.Tether.ID == (uint)TetherID.WreathOfThorns ? ArenaColor.Danger : ArenaColor.Safe);
+            Arena.AddLine(pc.Position, pcTetherTarget.Position, pc.Tether.ID == (uint)TetherID.WreathOfThorns ? Colors.Danger : Colors.Safe);
         }
 
         if (_playersOrder.Count < 8)
         {
-            Arena.AddCircle(pc.Position, _impulseAOERadius, ArenaColor.Danger);
-            foreach (var player in Raid.WithoutSlot().Exclude(pc))
-                Arena.Actor(player, player.Position.InCircle(pc.Position, _impulseAOERadius) ? ArenaColor.PlayerInteresting : ArenaColor.PlayerGeneric);
+            Arena.AddCircle(pc.Position, _impulseAOERadius, Colors.Danger);
+            foreach (var player in Raid.WithoutSlot(false, true, true).Exclude(pc))
+                Arena.Actor(player, player.Position.InCircle(pc.Position, _impulseAOERadius) ? Colors.PlayerInteresting : Colors.PlayerGeneric);
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (source.OID == (uint)OID.Helper)
             _towersOrder.Add(source);

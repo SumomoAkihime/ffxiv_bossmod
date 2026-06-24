@@ -1,226 +1,269 @@
-﻿namespace BossMod.Dawntrail.Dungeon.D11MesoTerminal.D113ImmortalRemains;
+namespace BossMod.Dawntrail.Dungeon.D11MesoTerminal.D113ImmortalRemains;
 
 public enum OID : uint
 {
-    Boss = 0x48BE,
-    Helper = 0x233C,
-    PreservedTerror = 0x48C0, // R0.500, x35
-    BygoneAerostat = 0x48BF, // R2.300, x10
+    ImmortalRemains = 0x48BE, // R18.0
+    BygoneAerostat = 0x48BF, // R2.3
+    PreservedTerror = 0x48C0, // R0.5
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    AutoAttack = 43826, // Boss->player, no cast, single-target
-    Recollection = 43825, // Boss->self, 5.0s cast, range 60 circle
-    Memento = 43809, // Boss->self, 4.0+1.0s cast, single-target
+    AutoAttack = 43826, // ImmortalRemains->player, no cast, single-target
+
+    Recollection = 43825, // ImmortalRemains->self, 5.0s cast, range 60 circle
+    Memento = 43809, // ImmortalRemains->self, 4.0+1,0s cast, single-target
     Electray = 43810, // BygoneAerostat->self, 5.0s cast, range 45 width 8 rect
-    MemoryOfTheStormCast = 43821, // Boss->self, 4.0+1.0s cast, single-target
-    MemoryOfTheStormAOE = 43822, // Helper->self, no cast, range 60 width 12 rect
-    BombardmentLarge = 43812, // Helper->location, 1.5s cast, range 14 circle
+    MemoryOfTheStormVisual = 43821, // ImmortalRemains->self, 4.0+1,0s cast, single-target
+    MemoryOfTheStorm = 43822, // Helper->self, no cast, range 60 width 12 rect
+    BombardmentBig = 43812, // Helper->location, 1.5s cast, range 14 circle
     BombardmentSmall = 43811, // Helper->location, 1.5s cast, range 3 circle
-    TurmoilRightHand = 43814, // Boss->self, no cast, single-target
-    TurmoilLeftHand = 43815, // Boss->self, no cast, single-target
-    TurmoilHit = 43816, // Helper->self, no cast, range 40 width 20 rect
-    ImpressionVisual = 43817, // Boss->self, no cast, single-target
-    ImpressionAOE = 43818, // Helper->location, 5.0s cast, range 10 circle
-    ImpressionKnockback = 43819, // Helper->location, 5.0s cast, range 30 circle
-    MemoryOfThePyreCast = 43823, // Boss->self, 4.0+1.0s cast, single-target
+
+    TurmoilVisualR = 43814, // ImmortalRemains->self, no cast, single-target, right
+    TurmoilVisualL = 43815, // ImmortalRemains->self, no cast, single-target, left
+    Turmoil = 43816, // Helper->self, no cast, range 40 width 20 rect
+
+    ImpressionVisual = 43817, // ImmortalRemains->self, no cast, single-target
+    Impression = 43818, // Helper->location, 5.0s cast, range 10 circle
+    ImpressionKB = 43819, // Helper->location, 5.0s cast, range 30 circle, knockback 11, away from source
+    MemoryOfThePyreVisual = 43823, // ImmortalRemains->self, 4.0+1,0s cast, single-target
     MemoryOfThePyre = 43824, // Helper->player, 5.0s cast, single-target
-    KeraunographyPre = 43813, // Helper->self, 4.0s cast, single-target
-    Keraunography = 45176, // Helper->self, 1.5s cast, range 60 width 20 rect
+    KeraunographyVisual = 43813, // Helper->self, 4.0s cast, single-target
+    Keraunography = 45176 // Helper->self, 1.5s cast, range 60 width 20 rect
 }
 
 public enum IconID : uint
 {
-    Laser = 525, // Boss->player
+    MemoryOfTheStorm = 525 // ImmortalRemains->player
 }
 
-class Recollection(BossModule module) : Components.RaidwideCast(module, AID.Recollection);
+sealed class RecollectionImpression(BossModule module) : Components.RaidwideCasts(module, [(uint)AID.Recollection, (uint)AID.ImpressionKB]);
+sealed class MemoryOfThePyre(BossModule module) : Components.SingleTargetCast(module, (uint)AID.MemoryOfThePyre);
+sealed class Electray(BossModule module) : Components.SimpleAOEGroupsByTimewindow(module, [(uint)AID.Electray], new AOEShapeRect(45f, 4f));
+sealed class MemoryOfTheStorm(BossModule module) : Components.LineStack(module, iconID: (uint)IconID.MemoryOfTheStorm, (uint)AID.MemoryOfTheStorm, 5.2d, 60f, 3f, markerIsFinalTarget: false);
 
-class Electray(BossModule module) : Components.StandardAOEs(module, AID.Electray, new AOEShapeRect(45f, 4f), highlightImminent: true);
-
-class MemoryOfTheStorm(BossModule module) : Components.IconLineStack(module, 6, 60, (uint)IconID.Laser, AID.MemoryOfTheStormAOE, 6);
-
-class ImpressionVoidzone(BossModule module) : Components.StandardAOEs(module, AID.ImpressionAOE, 10);
-class ImpressionKnockback(BossModule module) : Components.KnockbackFromCastTarget(module, AID.ImpressionAOE, 11)
+sealed class Bombardment(BossModule module) : Components.GenericAOEs(module)
 {
-    private Bombardment? _bomb;
+    public readonly List<AOEInstance> AOEs = new(8);
+    private readonly List<Actor> terrors = new(24);
 
-    private readonly List<Func<WPos, bool>> _safeSpots = [];
+    private static readonly AOEShapeCircle circleSmall = new(3f), circleBig = new(14f);
 
-    public override void Update()
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(AOEs);
+
+    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
     {
-        _bomb ??= Module.FindComponent<Bombardment>();
+        if (actor.OID == (uint)OID.PreservedTerror)
+        {
+            if (id == 0x11D3)
+            {
+                terrors.Add(actor);
+            }
+            else
+            {
+                terrors.Remove(actor);
+            }
+        }
+    }
+
+    public override void OnActorNpcYell(Actor actor, ushort id)
+    {
+        if (terrors.Count > 6 && id is >= 18705 and <= 18708)
+        {
+            var count = terrors.Count;
+            var pos = actor.Position;
+            var big = false;
+            for (var i = 0; i < count; ++i)
+            {
+                var t = terrors[i];
+                if (t == actor)
+                {
+                    continue;
+                }
+                if (t.Position.AlmostEqual(pos, 5f))
+                {
+                    big = true;
+                    break;
+                }
+            }
+            var shape = big ? circleBig : circleSmall;
+            var loc = (big ? pos + 3.5f * actor.Rotation.Round(1f).ToDirection() : pos).Quantized();
+            AOEs.Add(new(shape, loc, default,
+            AOEs.Count == 0 ? WorldState.FutureTime(9.8d) : AOEs.Ref(0).Activation, actorID: big ? 1ul : default, shapeDistance: shape.Distance(loc, default)));
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.BombardmentSmall)
+        {
+            AOEs.Clear();
+        }
+    }
+
+    public void UpdateAOEs(bool risky)
+    {
+        var aoes = CollectionsMarshal.AsSpan(AOEs);
+        var len = aoes.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            aoes[i].Risky = risky;
+        }
+    }
+}
+
+sealed class Impression(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Impression, 10f)
+{
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        // handled by the knockback component
+    }
+}
+
+sealed class ImpressionKB(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.Impression, 11f)
+{
+    private readonly Bombardment _aoe = module.FindComponent<Bombardment>()!;
+    private bool active;
+    private bool updated;
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Casters.Count == 0)
+        {
+            return;
+        }
+        ref readonly var c = ref Casters.Ref(0);
+        var act = c.Activation;
+        var innerCircle = new SDCircle(Arena.Center.Quantized(), 10f);
+        if (!IsImmune(slot, act))
+        {
+            var aoes = CollectionsMarshal.AsSpan(_aoe.AOEs);
+            var len = aoes.Length;
+            var circles = new (WPos origin, float Radius)[len];
+            for (var i = 0; i < len; ++i)
+            {
+                ref var aoe = ref aoes[i];
+                circles[i] = (aoe.Origin, aoe.ActorID == default ? 4f : 15f);
+            }
+            // square intentionally slightly smaller to prevent sus knockback
+            hints.AddForbiddenZone(new SDKnockbackInAABBSquareAwayFromOriginPlusAOECirclesMixedRadiiPlusAvoidShape(Arena.Center, c.Origin, 11f, 19f, circles, len, innerCircle), act);
+        }
+        else
+        {
+            hints.AddForbiddenZone(innerCircle, act);
+        }
+    }
+
+    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos)
+    {
+        var aoes = _aoe.ActiveAOEs(slot, actor);
+        var len = aoes.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            if (aoes[i].Check(pos))
+            {
+                return true;
+            }
+        }
+        return !Arena.InBounds(pos);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         base.OnCastStarted(caster, spell);
-
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
         {
-            _safeSpots.Clear();
-            var largeAOEs = _bomb?.LargeAOEs.ToList() ?? [];
+            active = true;
+        }
+    }
 
-            for (var i = 0; i < 4; i++)
+    public override void Update()
+    {
+        if (active)
+        {
+            if (!updated && _aoe.AOEs.Count == 8)
             {
-                var toCorner = (45 + 90 * i).Degrees();
-                if (!largeAOEs.Any(l => l.InCone(Arena.Center, toCorner, 20.Degrees())))
-                    _safeSpots.Add(ShapeContains.Donut(Arena.Center + toCorner.ToDirection() * 12, 2, 100));
+                _aoe.UpdateAOEs(false);
+                updated = true;
+            }
+            else if (updated && Casters.Count == 0)
+            {
+                _aoe.UpdateAOEs(true);
+                updated = false;
+                active = false;
             }
         }
     }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        base.OnEventCast(caster, spell);
-
-        if (spell.Action == WatchedAction)
-            _bomb?.Risky = true;
-    }
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        foreach (var src in Sources(slot, actor))
-            if (!IsImmune(slot, src.Activation) && _safeSpots.Count > 0)
-                hints.AddForbiddenZone(ShapeContains.Intersection(_safeSpots), src.Activation);
-    }
 }
 
-class Turmoil(BossModule module) : Components.GenericAOEs(module, AID.TurmoilHit)
+sealed class Turmoil(BossModule module) : Components.GenericAOEs(module)
 {
-    private AOEInstance? _predicted;
+    private AOEInstance[] _aoe = [];
+    private static readonly AOEShapeRect rect = new(40f, 10f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.ZeroOrOne(_predicted);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        var id = spell.Action.ID;
+        var offset = id switch
         {
-            case AID.TurmoilRightHand:
-                _predicted = new(new AOEShapeRect(40, 10), caster.Position - new WDir(10, 0), default, WorldState.FutureTime(4.4f));
-                break;
-            case AID.TurmoilLeftHand:
-                _predicted = new(new AOEShapeRect(40, 10), caster.Position + new WDir(10, 0), default, WorldState.FutureTime(4.4f));
-                break;
-            case AID.TurmoilHit:
-                NumCasts++;
-                _predicted = null;
-                break;
+            (uint)AID.TurmoilVisualR => -1f,
+            (uint)AID.TurmoilVisualL => 1f,
+            _ => default
+        };
+        if (offset != default)
+        {
+            _aoe = [new(rect, (caster.Position + offset * new WDir(10f, default)).Quantized(), default, WorldState.FutureTime(4.4d))];
+        }
+        else if (id == (uint)AID.Turmoil)
+        {
+            _aoe = [];
         }
     }
 }
 
-class Bombardment(BossModule module) : Components.GenericAOEs(module)
+sealed class Keraunography(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<Actor> _tethered = [];
-    private readonly List<Actor> _active = [];
+    public readonly List<AOEInstance> _aoes = new(2);
+    private static readonly AOEShapeRect rect = new(60f, 10f);
 
-    private readonly List<AOEInstance> _aoes = [];
-
-    public IEnumerable<WPos> LargeAOEs => _aoes.Where(a => ((AOEShapeCircle)a.Shape).Radius == 14).Select(a => a.Origin);
-
-    public bool Risky = true;
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Select(a => a with { Risky = Risky });
-
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
-    {
-        if ((OID)source.OID == OID.PreservedTerror)
-            _tethered.Add(source);
-    }
-
-    public override void OnUntethered(Actor source, ActorTetherInfo tether)
-    {
-        if ((OID)source.OID == OID.PreservedTerror && _tethered.Count > 0)
-        {
-            if (_tethered.Count == 8)
-            {
-                Risky = false; // will be toggled back on by the ImpressionKnockback component
-                Predict(10.8f);
-            }
-
-            // 6 tethers is the first "tutorial" iteration of this mechanic
-            else if (_tethered.Count == 6 && _active.Count > 6)
-                // TODO: do these actually have the same delay?
-                Predict(10.8f);
-
-            // otherwise: <4 tethers is Electray, 6 tethers with only 6 active mobs is keraunography
-            _tethered.Clear();
-        }
-    }
-
-    public override void OnStatusGain(Actor actor, ActorStatus status)
-    {
-        if ((OID)actor.OID == OID.PreservedTerror && status.ID == 2552)
-            _active.Add(actor);
-    }
-
-    public override void OnStatusLose(Actor actor, ActorStatus status)
-    {
-        if ((OID)actor.OID == OID.PreservedTerror && status.ID == 2552)
-            _active.Remove(actor);
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if ((AID)spell.Action.ID is AID.BombardmentSmall or AID.BombardmentLarge)
-            _aoes.RemoveAll(a => a.Origin.AlmostEqual(spell.TargetXZ, 0.5f));
-    }
-
-    private void Predict(float delay)
-    {
-        foreach (var t in _tethered)
-        {
-            var groupCenter = t.Position + t.Rotation.ToDirection() * 3.5f;
-            if (_active.Count(a => a.Position.InCircle(groupCenter, 4)) >= 5)
-                _aoes.Add(new(new AOEShapeCircle(14), groupCenter, default, WorldState.FutureTime(delay)));
-            else
-                _aoes.Add(new(new AOEShapeCircle(3), t.Position, t.Rotation, WorldState.FutureTime(delay)));
-        }
-    }
-}
-
-class Keraunography(BossModule module) : Components.GenericAOEs(module, AID.Keraunography)
-{
-    private readonly List<AOEInstance> _aoes = [];
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.KeraunographyPre)
+        if (spell.Action.ID == (uint)AID.KeraunographyVisual)
         {
-            _aoes.Add(new(new AOEShapeRect(60, 10), spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell, 3)));
+            _aoes.Add(new(rect, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell, 3d)));
         }
     }
 
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == (uint)AID.Keraunography)
         {
-            NumCasts++;
-            _aoes.RemoveAt(0);
+            _aoes.Clear();
         }
     }
 }
 
-class D113ImmortalRemainsStates : StateMachineBuilder
+sealed class D113ImmortalRemainsStates : StateMachineBuilder
 {
     public D113ImmortalRemainsStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<Recollection>()
+            .ActivateOnEnter<RecollectionImpression>()
             .ActivateOnEnter<Electray>()
             .ActivateOnEnter<MemoryOfTheStorm>()
-            .ActivateOnEnter<ImpressionVoidzone>()
-            .ActivateOnEnter<ImpressionKnockback>()
-            .ActivateOnEnter<Keraunography>()
+            .ActivateOnEnter<Bombardment>()
+            .ActivateOnEnter<ImpressionKB>()
+            .ActivateOnEnter<Impression>()
+            .ActivateOnEnter<MemoryOfThePyre>()
             .ActivateOnEnter<Turmoil>()
-            .ActivateOnEnter<Bombardment>();
+            .ActivateOnEnter<Keraunography>();
     }
 }
 
-[ModuleInfo(Contributors = "erdelf, xan", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1028, NameID = 13974)]
-public class D113ImmortalRemains(WorldState ws, Actor primary) : BossModule(ws, primary, new(0, 0), new ArenaBoundsSquare(20));
-
+[ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus)", PrimaryActorOID = (uint)OID.ImmortalRemains, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1028u, NameID = 13974u, Category = BossModuleInfo.Category.Dungeon, Expansion = BossModuleInfo.Expansion.Dawntrail, SortOrder = 3)]
+public sealed class D113ImmortalRemains(WorldState ws, Actor primary) : BossModule(ws, primary, default, new ArenaBoundsSquare(20f));

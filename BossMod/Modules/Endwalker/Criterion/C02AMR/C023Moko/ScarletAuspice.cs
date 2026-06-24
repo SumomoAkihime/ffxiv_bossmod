@@ -1,20 +1,20 @@
-﻿namespace BossMod.Endwalker.Criterion.C02AMR.C023Moko;
+﻿namespace BossMod.Endwalker.VariantCriterion.C02AMR.C023Moko;
 
-class ScarletAuspice(BossModule module, AID aid) : Components.StandardAOEs(module, aid, new AOEShapeCircle(6));
-class NScarletAuspice(BossModule module) : ScarletAuspice(module, AID.NScarletAuspice);
-class SScarletAuspice(BossModule module) : ScarletAuspice(module, AID.SScarletAuspice);
+abstract class ScarletAuspice(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, 6f);
+sealed class NScarletAuspice(BossModule module) : ScarletAuspice(module, (uint)AID.NScarletAuspice);
+sealed class SScarletAuspice(BossModule module) : ScarletAuspice(module, (uint)AID.SScarletAuspice);
 
-class BoundlessScarletFirst(BossModule module, AID aid) : Components.StandardAOEs(module, aid, new AOEShapeRect(60, 5));
-class NBoundlessScarletFirst(BossModule module) : BoundlessScarletFirst(module, AID.NBoundlessScarletAOE);
-class SBoundlessScarletFirst(BossModule module) : BoundlessScarletFirst(module, AID.SBoundlessScarletAOE);
+abstract class BoundlessScarletFirst(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, new AOEShapeRect(60f, 5f));
+sealed class NBoundlessScarletFirst(BossModule module) : BoundlessScarletFirst(module, (uint)AID.NBoundlessScarletAOE);
+sealed class SBoundlessScarletFirst(BossModule module) : BoundlessScarletFirst(module, (uint)AID.SBoundlessScarletAOE);
 
-class BoundlessScarletRest(BossModule module, AID aid) : Components.StandardAOEs(module, aid, new AOEShapeRect(60, 15), 2);
-class NBoundlessScarletRest(BossModule module) : BoundlessScarletRest(module, AID.NBoundlessScarletExplosion);
-class SBoundlessScarletRest(BossModule module) : BoundlessScarletRest(module, AID.SBoundlessScarletExplosion);
+abstract class BoundlessScarletRest(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, new AOEShapeRect(60f, 15f), 2);
+sealed class NBoundlessScarletRest(BossModule module) : BoundlessScarletRest(module, (uint)AID.NBoundlessScarletExplosion);
+sealed class SBoundlessScarletRest(BossModule module) : BoundlessScarletRest(module, (uint)AID.SBoundlessScarletExplosion);
 
-class InvocationOfVengeance(BossModule module) : Components.UniformStackSpread(module, 3, 3, alwaysShowSpreads: true)
+sealed class InvocationOfVengeance(BossModule module) : Components.UniformStackSpread(module, 3, 3)
 {
-    public int NumMechanics { get; private set; }
+    public int NumMechanics;
     private readonly List<Actor> _spreadTargets = [];
     private readonly List<Actor> _stackTargets = [];
     private DateTime _spreadResolve;
@@ -28,16 +28,16 @@ class InvocationOfVengeance(BossModule module) : Components.UniformStackSpread(m
         hints.Add($"Debuff order: {orderHint}");
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.VengefulFlame:
+            case (uint)SID.VengefulFlame:
                 _spreadTargets.Add(actor);
                 _spreadResolve = status.ExpireAt;
                 UpdateStackSpread();
                 break;
-            case SID.VengefulPyre:
+            case (uint)SID.VengefulPyre:
                 _stackTargets.Add(actor);
                 _stackResolve = status.ExpireAt;
                 UpdateStackSpread();
@@ -47,10 +47,10 @@ class InvocationOfVengeance(BossModule module) : Components.UniformStackSpread(m
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.NVengefulFlame:
-            case AID.SVengefulFlame:
+            case (uint)AID.NVengefulFlame:
+            case (uint)AID.SVengefulFlame:
                 if (_spreadResolve != default)
                 {
                     ++NumMechanics;
@@ -59,8 +59,8 @@ class InvocationOfVengeance(BossModule module) : Components.UniformStackSpread(m
                     UpdateStackSpread();
                 }
                 break;
-            case AID.NVengefulPyre:
-            case AID.SVengefulPyre:
+            case (uint)AID.NVengefulPyre:
+            case (uint)AID.SVengefulPyre:
                 if (_stackResolve != default)
                 {
                     ++NumMechanics;

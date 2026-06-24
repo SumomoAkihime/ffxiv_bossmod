@@ -1,6 +1,5 @@
-﻿using Dalamud.Memory;
-using Dalamud.Bindings.ImGui;
-using System.Runtime.InteropServices;
+﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Memory;
 
 namespace BossMod;
 
@@ -56,7 +55,7 @@ public unsafe struct HaterInfo
     [FieldOffset(0x44)] public int Enmity;
 }
 
-class DebugHate(WorldState ws)
+sealed class DebugHate(WorldState ws)
 {
     public unsafe void Draw()
     {
@@ -92,7 +91,7 @@ class DebugHate(WorldState ws)
         ImGui.TableHeadersRow();
         for (var i = 0; i < hater->HaterArrayLength; ++i)
         {
-            var h = ((HaterInfo*)hater->HaterArray) + i;
+            var h = (HaterInfo*)hater->HaterArray + i;
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             ImGui.TextUnformatted($"{h->ObjectId:X}");
@@ -111,8 +110,13 @@ class DebugHate(WorldState ws)
         ImGui.TableSetupColumn("Name");
         ImGui.TableSetupColumn("Enmity");
         ImGui.TableHeadersRow();
-        foreach (var t in ws.Client.CurrentTargetHate.Targets.TakeWhile(t => t.InstanceID > 0))
+        foreach (var t in ws.Client.CurrentTargetHate.Targets)
         {
+            if (t.InstanceID == 0)
+            {
+                break;
+            }
+
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             ImGui.TextUnformatted($"{t.InstanceID:X}");

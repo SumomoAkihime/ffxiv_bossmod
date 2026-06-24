@@ -2,279 +2,307 @@ namespace BossMod.Shadowbringers.Dungeon.D11HeroesGauntlet.D113SpectralBerserker
 
 public enum OID : uint
 {
-    Boss = 0x2EFD, // R3.000, x? 
-    Helper = 0x233C, // R0.500, x?, Helper type
-    Rubble = 0x2EFE, // R2.500, x?
-    RageVoidzone = 0x1EA1A1,
+    Boss = 0x2EFD, // R3.0
+    Rubble = 0x2EFE, // R2.5
+    Crater = 0x1EA1A1, // R2.0
+    Helper = 0x233C
 }
+
 public enum AID : uint
 {
-    BeastlyFury = 21004, // 2EFD->self, 4.0s cast, range 50 circle
-    WildAnguish = 21000, // 2EFD->players, 5.0s cast, range 6 circle
-    WildAnguish2 = 21001, // 2EFD->players, no cast, range 6 circle
+    AutoAttack = 870, // Boss->player, no cast, single-target
 
-    WildRage = 20994, // 2EFD->location, 5.0s cast, range 8 circle
-    WildRage2 = 20995, // 233C->location, 5.7s cast, range 8 circle
-    WildRage3 = 20996, // 233C->self, 5.7s cast, range -50 donut
+    BeastlyFury = 21004, // Boss->self, 4.0s cast, range 50 circle
 
-    FallingRock = 20997, // 2EFE->self, no cast, range 8 circle
-    Jump = 21047, // 2F33->2E7F, no cast, single-target
+    WildAnguish1 = 21000, // Boss->players, 5.0s cast, range 6 circle
+    WildAnguish2 = 21001, // Boss->players, no cast, range 6 circle
+    FallingRock = 20997, // Rubble->self, no cast, range 8 circle
 
-    WildRampage = 20998, // 2EFD->self, 5.0s cast, single-target
-    WildRampage2 = 20999, // 233C->self, 5.5s cast, range 50 width 50 rect
+    WildRageVisual = 20994, // Boss->location, 5.0s cast, range 8 circle
+    WildRage = 20995, // Helper->location, 5.7s cast, range 8 circle
+    WildRageKnockback = 20996, // Helper->self, 5.7s cast, range 8-50 donut, raidwide, knockback 15, away fromsource
 
-    RagingSliceInitial = 21002, // 2EFD->self, 3.7s cast, range 50 width 6 rect
-    RagingSliceFollowup = 21003, // 2EFD->self, 2.5s cast, range 50 width 6 rect
-}
-public enum SID : uint
-{
-    MagicVulnUp = 1138,
+    WildRampageVisual = 20998, // Boss->self, 5.0s cast, single-target
+    WildRampage = 20999, // Helper->self, 5.5s cast, range 50 width 50 rect
+
+    RagingSliceFirst = 21002, // Boss->self, 3.7s cast, range 50 width 6 rect
+    RagingSliceRest = 21003 // Boss->self, 2.5s cast, range 50 width 6 rect
 }
 
 public enum IconID : uint
 {
-    Stack = 93,
-    FallingRock = 229,
+    Stackmarker = 93, // player
+    Spreadmarker = 229 // player
 }
 
-class BeastlyFury(BossModule module) : Components.RaidwideCast(module, AID.BeastlyFury);
-
-class Bounds : Components.GenericAOEs
+class BeastlyFuryArenaChange(BossModule module) : Components.GenericAOEs(module)
 {
-    public DateTime? Activation { get; private set; }
-    public RelSimplifiedComplexPolygon ArenaPoly { get; init; }
-    public RelSimplifiedComplexPolygon ArenaInversePoly { get; init; } // used for forbidden zone
+    private static readonly AOEShapeCustom cross = new([new Square(D113SpectralBerserker.ArenaCenter, 23)], D113SpectralBerserker.Cross);
+    private AOEInstance[] _aoe = [];
 
-    public Bounds(BossModule module) : base(module, AID.BeastlyFury)
-    {
-        var boundsLarge = new RelSimplifiedComplexPolygon(CurveApprox.Rect(new(22, 0), new(0, 22)));
-
-        var boundsSmall = new RelSimplifiedComplexPolygon(CurveApprox.Rect(new(20, 0), new(0, 20)));
-        var hole = CurveApprox.Rect(new(10, 0), new(0, 10));
-        foreach (var corner in CurveApprox.Rect(new(20, 0), new(0, 20)))
-            boundsSmall = Arena.Bounds.Clipper.Difference(new(boundsSmall), new(hole.Select(d => d + corner)));
-
-        ArenaPoly = boundsSmall;
-        ArenaInversePoly = Arena.Bounds.Clipper.Difference(new(boundsLarge), new(ArenaPoly));
-    }
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        if (Activation is { } a)
-            yield return new(new AOEShapeCustom(ArenaInversePoly), Arena.Center, default, a);
-    }
-
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (NumCasts > 0)
-            return;
-
-        if (spell.Action == WatchedAction)
-            Activation = Module.CastFinishAt(spell);
+        if (spell.Action.ID == (uint)AID.BeastlyFury && Arena.Bounds.Radius > 20f)
+        {
+            _aoe = [new(cross, Arena.Center, default, Module.CastFinishAt(spell, 1.1d))];
+        }
     }
 
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    public override void OnMapEffect(byte index, uint state)
     {
-        if (spell.Action == WatchedAction && NumCasts == 0)
+        if (index == 0x0B && state == 0x00020001u)
         {
-            NumCasts++;
-            Activation = default;
-
-            Arena.Bounds = new ArenaBoundsCustom(20, ArenaPoly);
+            Arena.Bounds = D113SpectralBerserker.DefaultBounds;
+            _aoe = [];
         }
     }
 }
 
-class WildRageKnockback(BossModule module) : Components.KnockbackFromCastTarget(module, AID.WildRage, 16)
+class FallingRock(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.Spreadmarker, (uint)AID.WildAnguish2, 8.5f, 6) // 8.5 instead of 6 to prevent aoe from intersecting additional rubble hitboxes
 {
+    public override void Update()
+    {
+        if (Spreads.Count != 0)
+        {
+            var count = Spreads.Count;
+            var spreads = CollectionsMarshal.AsSpan(Spreads);
+            for (var i = 0; i < count; ++i)
+            {
+                ref var spread = ref spreads[i];
+                if (spread.Target.IsDead)
+                {
+                    Spreads.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+    }
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (IsSpreadTarget(actor))
+        {
+            var rubble = Module.Enemies((uint)OID.Rubble);
+            var count = rubble.Count;
+            for (var i = 0; i < count; ++i)
+            {
+                if (!rubble[i].IsDead)
+                {
+                    hints.Add("Stack alone with rubble!");
+                    return;
+                }
+            }
+        }
+    }
+}
+
+class WildAnguish1(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.WildAnguish1, 6f, 4, 4)
+{
+    public static bool IsQuadrupleStack(BossModule module)
+    {
+        var rubble = module.Enemies((uint)OID.Rubble);
+        var count = rubble.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            if (!rubble[i].IsDead)
+                return true;
+        }
+        return false;
+    }
+
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var src in Sources(slot, actor))
-            if (!IsImmune(slot, src.Activation))
-            {
-                var safeX = src.Origin.X < 750 ? 746 : 754;
-                hints.AddForbiddenZone(p => !p.InCircle(new(safeX, 479), 1) && !p.InCircle(new(safeX, 485), 1), src.Activation);
-            }
-    }
-}
-class WildRageImpact(BossModule module) : Components.StandardAOEs(module, AID.WildRage2, 8);
-
-class RagingSlice(BossModule module) : Components.GroupedAOEs(module, [AID.RagingSliceInitial, AID.RagingSliceFollowup], new AOEShapeRect(50, 3));
-
-class WildAnguish2(BossModule module) : BossComponent(module)
-{
-    private readonly Actor?[] _rubbles = new Actor?[4];
-    private bool _rubble;
-
-    public readonly List<(Actor Target, Actor? Rubble)> Stacks = [];
-    private DateTime _activation;
-
-    public override void OnActorCreated(Actor actor)
-    {
-        if ((OID)actor.OID == OID.Rubble)
-        {
-            var (slot, _) = Raid.WithSlot().Where(p => p.Item2.Class != Class.None).Closest(actor.Position);
-            _rubbles[slot] = actor;
-            _rubble = true;
-        }
+        if (IsQuadrupleStack(Module))
+        { }
+        else
+            base.AddAIHints(slot, actor, assignment, hints);
     }
 
-    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
+    public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        if ((IconID)iconID == IconID.Stack && _rubble)
-        {
-            if (_activation == default)
-                _activation = WorldState.FutureTime(5.3f);
-            var playerSlot = Raid.FindSlot(actor.InstanceID);
-            Stacks.Add((actor, _rubbles[playerSlot]));
-        }
+        if (IsQuadrupleStack(Module))
+        { }
+        else
+            base.AddHints(slot, actor, hints);
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (var (player, _) in Stacks)
-            Arena.AddCircle(player.Position, 6, player == pc ? ArenaColor.Safe : ArenaColor.Danger);
+        if (IsQuadrupleStack(Module))
+        { }
+        else
+            base.DrawArenaForeground(pcSlot, pc);
+    }
+}
+
+class WildAnguish2(BossModule module) : Components.GenericTowers(module)
+{
+    private readonly FallingRock _sp = module.FindComponent<FallingRock>()!;
+
+    public override void Update()
+    {
+        if (Towers.Count != 0 && _sp.Spreads.Count == 0)
+            Towers.Clear();
     }
 
-    public override void AddHints(int slot, Actor actor, TextHints hints)
+    public override void OnActorCreated(Actor actor)
     {
-        foreach (var (player, rock) in Stacks)
-        {
-            if (player == actor)
-            {
-                hints.Add("Stack with rock!", !player.Position.InCircle(rock?.Position ?? default, 6));
+        // theoretically it would be 8.5 (rubble hitboxradius + aoe hitbox radius), but that makes it harder to spread out correctly, because then we would need to spread rubbles twice as far apart
+        if (actor.OID == (uint)OID.Rubble)
+            Towers.Add(new(actor.Position, actor.HitboxRadius, activation: WorldState.FutureTime(6.1d)));
+    }
 
-                if (Raid.WithoutSlot(excludeNPCs: true).InRadius(player.Position, 6).Count() > 1)
-                    hints.Add("Bait away from raid!");
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID is (uint)AID.WildAnguish1 or (uint)AID.WildAnguish2)
+        {
+            var t = WorldState.Actors.Find(spell.MainTargetID);
+            var count = Towers.Count;
+            for (var i = count - 1; i >= 0; --i)
+            {
+                if (Towers[i].Position.InCircle(t!.Position, 8.5f))
+                {
+                    Towers.RemoveAt(i);
+                }
             }
-            else if (player.Position.InCircle(actor.Position, 6))
-                hints.Add("GTFO from stack!");
+            var count2 = _sp.Spreads.Count;
+            if (count2 > 0 && spell.Action.ID == (uint)AID.WildAnguish1)
+            {
+                for (var i = count2 - 1; i >= 0; --i)
+                {
+                    if (_sp.Spreads[i].Target == t)
+                    {
+                        _sp.Spreads.RemoveAt(i);
+                    }
+                }
+            }
         }
     }
+
+    public override void AddHints(int slot, Actor actor, TextHints hints) { }
+}
+
+class WildRageKnockback(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.WildRageKnockback, 15f)
+{
+    private RelSimplifiedComplexPolygon polygon;
+    private bool polygonInit;
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var myStack = Stacks.FindIndex(s => s.Target == actor);
-        if (myStack >= 0 && Stacks[myStack].Rubble is { } rock)
-            hints.AddForbiddenZone(ShapeContains.InvertedCircle(rock.Position, 6), _activation);
-
-        if (Stacks.Count > 0)
-            foreach (var other in Raid.WithoutSlot(excludeNPCs: true).Exclude(actor))
-                hints.AddForbiddenZone(ShapeContains.Circle(other.Position, 6), _activation);
-    }
-
-    public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
-    {
-        var theirs = Stacks.FindIndex(s => s.Target == player || s.Rubble == player);
-        var ours = Stacks.FindIndex(s => s.Target == pc || s.Rubble == pc);
-
-        if (theirs >= 0 && ours >= 0 && theirs != ours)
-            return PlayerPriority.Danger;
-
-        return PlayerPriority.Normal;
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if ((AID)spell.Action.ID is AID.WildAnguish or AID.WildAnguish2)
+        if (Casters.Count != 0)
         {
-            Stacks.RemoveAll(s => s.Target.InstanceID == spell.MainTargetID);
-            if (Stacks.Count == 0)
+            ref readonly var c = ref Casters.Ref(0);
+            var act = c.Activation;
+            if (!IsImmune(slot, act))
             {
-                _rubble = false;
-                _activation = default;
+                if (!polygonInit)
+                {
+                    polygon = D113SpectralBerserker.DefaultBounds.Polygon.Offset(-1f); // pretend polygon is 1y smaller than real for less suspect knockbacks
+                    polygonInit = true;
+                }
+                hints.AddForbiddenZone(new SDKnockbackInComplexPolygonAwayFromOriginPlusAOECircles(Arena.Center, c.Origin, 15f, polygon, [new(738f, 482f), new(762f, 482f)], 7.5f, 2), c.Activation);
             }
         }
-    }
+    }//
 }
 
-class FallingRock(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.FallingRock, AID.FallingRock, 8, 5.1f)
+class WildRageRaidwide(BossModule module) : Components.RaidwideCast(module, (uint)AID.WildRageKnockback);
+class WildRage(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WildRage, 8f);
+class BeastlyFury(BossModule module) : Components.RaidwideCast(module, (uint)AID.BeastlyFury);
+
+class CratersWildRampage(BossModule module) : Components.GenericAOEs(module)
 {
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    private static readonly WPos pos1 = new(738f, 482f), pos2 = new(762f, 482f);
+    private static readonly Circle circle1 = new(pos1, 7f), circle2 = new(pos2, 7f);
+    public readonly List<Circle> Circles = new(2);
+    private bool invert;
+    private DateTime activation;
+    private AOEShapeCustom? _aoe;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if (spell.Action == SpreadAction)
-            Spreads.Clear();
+        if (_aoe is AOEShapeCustom aoe)
+        {
+            aoe.InvertForbiddenZone = invert;
+            return new AOEInstance[1] { new(aoe, Arena.Center, default, activation, invert ? Colors.SafeFromAOE : default) };
+        }
+        return [];
     }
-}
-
-class WildAnguishStack(BossModule module) : Components.StackWithCastTargets(module, AID.WildAnguish, 6)
-{
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if (WorldState.Actors.All(x => x.OID != (uint)OID.Rubble))
-            base.OnCastStarted(caster, spell);
-    }
-}
-
-class WildHole(BossModule module) : Components.CastCounter(module, AID.WildRampage2)
-{
-    private readonly List<WPos> _zones = [];
-
-    public DateTime UnsafeAt;
-
-    public bool Safe => UnsafeAt > WorldState.CurrentTime;
-    public float HoleSize => Safe ? 7f : 8f; // 7.5 is too big to reliably dodge the rage and 7 is too small to stay out from the berzerk.
 
     public override void OnActorEAnim(Actor actor, uint state)
     {
-        // two event objects get spawned at the exact same location for each hole, idk why
-        if ((OID)actor.OID == OID.RageVoidzone && state == 0x00010002 && !_zones.Any(z => z.AlmostEqual(actor.Position, 1)))
-            _zones.Add(actor.Position);
-    }
-
-    public override void DrawArenaBackground(int pcSlot, Actor pc)
-    {
-        foreach (var z in _zones)
-            Arena.ZoneCircle(z, HoleSize, UnsafeAt > WorldState.CurrentTime ? ArenaColor.SafeFromAOE : ArenaColor.AOE);
-    }
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        if (_zones.Count > 0)
+        if (state == 0x00010002u && actor.OID == (uint)OID.Crater)
         {
-            var safe = UnsafeAt > WorldState.CurrentTime;
-            var zones = _zones.ToList();
-            var hs = HoleSize;
-            hints.AddForbiddenZone(p =>
-            {
-                var inHole = zones.Any(z => p.InCircle(z, hs));
-                return safe ? !inHole : inHole;
-            }, UnsafeAt);
+            if (actor.Position == pos1 && !Circles.Any(x => x.Center == pos1))
+                Circles.Add(circle1);
+            else if (actor.Position == pos2 && !Circles.Any(x => x.Center == pos2))
+                Circles.Add(circle2);
+            _aoe = new AOEShapeCustom([.. Circles]);
         }
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
-            UnsafeAt = Module.CastFinishAt(spell);
+        if (spell.Action.ID == (uint)AID.WildRampage)
+        {
+            invert = true;
+            activation = Module.CastFinishAt(spell);
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.WildRampage)
+            invert = false;
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        var inHole = _zones.Any(z => actor.Position.InCircle(z, HoleSize));
-        if (Safe)
-            hints.Add("Hide from AOE!", !inHole);
-        else if (inHole)
-            hints.Add("GTFO from voidzone!");
+        if (invert)
+        {
+            var aoes = ActiveAOEs(slot, actor);
+            var len = aoes.Length;
+            var isRisky = true;
+            for (var i = 0; i < len; ++i)
+            {
+                if (aoes[i].Check(actor.Position))
+                {
+                    isRisky = false;
+                    break;
+                }
+            }
+            hints.Add("Go inside crater!", isRisky);
+        }
+        else
+            base.AddHints(slot, actor, hints);
     }
 }
+
+sealed class RagingSlice(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.RagingSliceFirst, (uint)AID.RagingSliceRest], new AOEShapeRect(50f, 3f));
 
 class D113SpectralBerserkerStates : StateMachineBuilder
 {
     public D113SpectralBerserkerStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<Bounds>()
+            .ActivateOnEnter<BeastlyFuryArenaChange>()
             .ActivateOnEnter<BeastlyFury>()
             .ActivateOnEnter<FallingRock>()
+            .ActivateOnEnter<CratersWildRampage>()
+            .ActivateOnEnter<WildAnguish1>()
             .ActivateOnEnter<WildAnguish2>()
-            .ActivateOnEnter<WildAnguishStack>()
             .ActivateOnEnter<WildRageKnockback>()
-            .ActivateOnEnter<WildHole>()
-            .ActivateOnEnter<WildRageImpact>()
+            .ActivateOnEnter<WildRageRaidwide>()
+            .ActivateOnEnter<WildRage>()
             .ActivateOnEnter<RagingSlice>();
     }
 }
 
-[ModuleInfo(Contributors = "VeraNala", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 737, NameID = 9511)]
-public class D113SpectralBerserker(WorldState ws, Actor primary) : BossModule(ws, primary, new(750, 482), new ArenaBoundsSquare(22));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 737, NameID = 9511)]
+public class D113SpectralBerserker(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, new ArenaBoundsSquare(22.5f))
+{
+    public static readonly WPos ArenaCenter = new(750f, 482f);
+    public static readonly Cross[] Cross = [new Cross(ArenaCenter, 20f, 10f)];
+    public static readonly ArenaBoundsCustom DefaultBounds = new(Cross);
+}

@@ -1,56 +1,23 @@
-﻿namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
+namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
 
-[ConfigDisplay(Order = 0x140, Parent = typeof(DawntrailConfig))]
-public class Ex4ZeleniaConfig : ConfigNode
+sealed class SpecterOfTheLost(BossModule module) : Components.TankbusterTether(module, (uint)AID.SpecterOfTheLost, (uint)TetherID.SpecterOfTheLost, new AOEShapeCone(48f, 22.5f.Degrees()), 7.8d);
+sealed class AlexandrianThunderIIISpread(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.AlexandrianThunderIIISpread, 4f);
+sealed class AlexandrianBanishII(BossModule module) : Components.StackWithIcon(module, (uint)IconID.AlexandrianBanishII, (uint)AID.AlexandrianBanishII, 4f, 5.8f, 4, 4);
+sealed class AlexandrianThunderIIIAOE(BossModule module) : Components.SimpleAOEs(module, (uint)AID.AlexandrianThunderIIIAOE, 4f);
+sealed class HolyHazard(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HolyHazard, new AOEShapeCone(24f, 60f.Degrees()), 2);
+sealed class PowerBreak(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.PowerBreak1, (uint)AID.PowerBreak2], new AOEShapeRect(24f, 32f));
+sealed class ThunderSlash : Components.SimpleAOEs
 {
-    [PropertyDisplay("Show AOE hints for Holy Hazard (Bloom 6)", tooltip: "This mechanic can be ignored using tank LB or mit. Disable if you want less clutter on the minimap.")]
-    public bool ShowHolyHazard = true;
-
-    [PropertyDisplay("Dangerous rose tile color:")]
-    public Color RoseTileColor = new(0x80008080);
-}
-
-class ThornedCatharsis : Components.RaidwideCast
-{
-    public ThornedCatharsis(BossModule module) : base(module, AID.ThornedCatharsis)
+    public ThunderSlash(BossModule module) : base(module, (uint)AID.ThunderSlash, new AOEShapeCone(24f, 30f.Degrees()), 2)
     {
-        KeepOnPhaseChange = true;
+        MaxDangerColor = 2;
     }
 }
 
-// TODO: subsequent casts don't trigger if an earlier cast kills the target
-class StockBreak(BossModule module) : Components.UniformStackSpread(module, 6, 0)
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1031, NameID = 13861, PlanLevel = 100)]
+public sealed class Ex4Zelenia(WorldState ws, Actor primary) : BossModule(ws, primary, arenaCenter, DefaultArena)
 {
-    public int NumCasts;
-
-    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
-    {
-        if (iconID == (uint)IconID.StockBreak)
-            AddStack(actor, WorldState.FutureTime(8.3f));
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        switch ((AID)spell.Action.ID)
-        {
-            case AID.StockBreak1:
-            case AID.StockBreak2:
-                NumCasts++;
-                break;
-            case AID.StockBreak3:
-                NumCasts++;
-                Stacks.Clear();
-                break;
-        }
-    }
+    private static readonly WPos arenaCenter = new(100f, 100f);
+    public static readonly ArenaBoundsCustom DefaultArena = new([new Polygon(arenaCenter, 16f, 64)]);
+    public static readonly ArenaBoundsCustom DonutArena = new([new DonutV(arenaCenter, 2f, 16f, 64)]);
 }
-
-class P1Explosion(BossModule module) : Components.CastTowers(module, AID.P1Explosion, 3);
-
-class SpecterOfTheLost(BossModule module) : Components.BaitAwayTethers(module, new AOEShapeCone(48, 30.Degrees()), (uint)TetherID.SpecterOfTheLost, AID.SpecterOfTheLost);
-class SpecterOfTheLostAOE(BossModule module) : Components.StandardAOEs(module, AID.SpecterOfTheLost, new AOEShapeCone(48, 30.Degrees()));
-class PerfumedQuietus(BossModule module) : Components.RaidwideCast(module, AID.PerfumedQuietus);
-class AlexandrianBanishII(BossModule module) : Components.StackWithIcon(module, (uint)IconID.AlexandrianBanishII, AID.AlexandrianBanishIIStack, 5, 5.8f);
-
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1031, NameID = 13861, PlanLevel = 100)]
-public class Ex4Zelenia(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(16));

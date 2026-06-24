@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Unreal.Un2Sephirot;
 
-class P3FiendishWail(BossModule module) : Components.CastCounter(module, AID.FiendishWailAOE)
+class P3FiendishWail(BossModule module) : Components.CastCounter(module, (uint)AID.FiendishWailAOE)
 {
     private BitMask _physResistMask;
     private readonly List<Actor> _towers = [];
@@ -14,8 +14,8 @@ class P3FiendishWail(BossModule module) : Components.CastCounter(module, AID.Fie
         if (!Active)
             return;
 
-        bool wantToSoak = _physResistMask.Any() ? _physResistMask[slot] : actor.Role == Role.Tank;
-        bool soaking = _towers.InRadius(actor.Position, _radius).Any();
+        var wantToSoak = _physResistMask.Any() ? _physResistMask[slot] : actor.Role == Role.Tank;
+        var soaking = _towers.InRadius(actor.Position, _radius).Any();
         if (wantToSoak)
             hints.Add("Soak the tower!", !soaking);
         else
@@ -25,10 +25,10 @@ class P3FiendishWail(BossModule module) : Components.CastCounter(module, AID.Fie
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         foreach (var t in _towers)
-            Arena.AddCircle(t.Position, _radius, ArenaColor.Danger);
+            Arena.AddCircle(t.Position, _radius, Colors.Danger);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         if ((SID)status.ID == SID.ForceAgainstMight)
             _physResistMask.Set(Raid.FindSlot(actor.InstanceID));
@@ -36,13 +36,13 @@ class P3FiendishWail(BossModule module) : Components.CastCounter(module, AID.Fie
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
             _towers.Add(caster);
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
             _towers.Remove(caster);
     }
 }

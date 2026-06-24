@@ -1,6 +1,6 @@
 namespace BossMod.QuestBattle.ARealmReborn.ClassJobQuests.PLD;
 
-[ZoneModuleInfo(314, 253)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 314u, 253u)]
 internal class UldahsMostWanted(WorldState ws) : QuestBattle(ws)
 {
     public override List<QuestObjective> DefineObjectives(WorldState ws) => [
@@ -23,12 +23,12 @@ internal class UldahsMostWanted(WorldState ws) : QuestBattle(ws)
                         e.Priority = AIHints.Enemy.PriorityForbidden;
 
                 // Stand on the far side of the captain from Bruce so the frontal AoE faces away from Bruce
-                var captain = World.Actors.FirstOrDefault(x => x.OID == 0x274);
-                var bruce = World.Actors.FirstOrDefault(x => x.OID == 0x271);
+                var captain = World.Actors.FirstOrDefault(x => x.OID == 0x274u);
+                var bruce = World.Actors.FirstOrDefault(x => x.OID == 0x271u);
                 if (captain != null && bruce != null)
                 {
                     var dir = (captain.Position - bruce.Position).Normalized();
-                    hints.GoalZones.Add(hints.GoalSingleTarget(captain.Position + dir * 3, 2));
+                    hints.GoalZones.Add(AIHints.GoalSingleTarget(captain.Position + dir * 3f, 2f));
                 }
             })
             .PauseForCombat(false)

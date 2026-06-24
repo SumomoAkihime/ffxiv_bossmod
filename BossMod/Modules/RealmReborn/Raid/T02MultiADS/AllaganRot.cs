@@ -26,9 +26,9 @@ class AllaganRot(BossModule module) : BossComponent(module)
             return;
 
         if (WantToPickUpRot(assignment))
-            hints.AddForbiddenZone(ShapeContains.InvertedCircle(rotHolder.Position, _rotPassRadius - 1), _rotExpiration[_rotHolderSlot]);
+            hints.AddForbiddenZone(new SDInvertedCircle(rotHolder.Position, _rotPassRadius - 1), _rotExpiration[_rotHolderSlot]);
         else
-            hints.AddForbiddenZone(ShapeContains.Circle(rotHolder.Position, _rotPassRadius + 4), _immunityExpiration[slot]);
+            hints.AddForbiddenZone(new SDCircle(rotHolder.Position, _rotPassRadius + 4), _immunityExpiration[slot]);
     }
 
     public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
@@ -45,7 +45,7 @@ class AllaganRot(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         switch ((SID)status.ID)
         {
@@ -55,7 +55,8 @@ class AllaganRot(BossModule module) : BossComponent(module)
                     _rotExpiration[_rotHolderSlot] = status.ExpireAt;
                 break;
             case SID.AllaganImmunity:
-                if (Raid.TryFindSlot(actor, out var slot))
+                var slot = Raid.FindSlot(actor.InstanceID);
+                if (slot >= 0)
                     _immunityExpiration[slot] = status.ExpireAt;
                 break;
         }
@@ -74,7 +75,7 @@ class AllaganRot(BossModule module) : BossComponent(module)
 
         foreach (var next in _rotPriority)
         {
-            int nextSlot = assignments[(int)next];
+            var nextSlot = assignments[(int)next];
             if (nextSlot != _rotHolderSlot && _immunityExpiration[nextSlot] < deadline && !(Raid[nextSlot]?.IsDead ?? true))
                 return next == assignment;
         }

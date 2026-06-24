@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Savage.P6SHegemone;
 
-class Transmission(BossModule module) : Components.CastCounter(module, AID.ReekHavoc)
+class Transmission(BossModule module) : Components.CastCounter(module, (uint)AID.ReekHavoc)
 {
     private readonly DateTime[] _infectionExpire = new DateTime[PartyState.MaxPartySize]; // when status expires, it will be replaced with stun - we show aoes for last few seconds only
     private BitMask _snakeInfection; // hits front
@@ -9,7 +9,7 @@ class Transmission(BossModule module) : Components.CastCounter(module, AID.ReekH
     private BitMatrix _clips; // row = player, col = others that he clips
     private BitMask _clippedByOthers;
 
-    private static readonly AOEShapeCone _shape = new(60, 15.Degrees());
+    private static readonly AOEShapeCone _shape = new(60f, 15f.Degrees());
 
     public bool StunsActive => _stuns.Any();
 
@@ -19,7 +19,7 @@ class Transmission(BossModule module) : Components.CastCounter(module, AID.ReekH
         _clippedByOthers.Reset();
         foreach (var e in ActiveAOEs())
         {
-            _clippedByOthers |= _clips[e.slot] = Raid.WithSlot().Exclude(e.player).InShape(_shape, e.player.Position, e.direction).Mask();
+            _clippedByOthers |= _clips[e.slot] = Raid.WithSlot(false, true, true).Exclude(e.player).InShape(_shape, e.player.Position, e.direction).Mask();
         }
     }
 
@@ -45,41 +45,42 @@ class Transmission(BossModule module) : Components.CastCounter(module, AID.ReekH
                 _shape.Draw(Arena, e.player.Position, e.direction);
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
-        switch ((TetherID)tether.ID)
+        switch (tether.ID)
         {
-            case TetherID.TransmissionSnake:
+            case (uint)TetherID.TransmissionSnake:
                 _snakeInfection.Set(Raid.FindSlot(source.InstanceID));
                 break;
-            case TetherID.TransmissionWing:
+            case (uint)TetherID.TransmissionWing:
                 _wingInfection.Set(Raid.FindSlot(source.InstanceID));
                 break;
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.Glossomorph:
-            case SID.Chelomorph:
-                if (Raid.TryFindSlot(actor, out var slot))
+            case (uint)SID.Glossomorph:
+            case (uint)SID.Chelomorph:
+                var slot = Raid.FindSlot(actor.InstanceID);
+                if (slot >= 0)
                     _infectionExpire[slot] = status.ExpireAt;
                 break;
-            case SID.OutOfControlSnake:
-            case SID.OutOfControlWing:
+            case (uint)SID.OutOfControlSnake:
+            case (uint)SID.OutOfControlWing:
                 _stuns.Set(Raid.FindSlot(actor.InstanceID));
                 break;
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.OutOfControlSnake:
-            case SID.OutOfControlWing:
+            case (uint)SID.OutOfControlSnake:
+            case (uint)SID.OutOfControlWing:
                 _stuns.Clear(Raid.FindSlot(actor.InstanceID));
                 break;
         }
@@ -87,7 +88,7 @@ class Transmission(BossModule module) : Components.CastCounter(module, AID.ReekH
 
     private IEnumerable<(int slot, Actor player, Angle direction)> ActiveAOEs()
     {
-        foreach (var (slot, player) in Raid.WithSlot(true))
+        foreach (var (slot, player) in Raid.WithSlot(true, true, true))
         {
             if (_snakeInfection[slot])
                 yield return (slot, player, player.Rotation);

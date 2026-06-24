@@ -95,7 +95,7 @@ public sealed class BRD(RotationModuleManager manager, Actor player) : Attackxan
 
         (BestCircleTarget, NumCircleTargets) = SelectTarget(strategy, primaryTarget, 25, IsSplashTarget);
         (BestConeTarget, NumConeTargets) = SelectTarget(strategy, primaryTarget, 12,
-            (primary, other) => Hints.TargetInAOECone(other, Player.Position, 12, Player.DirectionTo(primary), 45.Degrees()));
+            (primary, other) => TargetInAOECone(other, Player.Position, 12, Player.DirectionTo(primary), 45f.Degrees()));
         (BestLineTarget, NumLineTargets) = SelectTarget(strategy, primaryTarget, 25, Is25yRectTarget);
 
         OGCD(strategy, primaryTarget);
@@ -109,7 +109,7 @@ public sealed class BRD(RotationModuleManager manager, Actor player) : Attackxan
         }
 
         if (primaryTarget != null)
-            GoalZoneCombined(strategy, 25, Hints.GoalAOECone(primaryTarget.Actor, 12, 45.Degrees()), AID.QuickNock, minAoe: 2);
+            GoalZoneCombined(strategy, 25, Hints.GoalAOECone(primaryTarget.Actor, 12f, 45f.Degrees()), AID.QuickNock, minAoe: 2);
 
         var ijDelay = EffectApplicationDelay(AID.IronJaws);
 
@@ -154,10 +154,10 @@ public sealed class BRD(RotationModuleManager manager, Actor player) : Attackxan
         if (primaryTarget == null)
             return (float.MaxValue, float.MaxValue, float.MaxValue);
 
-        var wind = MathF.Max(StatusDetails(primaryTarget, SID.Windbite, Player.InstanceID, 45).Left, StatusDetails(primaryTarget, SID.Stormbite, Player.InstanceID, 45).Left);
-        var poison = MathF.Max(StatusDetails(primaryTarget, SID.VenomousBite, Player.InstanceID, 45).Left, StatusDetails(primaryTarget, SID.CausticBite, Player.InstanceID, 45).Left);
+        var wind = Math.Max(StatusDetails(primaryTarget, SID.Windbite, Player.InstanceID, 45).Left, StatusDetails(primaryTarget, SID.Stormbite, Player.InstanceID, 45).Left);
+        var poison = Math.Max(StatusDetails(primaryTarget, SID.VenomousBite, Player.InstanceID, 45).Left, StatusDetails(primaryTarget, SID.CausticBite, Player.InstanceID, 45).Left);
 
-        return (MathF.Min(wind, poison), wind, poison);
+        return (Math.Min(wind, poison), wind, poison);
     }
 
     private void OGCD(in Strategy strategy, Enemy? primaryTarget)

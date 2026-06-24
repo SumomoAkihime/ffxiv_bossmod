@@ -2,10 +2,10 @@
 
 public enum OID : uint
 {
-    Boss = 0x3DAD, // R7.030, x1
-    Helper = 0x233C, // R0.500, x48
-    GlacialSpearSmall = 0x3DAE, // R3.500, x3 spawn during fight
-    GlacialSpearLarge = 0x3DAF, // R4.000, x1 spawn during fight
+    Boss = 0x3DAD, // R7.03
+    GlacialSpearSmall = 0x3DAE, // R3.5
+    GlacialSpearLarge = 0x3DAF, // R4.0
+    Helper = 0x233
 }
 
 public enum AID : uint
@@ -72,7 +72,7 @@ public enum AID : uint
     FurysAegisAOE6 = 32117, // Helper->self, 17.3s cast, range 60 width 60 rect
     TetrapagosThrust = 32089, // Boss->self, 13.0s cast, single-target, visual (tetrapagos + thousandfold thrust)
     Chalaza = 32101, // Boss->self, 3.0s cast, single-target, visual (stack + spread)
-    IceRondel = 32103, // Helper->players, 6.0s cast, range 6 circle stack
+    IceRondel = 32103 // Helper->players, 6.0s cast, range 6 circle stack
 }
 
 public enum IconID : uint
@@ -85,5 +85,5 @@ public enum IconID : uint
     IceDart = 311, // player
     IceRondel = 318, // player
     Cheimon1 = 156, // GlacialSpearLarge
-    Cheimon2 = 157, // GlacialSpearLarge
+    Cheimon2 = 157 // GlacialSpearLarge
 }

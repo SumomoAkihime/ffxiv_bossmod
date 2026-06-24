@@ -1,1 +1,0 @@
-using M08SHowlingBladeConfig = BossMod.Dawntrail.Savage.RM08SHowlingBlade.RM08SHowlingBladeConfig;

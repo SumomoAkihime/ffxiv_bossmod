@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Trial.T05Necron;
+namespace BossMod.Dawntrail.Trial.T05Necron;
 
 sealed class Aetherblight(BossModule module) : Components.GenericAOEs(module)
 {
@@ -10,14 +10,14 @@ sealed class Aetherblight(BossModule module) : Components.GenericAOEs(module)
     private bool relentlessReaping;
     private bool rotated;
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         var count = _aoes.Count;
         if (count == 0 || !Show)
         {
             return [];
         }
-        return _aoes.Take(1);
+        return CollectionsMarshal.AsSpan(_aoes)[..1];
     }
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
@@ -34,7 +34,7 @@ sealed class Aetherblight(BossModule module) : Components.GenericAOEs(module)
             if (!relentlessReaping)
             {
                 AddAOE(actor.Position);
-                void AddAOE(WPos pos) => _aoes.Add(new(shape, pos, actor.Rotation));
+                void AddAOE(WPos pos) => _aoes.Add(new(shape, pos.Quantized(), actor.Rotation));
             }
         }
     }
@@ -68,7 +68,7 @@ sealed class Aetherblight(BossModule module) : Components.GenericAOEs(module)
                 Show = true;
                 if (_aoes.Count != 0)
                 {
-                    _aoes.Ref(0).Activation = Module.CastFinishAt(spell, 1.2f);
+                    _aoes.Ref(0).Activation = Module.CastFinishAt(spell, 1.2d);
                 }
                 break;
             case (uint)AID.RelentlessReaping:
@@ -82,10 +82,11 @@ sealed class Aetherblight(BossModule module) : Components.GenericAOEs(module)
         var count = Hints.Count;
         if (count > 0)
         {
-            var sb = new System.Text.StringBuilder("Stored: ", 8 + 4 * (count - 1) + count * 5);
+            var sb = new StringBuilder("Stored: ", 8 + 4 * (count - 1) + count * 5);
+            var ord = CollectionsMarshal.AsSpan(Hints);
             for (var i = 0; i < count; ++i)
             {
-                sb.Append(Hints[i]);
+                sb.Append(ord[i]);
 
                 if (i < count - 1)
                     sb.Append(" -> ");
@@ -109,7 +110,7 @@ sealed class Aetherblight(BossModule module) : Components.GenericAOEs(module)
 
             if (index != -1)
             {
-                RotateList(Hints, index);
+                Utils.RotateList(Hints, index);
                 var rot = actor.Rotation;
                 var loc = actor.Position;
                 for (var i = 0; i < 4; ++i)
@@ -125,7 +126,7 @@ sealed class Aetherblight(BossModule module) : Components.GenericAOEs(module)
                     }
                 }
                 rotated = true;
-                void AddAOE(AOEShape shape, WPos pos, int i) => _aoes.Add(new(shape, pos, rot, WorldState.FutureTime(14.4f + i * 2.8f)));
+                void AddAOE(AOEShape shape, WPos pos, int i) => _aoes.Add(new(shape, pos.Quantized(), rot, WorldState.FutureTime(14.4d + i * 2.8d)));
             }
         }
     }
@@ -139,19 +140,8 @@ sealed class Aetherblight(BossModule module) : Components.GenericAOEs(module)
             if (aoe2.Shape == donut)
             {
                 // make ai stay close to donut to ensure successfully dodging the combo
-                var origin = aoe2.Origin;
-                hints.AddForbiddenZone(p => !p.InCircle(origin, 21f), _aoes.Ref(0).Activation);
+                hints.AddForbiddenZone(new SDInvertedCircle(aoe2.Origin, 21f), _aoes.Ref(0).Activation);
             }
         }
     }
-
-    private static void RotateList<T>(List<T> list, int offset)
-    {
-        if (offset <= 0)
-            return;
-        var rotated = list.Take(offset).ToArray();
-        list.RemoveRange(0, offset);
-        list.AddRange(rotated);
-    }
 }
-

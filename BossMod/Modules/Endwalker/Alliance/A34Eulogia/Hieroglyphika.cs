@@ -2,56 +2,66 @@ namespace BossMod.Endwalker.Alliance.A34Eulogia;
 
 // see A31 for details; apparently there is only 1 pattern here (rotated CW or CCW)
 // unlike A31, origins are not cell centers, but south sides
-class Hieroglyphika(BossModule module) : Components.GenericAOEs(module, AID.HieroglyphikaAOE)
+class Hieroglyphika(BossModule module) : Components.GenericAOEs(module, (uint)AID.HieroglyphikaAOE)
 {
     public bool BindsAssigned;
     public readonly List<AOEInstance> AOEs = [];
 
-    private static readonly AOEShapeRect _shape = new(12, 6);
-    private static readonly WDir[] _canonicalSafespots = [new(-18, 18), new(18, -6)];
+    private static readonly AOEShapeRect _shape = new(12f, 6f);
+    private static readonly WDir[] _canonicalSafespots = [new(-18f, 18f), new(18f, -6f)];
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => AOEs;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(AOEs);
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Bind)
+        if (status.ID == (uint)SID.Bind)
             BindsAssigned = true;
     }
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        WDir dir = (IconID)iconID switch
+        WDir dir = iconID switch
         {
-            IconID.HieroglyphikaCW => new(-1, 0),
-            IconID.HieroglyphikaCCW => new(1, 0),
+            (uint)IconID.HieroglyphikaCW => new(-1f, 0f),
+            (uint)IconID.HieroglyphikaCCW => new(1f, 0f),
             _ => default
         };
         if (dir == default)
-            return;
-
-        WDir[] safespots = [.. _canonicalSafespots.Select(d => d.Rotate(dir))];
-        var activation = WorldState.FutureTime(17.1f);
-        for (int z = -3; z <= 3; z += 2)
         {
-            for (int x = -3; x <= 3; x += 2)
+            return;
+        }
+
+        var safespots = new WDir[2];
+        for (var i = 0; i < 2; ++i)
+        {
+            safespots[i] = _canonicalSafespots[i].Rotate(dir);
+        }
+        var activation = WorldState.FutureTime(17.1d);
+        for (var z = -3; z <= 3; z += 2)
+        {
+            for (var x = -3; x <= 3; x += 2)
             {
-                var cellOffset = new WDir(x * 6, z * 6);
-                if (!safespots.Any(s => s.AlmostEqual(cellOffset, 1)))
+                var cellOffset = new WDir(x * 6f, z * 6f);
+                for (var i = 0; i < 2; ++i)
                 {
-                    AOEs.Add(new(_shape, Module.Center + cellOffset + new WDir(0, 6), 180.Degrees(), activation));
+                    if (safespots[i] == cellOffset)
+                    {
+                        goto next;
+                    }
                 }
+                AOEs.Add(new(_shape, (Arena.Center + cellOffset + new WDir(default, 6f)).Quantized(), 180f.Degrees(), activation));
+            next:
+                ;
             }
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
         {
             ++NumCasts;
-            var cnt = AOEs.RemoveAll(aoe => aoe.Origin.AlmostEqual(caster.Position, 1));
-            if (cnt != 1)
-                ReportError($"Incorrect AOE prediction: {caster.Position} matched {cnt} aoes");
+            AOEs.Clear();
         }
     }
 }

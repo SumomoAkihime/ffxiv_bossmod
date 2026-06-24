@@ -20,40 +20,32 @@ class OrdealOfPurgation(BossModule module) : Components.GenericAOEs(module)
     private int _midDecrement; // inner with this index is decremented by one (rotated CW) when passing middle ring
     private int _rotationOuter;
     private readonly Symbol[] _symbols = new Symbol[8];
-    private DateTime _activation;
+    private readonly List<AOEInstance> _aoes = new(2);
 
-    private static readonly AOEShapeCone _shapeTri = new(60, 30.Degrees());
-    private static readonly AOEShapeRect _shapeSq = new(20, 40);
+    private static readonly AOEShapeCone _shapeTri = new(60f, 30f.Degrees());
+    private static readonly AOEShapeRect _shapeSq = new(20f, 40f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if (_activation != default)
+        if (status.ID == (uint)SID.Pattern)
         {
-            if (AOEFromDirection(_dirInner) is var aoe1 && aoe1 != null)
-                yield return aoe1.Value;
-            if (_dirInnerExtra != _dirInner && AOEFromDirection(_dirInnerExtra) is var aoe2 && aoe2 != null)
-                yield return aoe2.Value;
-        }
-    }
-
-    public override void OnStatusGain(Actor actor, ActorStatus status)
-    {
-        if ((SID)status.ID == SID.Pattern)
-        {
-            switch ((OID)actor.OID)
+            var rot = actor.Rotation;
+            switch (actor.OID)
             {
-                case OID.CircleOfPurgatoryInner:
-                    _dirInner = AngleToDirectionIndex(actor.Rotation);
+                case (uint)OID.CircleOfPurgatoryInner:
+                    _dirInner = AngleToDirectionIndex(rot);
                     _dirInnerExtra = status.Extra switch
                     {
-                        0x21F => AngleToDirectionIndex(actor.Rotation - 90.Degrees()),
-                        0x220 => AngleToDirectionIndex(actor.Rotation + 180.Degrees()),
+                        0x21F => AngleToDirectionIndex(rot - 90f.Degrees()),
+                        0x220 => AngleToDirectionIndex(rot + 180f.Degrees()),
                         _ => _dirInner
                     };
                     break;
-                case OID.CircleOfPurgatoryMiddle:
-                    _midIncrement = AngleToDirectionIndex(actor.Rotation - 135.Degrees());
-                    _midDecrement = AngleToDirectionIndex(actor.Rotation + 135.Degrees());
+                case (uint)OID.CircleOfPurgatoryMiddle:
+                    _midIncrement = AngleToDirectionIndex(rot - 135f.Degrees());
+                    _midDecrement = AngleToDirectionIndex(rot + 135f.Degrees());
                     break;
             }
         }
@@ -61,22 +53,41 @@ class OrdealOfPurgation(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.OrdealOfPurgation)
-            _activation = Module.CastFinishAt(spell); // note: actual activation is several seconds later, but we need to finish our movements before shackles, so effective activation is around cast end
+        if (spell.Action.ID == (uint)AID.OrdealOfPurgation)
+        {
+            var activation = Module.CastFinishAt(spell); // note: actual activation is several seconds later, but we need to finish our movements before shackles, so effective activation is around cast end
+
+            AOEFromDirection(_dirInner);
+            if (_dirInnerExtra != _dirInner)
+            {
+                AOEFromDirection(_dirInnerExtra);
+            }
+
+            void AOEFromDirection(int index)
+            {
+                index = TransformByMiddle(index);
+                var shape = ShapeAtDirection(index);
+                var dir = DirectionIndexToAngle(index);
+                if (shape != null)
+                {
+                    _aoes.Add(new(shape, (Arena.Center + 20f * dir.ToDirection()).Quantized(), dir + 180f.Degrees(), activation));
+                }
+            }
+        }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.FieryExpiationTri or AID.FieryExpiationSq)
+        if (spell.Action.ID is (uint)AID.FieryExpiationTri or (uint)AID.FieryExpiationSq)
             ++NumCasts;
     }
 
     public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
     {
-        var symbol = (OID)actor.OID switch
+        var symbol = actor.OID switch
         {
-            OID.CircleOfPurgatoryTriange => Symbol.Tri,
-            OID.CircleOfPurgatorySquare => Symbol.Sq,
+            (uint)OID.CircleOfPurgatoryTriangle => Symbol.Tri,
+            (uint)OID.CircleOfPurgatorySquare => Symbol.Sq,
             _ => Symbol.Unknown
         };
         if (symbol != Symbol.Unknown && id == 0x11D1)
@@ -92,8 +103,8 @@ class OrdealOfPurgation(BossModule module) : Components.GenericAOEs(module)
     {
         var dir = state switch
         {
-            0x00020001 => -1,
-            0x00200010 => +1,
+            0x00020001u => -1,
+            0x00200010u => +1,
             _ => 0 // 0x00080004 = remove rotation markers
         };
         if (dir != 0)
@@ -116,9 +127,9 @@ class OrdealOfPurgation(BossModule module) : Components.GenericAOEs(module)
     }
 
     // 0 is N, then increases in CCW order
-    private int NormalizeDirectionIndex(int index) => index & 7;
-    private int AngleToDirectionIndex(Angle rotation) => NormalizeDirectionIndex((int)(Math.Round(rotation.Deg / 45) + 4));
-    private Angle DirectionIndexToAngle(int index) => (index - 4) * 45.Degrees();
+    private static int NormalizeDirectionIndex(int index) => index & 7;
+    private static int AngleToDirectionIndex(Angle rotation) => NormalizeDirectionIndex((int)(Math.Round(rotation.Deg / 45f) + 4));
+    private static Angle DirectionIndexToAngle(int index) => (index - 4) * 45f.Degrees();
 
     private int TransformByMiddle(int index)
     {
@@ -136,12 +147,4 @@ class OrdealOfPurgation(BossModule module) : Components.GenericAOEs(module)
         Symbol.Sq => _shapeSq,
         _ => null
     };
-
-    private AOEInstance? AOEFromDirection(int index)
-    {
-        index = TransformByMiddle(index);
-        var shape = ShapeAtDirection(index);
-        var dir = DirectionIndexToAngle(index);
-        return shape != null ? new(shape, Module.Center + Module.Bounds.Radius * dir.ToDirection(), dir + 180.Degrees(), _activation) : null;
-    }
 }

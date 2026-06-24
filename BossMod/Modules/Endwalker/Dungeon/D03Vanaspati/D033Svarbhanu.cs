@@ -26,17 +26,40 @@ public enum AID : uint
     GnashingOfTeeth = 25171 // Boss->player, 5.0s cast, single-target
 }
 
-class ChaoticUndercurrent(BossModule module) : Components.GenericAOEs(module)
+class ArenaChange(BossModule module) : Components.GenericAOEs(module)
 {
-    private enum Pattern { None, BBRR, RRBB, BRRB, RBBR }
-    private Pattern currentPattern;
-    private readonly List<AOEInstance> _aoes = [];
-    private static readonly AOEShapeRect rect = new(40, 5);
-    private static readonly Angle rotation = 90.Degrees();
-    private const int X = 280;
-    private static readonly List<WPos> coords = [new(X, -142), new(X, -152), new(X, -162), new(X, -172)];
+    private static readonly AOEShapeCustom square = new([new Square(D033Svarbhanu.ArenaCenter, 25f)], [new Square(D033Svarbhanu.ArenaCenter, 20f)]);
+    private AOEInstance[] _aoe = [];
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.FlamesOfDecay && Arena.Bounds.Radius > 20f)
+        {
+            _aoe = [new(square, Arena.Center, default, Module.CastFinishAt(spell, 8.9d))];
+        }
+    }
+
+    public override void OnMapEffect(byte index, uint state)
+    {
+        if (index == 0x07 && state == 0x00020001u)
+        {
+            Arena.Bounds = new ArenaBoundsSquare(20f);
+            _aoe = [];
+        }
+    }
+}
+
+sealed class ChaoticUndercurrent(BossModule module) : Components.GenericAOEs(module)
+{
+    public enum Pattern { None, BBRR, RRBB, BRRB, RBBR }
+    public Pattern currentPattern;
+    public readonly List<AOEInstance> AOEs = new(2);
+    private static readonly AOEShapeRect rect = new(40f, 5f);
+    private CosmicKissKnockback? _kb;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(AOEs);
 
     public override void OnMapEffect(byte index, uint state)
     {
@@ -49,10 +72,10 @@ class ChaoticUndercurrent(BossModule module) : Components.GenericAOEs(module)
         {
             currentPattern = state switch
             {
-                0x00400020 => Pattern.RBBR,
-                0x00020001 => Pattern.BBRR,
-                0x00100008 => Pattern.BRRB,
-                0x01000080 => Pattern.RRBB,
+                0x00400020u => Pattern.RBBR,
+                0x00020001u => Pattern.BBRR,
+                0x00100008u => Pattern.BRRB,
+                0x01000080u => Pattern.RRBB,
                 _ => Pattern.None
             };
         }
@@ -60,73 +83,87 @@ class ChaoticUndercurrent(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        var activation = WorldState.FutureTime(7.7f);
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.ChaoticUndercurrentBlueVisual:
-                AddAOEsForPattern(true, activation);
+            case (uint)AID.ChaoticUndercurrentBlueVisual:
+                AddAOEsForPattern(true);
                 break;
-            case AID.ChaoticUndercurrentRedVisual:
-                AddAOEsForPattern(false, activation);
+            case (uint)AID.ChaoticUndercurrentRedVisual:
+                AddAOEsForPattern(false);
                 break;
-            case AID.ChaoticUndercurrentRedRect:
-            case AID.ChaoticUndercurrentBlueRect:
-                _aoes.Clear();
+            case (uint)AID.ChaoticUndercurrentRedRect:
+            case (uint)AID.ChaoticUndercurrentBlueRect:
+                AOEs.Clear();
                 currentPattern = Pattern.None;
                 break;
         }
     }
 
-    private void AddAOEsForPattern(bool isBlue, DateTime activation)
+    private void AddAOEsForPattern(bool isBlue)
     {
         switch (currentPattern)
         {
             case Pattern.RBBR:
-                AddAOEs(isBlue ? (1, 2) : (0, 3), activation);
+                AddAOEs(isBlue ? (1, 2) : (0, 3));
                 break;
             case Pattern.BBRR:
-                AddAOEs(isBlue ? (2, 3) : (0, 1), activation);
+                AddAOEs(isBlue ? (2, 3) : (0, 1));
                 break;
             case Pattern.BRRB:
-                AddAOEs(isBlue ? (0, 3) : (1, 2), activation);
+                AddAOEs(isBlue ? (0, 3) : (1, 2));
                 break;
             case Pattern.RRBB:
-                AddAOEs(isBlue ? (0, 1) : (2, 3), activation);
+                AddAOEs(isBlue ? (0, 1) : (2, 3));
                 break;
         }
-    }
-
-    private void AddAOEs((int, int) indices, DateTime activation)
-    {
-        _aoes.Add(new(rect, coords[indices.Item1], rotation, activation));
-        _aoes.Add(new(rect, coords[indices.Item2], rotation, activation));
+        void AddAOEs((int, int) indices)
+        {
+            WPos[] coords = [new(280f, -142f), new(280f, -152f), new(280f, -162f), new(280f, -172f)];
+            AddAOE(coords[indices.Item1]);
+            AddAOE(coords[indices.Item2]);
+            void AddAOE(WPos pos)
+            {
+                var activation = WorldState.FutureTime(7.7d);
+                AOEs.Add(new(rect, pos.Quantized(), Angle.AnglesCardinals[3], activation));
+            }
+        }
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var kb = Module.FindComponent<CosmicKissKnockback>()!;
+        if (AOEs.Count == 0)
+            return;
+        _kb ??= Module.FindComponent<CosmicKissKnockback>();
 
-        if (actor.PendingKnockbacks.Count > 0 || !kb.Sources(slot, actor).Any(s => !kb.IsImmune(slot, s.Activation)))
+        if (_kb!.Casters.Count != 0 && !_kb.IsImmune(slot, _kb.Casters.Ref(0).Activation))
+        { } // remove forbidden zones while knockback is active to not confuse the AI
+        else
             base.AddAIHints(slot, actor, assignment, hints);
     }
 }
 
-class CosmicKissSpread(BossModule module) : Components.SpreadFromCastTargets(module, AID.CosmicKissSpread, 6);
-class CosmicKissCircle(BossModule module) : Components.StandardAOEs(module, AID.CosmicKissCircle, 6);
+sealed class CosmicKissSpread(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.CosmicKissSpread, 6f);
+sealed class CosmicKissCircle(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CosmicKissCircle, 6f);
 
-class CosmicKissRect(BossModule module) : Components.GenericAOEs(module)
+sealed class CosmicKissRect(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = [];
-    private static readonly AOEShapeRect rect = new(50, 5);
-    private static readonly Angle rotation = -90.Degrees();
-    private const int X = 320;
-    private static readonly List<WPos> coords = [new(X, -142), new(X, -152), new(X, -162), new(X, -172)];
+    private readonly List<AOEInstance> _aoes = new(9);
+    private static readonly AOEShapeRect rect = new(50f, 5f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Take(3);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var count = _aoes.Count;
+        if (count == 0)
+        {
+            return [];
+        }
+        var max = count > 3 ? 3 : count;
+        return CollectionsMarshal.AsSpan(_aoes)[..max];
+    }
 
     public override void OnMapEffect(byte index, uint state)
     {
-        if (state == 0x00020001 && _aoes.Count == 0)
+        if (state == 0x00020001u && _aoes.Count == 0)
         {
             var aoeSets = index switch
             {
@@ -137,61 +174,88 @@ class CosmicKissRect(BossModule module) : Components.GenericAOEs(module)
                 _ => new List<int[]>()
             };
 
-            if (aoeSets.Count > 0)
+            if (aoeSets.Count != 0)
             {
-                AddAOEs(aoeSets[0], 4.3f);
-                AddAOEs(aoeSets[1], 9.5f);
-                AddAOEs(aoeSets[2], 14.6f);
+                AddAOEs(aoeSets[0], 4.3d);
+                AddAOEs(aoeSets[1], 9.5d);
+                AddAOEs(aoeSets[2], 14.6d);
+            }
+            void AddAOEs(int[] indices, double delay)
+            {
+                WPos[] coords = [new(320f, -142f), new(320f, -152f), new(320f, -162f), new(320f, -172f)];
+                for (var i = 0; i < 3; ++i)
+                {
+                    _aoes.Add(new(rect, coords[indices[i]].Quantized(), Angle.AnglesCardinals[0], WorldState.FutureTime(delay)));
+                }
             }
         }
-    }
-
-    private void AddAOEs(IEnumerable<int> indices, float delay)
-    {
-        foreach (var index in indices)
-            _aoes.Add(new(rect, coords[index], rotation, WorldState.FutureTime(delay)));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.CosmicKissRect)
+        if (_aoes.Count != 0 && spell.Action.ID == (uint)AID.CosmicKissRect)
+        {
             _aoes.RemoveAt(0);
+        }
     }
 }
 
-class CosmicKissRaidwide(BossModule module) : Components.RaidwideCast(module, AID.CosmicKiss);
+sealed class CosmicKissRaidwide(BossModule module) : Components.RaidwideCast(module, (uint)AID.CosmicKiss);
 
-class CosmicKissKnockback(BossModule module) : Components.KnockbackFromCastTarget(module, AID.CosmicKiss, 13)
+sealed class CosmicKissKnockback(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.CosmicKiss, 13f)
 {
+    private readonly ChaoticUndercurrent _aoe = module.FindComponent<ChaoticUndercurrent>()!;
+
+    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos)
+    {
+        var count = _aoe.AOEs.Count;
+        var aoes = CollectionsMarshal.AsSpan(_aoe.AOEs);
+        for (var i = 0; i < count; ++i)
+        {
+            ref readonly var aoe = ref aoes[i];
+            if (aoe.Check(pos))
+            {
+                return true;
+            }
+        }
+        return !Arena.InBounds(pos);
+    }
+
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var src in Sources(slot, actor))
+        var component = _aoe.AOEs;
+        var count = component.Count;
+        if (count != 0 && Casters.Count != 0)
         {
-            if (!IsImmune(slot, src.Activation))
+            ref readonly var c = ref Casters.Ref(0);
+            var act = c.Activation;
+            if (!IsImmune(slot, act))
             {
-                var currents = Module.FindComponent<ChaoticUndercurrent>()!.ActiveAOEs(slot, actor).Select(a => (a.Origin, a.Rotation)).ToList();
 
-                var orig = src.Origin;
-                var center = Arena.Center;
-                hints.AddForbiddenZone(p =>
+                var aoes = CollectionsMarshal.AsSpan(_aoe.AOEs);
+                var len = aoes.Length;
+                var rects = new (WPos origin, WDir rotation)[len];
+                for (var i = 0; i < len; ++i)
                 {
-                    var dir = (p - orig).Normalized();
-                    var proj = p + dir * 13;
-                    return !proj.AlmostEqual(center, 20) || currents.Any(r => proj.InRect(r.Origin, r.Rotation, 40, 0, 5));
-                }, src.Activation);
+                    ref var aoe = ref aoes[i];
+                    rects[i] = (aoe.Origin, aoe.Rotation.ToDirection());
+                }
+
+                hints.AddForbiddenZone(new SDKnockbackInAABBSquareAwayFromOriginPlusAOERects(Arena.Center, c.Origin, 13f, 19f, rects, 40f, 5f, len), act);
             }
         }
     }
 }
 
-class FlamesOfDecay(BossModule module) : Components.RaidwideCast(module, AID.FlamesOfDecay);
-class GnashingOfTeeth(BossModule module) : Components.SingleTargetCast(module, AID.GnashingOfTeeth);
+sealed class FlamesOfDecay(BossModule module) : Components.RaidwideCast(module, (uint)AID.FlamesOfDecay);
+sealed class GnashingOfTeeth(BossModule module) : Components.SingleTargetCast(module, (uint)AID.GnashingOfTeeth);
 
-class D033SvarbhanuStates : StateMachineBuilder
+sealed class D033SvarbhanuStates : StateMachineBuilder
 {
     public D033SvarbhanuStates(BossModule module) : base(module)
     {
         TrivialPhase()
+            .ActivateOnEnter<ArenaChange>()
             .ActivateOnEnter<ChaoticUndercurrent>()
             .ActivateOnEnter<CosmicKissSpread>()
             .ActivateOnEnter<CosmicKissCircle>()
@@ -203,5 +267,8 @@ class D033SvarbhanuStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(Contributors = "The Combat Reborn Team (Malediktus, LTS)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 789, NameID = 10719)]
-public class D033Svarbhanu(WorldState ws, Actor primary) : BossModule(ws, primary, new(300, -157), new ArenaBoundsSquare(20));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus, LTS)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 789u, NameID = 10719u)]
+public sealed class D033Svarbhanu(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, new ArenaBoundsSquare(24.5f))
+{
+    public static readonly WPos ArenaCenter = new(300f, -157f);
+}

@@ -1,109 +1,152 @@
-﻿namespace BossMod.Heavensward.Dungeon.D11Antitower.D111ZuroRoggo;
+namespace BossMod.Heavensward.Dungeon.D11Antitower.D111ZuroRoggo;
 
 public enum OID : uint
 {
-    Boss = 0x14FC, // R3.000
-    Helper = 0x233C,
-    Chirp = 0x14FE, // R2.000, x0 (spawn during fight)
-    PoroggoChoirtoad = 0x14FD, // R2.100, x0 (spawn during fight)
+    Boss = 0x14FC, // R3.0
+    Chirp = 0x14FE, // R2.0
+    PoroggoChoirtoad = 0x14FD, // R2.1
+    FrogSong = 0x1E9F4A, // R0.5
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    WaterBomb1 = 5538, // Helper->location, 3.0s cast, range 6 circle
+    AutoAttack = 872, // Boss/PoroggoChoirtoad->player, no cast, single-target
+
     WaterBombVisual = 5537, // Boss->self, 3.0s cast, single-target
-    OdiousCroak = 5540, // Helper->self, no cast, range 11+R ?-degree cone
-    DiscordantHarmony = 5543, // Chirp->self, no cast, range 6 circle
-    FrogSong = 5541, // Helper->self, no cast, range 40 circle
+    WaterBomb1 = 5538, // Helper->location, 3.0s cast, range 6 circle
     WaterBomb2 = 5979, // Helper->location, 3.0s cast, range 6 circle
     WaterBomb3 = 5977, // Helper->location, 3.0s cast, range 6 circle
+
+    OdiousCroakVisual = 32370, // Helper->self, 4.0s cast, range 40+R 120-degree cone
+    OdiousCroak = 5540, // Helper->self, no cast, range 11+R 120-degree cone, 12 casts
+
+    SpawnChirps = 5542, // Boss->self, no cast, single-target
+    DiscordantHarmony = 5543, // Chirp->self, no cast, range 6 circle
+    FrogSong = 5541, // Helper->self, no cast, range 40 circle
+
+    ToyHammer = 5539 // Boss->player, 3.0s cast, single-target, tankbuster + concussion
 }
 
-class Choirtoad(BossModule module) : Components.Adds(module, (uint)OID.PoroggoChoirtoad)
+public enum SID : uint
 {
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) => hints.PrioritizeTargetsByOID(OID.PoroggoChoirtoad, 1);
+    Toad = 439, // none->player, extra=0x1
+    Concussion = 3513 // Boss->player, extra=0xF43
 }
 
-class Chirp(BossModule module) : Components.GenericAOEs(module)
-{
-    private readonly List<(Actor, DateTime)> Sources = [];
+abstract class WaterBomb(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, 6f);
+class WaterBomb1(BossModule module) : WaterBomb(module, (uint)AID.WaterBomb1);
+class WaterBomb2(BossModule module) : WaterBomb(module, (uint)AID.WaterBomb2);
+class WaterBomb3(BossModule module) : WaterBomb(module, (uint)AID.WaterBomb3);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Sources.Select(src => new AOEInstance(new AOEShapeCircle(6), src.Item1.Position, src.Item1.Rotation, src.Item2));
-
-    public override void OnActorCreated(Actor actor)
-    {
-        if (actor.OID == (uint)OID.Chirp)
-            Sources.Add((actor, WorldState.FutureTime(8.95f)));
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if (spell.Action.ID == (uint)AID.DiscordantHarmony)
-            Sources.RemoveAll(x => x.Item1 == caster);
-    }
-}
 class OdiousCroak(BossModule module) : Components.GenericAOEs(module)
 {
-    private record struct PersistentAOE(WPos Source, Angle Rotation, DateTime Activation, int NumCastsRemaining);
+    private AOEInstance[] _aoe = [];
+    private static readonly AOEShapeCone cone = new(14f, 60f.Degrees());
 
-    private PersistentAOE? AOE;
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.ZeroOrOne(AOE).Select(p => new AOEInstance(new AOEShapeCone(14, 60.Degrees()), p.Source, p.Rotation, p.Activation));
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         if (spell.Action.ID == (uint)AID.OdiousCroak)
         {
-            if (AOE is PersistentAOE p)
+            if (_aoe.Length == 0)
             {
-                AOE = p with
-                {
-                    Source = caster.Position,
-                    Rotation = caster.Rotation,
-                    NumCastsRemaining = p.NumCastsRemaining - 1
-                };
-                if (AOE?.NumCastsRemaining == 0)
-                    AOE = null;
+                _aoe = [new(cone, caster.Position.Quantized(), caster.Rotation)];
             }
-            else
+            if (++NumCasts == 12)
             {
-                AOE = new(caster.Position, caster.Rotation, default, 11);
+                _aoe = [];
+                NumCasts = 0;
             }
         }
     }
 }
 
-class WaterBomb(BossModule module) : Components.GenericAOEs(module)
+class DiscordantHarmony(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<(WPos, DateTime)> aoes = [];
+    private static readonly AOEShapeCircle circle = new(6f);
+    private readonly List<AOEInstance> _aoes = [];
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => aoes.Select(a => new AOEInstance(new AOEShapeCircle(6), a.Item1, default, a.Item2));
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    public override void OnActorCreated(Actor actor)
     {
-        if ((AID)spell.Action.ID is AID.WaterBomb1 or AID.WaterBomb2 or AID.WaterBomb3)
-            aoes.Add((spell.LocXZ, Module.CastFinishAt(spell)));
+        if (actor.OID == (uint)OID.Chirp)
+        {
+            _aoes.Add(new(circle, actor.Position.Quantized(), default, WorldState.FutureTime(8.7d)));
+        }
     }
 
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.WaterBomb1 or AID.WaterBomb2 or AID.WaterBomb3)
-            aoes.RemoveAll(a => a.Item1.AlmostEqual(spell.LocXZ, 1));
+        if (spell.Action.ID == (uint)AID.DiscordantHarmony)
+        {
+            _aoes.Clear();
+        }
     }
 }
 
-class ZuroRoggoStates : StateMachineBuilder
+class ToyHammer(BossModule module) : Components.SingleTargetCast(module, (uint)AID.ToyHammer);
+
+class Concussion(BossModule module) : Components.CleansableDebuff(module, (uint)SID.Concussion, "Concussion", "concussed");
+
+class FrogSong(BossModule module) : BossComponent(module)
 {
-    public ZuroRoggoStates(BossModule module) : base(module)
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        var party = Raid.WithoutSlot(false, true, true);
+        var len = party.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            if (party[i].FindStatus((uint)SID.Toad) != null)
+            {
+                hints.Add("Kill the adds to stop the frog song.");
+                return;
+            }
+        }
+    }
+}
+
+class D111ZuroRoggoStates : StateMachineBuilder
+{
+    public D111ZuroRoggoStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<Chirp>()
-            .ActivateOnEnter<WaterBomb>()
+            .ActivateOnEnter<WaterBomb1>()
+            .ActivateOnEnter<WaterBomb2>()
+            .ActivateOnEnter<WaterBomb3>()
             .ActivateOnEnter<OdiousCroak>()
-            .ActivateOnEnter<Choirtoad>();
+            .ActivateOnEnter<DiscordantHarmony>()
+            .ActivateOnEnter<ToyHammer>()
+            .ActivateOnEnter<Concussion>()
+            .ActivateOnEnter<FrogSong>();
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 141, NameID = 4805, Contributors = "xan")]
-public class ZuroRoggo(WorldState ws, Actor primary) : BossModule(ws, primary, new(-365, -250), new ArenaBoundsCircle(20));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 141, NameID = 4805)]
+public class D111ZuroRoggo(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
+{
+    private static readonly ArenaBoundsCustom arena = new([new Polygon(new(-365f, -250f), 19.5f * CosPI.Pi32th, 32)], [new Rectangle(new(-365f, -230f), 20f, 2.01f),
+    new Rectangle(new(-365f, -270f), 20f, 1.75f)]);
 
+    protected override void DrawEnemies(int pcSlot, Actor pc)
+    {
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.PoroggoChoirtoad));
+    }
+
+    protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
+            {
+                (uint)OID.PoroggoChoirtoad => 1,
+                _ => 0
+            };
+        }
+    }
+}

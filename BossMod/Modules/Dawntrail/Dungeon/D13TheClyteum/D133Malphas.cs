@@ -35,7 +35,8 @@ public enum AID : uint
     WrathfulWire = 48928, // Helper->player, 5.0s cast, range 5 circle
 }
 
-sealed class RubbishDisposal(BossModule module) : Components.RaidwideCast(module, AID.RubbishDisposal);
+[SkipLocalsInit]
+sealed class RubbishDisposal(BossModule module) : Components.RaidwideCast(module, (uint)AID.RubbishDisposal);
 
 sealed class VoidDark(BossModule module) : Components.SimpleAOEs(module, (uint)AID.VoidDark, new AOEShapeCone(30f, 90f.Degrees()));
 
@@ -46,11 +47,11 @@ sealed class MetallicMiasma(BossModule module) : Components.SimpleAOEGroups(modu
 
 sealed class CastOffHalo(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.CastOffHalo1, (uint)AID.CastOffHalo3], new AOEShapeCircle(7f));
 
-sealed class ShadowPlay(BossModule module) : Components.SpreadFromCastTargets(module, AID.ShadowPlay, 6f);
+sealed class ShadowPlay(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.ShadowPlay, 6f);
 
-sealed class GluttonousWire(BossModule module) : Components.StackWithCastTargets(module, AID.GluttonousWire, 6f, 4);
+sealed class GluttonousWire(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.GluttonousWire, 6f, 4);
 
-sealed class WrathfulWire(BossModule module) : Components.SpreadFromCastTargets(module, AID.WrathfulWire, 5f);
+sealed class WrathfulWire(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.WrathfulWire, 5f);
 
 //If there's a 'Stop Moving' version of this, I haven't seen it in 5 runs. Doesn't mean there isn't one, but we won't know until someone sees it.
 sealed class StringUp(BossModule module) : Components.StayMove(module)
@@ -111,4 +112,5 @@ GroupID = 1011u,
 NameID = 14758u,
 SortOrder = 1,
 PlanLevel = 0)]
+[SkipLocalsInit]
 public sealed class D133Malphas(WorldState ws, Actor primary) : BossModule(ws, primary, new(760f, -803f), new ArenaBoundsCircle(20f));

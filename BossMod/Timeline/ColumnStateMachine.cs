@@ -24,13 +24,13 @@ public abstract class ColumnStateMachine(Timeline timeline, StateMachineTree tre
 
     public float PixelsPerBranch => TextDisplay switch
     {
-        NodeTextDisplay.ID => 80,
-        NodeTextDisplay.IDName => 250,
-        _ => 20,
+        NodeTextDisplay.ID => 80f,
+        NodeTextDisplay.IDName => 250f,
+        _ => 20f,
     };
 
-    private readonly float _nodeHOffset = 10;
-    private readonly float _nodeRadius = 5;
+    private readonly float _nodeHOffset = 10f;
+    private readonly float _nodeRadius = 5f;
 
     protected void DrawNode(StateMachineTree.Node node, bool singleColumn, float? progress = null)
     {
@@ -49,33 +49,41 @@ public abstract class ColumnStateMachine(Timeline timeline, StateMachineTree tre
             var connDir = connection / connLen;
             var connScreenBeg = predScreenPos + lenOffset * connDir;
             var connScreenEnd = nodeScreenPos - lenOffset * connDir;
-            drawlist.AddLine(connScreenBeg, connScreenEnd, node.InGroup ? 0xffffffff : 0xff404040);
+            drawlist.AddLine(connScreenBeg, connScreenEnd, node.InGroup ? Colors.TextColor1 : Colors.TextColor13);
 
             var connNormal = new Vector2(connDir.Y, -connDir.X);
             if (node.BossIsCasting)
-                drawlist.AddLine(connScreenBeg + 3 * connNormal, connScreenEnd + 3 * connNormal, 0xff00ff00);
+            {
+                drawlist.AddLine(connScreenBeg + 3 * connNormal, connScreenEnd + 3 * connNormal, Colors.TextColor4);
+            }
+
             if (node.IsDowntime)
-                drawlist.AddLine(connScreenBeg + 6 * connNormal, connScreenEnd + 6 * connNormal, 0xffff0000);
+            {
+                drawlist.AddLine(connScreenBeg + 6 * connNormal, connScreenEnd + 6 * connNormal, Colors.TextColor14);
+            }
+
             if (node.IsPositioning)
-                drawlist.AddLine(connScreenBeg - 3 * connNormal, connScreenEnd - 3 * connNormal, 0xff0000ff);
+            {
+                drawlist.AddLine(connScreenBeg - 3 * connNormal, connScreenEnd - 3 * connNormal, Colors.TextColor3);
+            }
 
             if (progress != null)
             {
                 var currentTimeScreenPos = predScreenPos + connection * Math.Clamp(progress.Value / node.State.Duration, 0, 1);
-                drawlist.AddCircleFilled(currentTimeScreenPos, 3, 0xffffffff);
+                drawlist.AddCircleFilled(currentTimeScreenPos, 3, Colors.TextColor1);
             }
         }
 
         // draw node itself
-        bool showNode = true;
+        var showNode = true;
         showNode &= DrawUnnamedNodes || node.State.Name.Length > 0;
         showNode &= !DrawTankbusterNodesOnly || node.State.EndHint.HasFlag(StateMachine.StateHint.Tankbuster);
         showNode &= !DrawRaidwideNodesOnly || node.State.EndHint.HasFlag(StateMachine.StateHint.Raidwide);
         if (showNode)
         {
             var nodeColor = node.State.EndHint.HasFlag(StateMachine.StateHint.Raidwide)
-                ? (node.State.EndHint.HasFlag(StateMachine.StateHint.Tankbuster) ? 0xffff00ff : 0xffff0000)
-                : (node.State.EndHint.HasFlag(StateMachine.StateHint.Tankbuster) ? 0xff0000ff : 0xffffffff);
+                ? (node.State.EndHint.HasFlag(StateMachine.StateHint.Tankbuster) ? Colors.TextColor6 : Colors.TextColor14)
+                : (node.State.EndHint.HasFlag(StateMachine.StateHint.Tankbuster) ? Colors.TextColor3 : Colors.TextColor1);
             drawlist.AddCircleFilled(nodeScreenPos, _nodeRadius, nodeColor);
 
             var nodeText = TextDisplay switch
@@ -85,7 +93,9 @@ public abstract class ColumnStateMachine(Timeline timeline, StateMachineTree tre
                 _ => ""
             };
             if (nodeText.Length > 0)
-                drawlist.AddText(nodeScreenPos + new Vector2(7, -10), 0xffffffff, nodeText);
+            {
+                drawlist.AddText(nodeScreenPos + new Vector2(7, -10), Colors.TextColor1, nodeText);
+            }
 
             if (progress != null)
             {
@@ -101,8 +111,8 @@ public abstract class ColumnStateMachine(Timeline timeline, StateMachineTree tre
 
     private Vector2 NodeScreenPos(StateMachineTree.Node? node, int fallbackBranch, bool singleColumn, float phaseStart)
     {
-        int branch = singleColumn ? 0 : (node?.BranchID ?? fallbackBranch);
-        float time = node?.Time ?? 0;
+        var branch = singleColumn ? 0 : (node?.BranchID ?? fallbackBranch);
+        var time = node?.Time ?? 0;
         return Timeline.ColumnCoordsToScreenCoords(_nodeHOffset + branch * PixelsPerBranch, phaseStart + time);
     }
 

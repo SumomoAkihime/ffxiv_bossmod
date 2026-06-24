@@ -4,32 +4,33 @@
 // TODO: preposition for divebombs? it seems that boss spawns in one of the fixed spots that is closest to target...
 class P3Divebomb(BossModule module) : Components.GenericAOEs(module)
 {
-    public WPos? Target { get; private set; }
-    public DateTime HitAt { get; private set; }
+    public WPos? Target;
+    public DateTime HitAt;
 
-    private static readonly AOEShapeRect _shape = new(35, 6);
+    private static readonly AOEShapeRect _shape = new(35f, 6f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         if (Target != null)
         {
             if (Module.PrimaryActor.CastInfo == null)
-                yield return new(_shape, Module.PrimaryActor.Position, Angle.FromDirection(Target.Value - Module.PrimaryActor.Position), HitAt);
+                return new AOEInstance[1] { new(_shape, Module.PrimaryActor.Position, Angle.FromDirection(Target.Value - Module.PrimaryActor.Position), HitAt) };
             else
-                yield return new(_shape, Module.PrimaryActor.Position, Module.PrimaryActor.CastInfo.Rotation, Module.CastFinishAt(Module.PrimaryActor.CastInfo));
+                return new AOEInstance[1] { new(_shape, Module.PrimaryActor.Position, Module.PrimaryActor.CastInfo.Rotation, Module.CastFinishAt(Module.PrimaryActor.CastInfo)) };
         }
+        return [];
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         base.OnEventCast(caster, spell);
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.DivebombMarker:
+            case (uint)AID.DivebombMarker:
                 Target = WorldState.Actors.Find(spell.MainTargetID)?.Position;
-                HitAt = WorldState.FutureTime(1.7f);
+                HitAt = WorldState.FutureTime(1.7d);
                 break;
-            case AID.DivebombAOE:
+            case (uint)AID.DivebombAOE:
                 Target = null;
                 break;
         }
@@ -38,8 +39,8 @@ class P3Divebomb(BossModule module) : Components.GenericAOEs(module)
 
 class P3Adds(BossModule module) : BossComponent(module)
 {
-    private readonly IReadOnlyList<Actor> _hygieia = module.Enemies(OID.Hygieia);
-    public IReadOnlyList<Actor> Asclepius { get; private set; } = module.Enemies(OID.Asclepius);
+    private readonly List<Actor> _hygieia = module.Enemies((uint)OID.Hygieia);
+    public readonly List<Actor> Asclepius = module.Enemies((uint)OID.Asclepius);
     public IEnumerable<Actor> ActiveHygieia => _hygieia.Where(a => !a.IsDead);
 
     private const float _explosionRadius = 8;
@@ -47,24 +48,26 @@ class P3Adds(BossModule module) : BossComponent(module)
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         var nextHygieia = ActiveHygieia.MinBy(a => a.InstanceID); // select next add to kill by lowest hp
-        var asclepiusVuln = Asclepius.FirstOrDefault()?.FindStatus(SID.Disseminate);
-        bool killHygieia = asclepiusVuln == null || (asclepiusVuln.Value.ExpireAt - WorldState.CurrentTime).TotalSeconds < 10;
-        foreach (var e in hints.PotentialTargets)
+        var asclepiusVuln = Asclepius.FirstOrDefault()?.FindStatus((uint)SID.Disseminate);
+        var killHygieia = asclepiusVuln == null || (asclepiusVuln.Value.ExpireAt - WorldState.CurrentTime).TotalSeconds < 10;
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            switch ((OID)e.Actor.OID)
+            var e = hints.PotentialTargets[i];
+            switch (e.Actor.OID)
             {
-                case OID.Hygieia:
+                case (uint)OID.Hygieia:
                     var predictedHP = e.Actor.PendingHPRaw;
                     e.Priority = e.Actor.HPMP.CurHP == 1 ? 0
                         : killHygieia && e.Actor == nextHygieia ? 2
                         : predictedHP < 0.3f * e.Actor.HPMP.MaxHP ? -1
                         : 1;
                     e.ShouldBeTanked = assignment == PartyRolesConfig.Assignment.OT;
-                    bool gtfo = predictedHP <= (e.ShouldBeTanked ? 1 : 0.1f * e.Actor.HPMP.MaxHP);
+                    var gtfo = predictedHP <= (e.ShouldBeTanked ? 1 : 0.1f * e.Actor.HPMP.MaxHP);
                     if (gtfo)
-                        hints.AddForbiddenZone(ShapeContains.Circle(e.Actor.Position, 9));
+                        hints.AddForbiddenZone(new SDCircle(e.Actor.Position, 9f));
                     break;
-                case OID.Asclepius:
+                case (uint)OID.Asclepius:
                     e.Priority = 1;
                     e.AttackStrength = 0.15f;
                     e.ShouldBeTanked = assignment == PartyRolesConfig.Assignment.MT;
@@ -75,7 +78,7 @@ class P3Adds(BossModule module) : BossComponent(module)
         if (!Module.PrimaryActor.IsTargetable && !ActiveHygieia.Any() && !Asclepius.Any(a => !a.IsDead))
         {
             // once all adds are dead, gather where boss will return
-            hints.AddForbiddenZone(ShapeContains.InvertedCircle(new(-6.67f, 5), 5), DateTime.MaxValue);
+            hints.AddForbiddenZone(new SDInvertedCircle(new(-6.67f, 5f), 5f), DateTime.MaxValue);
         }
     }
 
@@ -83,43 +86,42 @@ class P3Adds(BossModule module) : BossComponent(module)
     {
         foreach (var a in ActiveHygieia)
         {
-            Arena.Actor(a, ArenaColor.Enemy);
-            Arena.AddCircle(a.Position, _explosionRadius, ArenaColor.Danger);
+            Arena.Actor(a);
+            Arena.AddCircle(a.Position, _explosionRadius);
         }
-        foreach (var a in Asclepius)
-            Arena.Actor(a, ArenaColor.Enemy);
+        Arena.Actors(Asclepius);
     }
 }
 
-class P3AethericProfusion(BossModule module) : Components.CastCounter(module, AID.AethericProfusion)
+class P3AethericProfusion(BossModule module) : Components.CastCounter(module, (uint)AID.AethericProfusion)
 {
-    private readonly DateTime _activation = module.WorldState.FutureTime(6.7f);
+    private readonly DateTime _activation = module.WorldState.FutureTime(6.7d);
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         // select neurolinks to stand at; let everyone except MT stay in one closer to boss
-        var neurolinks = Module.Enemies(OID.Neurolink);
+        var neurolinks = Module.Enemies((uint)OID.Neurolink);
         var closerNeurolink = neurolinks.Closest(Module.PrimaryActor.Position);
         foreach (var neurolink in neurolinks)
         {
-            bool isClosest = neurolink == closerNeurolink;
-            bool stayAtClosest = assignment != PartyRolesConfig.Assignment.MT;
+            var isClosest = neurolink == closerNeurolink;
+            var stayAtClosest = assignment != PartyRolesConfig.Assignment.MT;
             if (isClosest == stayAtClosest)
-                hints.AddForbiddenZone(ShapeContains.InvertedCircle(neurolink.Position, T05Twintania.NeurolinkRadius), _activation);
+                hints.AddForbiddenZone(new SDInvertedCircle(neurolink.Position, T05Twintania.NeurolinkRadius), _activation);
         }
 
         // let MT taunt boss if needed
         hints.FindEnemy(Module.PrimaryActor)?.PreferProvoking = true;
 
         // mitigate heavy raidwide
-        hints.AddPredictedDamage(Raid.WithSlot().Mask(), _activation);
+        hints.AddPredictedDamage(Raid.WithSlot(false, true, true).Mask(), _activation);
         if (actor.Role == Role.Ranged)
             hints.ActionsToExecute.Push(ActionID.MakeSpell(ClassShared.AID.Addle), Module.PrimaryActor, ActionQueue.Priority.High, (float)(_activation - WorldState.CurrentTime).TotalSeconds);
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (var neurolink in Module.Enemies(OID.Neurolink))
-            Arena.AddCircle(neurolink.Position, T05Twintania.NeurolinkRadius, ArenaColor.Safe);
+        foreach (var neurolink in Module.Enemies((uint)OID.Neurolink))
+            Arena.AddCircle(neurolink.Position, T05Twintania.NeurolinkRadius, Colors.Safe);
     }
 }

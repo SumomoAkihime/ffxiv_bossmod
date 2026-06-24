@@ -7,21 +7,21 @@ class IntermissionAdds(BossModule module) : BossComponent(module)
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (var echo in Module.Enemies(OID.Echo))
-            Arena.Actor(echo, ArenaColor.Enemy);
+        foreach (var echo in Module.Enemies((uint)OID.Echo))
+            Arena.Actor(echo);
 
         // note that there are two crystals per position, one targetable and one not - untargetable one can be tethered to second echo
-        foreach (var crystal in Module.Enemies(OID.CrystalOfLight))
+        foreach (var crystal in Module.Enemies((uint)OID.CrystalOfLight))
         {
             if (crystal.IsTargetable && !crystal.IsDead)
             {
-                bool isActive = _activeCrystals.Contains(crystal.InstanceID);
-                Arena.Actor(crystal, isActive ? ArenaColor.Danger : ArenaColor.PlayerGeneric);
+                var isActive = _activeCrystals.Contains(crystal.InstanceID);
+                Arena.Actor(crystal, isActive ? Colors.Danger : Colors.PlayerGeneric);
             }
 
             var tether = WorldState.Actors.Find(crystal.Tether.Target);
             if (tether != null)
-                Arena.AddLine(crystal.Position, tether.Position, ArenaColor.Danger);
+                Arena.AddLine(crystal.Position, tether.Position, Colors.Danger);
         }
     }
 

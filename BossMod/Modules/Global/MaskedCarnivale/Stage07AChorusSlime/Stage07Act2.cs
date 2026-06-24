@@ -3,36 +3,59 @@ namespace BossMod.Global.MaskedCarnivale.Stage07.Act2;
 public enum OID : uint
 {
     Boss = 0x2705, //R=1.6
-    Sprite = 0x2704, //R=0.8
+    Sprite = 0x2704 //R=0.8
 }
 
 public enum AID : uint
 {
-    Detonation = 14696, // 2705->self, no cast, range 6+R circle
-    Blizzard = 14709, // 2704->player, 1.0s cast, single-target
+    Detonation = 14696, // Boss->self, no cast, range 6+R circle
+    Blizzard = 14709 // Sprite->player, 1.0s cast, single-target
 }
 
-class SlimeExplosion(BossModule module) : Components.GenericStackSpread(module)
+sealed class SlimeExplosion(BossModule module) : Components.GenericStackSpread(module)
 {
+    private readonly List<Actor> slimes = new(4);
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if (actor.OID == (uint)OID.Boss)
+        {
+            slimes.Add(actor);
+        }
+    }
+
+    public override void OnActorDeath(Actor actor)
+    {
+        if (actor.OID == (uint)OID.Boss)
+        {
+            slimes.Remove(actor);
+        }
+    }
+
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (var p in Module.Enemies(OID.Boss).Where(x => !x.IsDead))
+        var count = slimes.Count;
+        for (var i = 0; i < count; ++i)
         {
-            if (Arena.Config.ShowOutlinesAndShadows)
-                Arena.AddCircle(p.Position, 7.6f, 0xFF000000, 2);
-            Arena.AddCircle(p.Position, 7.6f, ArenaColor.Danger);
+            Arena.AddCircle(slimes[i].Position, 7.6f);
         }
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        foreach (var p in Module.Enemies(OID.Boss).Where(x => !x.IsDead))
-            if (actor.Position.InCircle(p.Position, 7.5f))
+        var count = slimes.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            if (actor.Position.InCircle(slimes[i].Position, 7.6f))
+            {
                 hints.Add("In slime explosion radius!");
+                return;
+            }
+        }
     }
 }
 
-class Hints(BossModule module) : BossComponent(module)
+sealed class Hints(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -40,34 +63,30 @@ class Hints(BossModule module) : BossComponent(module)
     }
 }
 
-class Layout(BossModule module) : Layout4Quads(module);
-
-class Stage07Act2States : StateMachineBuilder
+sealed class Stage07Act2States : StateMachineBuilder
 {
     public Stage07Act2States(BossModule module) : base(module)
     {
         TrivialPhase()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.Sprite).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed(Stage07Act2.Trash);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 617, NameID = 8094, SortOrder = 2)]
-public class Stage07Act2 : BossModule
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 617, NameID = 8094, SortOrder = 2)]
+public sealed class Stage07Act2 : BossModule
 {
-    public Stage07Act2(WorldState ws, Actor primary) : base(ws, primary, new(100, 100), new ArenaBoundsCircle(25))
+    public Stage07Act2(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.Layout4Quads)
     {
         ActivateComponent<Hints>();
-        ActivateComponent<Layout>();
         ActivateComponent<SlimeExplosion>();
     }
+    public static readonly uint[] Trash = [(uint)OID.Boss, (uint)OID.Sprite];
 
-    protected override bool CheckPull() { return PrimaryActor.IsTargetable && PrimaryActor.InCombat || Enemies(OID.Sprite).Any(e => e.InCombat); }
+    protected override bool CheckPull() => IsAnyActorInCombat(Trash);
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        foreach (var s in Enemies(OID.Boss))
-            Arena.Actor(s, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.Sprite))
-            Arena.Actor(s, ArenaColor.Enemy);
+        Arena.Actors(Enemies((uint)OID.Boss));
+        Arena.Actors(Enemies((uint)OID.Sprite));
     }
 }

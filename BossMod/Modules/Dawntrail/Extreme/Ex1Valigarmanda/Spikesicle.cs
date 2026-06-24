@@ -1,16 +1,25 @@
 ﻿namespace BossMod.Dawntrail.Extreme.Ex1Valigarmanda;
 
-class Spikesicle(BossModule module) : Components.GenericAOEs(module)
+sealed class Spikesicle(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = [];
+    private readonly List<AOEInstance> _aoes = new(5);
 
-    private static readonly AOEShape[] _shapes = [new AOEShapeDonut(20, 25), new AOEShapeDonut(25, 30), new AOEShapeDonut(30, 35), new AOEShapeDonut(35, 40), new AOEShapeRect(40, 2.5f)]; // TODO: verify inner radius
+    private readonly AOEShape[] _shapes = [new AOEShapeDonut(20f, 25f), new AOEShapeDonut(25f, 30f), new AOEShapeDonut(30f, 35f), new AOEShapeDonut(35f, 40f), new AOEShapeRect(40f, 2.5f)]; // TODO: verify inner radius
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Skip(NumCasts).Take(2).Select((a, b) => a with { Color = b == 0 ? ArenaColor.Danger : ArenaColor.AOE }).Reverse();
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var count = _aoes.Count;
+        if (count == 0)
+        {
+            return [];
+        }
+        var max = count > 2 ? 2 : count;
+        return CollectionsMarshal.AsSpan(_aoes)[..max];
+    }
 
     public override void OnMapEffect(byte index, uint state)
     {
-        if (state == 0x00020004 && index is >= 4 and <= 13)
+        if (state == 0x00020004u && index is >= 4 and <= 13)
         {
             // 4  - 53 +20
             // 5  - 53 -20
@@ -24,32 +33,71 @@ class Spikesicle(BossModule module) : Components.GenericAOEs(module)
             // 13 - 57 +17
             var shape = _shapes[(index - 4) >> 1];
             var odd = (index & 1) != 0;
-            var x = index < 12 ? (odd ? -20 : +20) : (odd ? +17 : -17);
-            var activationDelay = 11.3f + 0.2f * _aoes.Count;
-            _aoes.Add(new(shape, Module.PrimaryActor.Position + new WDir(x, 0), default, WorldState.FutureTime(activationDelay)));
+            var x = index < 12 ? (odd ? -20f : +20f) : (odd ? +17f : -17f);
+            var activationDelay = 11.3d + 0.2d * _aoes.Count;
+            var pos = (Module.PrimaryActor.Position + new WDir(x, default)).Quantized();
+            _aoes.Add(new(shape, pos, default, WorldState.FutureTime(activationDelay), _aoes.Count == 0 ? Colors.Danger : default, shapeDistance: shape.Distance(pos, default)));
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.SpikesicleAOE1 or AID.SpikesicleAOE2 or AID.SpikesicleAOE3 or AID.SpikesicleAOE4 or AID.SpikesicleAOE5)
+        if (spell.Action.ID is (uint)AID.SpikesicleAOE1 or (uint)AID.SpikesicleAOE2 or (uint)AID.SpikesicleAOE3 or (uint)AID.SpikesicleAOE4 or (uint)AID.SpikesicleAOE5)
         {
             ++NumCasts;
+            var count = _aoes.Count;
+            if (count > 0)
+            {
+                _aoes.RemoveAt(0);
+                if (count > 2)
+                {
+                    _aoes.Ref(0).Color = Colors.Danger;
+                }
+            }
         }
     }
 }
 
-class SphereShatter(BossModule module) : Components.GenericAOEs(module, AID.SphereShatter)
+sealed class SphereShatter(BossModule module) : Components.GenericAOEs(module, (uint)AID.SphereShatter)
 {
     private readonly List<AOEInstance> _aoes = [];
 
-    private static readonly AOEShapeCircle _shape = new(13);
+    private readonly AOEShapeCircle circle = new(13f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Skip(NumCasts).Take(2).Select((a, b) => a with { Color = b == 0 ? ArenaColor.Danger : ArenaColor.AOE }).Reverse();
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var count = _aoes.Count;
+        if (count == 0)
+        {
+            return [];
+        }
+        var max = count > 2 ? 2 : count;
+        return CollectionsMarshal.AsSpan(_aoes)[..max];
+    }
 
     public override void OnActorCreated(Actor actor)
     {
-        if ((OID)actor.OID == OID.IceBoulder)
-            _aoes.Add(new(_shape, actor.Position, default, WorldState.FutureTime(6.5f)));
+        if (actor.OID == (uint)OID.IceBoulder)
+        {
+            var pos = actor.Position.Quantized();
+            _aoes.Add(new(circle, pos, default, WorldState.FutureTime(6.5d), _aoes.Count == 0 ? Colors.Danger : default, shapeDistance: circle.Distance(pos, default)));
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == (uint)AID.SphereShatter)
+        {
+            ++NumCasts;
+            var count = _aoes.Count;
+            if (count > 0)
+            {
+                _aoes.RemoveAt(0);
+                if (count > 2)
+                {
+                    _aoes.Ref(0).Color = Colors.Danger;
+                }
+            }
+        }
     }
 }

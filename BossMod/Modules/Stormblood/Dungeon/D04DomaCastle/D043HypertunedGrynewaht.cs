@@ -2,201 +2,199 @@ namespace BossMod.Stormblood.Dungeon.D04DomaCastle.D043HypertunedGrynewaht;
 
 public enum OID : uint
 {
-    Boss = 0x1BD4, // R0.600, x?
-    HypertunedGrynewaht = 0x1BD5, // R0.500, x?, Helper type
-    RetunedMagitekBit = 0x1BD6, // R0.900, x?
-    RetunedMagitekBit2 = 0x1BD7, // R0.500, x?
-    MagitekChakram = 0x1BD8, // R3.000, x?
-
+    Boss = 0x1BD4, // R0.6
+    MagitekChakram = 0x1BD8, // R3.0
+    RetunedMagitekBit = 0x1BD6, // R0.9
+    RetunedMagitekBitHelper = 0x1BD7, // R0.5
+    Helper = 0x1BD5
 }
 
 public enum AID : uint
 {
-    Attack = 870, // 1BE3/1BDC/1BDD/1BD9/1BDF/1BE0/1BE5/1BE6/1BD4->player, no cast, single-target
-    Chainsaw = 8360, // 1BD4->self, 2.0s cast, range 4+R width 2 rect
-    Chainsaw2 = 8361, // 1BD5->self, no cast, range 4+R width 2 rect
-    DelayActionCharge = 8364, // 1BD4->self, no cast, single-target
-    DelayActionCharge2 = 8365, // 1BD5->players, no cast, range 6 circle
-    ChainMine = 9287, // 1BD2/1BD6->self, no cast, range 50+R width 3 rect
-    ChainMine2 = 8359, // 1BD3/1BD7->player, no cast, single-target
-    Gunsaw = 8362, // 1BD4->self, no cast, range 60+R width 2 rect
-    GunsawFollow = 8363, // 1BD4->self, no cast, range 60+R width 2 rect
-    ThermobaricCharge = 8366, // 1BD4->self, no cast, single-target
-    ThermobaricCharge2 = 8367, // 1BD5->location, 10.0s cast, range 60 circle
-    A = 8368, // 1BD4->self, no cast, single-target
-    Attack2 = 9144, // 1BD7->self, no cast, range 3 circle
-    CleanCut = 8369, // 1BD8->location, 6.0s cast, width 8 rect charge
+    AutoAttack = 870, // Boss->player, no cast, single-target
+
+    CleanCut = 8369, // MagitekChakram->location, 6.0s cast, width 8 rect charge
+    ChainsawFirst = 8360, // Boss->self, 2.0s cast, range 4+R width 2 rect
+    ChainsawRest = 8361, // Helper->self, no cast, range 4+R width 2 rect
+    DelayActionChargeVisual = 8364, // Boss->self, no cast, single-target
+    DelayActionCharge = 8365, // Helper->player, no cast, range 6 circle
+
+    GunsawFirst = 8362, // Boss->self, no cast, range 60+R width 2 rect
+    GunsawRest = 8363, // Boss->self, no cast, range 60+R width 2 rect
+
+    ThermobaricChargeVisual = 8366, // Boss->self, no cast, single-target
+    ThermobaricChargeVisual2 = 8368, // Boss->self, no cast, single-target
+    ThermobaricCharge = 8367, // Helper->location, 10.0s cast, range 60 circle
+
+    ChainMineVisual1 = 9287, // RetunedMagitekBit->self, no cast, range 50+R width 3 rect
+    ChainMineVisual2 = 9144, // RetunedMagitekBitHelper->self, no cast, range 3 circle
+    ChainMine = 8359 // RetunedMagitekBitHelper->player, no cast, single-target
 }
-public enum GID : uint
-{
-    Prey = 1253,
-}
+
 public enum IconID : uint
 {
-    DelayActionCharge = 99,
+    Spreadmarker = 99 // player
 }
+
 public enum TetherID : uint
 {
-    ChainMine = 60,
+    HexadroneBits = 60 // RetunedMagitekBit->RetunedMagitekBit
 }
-class Chainsaw(BossModule module) : Components.StandardAOEs(module, AID.Chainsaw, new AOEShapeRect(4f + 0.6f, 1f));
-class Chainsaw2(BossModule module) : Components.GenericAOEs(module, AID.Chainsaw2)
+
+public enum SID : uint
+{
+    Prey = 1253 // Boss->player, extra=0x0
+}
+
+class CleanCut(BossModule module) : Components.ChargeAOEs(module, (uint)AID.CleanCut, 4f);
+class DelayActionCharge(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.Spreadmarker, (uint)AID.DelayActionCharge, 6f, 4);
+class ThermobaricCharge(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ThermobaricCharge, 30f);
+
+class Chainsaw(BossModule module) : Components.GenericAOEs(module)
+{
+    private static readonly AOEShapeRect rect = new(4.6f, 1f);
+    private AOEInstance[] _aoe = [];
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.ChainsawFirst)
+        {
+            _aoe = [new(rect, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell))];
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        switch (spell.Action.ID)
+        {
+            case (uint)AID.ChainsawFirst:
+            case (uint)AID.ChainsawRest:
+                if (++NumCasts == 5)
+                {
+                    _aoe = [];
+                    NumCasts = 0;
+                }
+                break;
+        }
+    }
+}
+
+class ChainMine(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<AOEInstance> _aoes = [];
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    private static readonly AOEShapeRect rect = new(40f, 2f, 10f);
+    private readonly ThermobaricCharge _aoe = module.FindComponent<ThermobaricCharge>()!;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
-        if ((AID)spell.Action.ID is AID.Chainsaw2)
-        {
-            NumCasts++;
-            _aoes.Add(new(new AOEShapeRect(2f + 0.6f, 1f, 2f), caster.Position + 2 * caster.Rotation.ToDirection(), caster.Rotation));
-        }
-        if (NumCasts == 4)
-        {
-            NumCasts = 0;
-            _aoes.Clear();
-        }
+        if (tether.ID == (uint)TetherID.HexadroneBits)
+            _aoes.Add(new(rect, source.Position.Quantized(), source.Rotation, WorldState.FutureTime(5.6d)));
     }
-};
-class DelayActionCharge2(BossModule module) : Components.IconStackSpread(module, 0, (uint)IconID.DelayActionCharge, default, AID.DelayActionCharge2, 0, 6, 5.1f);
-class ChainMines(BossModule module) : Components.GenericAOEs(module)
-{
-    private readonly List<Actor> _tethers = [];
-    private static readonly AOEShapeRect rect = new(50, 1.5f, 5);
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override void OnUntethered(Actor source, in ActorTetherInfo tether)
     {
-        foreach (var source in _tethers)
+        if (tether.ID == (uint)TetherID.HexadroneBits)
         {
-            yield return new AOEInstance(rect, source.Position + 2 * source.Rotation.ToDirection(), source.Rotation);
-        }
-    }
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
-    {
-        if (tether.ID == (uint)TetherID.ChainMine)
-            _tethers.Add(source);
-    }
-    public override void OnUntethered(Actor source, ActorTetherInfo tether)
-    {
-        if (tether.ID == (uint)TetherID.ChainMine)
-            _tethers.Remove(source);
-    }
-};
-class Gunsaw(BossModule module) : Components.StandardAOEs(module, AID.Gunsaw, new AOEShapeRect(60.5f, 1f));
-class GunsawFollow(BossModule module) : Components.GenericBaitAway(module, AID.GunsawFollow)
-{
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        base.OnEventCast(caster, spell);
-        if (spell.Action == WatchedAction)
-        {
-            if (NumCasts >= 4)
+            var count = _aoes.Count;
+            var pos = source.Position;
+            var aoes = CollectionsMarshal.AsSpan(_aoes);
+            for (var i = 0; i < count; ++i)
             {
-                NumCasts = 0;
-                CurrentBaits.Clear();
-            }
-            else
-            {
-                var guessedTarget = WorldState.Party.WithoutSlot().MinBy(x => MathF.Abs(caster.Rotation.Rad - Angle.FromDirection(caster.DirectionTo(x)).Rad));
-                CurrentBaits = [new Bait()
+                ref var aoe = ref aoes[i];
+                if (aoe.Origin.AlmostEqual(pos, 1f))
                 {
-                    Source = caster,
-                    Target = guessedTarget!,
-                    Shape = new AOEShapeRect(60.5f, 1),
-                }];
+                    _aoes.RemoveAt(i);
+                    return;
+                }
             }
         }
-    }
-}
-class ThermobaricChargeBait(BossModule module) : BossComponent(module)
-{
-    private int PreyTarget => WorldState.Party.WithSlot().Where(x => x.Item2.FindStatus(GID.Prey) != null).Select(x => x.Item1).FirstOrDefault(-1);
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
-    {
-        if (pcSlot == PreyTarget)
-            Arena.AddCircle(pc.Position, 30, ArenaColor.AOE);
-    }
-    public override void AddHints(int slot, Actor actor, TextHints hints)
-    {
-        if (slot == PreyTarget)
-            hints.Add("Bait marker away!");
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (slot == PreyTarget)
+        if (_aoe.Casters.Count <= 1)
+            base.AddAIHints(slot, actor, assignment, hints);
+    }
+}
+
+class ThermobaricChargeBait(BossModule module) : Components.GenericBaitAway(module, centerAtTarget: true)
+{
+    private static readonly AOEShapeCircle circle = new(30f);
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        if (status.ID == (uint)SID.Prey)
+            CurrentBaits.Add(new(Module.PrimaryActor, actor, circle, status.ExpireAt));
+    }
+
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
+    {
+        if (status.ID == (uint)SID.Prey)
+            CurrentBaits.Clear();
+    }
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (CurrentBaits.Count != 0 && CurrentBaits.Ref(0).Target == actor)
+            hints.Add("Bait away!");
+        else
+            base.AddHints(slot, actor, hints);
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (CurrentBaits.Count != 0 && CurrentBaits.Ref(0).Target == actor)
+            hints.AddForbiddenZone(new SDCircle(Arena.Center, 23f));
+    }
+}
+
+class Gunsaw(BossModule module) : Components.GenericBaitAway(module)
+{
+    private static readonly AOEShapeRect rect = new(60.9f, 1f);
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == (uint)AID.GunsawFirst)
         {
-            hints.AddForbiddenZone(new AOEShapeCross(20, 12), Module.Center);
+            var party = Raid.WithoutSlot(false, true, true);
+            var len = party.Length;
+            for (var i = 0; i < len; ++i)
+            {
+                var p = party[i];
+                if (p.Position.InRect(Module.PrimaryActor.Position.Quantized(), Module.PrimaryActor.Rotation, rect.LengthFront, 0, 0.02f))
+                {
+                    CurrentBaits.Add(new(caster, p, rect));
+                    return;
+                }
+            }
+        }
+        else if (spell.Action.ID == (uint)AID.GunsawRest)
+        {
+            if (++NumCasts == 4)
+            {
+                CurrentBaits.Clear();
+                NumCasts = 0;
+            }
         }
     }
 }
-class ThermobaricChargeImpact(BossModule module) : Components.GenericAOEs(module)
-{
-    private readonly List<AOEInstance> _aoes = [];
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.ThermobaricCharge2)
-        {
-            _aoes.Add(new(new AOEShapeCircle(30), caster.Position, Activation: Module.CastFinishAt(spell, 1f)));
-        }
-    }
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if ((AID)spell.Action.ID is AID.ThermobaricCharge2)
-        {
-            _aoes.Clear();
-        }
-    }
-}
-class CleanCut(BossModule module) : Components.GenericAOEs(module)
-{
-    private readonly List<Actor> _chakrams = [];
-    private static readonly AOEShapeRect rect = new(50, 4, 3f);
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        foreach (var b in _chakrams)
-        {
-            yield return new AOEInstance(rect, b.Position + 2 * b.Rotation.ToDirection(), b.Rotation);
-        }
-    }
-    public override void OnActorCreated(Actor actor)
-    {
-        if ((OID)actor.OID is OID.MagitekChakram)
-        {
-            _chakrams.Add(actor);
-        }
-    }
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if ((OID)caster.OID is OID.MagitekChakram && (AID)spell.Action.ID is AID.CleanCut)
-        {
-            _chakrams.Remove(caster);
-        }
-    }
-    public override void OnActorDestroyed(Actor actor)
-    {
-        if ((OID)actor.OID is OID.MagitekChakram)
-        {
-            _chakrams.Remove(actor);
-        }
-    }
-};
+
 class D043HypertunedGrynewahtStates : StateMachineBuilder
 {
     public D043HypertunedGrynewahtStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<Chainsaw>()
-            .ActivateOnEnter<Chainsaw2>()
-            .ActivateOnEnter<ChainMines>()
-            .ActivateOnEnter<DelayActionCharge2>()
             .ActivateOnEnter<ThermobaricChargeBait>()
-            .ActivateOnEnter<ThermobaricChargeImpact>()
-            .ActivateOnEnter<Gunsaw>()
-            .ActivateOnEnter<GunsawFollow>()
-            .ActivateOnEnter<CleanCut>();
+            .ActivateOnEnter<ThermobaricCharge>()
+            .ActivateOnEnter<CleanCut>()
+            .ActivateOnEnter<Chainsaw>()
+            .ActivateOnEnter<ChainMine>()
+            .ActivateOnEnter<DelayActionCharge>()
+            .ActivateOnEnter<Gunsaw>();
     }
 }
 
-[ModuleInfo(Contributors = "VeraNala", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 241, NameID = 6205)]
-public class D043HypertunedGrynewaht(WorldState ws, Actor primary) : BossModule(ws, primary, new(-240f, -198f), new ArenaBoundsSquare(20));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 241, NameID = 6205)]
+public class D043HypertunedGrynewaht(WorldState ws, Actor primary) : BossModule(ws, primary, new(-240, -198), new ArenaBoundsSquare(19.5f));

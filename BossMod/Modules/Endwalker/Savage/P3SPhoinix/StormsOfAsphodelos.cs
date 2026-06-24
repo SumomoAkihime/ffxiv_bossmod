@@ -3,7 +3,7 @@
 // state related to storms of asphodelos mechanics
 class StormsOfAsphodelos(BossModule module) : BossComponent(module)
 {
-    private readonly AOEShapeCone _windsAOE = new(50, 30.Degrees());
+    private readonly AOEShapeCone _windsAOE = new(50f, 30f.Degrees());
     private readonly AOEShapeCircle _beaconAOE = new(6);
     private readonly List<Actor> _twisterTargets = [];
     private BitMask _tetherTargets;
@@ -14,48 +14,48 @@ class StormsOfAsphodelos(BossModule module) : BossComponent(module)
     public override void Update()
     {
         _twisterTargets.Clear();
-        _tetherTargets = _bossTargets = _closeToTetherTarget = _hitByMultipleAOEs = new();
+        _tetherTargets = _bossTargets = _closeToTetherTarget = _hitByMultipleAOEs = default;
 
         // we determine failing players, trying to take two reasonable tactics in account:
         // either two tanks immune and soak everything, or each player is hit by one mechanic
         // for now, we consider tether target to be a "tank"
-        int[] aoesPerPlayer = new int[PartyState.MaxPartySize];
+        var aoesPerPlayer = new int[PartyState.MaxPartySize];
 
-        foreach ((int i, var player) in Raid.WithSlot(true).WhereActor(x => x.Tether.Target == Module.PrimaryActor.InstanceID))
+        foreach ((var i, var player) in Raid.WithSlot(true, true, true).WhereActor(x => x.Tether.Target == Module.PrimaryActor.InstanceID))
         {
             _tetherTargets.Set(i);
 
             ++aoesPerPlayer[i];
-            foreach ((int j, var other) in Raid.WithSlot().InRadiusExcluding(player, _beaconAOE.Radius))
+            foreach ((var j, var other) in Raid.WithSlot(false, true, true).InRadiusExcluding(player, _beaconAOE.Radius))
             {
                 ++aoesPerPlayer[j];
                 _closeToTetherTarget.Set(j);
             }
         }
 
-        foreach ((int i, var player) in Raid.WithSlot().SortedByRange(Module.PrimaryActor.Position).Take(3))
+        foreach ((var i, var player) in Raid.WithSlot(false, true, true).SortedByRange(Module.PrimaryActor.Position).Take(3))
         {
             _bossTargets.Set(i);
-            foreach ((int j, var other) in FindPlayersInWinds(Module.PrimaryActor, player))
+            foreach ((var j, var other) in FindPlayersInWinds(Module.PrimaryActor, player))
             {
                 ++aoesPerPlayer[j];
             }
         }
 
-        foreach (var twister in Module.Enemies(OID.DarkblazeTwister))
+        foreach (var twister in Module.Enemies((uint)OID.DarkblazeTwister))
         {
-            var target = Raid.WithoutSlot().Closest(twister.Position);
+            var target = Raid.WithoutSlot(false, true, true).Closest(twister.Position);
             if (target == null)
                 continue; // there are no alive players - target list will be left empty
 
             _twisterTargets.Add(target);
-            foreach ((int j, var other) in FindPlayersInWinds(twister, target))
+            foreach ((var j, var other) in FindPlayersInWinds(twister, target))
             {
                 ++aoesPerPlayer[j];
             }
         }
 
-        for (int i = 0; i < aoesPerPlayer.Length; ++i)
+        for (var i = 0; i < aoesPerPlayer.Length; ++i)
             if (aoesPerPlayer[i] > 1)
                 _hitByMultipleAOEs.Set(i);
     }
@@ -92,7 +92,7 @@ class StormsOfAsphodelos(BossModule module) : BossComponent(module)
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
-        foreach ((int i, var player) in Raid.WithSlot())
+        foreach ((var i, var player) in Raid.WithSlot(false, true, true))
         {
             if (_tetherTargets[i])
             {
@@ -104,7 +104,7 @@ class StormsOfAsphodelos(BossModule module) : BossComponent(module)
             }
         }
 
-        foreach (var (twister, target) in Module.Enemies(OID.DarkblazeTwister).Zip(_twisterTargets))
+        foreach (var (twister, target) in Module.Enemies((uint)OID.DarkblazeTwister).Zip(_twisterTargets))
         {
             _windsAOE.Draw(Arena, twister.Position, Angle.FromDirection(target.Position - twister.Position));
         }
@@ -112,24 +112,22 @@ class StormsOfAsphodelos(BossModule module) : BossComponent(module)
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (var twister in Module.Enemies(OID.DarkblazeTwister))
+        foreach (var twister in Module.Enemies((uint)OID.DarkblazeTwister))
         {
-            Arena.Actor(twister, ArenaColor.Enemy, true);
+            Arena.Actor(twister, Colors.Enemy, true);
         }
 
-        foreach ((int i, var player) in Raid.WithSlot())
+        foreach ((var i, var player) in Raid.WithSlot(false, true, true))
         {
-            bool tethered = _tetherTargets[i];
+            var tethered = _tetherTargets[i];
             if (tethered)
-                Arena.AddLine(Module.PrimaryActor.Position, player.Position, player.Role == Role.Tank ? ArenaColor.Safe : ArenaColor.Danger);
-            bool active = tethered || _bossTargets[i] || _twisterTargets.Contains(player);
-            bool failing = (_hitByMultipleAOEs | _closeToTetherTarget)[i];
-            Arena.Actor(player, active ? ArenaColor.Danger : (failing ? ArenaColor.PlayerInteresting : ArenaColor.PlayerGeneric));
+                Arena.AddLine(Module.PrimaryActor.Position, player.Position, player.Role == Role.Tank ? Colors.Safe : Colors.Danger);
+            var active = tethered || _bossTargets[i] || _twisterTargets.Contains(player);
+            var failing = (_hitByMultipleAOEs | _closeToTetherTarget)[i];
+            Arena.Actor(player, active ? Colors.Danger : (failing ? Colors.PlayerInteresting : Colors.PlayerGeneric));
         }
     }
 
-    private IEnumerable<(int, Actor)> FindPlayersInWinds(Actor origin, Actor target)
-    {
-        return Raid.WithSlot().InShape(_windsAOE, origin.Position, Angle.FromDirection(target.Position - origin.Position));
-    }
+    private List<(int, Actor)> FindPlayersInWinds(Actor origin, Actor target)
+    => Raid.WithSlot(false, true, true).InShape(_windsAOE, origin.Position, Angle.FromDirection(target.Position - origin.Position));
 }

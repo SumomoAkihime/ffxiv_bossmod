@@ -122,11 +122,11 @@ public enum SID : uint
     Reprisal = ClassShared.SID.Reprisal, // applied by Reprisal to target
 }
 
-public sealed class Definitions : Defs
+public sealed class Definitions : IDisposable
 {
     private readonly WARConfig _config = Service.Config.Get<WARConfig>();
 
-    public override void Define(ActionDefinitions d)
+    public Definitions(ActionDefinitions d)
     {
         d.RegisterSpell(AID.LandWaker, instantAnimLock: 3.86f);
         d.RegisterSpell(AID.HeavySwing);
@@ -165,6 +165,8 @@ public sealed class Definitions : Defs
 
         Customize(d);
     }
+
+    public void Dispose() { }
 
     private void Customize(ActionDefinitions d)
     {

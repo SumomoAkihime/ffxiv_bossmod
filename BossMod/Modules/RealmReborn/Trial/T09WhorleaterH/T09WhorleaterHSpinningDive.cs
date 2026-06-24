@@ -1,43 +1,75 @@
 namespace BossMod.RealmReborn.Trial.T09WhorleaterH;
 
-class SpinningDive(BossModule module) : Components.GenericAOEs(module) //TODO: Find out how to detect spinning dives earlier eg. the water column telegraph
+sealed class SpinningDive(BossModule module) : Components.GenericAOEs(module) // TODO: Find out how to detect spinning dives earlier eg. the water column telegraph
 {
-    private AOEInstance? _aoe;
+    private AOEInstance[] _aoe = [];
+    public static readonly AOEShapeRect Rect = new(50.5f, 8f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.ZeroOrOne(_aoe);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnActorCreated(Actor actor)
     {
-        var SpinningDiveHelper = Module.Enemies(OID.SpinningDiveHelper).FirstOrDefault();
-        if ((OID)actor.OID == OID.SpinningDiveHelper)
-            _aoe = new(new AOEShapeRect(46, 8), SpinningDiveHelper!.Position, SpinningDiveHelper.Rotation, WorldState.FutureTime(0.6f));
+        if (actor.OID == (uint)OID.SpinningDiveHelper)
+        {
+            _aoe = [new(Rect, actor.Position.Quantized(), actor.Rotation, WorldState.FutureTime(0.6d))];
+        }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.SpinningDiveSnapshot)
-            _aoe = null;
+        if (spell.Action.ID == (uint)AID.SpinningDiveSnapshot)
+        {
+            _aoe = [];
+        }
     }
 }
 
-class SpinningDiveKB(BossModule module) : Components.Knockback(module, stopAtWall: true) //TODO: Find out how to detect spinning dives earlier eg. the water column telegraph
+sealed class SpinningDiveKB(BossModule module) : Components.GenericKnockback(module, stopAtWall: true) // TODO: Find out how to detect spinning dives earlier eg. the water column telegraph
 {
-    private Source? _knockback;
+    private Knockback[] _kb = [];
+    private readonly Hydroshot _aoe1 = module.FindComponent<Hydroshot>()!;
+    private readonly Dreadstorm _aoe2 = module.FindComponent<Dreadstorm>()!;
 
-    public override IEnumerable<Source> Sources(int slot, Actor actor) => Utils.ZeroOrOne(_knockback);
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor) => _kb;
 
     public override void OnActorCreated(Actor actor)
     {
-        var SpinningDiveHelper = Module.Enemies(OID.SpinningDiveHelper).FirstOrDefault();
-        if ((OID)actor.OID == OID.SpinningDiveHelper)
-            _knockback = new(SpinningDiveHelper!.Position, 10, WorldState.FutureTime(1.4f), new AOEShapeRect(46, 8), SpinningDiveHelper!.Rotation);
+        if (actor.OID == (uint)OID.SpinningDiveHelper)
+        {
+            _kb = [new(actor.Position.Quantized(), 10f, WorldState.FutureTime(1.4d), SpinningDive.Rect, actor.Rotation)];
+        }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.SpinningDiveEffect)
-            _knockback = null;
+        if (spell.Action.ID == (uint)AID.SpinningDiveEffect)
+        {
+            _kb = [];
+        }
     }
 
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => (Module.FindComponent<Hydroshot>()?.ActiveAOEs(slot, actor).Any(z => z.Shape.Check(pos, z.Origin, z.Rotation)) ?? false) || (Module.FindComponent<Dreadstorm>()?.ActiveAOEs(slot, actor).Any(z => z.Shape.Check(pos, z.Origin, z.Rotation)) ?? false);
+    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos)
+    {
+        var aoes1 = _aoe1.ActiveAOEs(slot, actor);
+        var len1 = aoes1.Length;
+        for (var i = 0; i < len1; ++i)
+        {
+            ref readonly var aoe = ref aoes1[i];
+            if (aoe.Check(pos))
+            {
+                return true;
+            }
+        }
+        var aoes2 = _aoe2.ActiveAOEs(slot, actor);
+        var len2 = aoes2.Length;
+        for (var i = 0; i < len2; ++i)
+        {
+            ref readonly var aoe = ref aoes2[i];
+            if (aoe.Check(pos))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 }

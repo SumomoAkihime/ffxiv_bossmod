@@ -37,38 +37,36 @@ public enum TetherID : uint
 
 public enum SID : uint
 {
-    Spinning = 2973, // Boss->player, extra=0x7
-    Dizzy = 2974, // Boss->player, extra=0x0
-    Fetters = 2975, // Boss->player, extra=0xEC4
-    StabWound1 = 3061, // none->player, extra=0x0
-    StabWound2 = 3062, // none->player, extra=0x0
+    Spinning = 2973 // Boss->player, extra=0x7
 }
 
-class BillowingBoltsArenaChange(BossModule module) : BossComponent(module)
+sealed class BillowingBoltsArenaChange(BossModule module) : BossComponent(module)
 {
-    private static readonly ArenaBoundsRect smallerBounds = new(15, 20);
+    private static readonly ArenaBoundsRect smallerBounds = new(15f, 20f);
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.BillowingBolts && Arena.Bounds != smallerBounds)
+        if (spell.Action.ID == (uint)AID.BillowingBolts && Arena.Bounds != smallerBounds)
+        {
             Arena.Bounds = smallerBounds;
+        }
     }
 }
 
-class ManaExplosion(BossModule module) : Components.GenericAOEs(module)
+sealed class ManaExplosion(BossModule module) : Components.GenericAOEs(module)
 {
     private enum Pattern { None, Pattern1, Pattern2 }
     private Pattern currentPattern;
-    private readonly List<AOEInstance> _aoes = [];
-    private static readonly AOEShapeCircle circle = new(15);
-    private static readonly WPos[] aoePositionsSet1 = [new(119, -68), new(101, -86), new(101, -50)]; // yellow P2, green P1
-    private static readonly WPos[] aoePositionsSet2 = [new(119, -50), new(101, -68), new(119, -86)]; // yellow P1, green P2
+    private readonly List<AOEInstance> _aoes = new(3);
+    private static readonly AOEShapeCircle circle = new(15f);
+    private static readonly WPos[] aoePositionsSet1 = [new(119f, -68f), new(101f, -86f), new(101f, -50f)]; // yellow P2, green P1
+    private static readonly WPos[] aoePositionsSet2 = [new(119f, -50f), new(101f, -68f), new(119f, -86f)]; // yellow P1, green P2
     private Actor? _target;
     private DateTime _activation;
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == (uint)TetherID.ManaExplosion)
         {
@@ -81,31 +79,32 @@ class ManaExplosion(BossModule module) : Components.GenericAOEs(module)
     {
         if (_target != default) // Helper can teleport after tether started, this fixes the rare problem
         {
-            if (_target.Position == new WPos(110, -45.5f)) // green cloth tethered
+            void AddAOE(WPos pos) => _aoes.Add(new(circle, pos.Quantized(), default, _activation));
+            if (_target.PosRot.Z == -45.5f) // green cloth tethered
                 foreach (var c in currentPattern == Pattern.Pattern1 ? aoePositionsSet1 : aoePositionsSet2)
-                    _aoes.Add(new(circle, c, default, _activation));
-            else if (_target.Position == new WPos(110, -90.5f)) // yellow cloth tethered
+                    AddAOE(c);
+            else if (_target.PosRot.Z == -90.5f) // yellow cloth tethered
                 foreach (var c in currentPattern == Pattern.Pattern1 ? aoePositionsSet2 : aoePositionsSet1)
-                    _aoes.Add(new(circle, c, default, _activation));
-            if (_aoes.Count > 0)
+                    AddAOE(c);
+            if (_aoes.Count != 0)
                 _target = default;
         }
     }
 
     public override void OnMapEffect(byte index, uint state)
     {
-        if (state == 0x00020001)
+        if (state == 0x00020001u)
         {
             if (index == 0x0D) // 0x0D, 0x02, 0x0C, 0x04, 0x0E, 0x03 activate at the same time
                 currentPattern = Pattern.Pattern1;
-            if (index == 0x09) // 0x09, 0x06, 0x0B, 0x05, 0x0A, 0x07 activate at the same time
+            else if (index == 0x09) // 0x09, 0x06, 0x0B, 0x05, 0x0A, 0x07 activate at the same time
                 currentPattern = Pattern.Pattern2;
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.ManaExplosion)
+        if (spell.Action.ID == (uint)AID.ManaExplosion)
         {
             currentPattern = Pattern.None;
             _aoes.Clear();
@@ -113,70 +112,39 @@ class ManaExplosion(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-class BastingBlade(BossModule module) : Components.StandardAOEs(module, AID.BastingBlade, new AOEShapeRect(60, 7.5f));
+sealed class BastingBlade(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BastingBlade, new AOEShapeRect(60f, 7.5f));
 
-class SpikeTraps(BossModule module) : Components.GenericAOEs(module)
+sealed class SpikeTraps(BossModule module) : Components.GenericAOEs(module)
 {
-    private static readonly AOEShapeRect rect = new(6, 3);
-    private readonly List<AOEInstance> _aoes = [];
+    private static readonly AOEShapeRect rect = new(6f, 3f);
+    private readonly List<AOEInstance> _aoes = new(6);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.Traps)
-            _aoes.Add(new(rect, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
+        if (spell.Action.ID == (uint)AID.Traps)
+        {
+            _aoes.Add(new(rect, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
+        }
     }
 
     public override void OnMapEffect(byte index, uint state)
     {
-        if (index == 0x01 && state is 0x00400004 or 0x00800004 or 0x00080004)
+        if (index == 0x01 && state is 0x00400004u or 0x00800004u or 0x00080004u)
+        {
             _aoes.Clear();
-    }
-}
-
-class BorderChange(BossModule module) : Components.StandardAOEs(module, AID.BorderChange, new AOEShapeRect(5, 20));
-class MagnitudeOpus(BossModule module) : Components.StackWithCastTargets(module, AID.MagnitudeOpus, 6, 4, 4);
-class RotaryGale(BossModule module) : Components.SpreadFromCastTargets(module, AID.RotaryGale, 5);
-class CrewelSlice(BossModule module) : Components.SingleTargetDelayableCast(module, AID.CrewelSlice);
-class BillowingBolts(BossModule module) : Components.RaidwideCast(module, AID.BillowingBolts);
-
-class SpinningHints(BossModule module) : BossComponent(module)
-{
-    int _numBlades;
-
-    public override void OnStatusGain(Actor actor, ActorStatus status)
-    {
-        if ((SID)status.ID == SID.Spinning)
-            _numBlades = 0;
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if ((AID)spell.Action.ID == AID.BastingBlade)
-            _numBlades++;
-    }
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        if (actor.FindStatus(SID.Spinning) == null)
-            return;
-
-        if (_numBlades == 0)
-        {
-            var d0 = Arena.Center + new WDir(0, -5);
-            var d1 = Arena.Center + new WDir(0, 14);
-            hints.GoalZones.Add(p => p.AlmostEqual(d0 + new WDir(14, 0), 1) || p.AlmostEqual(d0 - new WDir(14, 0), 1) || p.AlmostEqual(d1 + new WDir(14, 0), 1) || p.AlmostEqual(d1 - new WDir(14, 0), 1) ? 1 : 0);
-        }
-        else
-        {
-            var dest2 = Arena.Center + new WDir(0, -10);
-            hints.GoalZones.Add(p => p.InCircle(dest2, 1) ? 1 : 0);
         }
     }
 }
 
-class D093KapikuluStates : StateMachineBuilder
+sealed class BorderChange(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BorderChange, new AOEShapeRect(5f, 20f));
+sealed class MagnitudeOpus(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.MagnitudeOpus, 6f, 4, 4);
+sealed class RotaryGale(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.RotaryGale, 5f);
+sealed class CrewelSlice(BossModule module) : Components.SingleTargetDelayableCast(module, (uint)AID.CrewelSlice);
+sealed class BillowingBolts(BossModule module) : Components.RaidwideCast(module, (uint)AID.BillowingBolts);
+
+sealed class D093KapikuluStates : StateMachineBuilder
 {
     public D093KapikuluStates(BossModule module) : base(module)
     {
@@ -189,10 +157,9 @@ class D093KapikuluStates : StateMachineBuilder
             .ActivateOnEnter<MagnitudeOpus>()
             .ActivateOnEnter<CrewelSlice>()
             .ActivateOnEnter<RotaryGale>()
-            .ActivateOnEnter<BillowingBolts>()
-            .ActivateOnEnter<SpinningHints>();
+            .ActivateOnEnter<BillowingBolts>();
     }
 }
 
-[ModuleInfo(Contributors = "The Combat Reborn Team (Malediktus, LTS)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 844, NameID = 11238)]
-public class D093Kapikulu(WorldState ws, Actor primary) : BossModule(ws, primary, new(110, -68), new ArenaBoundsRect(19.5f, 24.5f));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus, LTS)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 844, NameID = 11238)]
+public sealed class D093Kapikulu(WorldState ws, Actor primary) : BossModule(ws, primary, new(110f, -68f), new ArenaBoundsRect(19.5f, 24.5f));

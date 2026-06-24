@@ -7,7 +7,7 @@
 // - damage which does not affect HP (e.g. holmgang at 1 hp) has no ER
 // - 0 damage has no ER
 // - stuff like actor disappearing right after cast event will have no ER
-class EffectResultMispredict
+sealed class EffectResultMispredict
 {
     private readonly List<(Replay r, Replay.Action a)> _unexpected = [];
 
@@ -17,26 +17,32 @@ class EffectResultMispredict
         {
             foreach (var a in r.Actions)
             {
-                bool unexpected = false;
+                var unexpected = false;
 
                 foreach (var t in a.Targets)
                 {
-                    bool expectConfirmSource = false;
-                    bool expectConfirmTarget = false;
-                    foreach (var eff in t.Effects)
+                    var expectConfirmSource = false;
+                    var expectConfirmTarget = false;
+                    foreach (var eff in t.Effects.ValidEffects())
                     {
                         if (eff.Type is ActionEffectType.Damage or ActionEffectType.BlockedDamage or ActionEffectType.ParriedDamage or ActionEffectType.Heal or ActionEffectType.ApplyStatusEffectTarget or ActionEffectType.ApplyStatusEffectSource or ActionEffectType.RecoveredFromStatusEffect)
                         {
                             if (t.Target == a.Source)
+                            {
                                 expectConfirmSource = expectConfirmTarget = true;
+                            }
                             else if (eff.AtSource)
+                            {
                                 expectConfirmSource = true;
+                            }
                             else
+                            {
                                 expectConfirmTarget = true;
+                            }
                         }
                     }
-                    bool haveConfirmSource = t.ConfirmationSource != default;
-                    bool haveConfirmTarget = t.ConfirmationTarget != default;
+                    var haveConfirmSource = t.ConfirmationSource != default;
+                    var haveConfirmTarget = t.ConfirmationTarget != default;
                     if (IsRelevant(showMissing, expectConfirmSource, haveConfirmSource) || IsRelevant(showMissing, expectConfirmTarget, haveConfirmTarget))
                     {
                         unexpected = true;
@@ -45,7 +51,9 @@ class EffectResultMispredict
                 }
 
                 if (unexpected)
+                {
                     _unexpected.Add((r, a));
+                }
             }
         }
     }
@@ -56,7 +64,7 @@ class EffectResultMispredict
         {
             foreach (var t in tree.Nodes(e.a.Targets, t => new(ReplayUtils.ActionTargetString(t, e.a.Timestamp))))
             {
-                tree.LeafNodes(t.Effects, ReplayUtils.ActionEffectString);
+                tree.LeafNodes(t.Effects.ValidEffects(), ReplayUtils.ActionEffectString);
             }
         }
     }

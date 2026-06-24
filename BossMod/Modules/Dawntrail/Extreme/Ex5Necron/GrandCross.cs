@@ -1,110 +1,125 @@
-﻿namespace BossMod.Dawntrail.Extreme.Ex5Necron;
+namespace BossMod.Dawntrail.Extreme.Ex5Necron;
 
-class GrandCrossArena(BossModule module) : Components.GenericAOEs(module)
+sealed class GrandCross(BossModule module) : Components.RaidwideCast(module, (uint)AID.GrandCross);
+sealed class GrandCrossRW(BossModule module) : Components.RaidwideCast(module, (uint)AID.GrandCrossProximity);
+sealed class NeutronRing(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.NeutronRingVisual, (uint)AID.NeutronRing, 2.6d);
+
+sealed class GrandCrossArenaChange(BossModule module) : Components.GenericAOEs(module)
 {
-    private DateTime _activation;
-    public int NumChanges;
+    private AOEInstance[] _aoe = [];
+    private readonly AOEShapeDonut donut = new(9f, 60f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        if (_activation != default)
-            yield return new(new AOEShapeDonut(9, 60), Arena.Center, default, _activation);
-    }
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.GrandCrossArenaChange)
-            _activation = Module.CastFinishAt(spell);
+        if (spell.Action.ID == (uint)AID.ArenaChangeVisual)
+        {
+            _aoe = [new(donut, Trial.T05Necron.Necron.ArenaCenter, default, Module.CastFinishAt(spell, 1.1d))];
+        }
     }
 
     public override void OnEventDirectorUpdate(uint updateID, uint param1, uint param2, uint param3, uint param4)
     {
-        if (updateID == 0x8000000D)
+        if (updateID == 0x8000000D && param1 == 0x2u)
         {
-            if (param1 == 2)
-            {
-                NumChanges++;
-                _activation = default;
-                Arena.Bounds = new ArenaBoundsCircle(9);
-            }
-            else if (param1 == 1)
-            {
-                NumChanges++;
-                Arena.Bounds = new ArenaBoundsRect(18, 15);
-            }
+            Arena.Bounds = Trial.T05Necron.Necron.CircleArena;
+            _aoe = [];
         }
     }
 }
 
-class GrandCrossRaidwide(BossModule module) : Components.RaidwideCast(module, AID.GrandCrossRaidwide);
-class GrandCrossPuddle(BossModule module) : Components.StandardAOEs(module, AID.GrandCrossPuddle, 3);
-class GrandCrossSpread(BossModule module) : Components.SpreadFromCastTargets(module, AID.GrandCrossSpread, 3);
-class GrandCrossLine(BossModule module) : Components.GenericAOEs(module, AID.GrandCrossLaser)
+sealed class GrandCrossBait(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GrandCrossBait, 3f);
+sealed class GrandCrossSpread(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.GrandCrossSpread, 3f);
+
+sealed class Shock(BossModule module) : Components.GenericTowers(module)
 {
-    private readonly List<(Angle, DateTime)> _lasers = [];
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        foreach (var l in _lasers)
-            yield return new AOEInstance(new AOEShapeRect(20, 2, 20), Arena.Center, l.Item1, l.Item2);
-    }
-
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
-    {
-        var angle = (Arena.Center - source.Position).ToAngle();
-
-        if (tether.ID == 344)
-        {
-            _lasers.Add((angle + 207.Degrees(), WorldState.FutureTime(5)));
-            _lasers.SortBy(l => l.Item2);
-        }
-        if (tether.ID == 343)
-        {
-            _lasers.Add((angle + 42.Degrees(), WorldState.FutureTime(7)));
-            _lasers.SortBy(l => l.Item2);
-        }
-    }
+    private BitMask forbidden;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction && _lasers.Count > 0)
-            _lasers.RemoveAt(0);
+        if (spell.Action.ID == (uint)AID.Shock)
+        {
+            Towers.Add(new(spell.LocXZ, 3f, forbiddenSoakers: forbidden, activation: Module.CastFinishAt(spell)));
+        }
     }
-}
-class GrandCrossLineCast(BossModule module) : Components.StandardAOEs(module, AID.GrandCrossLaser, new AOEShapeRect(100, 2));
-class Shock(BossModule module) : Components.CastTowers(module, AID.Shock, 3)
-{
-    private BitMask _forbidden;
 
-    public void Reset()
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        _forbidden.Reset();
-        UpdateMask();
+        if (spell.Action.ID == (uint)AID.Shock)
+        {
+            Towers.Clear();
+            forbidden = default;
+        }
     }
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        if ((IconID)iconID == IconID.GrandCrossSpread)
+        if (iconID == (uint)IconID.GrandCross && Raid.FindSlot(actor.InstanceID) is var slot)
         {
-            _forbidden.Set(Raid.FindSlot(actor.InstanceID));
-            UpdateMask();
+            forbidden[slot] = true;
+            var count = Towers.Count;
+            var towers = CollectionsMarshal.AsSpan(Towers);
+            for (var i = 0; i < count; ++i)
+            {
+                towers[i].ForbiddenSoakers = forbidden;
+            }
+        }
+    }
+}
+
+sealed class GrandCrossRect(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly List<AOEInstance> _aoes = new(2);
+    private static readonly AOEShapeRect rectPredict = new(50f, 2.25f, 50f), rect = new(100f, 2f);
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
+    {
+        var oid = source.OID;
+        var offset = oid switch
+        {
+            (uint)OID.AzureAether1 => 41f.Degrees(),
+            (uint)OID.AzureAether2 => -153f.Degrees(),
+            _ => default
+        };
+        if (offset != default)
+        {
+            var center = Arena.Center;
+            _aoes.Add(new(rectPredict, center, Angle.FromDirection(center - source.Position) + offset, WorldState.FutureTime(oid == (uint)OID.AzureAether1 ? 7.6d : 5.6d)));
+            if (_aoes.Count > 1)
+            {
+                var aoes = CollectionsMarshal.AsSpan(_aoes);
+                ref var aoe1 = ref aoes[0];
+                ref var aoe2 = ref aoes[1];
+                if (aoe1.Activation > aoe2.Activation)
+                {
+                    (aoe1, aoe2) = (aoe2, aoe1);
+                }
+            }
         }
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        base.OnCastStarted(caster, spell);
-        if (spell.Action == WatchedAction)
-            UpdateMask();
+        if (_aoes.Count != 0 && spell.Action.ID == (uint)AID.GrandCrossRect) // replace prediction with actual AOE
+        {
+            _aoes.Ref(0) = new(rect, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell));
+        }
     }
 
-    private void UpdateMask()
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        foreach (ref var t in Towers.AsSpan())
-            t.ForbiddenSoakers |= _forbidden;
+        if (spell.Action.ID == (uint)AID.GrandCrossRect)
+        {
+            ++NumCasts;
+            if (_aoes.Count != 0)
+            {
+                _aoes.RemoveAt(0);
+            }
+        }
     }
 }
 
-class GrandCrossProximity(BossModule module) : Components.StandardAOEs(module, AID.GrandCrossProximity, new AOEShapeRect(100, 4.5f));
-
-class NeutronRing(BossModule module) : Components.RaidwideCastDelay(module, AID.NeutronRingCast, AID.NeutronRing, 2.6f);
+sealed class GrandCrossProx(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GrandCrossProximity, new AOEShapeRect(100f, 5f));

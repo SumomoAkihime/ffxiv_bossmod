@@ -1,16 +1,16 @@
 ﻿namespace BossMod.Endwalker.Ultimate.TOP;
 
-class P2OptimizedSagittariusArrow(BossModule module) : Components.StandardAOEs(module, AID.OptimizedSagittariusArrow, new AOEShapeRect(100, 5));
+sealed class P2OptimizedSagittariusArrow(BossModule module) : Components.SimpleAOEs(module, (uint)AID.OptimizedSagittariusArrow, new AOEShapeRect(100f, 5f));
 
-class P2OptimizedBladedance : Components.BaitAwayTethers
+sealed class P2OptimizedBladedance : Components.BaitAwayTethers
 {
-    public P2OptimizedBladedance(BossModule module) : base(module, new AOEShapeCone(100, 45.Degrees()), (uint)TetherID.OptimizedBladedance, AID.OptimizedBladedanceAOE)
+    public P2OptimizedBladedance(BossModule module) : base(module, new AOEShapeCone(100f, 45f.Degrees()), (uint)TetherID.OptimizedBladedance, (uint)AID.OptimizedBladedanceAOE)
     {
-        ForbiddenPlayers = Raid.WithSlot(true).WhereActor(p => p.Role != Role.Tank).Mask();
+        ForbiddenPlayers = Raid.WithSlot(true, true, true).WhereActor(p => p.Role != Role.Tank).Mask();
     }
 }
 
-class P2BeyondDefense(BossModule module) : Components.UniformStackSpread(module, 6, 5, 3, alwaysShowSpreads: true)
+sealed class P2BeyondDefense(BossModule module) : Components.UniformStackSpread(module, 6f, 5f, 3)
 {
     public enum Mechanic { None, Spread, Stack }
 
@@ -28,10 +28,10 @@ class P2BeyondDefense(BossModule module) : Components.UniformStackSpread(module,
             switch (CurMechanic)
             {
                 case Mechanic.Spread:
-                    AddSpreads(Raid.WithoutSlot().SortedByRange(_source.Position).Take(2), _activation);
+                    AddSpreads(Raid.WithoutSlot(false, true, true).SortedByRange(_source.Position).Take(2), _activation);
                     break;
                 case Mechanic.Stack:
-                    if (Raid.WithoutSlot().Closest(_source.Position) is var target && target != null)
+                    if (Raid.WithoutSlot(false, true, true).Closest(_source.Position) is var target && target != null)
                         AddStack(target, _activation, _forbiddenStack);
                     break;
             }
@@ -40,62 +40,63 @@ class P2BeyondDefense(BossModule module) : Components.UniformStackSpread(module,
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        Arena.Actor(_source, ArenaColor.Object, true);
+        Arena.Actor(_source, Colors.Object, true);
         base.DrawArenaForeground(pcSlot, pc);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.SyntheticShield:
+            case (uint)AID.SyntheticShield:
                 _source = caster;
                 break;
-            case AID.BeyondDefense:
+            case (uint)AID.BeyondDefense:
                 _source = caster;
                 CurMechanic = Mechanic.Spread;
-                _activation = Module.CastFinishAt(spell, 0.2f);
+                _activation = Module.CastFinishAt(spell, 0.2d);
                 break;
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.BeyondDefenseAOE:
+            case (uint)AID.BeyondDefenseAOE:
                 foreach (var t in spell.Targets)
-                    _forbiddenStack.Set(Raid.FindSlot(t.ID));
+                    _forbiddenStack[Raid.FindSlot(t.ID)] = true;
                 CurMechanic = Mechanic.Stack;
-                _activation = WorldState.FutureTime(3.2f);
+                _activation = WorldState.FutureTime(3.2d);
                 break;
-            case AID.PilePitch:
+            case (uint)AID.PilePitch:
                 CurMechanic = Mechanic.None;
                 break;
         }
     }
 }
 
-class P2CosmoMemory(BossModule module) : Components.CastCounter(module, AID.CosmoMemoryAOE);
+sealed class P2CosmoMemory(BossModule module) : Components.CastCounter(module, (uint)AID.CosmoMemoryAOE);
 
-class P2OptimizedPassageOfArms(BossModule module) : BossComponent(module)
+sealed class P2OptimizedPassageOfArms(BossModule module) : BossComponent(module)
 {
     public Actor? _invincible;
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        hints.SetPriority(_invincible, AIHints.Enemy.PriorityInvincible);
+        var e = hints.FindEnemy(_invincible);
+        e?.Priority = AIHints.Enemy.PriorityInvincible;
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Invincibility && (OID)actor.OID == OID.OmegaM)
+        if (status.ID == (uint)SID.Invincibility && actor.OID == (uint)OID.OmegaM)
             _invincible = actor;
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Invincibility && _invincible == actor)
+        if (status.ID == (uint)SID.Invincibility && _invincible == actor)
             _invincible = null;
     }
 }

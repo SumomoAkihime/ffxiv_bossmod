@@ -1,20 +1,26 @@
 ﻿namespace BossMod.Endwalker.Ultimate.DSW1;
 
-class HeavensflameAOE(BossModule module) : Components.CastCounter(module, AID.HeavensflameAOE);
+sealed class HeavensflameAOE(BossModule module) : Components.CastCounter(module, (uint)AID.HeavensflameAOE);
 
-class HeavensflameKnockback(BossModule module) : Components.KnockbackFromCastTarget(module, AID.FaithUnmoving, 16)
+sealed class HeavensflameKnockback(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.FaithUnmoving, 16f)
 {
     private readonly WPos[] _playerAdjustedPositions = new WPos[PartyState.MaxPartySize];
     private readonly int[] _playerIcons = new int[PartyState.MaxPartySize]; // 0 = unassigned, 1 = circle/red, 2 = triangle/green, 3 = cross/blue, 4 = square/purple
     private BitMask _brokenTethers;
 
-    private const float _aoeRadius = 10;
-    private const float _tetherBreakDistance = 32; // TODO: verify...
+    private const float _aoeRadius = 10f;
+    private const float _tetherBreakDistance = 32f; // TODO: verify...
 
     public override void Update()
     {
-        foreach (var (slot, player) in Raid.WithSlot())
-            _playerAdjustedPositions[slot] = AwayFromSource(player.Position, Casters.FirstOrDefault(), Distance);
+        if (Casters.Count == 0)
+        {
+            return;
+        }
+        ref readonly var c = ref Casters.Ref(0);
+        var origin = c.Origin;
+        foreach (var (slot, player) in Raid.WithSlot(false, true, true))
+            _playerAdjustedPositions[slot] = AwayFromSource(player.Position, origin, Distance);
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -26,13 +32,13 @@ class HeavensflameKnockback(BossModule module) : Components.KnockbackFromCastTar
             hints.Add("Cancel knockback immunity!");
 
         var actorAdjPos = _playerAdjustedPositions[slot];
-        if (!Module.InBounds(actorAdjPos))
+        if (!Arena.InBounds(actorAdjPos))
             hints.Add("About to be knocked into wall!");
 
-        if (Raid.WithSlot().Exclude(actor).WhereSlot(s => _playerAdjustedPositions[s].InCircle(actorAdjPos, _aoeRadius)).Any())
+        if (Raid.WithSlot(false, true, true).Exclude(actor).WhereSlot(s => _playerAdjustedPositions[s].InCircle(actorAdjPos, _aoeRadius)).Any())
             hints.Add("Spread!");
 
-        int partner = FindTetheredPartner(slot);
+        var partner = FindTetheredPartner(slot);
         if (partner >= 0 && _playerAdjustedPositions[partner].InCircle(actorAdjPos, _tetherBreakDistance))
             hints.Add("Aim to break tether!");
     }
@@ -51,23 +57,23 @@ class HeavensflameKnockback(BossModule module) : Components.KnockbackFromCastTar
 
         foreach (var hint in PositionHints(pcSlot))
         {
-            Arena.AddCircle(hint, 1, ArenaColor.Safe);
+            Arena.AddCircle(hint, 1f, Colors.Safe);
             //var dir = Vector3.Normalize(pos.Value - _knockbackSource.Position);
             //var adjPos = Arena.ClampToBounds(_knockbackSource.Position + 50 * dir);
-            //Arena.AddLine(Module.Center, adjPos, ArenaColor.Safe);
+            //Arena.AddLine(Arena.Center, adjPos, Colors.Safe);
         }
 
-        int partner = FindTetheredPartner(pcSlot);
+        var partner = FindTetheredPartner(pcSlot);
         if (partner >= 0)
-            Arena.AddLine(pc.Position, Raid[partner]!.Position, ArenaColor.Safe);
+            Arena.AddLine(pc.Position, Raid[partner]!.Position, Colors.Safe);
 
         DrawKnockback(pc, _playerAdjustedPositions[pcSlot], Arena);
 
-        foreach (var (slot, _) in Raid.WithSlot().Exclude(pc))
-            Arena.AddCircle(_playerAdjustedPositions[slot], _aoeRadius, ArenaColor.Danger);
+        foreach (var (slot, _) in Raid.WithSlot(false, true, true).Exclude(pc))
+            Arena.AddCircle(_playerAdjustedPositions[slot], _aoeRadius);
     }
 
-    public override void OnUntethered(Actor source, ActorTetherInfo tether)
+    public override void OnUntethered(Actor source, in ActorTetherInfo tether)
     {
         _brokenTethers.Set(Raid.FindSlot(source.InstanceID));
         _brokenTethers.Set(Raid.FindSlot(tether.Target));
@@ -75,17 +81,18 @@ class HeavensflameKnockback(BossModule module) : Components.KnockbackFromCastTar
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        int icon = (IconID)iconID switch
+        var icon = iconID switch
         {
-            IconID.HeavensflameCircle => 1,
-            IconID.HeavensflameTriangle => 2,
-            IconID.HeavensflameCross => 3,
-            IconID.HeavensflameSquare => 4,
+            (uint)IconID.HeavensflameCircle => 1,
+            (uint)IconID.HeavensflameTriangle => 2,
+            (uint)IconID.HeavensflameCross => 3,
+            (uint)IconID.HeavensflameSquare => 4,
             _ => 0
         };
         if (icon != 0)
         {
-            if (Raid.TryFindSlot(actor, out var slot))
+            var slot = Raid.FindSlot(actor.InstanceID);
+            if (slot >= 0)
                 _playerIcons[slot] = icon;
         }
     }
@@ -96,54 +103,56 @@ class HeavensflameKnockback(BossModule module) : Components.KnockbackFromCastTar
             return -1;
         if (_playerIcons[slot] == 0)
             return -1;
-        for (int i = 0; i < _playerIcons.Length; ++i)
+        for (var i = 0; i < _playerIcons.Length; ++i)
             if (i != slot && _playerIcons[i] == _playerIcons[slot])
                 return i;
         return -1;
     }
 
-    private IEnumerable<WPos> PositionHints(int slot)
+    private List<WPos> PositionHints(int slot)
     {
         var icon = _playerIcons[slot];
         if (icon == 0)
-            yield break;
-
+            return [];
+        var hints = new List<WPos>(2);
         switch (Service.Config.Get<DSW1Config>().Heavensflame)
         {
             case DSW1Config.HeavensflameHints.Waymarks:
                 {
                     if (WorldState.Waymarks.GetFieldMark((int)Waymark.A + (icon - 1)) is var alt1 && alt1 != null)
-                        yield return new(alt1.Value.XZ());
+                        hints.Add(new(alt1.Value.XZ()));
                     if (WorldState.Waymarks.GetFieldMark((int)Waymark.N1 + (icon - 1)) is var alt2 && alt2 != null)
-                        yield return new(alt2.Value.XZ());
+                        hints.Add(new(alt2.Value.XZ()));
                 }
                 break;
             case DSW1Config.HeavensflameHints.LPDU:
                 {
-                    var angle = 135.Degrees() - icon * 45.Degrees();
+                    var angle = 135f.Degrees() - icon * 45f.Degrees();
                     var offset = _tetherBreakDistance * 0.5f * angle.ToDirection();
+                    var center = Arena.Center;
                     switch (icon)
                     {
                         case 1: // circle - both on DPS, show both E and W and let players adjust
-                            yield return Module.Center + offset;
-                            yield return Module.Center - offset;
+                            hints.Add(center + offset);
+                            hints.Add(center - offset);
                             break;
                         case 2: // triangle - healer SE, dps NW
                         case 3: // cross - healer S, tank N
                             if (Raid[slot]?.Role == Role.Healer)
-                                yield return Module.Center + offset;
+                                hints.Add(center + offset);
                             else
-                                yield return Module.Center - offset;
+                                hints.Add(center - offset);
                             break;
                         case 4: // square - tank NE, dps SW
                             if (Raid[slot]?.Role == Role.Tank)
-                                yield return Module.Center - offset;
+                                hints.Add(center - offset);
                             else
-                                yield return Module.Center + offset;
+                                hints.Add(center + offset);
                             break;
                     }
                 }
                 break;
         }
+        return hints;
     }
 }

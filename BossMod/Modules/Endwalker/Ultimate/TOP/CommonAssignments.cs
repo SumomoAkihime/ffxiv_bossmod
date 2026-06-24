@@ -31,7 +31,8 @@ abstract class CommonAssignments(BossModule module) : BossComponent(module)
     {
         if (order > 0)
         {
-            if (Raid.TryFindSlot(player, out var slot))
+            var slot = Raid.FindSlot(player.InstanceID);
+            if (slot >= 0)
                 PlayerStates[slot].Order = order;
             if (++_numOrdersAssigned == PartyState.MaxPartySize)
                 InitAssignments();
@@ -47,8 +48,8 @@ abstract class CommonAssignments(BossModule module) : BossComponent(module)
         if (assignments.Count == 0)
             return; // invalid assignments
 
-        assignments.SortBy(a => a.order);
-        for (int i = 0; i < assignments.Count; i += 2)
+        assignments.Sort(static (a, b) => a.order.CompareTo(b.order));
+        for (var i = 0; i < assignments.Count; i += 2)
         {
             var a1 = assignments[i];
             var a2 = assignments[i + 1];
@@ -68,14 +69,14 @@ abstract class CommonAssignments(BossModule module) : BossComponent(module)
 // common assignments for program loop & pantokrator
 abstract class P1CommonAssignments(BossModule module) : CommonAssignments(module)
 {
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        int order = (SID)status.ID switch
+        var order = status.ID switch
         {
-            SID.InLine1 => 1,
-            SID.InLine2 => 2,
-            SID.InLine3 => 3,
-            SID.InLine4 => 4,
+            (uint)SID.InLine1 => 1,
+            (uint)SID.InLine2 => 2,
+            (uint)SID.InLine3 => 3,
+            (uint)SID.InLine4 => 4,
             _ => 0
         };
         Assign(actor, order);

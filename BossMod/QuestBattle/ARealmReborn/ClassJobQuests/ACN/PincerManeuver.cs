@@ -1,6 +1,6 @@
 namespace BossMod.QuestBattle.ARealmReborn.ClassJobQuests.ACN;
 
-[ZoneModuleInfo(347)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 347)]
 internal class PincerManeuver(WorldState ws) : QuestBattle(ws)
 {
     public override List<QuestObjective> DefineObjectives(WorldState ws) => [

@@ -1,54 +1,70 @@
-﻿namespace BossMod.Endwalker.Criterion.C02AMR.C021Shishio;
+﻿namespace BossMod.Endwalker.VariantCriterion.C02AMR.C021Shishio;
 
-class LightningBolt(BossModule module, AID aid) : Components.StandardAOEs(module, aid, 6);
-class NLightningBolt(BossModule module) : LightningBolt(module, AID.NLightningBoltAOE);
-class SLightningBolt(BossModule module) : LightningBolt(module, AID.SLightningBoltAOE);
+abstract class LightningBolt(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, 6f);
+sealed class NLightningBolt(BossModule module) : LightningBolt(module, (uint)AID.NLightningBoltAOE);
+sealed class SLightningBolt(BossModule module) : LightningBolt(module, (uint)AID.SLightningBoltAOE);
 
-class CloudToCloud(BossModule module) : Components.GenericAOEs(module)
+sealed class CloudToCloud(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<AOEInstance> _aoes = [];
 
-    private static readonly AOEShapeRect _shape1 = new(100, 1);
-    private static readonly AOEShapeRect _shape2 = new(100, 3);
-    private static readonly AOEShapeRect _shape3 = new(100, 6);
+    private static readonly AOEShapeRect _shape1 = new(100f, 1f);
+    private static readonly AOEShapeRect _shape2 = new(100f, 3f);
+    private static readonly AOEShapeRect _shape3 = new(100f, 6f);
 
     public bool Active => _aoes.Count > 0;
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
-    /*
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if (_aoes.Count > 0)
+        var count = _aoes.Count;
+        if (count == 0)
         {
-            var deadline = _aoes[0].Activation.AddSeconds(1.4f);
-            foreach (var aoe in _aoes.TakeWhile(aoe => aoe.Activation <= deadline))
-                yield return aoe;
+            return [];
         }
+        var aoes = CollectionsMarshal.AsSpan(_aoes);
+        var deadline = aoes[0].Activation.AddSeconds(1.4d);
+
+        var index = 0;
+        while (index < count)
+        {
+            ref var aoe = ref aoes[index];
+            if (aoe.Activation >= deadline)
+            {
+                break;
+            }
+            ++index;
+        }
+
+        return aoes[..index];
     }
-    */
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        var shape = ShapeForAction(spell.Action);
+        var shape = ShapeForAction(spell.Action.ID);
         if (shape != null)
-            _aoes.Add(new(shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
+        {
+            _aoes.Add(new(shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
+        }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (ShapeForAction(spell.Action) != null)
+        if (ShapeForAction(spell.Action.ID) != null)
         {
             ++NumCasts;
-            var numRemoved = _aoes.RemoveAll(aoe => aoe.Origin.AlmostEqual(caster.Position, 1));
+            var numRemoved = _aoes.RemoveAll(aoe => aoe.Origin.AlmostEqual(caster.Position, 1f));
             if (numRemoved != 1)
+            {
                 ReportError($"Unexpected number of matching aoes: {numRemoved}");
+            }
         }
     }
 
-    private AOEShapeRect? ShapeForAction(ActionID action) => (AID)action.ID switch
+    private static AOEShapeRect? ShapeForAction(uint action) => action switch
     {
-        AID.NCloudToCloud1 or AID.SCloudToCloud1 => _shape1,
-        AID.NCloudToCloud2 or AID.SCloudToCloud2 => _shape2,
-        AID.NCloudToCloud3 or AID.SCloudToCloud3 => _shape3,
+        (uint)AID.NCloudToCloud1 or (uint)AID.SCloudToCloud1 => _shape1,
+        (uint)AID.NCloudToCloud2 or (uint)AID.SCloudToCloud2 => _shape2,
+        (uint)AID.NCloudToCloud3 or (uint)AID.SCloudToCloud3 => _shape3,
         _ => null
     };
 }

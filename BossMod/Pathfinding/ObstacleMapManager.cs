@@ -1,8 +1,18 @@
 using System.IO;
 using System.Reflection;
-using System.Threading.Tasks;
+using System.Threading;
 
 namespace BossMod.Pathfinding;
+
+[ConfigDisplay(Name = "Developer settings", Order = 9)]
+public sealed class DeveloperConfig : ConfigNode
+{
+    [PropertyDisplay("Obstacle maps: load from source")]
+    public bool MapLoadFromSource;
+
+    [PropertyDisplay("Obstacle maps: source path", tooltip: "Should be <repo root>/BossModReborn/Pathfinding/ObstacleMaps/maplist.json")]
+    public string MapSourcePath = "";
+}
 
 public sealed class ObstacleMapManager : IDisposable
 {
@@ -20,7 +30,7 @@ public sealed class ObstacleMapManager : IDisposable
     private readonly DeveloperConfig _config = Service.Config.Get<DeveloperConfig>();
     private readonly EventSubscriptions _subscriptions;
     private readonly List<(ObstacleMapDatabase.Entry entry, Bitmap data)> _entries = [];
-    private readonly object _tempMapLock = new();
+    private readonly Lock _tempMapLock = new();
     private (ObstacleMapDatabase.Entry entry, Bitmap data)? _tempMap;
     private Task? _generationTask;
 
@@ -47,9 +57,19 @@ public sealed class ObstacleMapManager : IDisposable
         lock (_tempMapLock)
         {
             if (_tempMap is { } temp && temp.entry.Contains(pos))
+            {
                 return temp;
+            }
         }
-        return _entries.FirstOrDefault(e => e.entry.Contains(pos));
+        foreach (var e in _entries)
+        {
+            if (e.entry.Contains(pos))
+            {
+                return e;
+            }
+        }
+
+        return default;
     }
     public bool CanEditDatabase() => _config.MapLoadFromSource;
     public uint ZoneKey(ushort zoneId, ushort cfcId) => ((uint)zoneId << 16) | cfcId;
@@ -58,7 +78,9 @@ public sealed class ObstacleMapManager : IDisposable
     public bool HasTempMap()
     {
         lock (_tempMapLock)
+        {
             return _tempMap != null;
+        }
     }
 
     public (string Filename, int Width, int Height)? TempMapMeta
@@ -66,7 +88,9 @@ public sealed class ObstacleMapManager : IDisposable
         get
         {
             lock (_tempMapLock)
+            {
                 return _tempMap is { } t ? (t.entry.Filename, t.data.Width, t.data.Height) : null;
+            }
         }
     }
 
@@ -250,7 +274,10 @@ public sealed class ObstacleMapManager : IDisposable
     public void SaveDatabase()
     {
         if (!_config.MapLoadFromSource)
+        {
             return;
+        }
+
         Database.Save(_config.MapSourcePath);
         LoadMaps(World.CurrentZone, World.CurrentCFCID);
     }
@@ -280,9 +307,14 @@ public sealed class ObstacleMapManager : IDisposable
     public bool GenerateMap(Vector3 centerWorld, float radius, bool writeToFile)
     {
         if (_generationTask is { IsCompleted: false })
+        {
             return false;
+        }
+
         if (writeToFile && !CanEditDatabase())
+        {
             return false;
+        }
 
         _generationTask = Service.Framework.RunOnTick(() =>
         {
@@ -355,9 +387,11 @@ public sealed class ObstacleMapManager : IDisposable
         {
             var name = $"{World.CurrentZone}.{World.CurrentCFCID}.auto.{i}.bmp";
             if (!new FileInfo(RootPath + name).Exists)
+            {
                 return name;
+            }
         }
     }
 
-    private Stream GetEmbeddedResource(string name) => Assembly.GetExecutingAssembly().GetManifestResourceStream($"BossMod.Pathfinding.ObstacleMaps.{name}") ?? throw new InvalidDataException($"Missing embedded resource {name}");
+    private Stream GetEmbeddedResource(string name) => Assembly.GetExecutingAssembly().GetManifestResourceStream($"BossModReborn.Pathfinding.ObstacleMaps.{name}") ?? throw new InvalidDataException($"Missing embedded resource {name}");
 }

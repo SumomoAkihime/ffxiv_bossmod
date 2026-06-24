@@ -3,7 +3,7 @@
 // state related to channeling [over]flow mechanics
 class ChannelingFlow(BossModule module) : BossComponent(module)
 {
-    public int NumStunned { get; private set; }
+    public int NumStunned;
     private readonly (WDir, DateTime)[] _arrows = new (WDir, DateTime)[PartyState.MaxPartySize];
 
     private const float _typhoonHalfWidth = 2.5f;
@@ -11,7 +11,7 @@ class ChannelingFlow(BossModule module) : BossComponent(module)
     public bool SlotActive(int slot)
     {
         var (dir, expire) = _arrows[slot];
-        return dir != new WDir() && (expire - WorldState.CurrentTime).TotalSeconds < 13;
+        return dir != new WDir() && (expire - WorldState.CurrentTime).TotalSeconds < 13d;
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -26,7 +26,7 @@ class ChannelingFlow(BossModule module) : BossComponent(module)
             {
                 if (_arrows[otherSlot].Item1 == partnerDir)
                 {
-                    minDistance = MathF.Min(minDistance, partnerDir.Dot(actor.Position - otherActor.Position));
+                    minDistance = Math.Min(minDistance, partnerDir.Dot(actor.Position - otherActor.Position));
                     ++numPartners;
                     partner = otherActor;
                 }
@@ -52,43 +52,43 @@ class ChannelingFlow(BossModule module) : BossComponent(module)
     {
         foreach (var (player, dir) in ActiveArrows())
         {
-            Arena.ZoneRect(player.Position, dir, 50, 0, _typhoonHalfWidth, ArenaColor.AOE);
+            Arena.ZoneRect(player.Position, dir, 50, 0, _typhoonHalfWidth, Colors.AOE);
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.MarkFlowN:
+            case (uint)SID.MarkFlowN:
                 SetArrow(actor, new(0, -1), status.ExpireAt);
                 break;
-            case SID.MarkFlowS:
+            case (uint)SID.MarkFlowS:
                 SetArrow(actor, new(0, +1), status.ExpireAt);
                 break;
-            case SID.MarkFlowW:
+            case (uint)SID.MarkFlowW:
                 SetArrow(actor, new(-1, 0), status.ExpireAt);
                 break;
-            case SID.MarkFlowE:
+            case (uint)SID.MarkFlowE:
                 SetArrow(actor, new(+1, 0), status.ExpireAt);
                 break;
-            case SID.Stun:
+            case (uint)SID.Stun:
                 ++NumStunned;
                 break;
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.MarkFlowN:
-            case SID.MarkFlowS:
-            case SID.MarkFlowW:
-            case SID.MarkFlowE:
-                SetArrow(actor, new(), new());
+            case (uint)SID.MarkFlowN:
+            case (uint)SID.MarkFlowS:
+            case (uint)SID.MarkFlowW:
+            case (uint)SID.MarkFlowE:
+                SetArrow(actor, default, default);
                 break;
-            case SID.Stun:
+            case (uint)SID.Stun:
                 --NumStunned;
                 break;
         }
@@ -96,17 +96,18 @@ class ChannelingFlow(BossModule module) : BossComponent(module)
 
     private void SetArrow(Actor actor, WDir dir, DateTime expire)
     {
-        if (Raid.TryFindSlot(actor.InstanceID, out var slot))
+        var slot = WorldState.Party.FindSlot(actor.InstanceID);
+        if (slot >= 0)
             _arrows[slot] = (dir, expire);
     }
 
     private IEnumerable<(Actor, WDir)> ActiveArrows()
     {
-        return Raid.WithSlot().WhereSlot(SlotActive).Select(ia => (ia.Item2, _arrows[ia.Item1].Item1));
+        return Raid.WithSlot(false, true, true).WhereSlot(SlotActive).Select(ia => (ia.Item2, _arrows[ia.Item1].Item1));
     }
 
     private IEnumerable<(int, Actor)> ActorsHitBy(int slot, Actor actor)
     {
-        return Raid.WithSlot().Exclude(slot).WhereActor(a => a.Position.InRect(actor.Position, _arrows[slot].Item1, 50, 0, _typhoonHalfWidth));
+        return Raid.WithSlot(false, true, true).Exclude(slot).WhereActor(a => a.Position.InRect(actor.Position, _arrows[slot].Item1, 50, 0, _typhoonHalfWidth));
     }
 }

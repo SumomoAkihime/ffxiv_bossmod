@@ -44,10 +44,14 @@ public sealed class DeepDungeonState
         get
         {
             if (Progress.Floor % 10 == 0)
+            {
                 return true;
+            }
 
             if (DungeonId is DungeonType.EO or DungeonType.PT && Progress.Floor == 99)
+            {
                 return true;
+            }
 
             return false;
         }
@@ -59,32 +63,35 @@ public sealed class DeepDungeonState
     public PomanderID GetPomanderID(int slot) => GetDungeonDefinition().PomanderSlot is var slots && slot >= 0 && slot < slots.Count ? (PomanderID)slots[slot].RowId : PomanderID.None;
     public ActionID GetPomanderActionID(int slot) => new(ActionType.Pomander, GetDungeonDefinition().PomanderSlot[slot].RowId);
 
-    public IEnumerable<WorldState.Operation> CompareToInitial()
+    public List<WorldState.Operation> CompareToInitial()
     {
+        var ops = new List<WorldState.Operation>(6);
         if (DungeonId != DungeonType.None)
         {
-            yield return new OpProgressChange(DungeonId, Progress);
-            yield return new OpMapDataChange(Rooms);
-            yield return new OpPartyStateChange(Party);
-            yield return new OpPomandersChange(Pomanders);
-            yield return new OpChestsChange(Chests);
-            yield return new OpMagiciteChange(Magicite);
+            ops.Add(new OpProgressChange(DungeonId, Progress));
+            ops.Add(new OpMapDataChange(Rooms));
+            ops.Add(new OpPartyStateChange(Party));
+            ops.Add(new OpPomandersChange(Pomanders));
+            ops.Add(new OpChestsChange(Chests));
+            ops.Add(new OpMagiciteChange(Magicite));
         }
+        return ops;
     }
 
     public Event<OpProgressChange> ProgressChanged = new();
-    public sealed record class OpProgressChange(DungeonType DungeonId, DungeonProgress Value) : WorldState.Operation
+    public sealed class OpProgressChange(DungeonType dungeonID, DungeonProgress value) : WorldState.Operation
     {
+        public readonly DungeonType DungeonID = dungeonID;
+        public readonly DungeonProgress Value = value;
+
         protected override void Exec(WorldState ws)
         {
-            ws.DeepDungeon.DungeonId = DungeonId;
+            ws.DeepDungeon.DungeonId = DungeonID;
             ws.DeepDungeon.Progress = Value;
             ws.DeepDungeon.ProgressChanged.Fire(this);
         }
-        public override void Write(ReplayRecorder.Output output)
-        {
-            output.EmitFourCC("DDPG"u8)
-                .Emit((byte)DungeonId)
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("DDPG"u8)
+                .Emit((byte)DungeonID)
                 .Emit(Value.Floor)
                 .Emit(Value.Tileset)
                 .Emit(Value.WeaponLevel)
@@ -94,13 +101,12 @@ public sealed class DeepDungeonState
                 .Emit(Value.ReturnProgress)
                 .Emit(Value.PassageProgress)
                 .Emit(Value.HoardCurrentFloor);
-        }
     }
 
     public Event<OpMapDataChange> MapDataChanged = new();
-    public sealed record class OpMapDataChange(RoomFlags[] Rooms) : WorldState.Operation
+    public sealed class OpMapDataChange(RoomFlags[] rooms) : WorldState.Operation
     {
-        public readonly RoomFlags[] Rooms = Rooms;
+        public readonly RoomFlags[] Rooms = rooms;
 
         protected override void Exec(WorldState ws)
         {
@@ -110,15 +116,18 @@ public sealed class DeepDungeonState
         public override void Write(ReplayRecorder.Output output)
         {
             output.EmitFourCC("DDMP"u8);
-            foreach (var r in Rooms)
-                output.Emit((ushort)r, "X4");
+            var len = Rooms.Length;
+            for (var i = 0; i < len; ++i)
+            {
+                output.Emit((ushort)Rooms[i], "X4");
+            }
         }
     }
 
     public Event<OpPartyStateChange> PartyStateChanged = new();
-    public sealed record class OpPartyStateChange(PartyMember[] Value) : WorldState.Operation
+    public sealed class OpPartyStateChange(PartyMember[] value) : WorldState.Operation
     {
-        public readonly PartyMember[] Value = Value;
+        public readonly PartyMember[] Value = value;
 
         protected override void Exec(WorldState ws)
         {
@@ -128,15 +137,19 @@ public sealed class DeepDungeonState
         public override void Write(ReplayRecorder.Output output)
         {
             output.EmitFourCC("DDPT"u8);
-            foreach (var member in Value)
+            var len = Value.Length;
+            for (var i = 0; i < len; ++i)
+            {
+                ref readonly var member = ref Value[i];
                 output.EmitActor(member.EntityId).Emit(member.Room);
+            }
         }
     }
 
     public Event<OpPomandersChange> PomandersChanged = new();
-    public sealed record class OpPomandersChange(PomanderState[] Value) : WorldState.Operation
+    public sealed class OpPomandersChange(PomanderState[] value) : WorldState.Operation
     {
-        public readonly PomanderState[] Value = Value;
+        public readonly PomanderState[] Value = value;
 
         protected override void Exec(WorldState ws)
         {
@@ -146,42 +159,49 @@ public sealed class DeepDungeonState
         public override void Write(ReplayRecorder.Output output)
         {
             output.EmitFourCC("DDIT"u8);
-            foreach (var item in Value)
+            var len = Value.Length;
+            for (var i = 0; i < len; ++i)
+            {
+                ref readonly var item = ref Value[i];
                 output.Emit(item.Count).Emit(item.Flags, "X");
+            }
         }
     }
 
     public Event<OpChestsChange> ChestsChanged = new();
-    public sealed record class OpChestsChange(Chest[] Value) : WorldState.Operation
+    public sealed class OpChestsChange(Chest[] value) : WorldState.Operation
     {
-        public readonly Chest[] Value = Value;
+        public readonly Chest[] Value = value;
 
         protected override void Exec(WorldState ws)
         {
             Array.Copy(Value, ws.DeepDungeon.Chests, NumChests);
             ws.DeepDungeon.ChestsChanged.Fire(this);
         }
+
         public override void Write(ReplayRecorder.Output output)
         {
             output.EmitFourCC("DDCT"u8);
-            foreach (var chest in Value)
+            var len = Value.Length;
+            for (var i = 0; i < len; ++i)
+            {
+                ref readonly var chest = ref Value[i];
                 output.Emit(chest.Type).Emit(chest.Room);
+            }
         }
     }
 
     public Event<OpMagiciteChange> MagiciteChanged = new();
-    public sealed record class OpMagiciteChange(byte[] Value) : WorldState.Operation
+    public sealed class OpMagiciteChange(byte[] value) : WorldState.Operation
     {
-        public readonly byte[] Value = Value;
+        public readonly byte[] Value = value;
 
         protected override void Exec(WorldState ws)
         {
             Array.Copy(Value, ws.DeepDungeon.Magicite, NumMagicites);
             ws.DeepDungeon.MagiciteChanged.Fire(this);
         }
-        public override void Write(ReplayRecorder.Output output)
-        {
-            output.EmitFourCC("DDMG"u8).Emit(Value);
-        }
+
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("DDMG"u8).Emit(Value);
     }
 }

@@ -4,6 +4,7 @@ using InteropGenerator.Runtime;
 namespace BossMod;
 
 // very simple wrappers for hooks, that provide some quality of life (no need to repeat delegate types multiple times, etc)
+[SkipLocalsInit]
 public sealed class HookAddress<T> : IDisposable where T : Delegate
 {
     private readonly Hook<T> _hook;
@@ -16,9 +17,13 @@ public sealed class HookAddress<T> : IDisposable where T : Delegate
         set
         {
             if (value)
+            {
                 _hook.Enable();
+            }
             else
+            {
                 _hook.Disable();
+            }
         }
     }
 
@@ -29,7 +34,9 @@ public sealed class HookAddress<T> : IDisposable where T : Delegate
         Service.Log($"Hooking {typeof(T)} @ 0x{address:X}");
         _hook = Service.Hook.HookFromAddress(address, detour);
         if (autoEnable)
+        {
             _hook.Enable();
+        }
     }
 
     public void Dispose() => _hook.Dispose();

@@ -1,92 +1,109 @@
-﻿using System.Text;
-
 namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
 
-// TODO: add "you should bait now!" hints
-class EscelonsFall : Components.GenericBaitAway
+sealed class EscelonsFall(BossModule module) : Components.GenericBaitAway(module, (uint)AID.EscelonsFall)
 {
-    enum Proximity
-    {
-        Close,
-        Far
-    }
+    public enum Mechanic { None, Near, Far }
+    public Mechanic CurMechanic;
+    private DateTime _activation;
+    private readonly List<Mechanic> order = new(4);
 
-    public bool Active => Order.Count > 0;
-
-    private readonly List<Proximity> Order = [];
-    private readonly List<Proximity> HintOrder = []; // not cleared, component should be reloaded instead
-
-    private readonly DateTime[] Vulns = new DateTime[PartyState.MaxPartySize];
-    private DateTime NextActivation; // 13.9s from boss cast, then every 3.1s
-
-    public EscelonsFall(BossModule module) : base(module, AID.EscelonsFall)
-    {
-        AllowDeadTargets = false;
-    }
-
-    public override void OnStatusGain(Actor actor, ActorStatus status)
-    {
-        if ((OID)actor.OID == OID.Boss && status.ID == (uint)SID.WitchHunt)
-        {
-            Order.Add(status.Extra == 0x2F6 ? Proximity.Close : Proximity.Far);
-            HintOrder.Add(Order[^1]);
-        }
-
-        if (status.ID == (uint)SID.SlashingResistanceDown && Raid.TryFindSlot(actor.InstanceID, out var slot))
-            Vulns[slot] = status.ExpireAt;
-    }
+    private static readonly AOEShapeCone cone = new(24f, 22.5f.Degrees());
 
     public override void Update()
     {
-        CurrentBaits.Clear();
-
-        if (!Active)
+        if (CurMechanic == Mechanic.None)
             return;
 
-        var baiters = Raid.WithSlot().SortedByRange(Module.PrimaryActor.Position);
-        var ordered = Order[0] == Proximity.Close ? baiters.Take(4) : baiters.Reverse().Take(4);
+        CurrentBaits.Clear();
 
-        foreach (var (slot, actor) in ordered)
-            CurrentBaits.Add(new(Module.PrimaryActor, actor, new AOEShapeCone(24, 22.5f.Degrees()), NextActivation));
+        var party = Raid.WithoutSlot(false, true, true);
+        var len = party.Length;
 
-        ForbiddenPlayers = Raid.WithSlot().Where(p => Vulns[p.Item1] > NextActivation).Mask();
-    }
+        (Actor actor, float distSq)[] distances = new (Actor, float)[len];
+        var center = Arena.Center;
 
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID == AID.EscelonsFallVisual)
-            NextActivation = WorldState.FutureTime(13.9f);
+        for (var i = 0; i < len; ++i)
+        {
+            var p = party[i];
+            var distSq = (p.Position - center).LengthSq();
+            distances[i] = (p, distSq);
+        }
+
+        var isNear = CurMechanic == Mechanic.Near;
+
+        var targets = Math.Min(4, len);
+        for (var i = 0; i < targets; ++i)
+        {
+            var selIdx = i;
+            for (var j = i + 1; j < len; ++j)
+            {
+                var distJSq = distances[j].distSq;
+                var distSelIdx = distances[selIdx].distSq;
+                var isBetter = isNear ? distJSq < distSelIdx : distJSq > distSelIdx;
+                if (isBetter)
+                    selIdx = j;
+            }
+
+            if (selIdx != i)
+            {
+                (distances[selIdx], distances[i]) = (distances[i], distances[selIdx]);
+            }
+
+            CurrentBaits.Add(new(Module.PrimaryActor, distances[i].actor, cone, _activation));
+        }
     }
 
     public override void AddGlobalHints(GlobalHints hints)
     {
-        if (HintOrder.Count > 0)
+        var count = order.Count;
+        if (count > 0)
         {
-            var hintstr = new StringBuilder();
-
-            foreach (var (order, ix) in HintOrder.Select((a, b) => (a, b)))
+            var sb = new StringBuilder(4 * (count - 1) + count * 4);
+            var ord = CollectionsMarshal.AsSpan(order);
+            for (var i = 0; i < count; ++i)
             {
-                if (ix > 0)
-                    hintstr.Append(" -> ");
-                hintstr.Append(order.ToString());
-            }
+                sb.Append(ord[i]);
 
-            hints.Add(hintstr.ToString());
+                if (i < count - 1)
+                    sb.Append(" -> ");
+            }
+            hints.Add(sb.ToString());
+        }
+    }
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        if (status.ID == (uint)SID.EscelonsFall)
+        {
+            _activation = status.ExpireAt.AddSeconds(12.9d);
+            var distance = status.Extra switch
+            {
+                0x2F6 => Mechanic.Near,
+                0x2F7 => Mechanic.Far,
+                _ => Mechanic.None
+            };
+            if (distance != Mechanic.None)
+            {
+                order.Add(distance);
+                if (CurMechanic == Mechanic.None)
+                    CurMechanic = distance;
+            }
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
         {
-            if (++NumCasts % 4 == 0 && Order.Count > 0)
+            ++NumCasts;
+            if ((NumCasts & 3) == 0)
             {
-                Order.RemoveAt(0);
-                if (Order.Count > 0)
-                    NextActivation = WorldState.FutureTime(3.1f);
+                order.RemoveAt(0);
+                ForbiddenPlayers = default;
+                CurMechanic = order.Count != 0 ? order[0] : Mechanic.None;
             }
+            ForbiddenPlayers.Set(Raid.FindSlot(spell.MainTargetID));
+            _activation = WorldState.FutureTime(3d);
         }
     }
 }
-
-class PowerBreak(BossModule module) : Components.GroupedAOEs(module, [AID.PowerBreak1, AID.PowerBreak2], new AOEShapeRect(24, 32));

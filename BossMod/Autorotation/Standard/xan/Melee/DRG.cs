@@ -112,7 +112,7 @@ public sealed class DRG(RotationModuleManager manager, Actor player) : Attackxan
         DragonsFlight = StatusLeft(SID.DragonsFlight);
         StarcrossReady = StatusLeft(SID.StarcrossReady);
         EnhancedTalon = StatusLeft(SID.EnhancedPiercingTalon);
-        TargetDotLeft = MathF.Max(
+        TargetDotLeft = Math.Max(
             StatusDetails(primaryTarget, SID.ChaosThrust, Player.InstanceID).Left,
             StatusDetails(primaryTarget, SID.ChaoticSpring, Player.InstanceID).Left
         );

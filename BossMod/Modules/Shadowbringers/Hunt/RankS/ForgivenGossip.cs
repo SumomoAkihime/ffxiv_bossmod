@@ -12,8 +12,8 @@ public enum AID : uint
     PetrifyingEye = 18041, // Boss->self, 3.0s cast, range 40 circle
 }
 
-class Icefall(BossModule module) : Components.StandardAOEs(module, AID.Icefall, 5);
-class PetrifyingEye(BossModule module) : Components.CastGaze(module, AID.PetrifyingEye);
+class Icefall(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Icefall, 5f);
+class PetrifyingEye(BossModule module) : Components.CastGaze(module, (uint)AID.PetrifyingEye);
 
 class ForgivenGossipStates : StateMachineBuilder
 {
@@ -25,5 +25,5 @@ class ForgivenGossipStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.SS, NameID = 8916)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.SS, NameID = 8916)]
 public class ForgivenGossip(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);

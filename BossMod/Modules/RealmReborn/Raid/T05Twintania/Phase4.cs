@@ -3,7 +3,7 @@
 // P4 mechanics
 class P4Twisters(BossModule module) : BossComponent(module)
 {
-    private readonly IReadOnlyList<Actor> _twisters = module.Enemies(OID.Twister);
+    private readonly List<Actor> _twisters = module.Enemies((uint)OID.Twister);
     private readonly List<WPos> _predictedPositions = [];
     private IEnumerable<Actor> ActiveTwisters => _twisters.Where(t => t.EventState != 7);
 
@@ -14,7 +14,7 @@ class P4Twisters(BossModule module) : BossComponent(module)
     public override void Update()
     {
         if (_predictedPositions.Count == 0 && (Module.PrimaryActor.CastInfo?.IsSpell(AID.Twister) ?? false) && Module.PrimaryActor.CastInfo.NPCRemainingTime <= PredictBeforeCastFinish)
-            _predictedPositions.AddRange(Raid.WithoutSlot().Select(a => a.Position));
+            _predictedPositions.AddRange(Raid.WithoutSlot(false, true, true).Select(a => a.Position));
         if (_twisters.Count > 0)
             _predictedPositions.Clear();
     }
@@ -28,22 +28,22 @@ class P4Twisters(BossModule module) : BossComponent(module)
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         foreach (var p in _predictedPositions)
-            hints.AddForbiddenZone(ShapeContains.Circle(p, PredictAvoidRadius), Module.CastFinishAt(Module.PrimaryActor.CastInfo));
+            hints.AddForbiddenZone(new SDCircle(p, PredictAvoidRadius), Module.CastFinishAt(Module.PrimaryActor.CastInfo));
         foreach (var t in ActiveTwisters)
-            hints.AddForbiddenZone(ShapeContains.Circle(t.Position, t.HitboxRadius + TwisterCushion));
+            hints.AddForbiddenZone(new SDCircle(t.Position, t.HitboxRadius + TwisterCushion));
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         foreach (var twister in ActiveTwisters)
-            Arena.AddCircle(twister.Position, twister.HitboxRadius, ArenaColor.Danger);
+            Arena.AddCircle(twister.Position, twister.HitboxRadius, Colors.Danger);
     }
 }
 
 class P4Dreadknights(BossModule module) : BossComponent(module)
 {
     private Actor? _target;
-    private readonly IReadOnlyList<Actor> _dreadknights = module.Enemies(OID.Dreadknight);
+    private readonly List<Actor> _dreadknights = module.Enemies((uint)OID.Dreadknight);
     public IEnumerable<Actor> ActiveDreadknights => _dreadknights.Where(a => !a.IsDead);
 
     public override void Update()
@@ -59,7 +59,7 @@ class P4Dreadknights(BossModule module) : BossComponent(module)
             // until target is selected, stay away from any dreadknights
             foreach (var dk in ActiveDreadknights)
             {
-                hints.AddForbiddenZone(ShapeContains.Circle(dk.Position, 15));
+                hints.AddForbiddenZone(new SDCircle(dk.Position, 15));
             }
         }
         else
@@ -78,9 +78,9 @@ class P4Dreadknights(BossModule module) : BossComponent(module)
     {
         foreach (var a in ActiveDreadknights)
         {
-            Arena.Actor(a, ArenaColor.Enemy);
+            Arena.Actor(a);
             if (_target != null)
-                Arena.AddLine(a.Position, _target.Position, ArenaColor.Danger);
+                Arena.AddLine(a.Position, _target.Position, Colors.Danger);
         }
     }
 

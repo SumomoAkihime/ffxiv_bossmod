@@ -1,10 +1,9 @@
 ﻿using Dalamud.Bindings.ImGui;
 using Lumina.Excel.Sheets;
-using System.Text;
 
 namespace BossMod.ReplayAnalysis;
 
-class IconInfo : CommonEnumInfo
+sealed class IconInfo : CommonEnumInfo
 {
     private class IconData
     {
@@ -28,10 +27,10 @@ class IconInfo : CommonEnumInfo
                 foreach (var icon in replay.EncounterIcons(enc))
                 {
                     var data = _data.GetOrAdd(icon.ID);
-                    data.SourceOIDs.Add(icon.Source.Type != ActorType.DutySupport ? icon.Source.OID : 0);
+                    data.SourceOIDs.Add(icon.Source.OID);
                     if (icon.Target != null)
                     {
-                        data.TargetOIDs.Add(icon.Target.Type != ActorType.DutySupport ? icon.Target.OID : 0);
+                        data.TargetOIDs.Add(icon.Target.OID);
                         data.SeenTargetNonSelf |= icon.Target != icon.Source;
                     }
                 }
@@ -44,7 +43,7 @@ class IconInfo : CommonEnumInfo
         UITree.NodeProperties map(KeyValuePair<uint, IconData> kv)
         {
             var name = _iidType?.GetEnumName(kv.Key);
-            return new($"{kv.Key} ({name})", false, name == null ? 0xff00ffff : 0xffffffff);
+            return new($"{kv.Key} ({name})", false, name == null ? Colors.TextColor2 : Colors.TextColor1);
         }
         foreach (var (iid, data) in tree.Nodes(_data, map))
         {
@@ -60,7 +59,10 @@ class IconInfo : CommonEnumInfo
         {
             var sb = new StringBuilder("public enum IconID : uint\n{\n");
             foreach (var (iid, data) in _data)
+            {
                 sb.Append($"    {EnumMemberString(iid, data)}\n");
+            }
+
             sb.Append("}\n");
             ImGui.SetClipboardText(sb.ToString());
         }
@@ -69,7 +71,10 @@ class IconInfo : CommonEnumInfo
         {
             var sb = new StringBuilder();
             foreach (var (iid, data) in _data.Where(kv => _iidType?.GetEnumName(kv.Key) == null))
+            {
                 sb.AppendLine(EnumMemberString(iid, data));
+            }
+
             ImGui.SetClipboardText(sb.ToString());
         }
     }

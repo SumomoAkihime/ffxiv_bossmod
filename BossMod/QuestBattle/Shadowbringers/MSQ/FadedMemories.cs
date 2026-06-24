@@ -1,6 +1,6 @@
 ﻿namespace BossMod.QuestBattle.Shadowbringers.MSQ;
 
-[ZoneModuleInfo(743)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 743)]
 public class FadedMemories(WorldState ws) : QuestBattle(ws)
 {
     enum SID : uint
@@ -38,9 +38,7 @@ public class FadedMemories(WorldState ws) : QuestBattle(ws)
                     h.Priority = h.Actor.FindStatus(SID.Invincibility) == null ? 1 : 0;
 
                     // The Dragon's Gaze
-                    if (h.Actor.CastInfo is {Action.ID: 21090} cinfo)
-                        hints.ForbiddenDirections.Add((player.AngleTo(h.Actor), 45.Degrees(), World.FutureTime(cinfo.NPCRemainingTime)));
-                }
+                    if (h.Actor.CastInfo is {Action.ID: 21090} cinfo) { hints.ForbiddenDirections.Add((player.AngleTo(h.Actor), 45.Degrees(), World.FutureTime(cinfo.NPCRemainingTime))); } }
             }),
 
         QuestObjective.Combat(ws, new Vector3(-159.19f, -266.00f, 351.25f)).Named("Commanders"),

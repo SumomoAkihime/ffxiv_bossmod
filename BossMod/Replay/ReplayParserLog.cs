@@ -46,7 +46,7 @@ public sealed class ReplayParserLog : IDisposable
 
     sealed class TextInput(Stream stream) : Input
     {
-        public DateTime Timestamp { get; private set; }
+        public DateTime Timestamp;
         private readonly StreamReader _input = new(stream);
         private string[] _line = [];
         private int _nextPayload;
@@ -62,15 +62,21 @@ public sealed class ReplayParserLog : IDisposable
             while (_input.ReadLine() is var line && line != null)
             {
                 if (line.Length == 0 || line[0] == '#')
+                {
                     continue; // empty line or comment
+                }
 
                 _line = line.Split("|");
                 if (_line.Length < 2)
+                {
                     continue; // invalid string
+                }
 
                 var tag = _line[1];
                 if (tag.Length != 4)
+                {
                     continue; // invalid tag
+                }
 
                 Timestamp = DateTime.Parse(_line[0]);
                 _nextPayload = 2;
@@ -81,7 +87,7 @@ public sealed class ReplayParserLog : IDisposable
         }
 
         public override bool CanRead() => _nextPayload < _line.Length;
-        public override void ReadVoid() => _nextPayload++;
+        public override void ReadVoid() => ++_nextPayload;
         public override string ReadString() => _line[_nextPayload++];
         public override float ReadFloat() => float.Parse(ReadString());
         public override double ReadDouble() => double.Parse(ReadString());
@@ -104,8 +110,11 @@ public sealed class ReplayParserLog : IDisposable
         {
             var str = ReadString();
             var res = new byte[str.Length >> 1];
-            for (int i = 0; i < res.Length; ++i)
+            for (var i = 0; i < res.Length; ++i)
+            {
                 res[i] = byte.Parse(str.AsSpan()[(2 * i)..(2 * i + 2)], NumberStyles.HexNumber);
+            }
+
             return res;
         }
         public override ActionID ReadAction()
@@ -119,14 +128,17 @@ public sealed class ReplayParserLog : IDisposable
         public override ActorStatus ReadStatus()
         {
             var sid = ReadString();
-            int sep = sid.IndexOf(' ', StringComparison.Ordinal);
+            var sep = sid.IndexOf(' ', StringComparison.Ordinal);
             return new(uint.Parse(sep >= 0 ? sid.AsSpan(0, sep) : sid.AsSpan()), ushort.Parse(ReadString(), NumberStyles.HexNumber), Timestamp.AddSeconds(ReadFloat()), ReadActorID());
         }
         public override ActionEffects ReadActionEffects()
         {
             var effects = new ActionEffects();
-            for (int i = 0; i < ActionEffects.MaxCount; ++i)
+            for (var i = 0; i < ActionEffects.MaxCount; ++i)
+            {
                 effects[i] = ReadULong(true);
+            }
+
             return effects;
         }
         public override void ReadTargets(List<ActorCastEvent.Target> list)
@@ -135,8 +147,11 @@ public sealed class ReplayParserLog : IDisposable
             {
                 var parts = ReadString().Split('!');
                 var effects = new ActionEffects();
-                for (int j = 1; j < parts.Length; ++j)
+                for (var j = 1; j < parts.Length; ++j)
+                {
                     effects[j - 1] = ulong.Parse(parts[j], NumberStyles.HexNumber);
+                }
+
                 list.Add(new(ParseActorID(parts[0]), effects));
             }
         }
@@ -184,36 +199,140 @@ public sealed class ReplayParserLog : IDisposable
         public override bool CanRead() => true;
         public override void ReadVoid() { }
         public override string ReadString() => _input.ReadString();
-        public override float ReadFloat() => _input.ReadSingle();
-        public override double ReadDouble() => _input.ReadDouble();
-        public override Vector3 ReadVec3() => new(_input.ReadSingle(), _input.ReadSingle(), _input.ReadSingle());
-        public override Angle ReadAngle() => _input.ReadSingle().Radians();
+        public override float ReadFloat()
+        {
+            try
+            {
+                return _input.ReadSingle();
+            }
+            catch (EndOfStreamException)
+            {
+                Service.Log("ReadSingle: Reached the end of the file unexpectedly. Returning default value.");
+                return default;
+            }
+        }
+        public override double ReadDouble()
+        {
+            try
+            {
+                return _input.ReadDouble();
+            }
+            catch (EndOfStreamException)
+            {
+                Service.Log("ReadDouble: Reached the end of the file unexpectedly. Returning default value.");
+                return default;
+            }
+        }
+        public override Vector3 ReadVec3()
+        {
+            try
+            {
+                return new(_input.ReadSingle(), _input.ReadSingle(), _input.ReadSingle());
+            }
+            catch (EndOfStreamException)
+            {
+                Service.Log("ReadVec3: Reached the end of the file unexpectedly. Returning default value.");
+                return default;
+            }
+        }
+        public override Angle ReadAngle()
+        {
+            try
+            {
+                return _input.ReadSingle().Radians();
+            }
+            catch (EndOfStreamException)
+            {
+                Service.Log("ReadAngle: Reached the end of the file unexpectedly. Returning default angle.");
+                return default;
+            }
+        }
         public override bool ReadBool() => _input.ReadBoolean();
         public override sbyte ReadSByte() => _input.ReadSByte();
         public override short ReadShort() => _input.ReadInt16();
-        public override int ReadInt() => _input.ReadInt32();
+        public override int ReadInt()
+        {
+            try
+            {
+                return _input.ReadInt32();
+            }
+            catch (EndOfStreamException)
+            {
+                Service.Log("ReadInt: Reached the end of the file unexpectedly. Returning default value.");
+                return default;
+            }
+        }
         public override long ReadLong() => _input.ReadInt64();
         public override byte ReadByte(bool hex) => _input.ReadByte();
         public override ushort ReadUShort(bool hex) => _input.ReadUInt16();
-        public override uint ReadUInt(bool hex) => _input.ReadUInt32();
-        public override ulong ReadULong(bool hex) => _input.ReadUInt64();
-        public override byte[] ReadBytes() => _input.ReadBytes(_input.ReadInt32());
+        public override uint ReadUInt(bool hex)
+        {
+            try
+            {
+                return _input.ReadUInt32();
+            }
+            catch (EndOfStreamException)
+            {
+                Service.Log("ReadUInt: Reached the end of the file unexpectedly. Returning default value.");
+                return default;
+            }
+        }
+        public override ulong ReadULong(bool hex)
+        {
+            try
+            {
+                return _input.ReadUInt64();
+            }
+            catch (EndOfStreamException)
+            {
+                Service.Log("ReadULong: Reached the end of the file unexpectedly. Returning default value.");
+                return default;
+            }
+        }
+        public override byte[] ReadBytes()
+        {
+            try
+            {
+                return _input.ReadBytes(_input.ReadInt32());
+            }
+            catch (EndOfStreamException)
+            {
+                Service.Log("ReadBytes: Reached the end of the file unexpectedly. Returning default value.");
+                return [];
+            }
+        }
         public override ActionID ReadAction() => new(_input.ReadUInt32());
         public override Class ReadClass() => (Class)_input.ReadByte();
-        public override ActorStatus ReadStatus() => new(_input.ReadUInt32(), _input.ReadUInt16(), new(_input.ReadInt64()), _input.ReadUInt64());
+        public override ActorStatus ReadStatus()
+        {
+            try
+            {
+                return new(_input.ReadUInt32(), _input.ReadUInt16(), new(_input.ReadInt64()), _input.ReadUInt64());
+            }
+            catch (EndOfStreamException)
+            {
+                Service.Log("ReadStatus: Reached the end of the file unexpectedly. Returning default value.");
+                return default;
+            }
+        }
         public override ActionEffects ReadActionEffects()
         {
             var effects = new ActionEffects();
-            for (int i = 0; i < ActionEffects.MaxCount; ++i)
+            for (var i = 0; i < ActionEffects.MaxCount; ++i)
+            {
                 effects[i] = ReadULong(true);
+            }
+
             return effects;
         }
         public override void ReadTargets(List<ActorCastEvent.Target> list)
         {
             var count = _input.ReadInt32();
             list.Capacity = count;
-            for (int i = 0; i < count; ++i)
+            for (var i = 0; i < count; ++i)
+            {
                 list.Add(new(_input.ReadUInt64(), ReadActionEffects()));
+            }
         }
         public override (float, float) ReadFloatPair() => (_input.ReadSingle(), _input.ReadSingle());
         public override (DateTime, float) ReadTimePair() => (new(_input.ReadInt64()), _input.ReadSingle());
@@ -247,7 +366,7 @@ public sealed class ReplayParserLog : IDisposable
             }
 
             var streamInvLength = 1.0f / rawStream.Length;
-            int curOp = 0;
+            var curOp = 0;
             using ReplayBuilder builder = new(path);
             using ReplayParserLog parser = new(input, builder);
             while (parser.ParseLine())
@@ -256,7 +375,9 @@ public sealed class ReplayParserLog : IDisposable
                 {
                     progress = rawStream.Position * streamInvLength;
                     if (cancel.IsCancellationRequested)
+                    {
                         break;
+                    }
                 }
             }
             return cancel.IsCancellationRequested ? new() : builder.Finish();
@@ -375,6 +496,7 @@ public sealed class ReplayParserLog : IDisposable
             [new("IPCI"u8)] = ParseNetworkLegacyIDScramble,
             [new("IPCX"u8)] = ParseNetworkIDScramble,
             [new("IPCS"u8)] = ParseNetworkServerIPC,
+            [new("RFLG"u8)] = ParseRenderflags,
         };
     }
 
@@ -384,7 +506,9 @@ public sealed class ReplayParserLog : IDisposable
     {
         var tag = _input.NextEntry();
         if (tag == default)
+        {
             return false; // end of replay
+        }
 
         if (_version is > 0 and < 5 && _input is TextInput ti && _legacyPrevTS < ti.Timestamp)
         {
@@ -393,11 +517,15 @@ public sealed class ReplayParserLog : IDisposable
         }
 
         if (!_dispatch.TryGetValue(tag, out var parse))
+        {
             throw new InvalidOperationException($"Replay contains unsupported tag {tag}");
+        }
 
         var op = parse();
         if (op != null)
+        {
             _builder.AddOp(op);
+        }
 
         return true;
     }
@@ -406,7 +534,10 @@ public sealed class ReplayParserLog : IDisposable
     {
         _version = _input.ReadInt();
         if (_version < 2)
+        {
             throw new InvalidOperationException($"Version {_version} is too old and is no longer supported, sorry");
+        }
+
         var qpf = _version >= 10 ? _input.ReadULong(false) : TimeSpan.TicksPerSecond; // newer windows versions have 10mhz qpc frequency
         var gameVersion = _version >= 11 ? _input.ReadString() : "old";
         _tsStart = _input is TextInput ti ? ti.Timestamp : new(_input.ReadLong());
@@ -420,22 +551,52 @@ public sealed class ReplayParserLog : IDisposable
         var frame = new FrameState();
         var prevUpdateTime = TimeSpan.FromMilliseconds(_input.ReadDouble());
         _input.ReadVoid();
-        var gauge = new ClientState.Gauge(_input.CanRead() ? _input.ReadULong(true) : 0, _version >= 18 ? _input.ReadULong(true) : 0);
+        var gauge = new ClientState.Gauge(
+            _input.CanRead() ? _input.ReadULong(true) : 0,
+            _version >= 18 ? _input.ReadULong(true) : 0
+        );
+
         if (_version >= 10)
         {
-            frame.QPC = _input.ReadULong(false);
-            frame.Index = _input.ReadUInt(false);
-            frame.DurationRaw = _input.ReadFloat();
-            frame.Duration = _input.ReadFloat();
-            frame.TickSpeedMultiplier = _input.ReadFloat();
-            if (_qpcStart != 0)
+            try
             {
-                frame.Timestamp = _tsStart.AddSeconds((frame.QPC - _qpcStart) * _invQPF);
+                frame.QPC = _input.ReadULong(false);
+                frame.Index = _input.ReadUInt(false);
+                frame.DurationRaw = _input.ReadFloat();
+                frame.Duration = _input.ReadFloat();
+                frame.TickSpeedMultiplier = _input.ReadFloat();
+
+                if (_qpcStart != 0 && frame.QPC >= _qpcStart)
+                {
+                    var timeDiff = (frame.QPC - _qpcStart) * _invQPF;
+                    if (timeDiff >= 0)
+                    {
+                        frame.Timestamp = _tsStart.AddSeconds(timeDiff);
+                    }
+                    else
+                    {
+                        frame.Timestamp = _tsStart;
+                        Service.Log($"Invalid time difference: {timeDiff}. Using default timestamp.");
+                    }
+                }
+                else
+                {
+                    if (_qpcStart == 0)
+                    {
+                        _qpcStart = frame.QPC;
+                        frame.Timestamp = _tsStart;
+                    }
+                    else
+                    {
+                        frame.Timestamp = _tsStart;
+                        Service.Log($"Invalid QPC values: _qpcStart={_qpcStart}, frame.QPC={frame.QPC}");
+                    }
+                }
             }
-            else
+            catch (Exception ex)
             {
-                _qpcStart = frame.QPC;
                 frame.Timestamp = _tsStart;
+                Service.Log($"Failed to parse frame start: {ex.Message}");
             }
         }
         else if (_input is TextInput ti)
@@ -446,7 +607,9 @@ public sealed class ReplayParserLog : IDisposable
             frame.Duration = frame.DurationRaw = (float)(ti.Timestamp - _legacyPrevTS).TotalSeconds;
             frame.TickSpeedMultiplier = 1;
         }
+
         _legacyPrevTS = frame.Timestamp;
+
         return new(frame, prevUpdateTime, gauge, _version >= 16 ? _input.ReadAngle() : default);
     }
 
@@ -460,7 +623,10 @@ public sealed class ReplayParserLog : IDisposable
     {
         // director id field is removed in v11
         if (_version < 11)
+        {
             _input.ReadUInt(true);
+        }
+
         return new(_input.ReadByte(true), _input.ReadUInt(true));
     }
 
@@ -471,8 +637,11 @@ public sealed class ReplayParserLog : IDisposable
         var id = _input.ReadUInt(false);
         var argCount = _input.ReadInt();
         var args = new int[argCount];
-        for (var i = 0; i < argCount; i++)
+        for (var i = 0; i < argCount; ++i)
+        {
             args[i] = _input.ReadInt();
+        }
+
         return new(id, args);
     }
 
@@ -483,8 +652,11 @@ public sealed class ReplayParserLog : IDisposable
         var primary = _input.ReadActorID();
         var targets = new ClientState.Hate[32];
         var haterCount = _input.ReadInt();
-        for (var i = 0; i < haterCount; i++)
+        for (var i = 0; i < haterCount; ++i)
+        {
             targets[i] = new(_input.ReadActorID(), _input.ReadInt());
+        }
+
         return new(primary, targets);
     }
 
@@ -527,6 +699,7 @@ public sealed class ReplayParserLog : IDisposable
                 targetable,
                 ally,
                 owner,
+                0,
                 0
             );
         }
@@ -549,7 +722,8 @@ public sealed class ReplayParserLog : IDisposable
                 _input.ReadBool(),
                 _input.ReadBool(),
                 _input.ReadActorID(),
-                _version >= 14 ? _input.ReadUInt(false) : 0
+                _version >= 14 ? _input.ReadUInt(false) : 0,
+                _version >= 27 ? _input.ReadInt() : 0
             );
         }
     }
@@ -603,6 +777,7 @@ public sealed class ReplayParserLog : IDisposable
     private ActorState.OpMount ParseActorMount() => new(_input.ReadActorID(), _input.ReadUInt(false));
     private ActorState.OpForayInfo ParseActorForay() => new(_input.ReadActorID(), new(_input.ReadByte(false), _input.ReadByte(false)));
     private ActorState.OpTether ParseActorTether(bool tether) => new(_input.ReadActorID(), tether ? new(_input.ReadUInt(false), _input.ReadActorID()) : default);
+    private ActorState.OpRenderflags ParseRenderflags() => new(_input.ReadActorID(), _input.ReadInt());
 
     private ActorState.OpCastInfo ParseActorCastInfo(bool start)
     {
@@ -663,7 +838,10 @@ public sealed class ReplayParserLog : IDisposable
         var count = _input.ReadInt();
         List<(ulong, ushort)> actions = [];
         for (var i = 0; i < count; i++)
+        {
             actions.Add((_input.ReadActorID(), _input.ReadUShort(true)));
+        }
+
         return new(owner, actions);
     }
     private ActorState.OpEventNpcYell ParseActorEventNpcYell() => new(_input.ReadActorID(), _input.ReadUShort(false));
@@ -674,29 +852,24 @@ public sealed class ReplayParserLog : IDisposable
 
     private ClientState.OpActionRequest ParseClientActionRequest()
     {
-        var req = new ClientActionRequest()
-        {
-            Action = _input.ReadAction(),
-            TargetID = _input.ReadActorID(),
-            TargetPos = _input.ReadVec3(),
-            SourceSequence = _input.ReadUInt(false),
-            InitialAnimationLock = _input.ReadFloat(),
-        };
-        (req.InitialCastTimeElapsed, req.InitialCastTimeTotal) = _input.ReadFloatPair();
-        (req.InitialRecastElapsed, req.InitialRecastTotal) = _input.ReadFloatPair();
-        return new(req);
+        var action = _input.ReadAction();
+        var targetId = _input.ReadActorID();
+        var targetPos = _input.ReadVec3();
+        var sequence = _input.ReadUInt(false);
+        var animLock = _input.ReadFloat();
+        var (castElapsed, castTotal) = _input.ReadFloatPair();
+        var (recastElapsed, recastTotal) = _input.ReadFloatPair();
+
+        return new(new(action, targetId, targetPos, sequence, animLock, castElapsed, castTotal, recastElapsed, recastTotal));
     }
 
     private ClientState.OpActionReject ParseClientActionReject()
     {
-        var rej = new ClientActionReject()
-        {
-            Action = _input.ReadAction(),
-            SourceSequence = _input.ReadUInt(false),
-        };
-        (rej.RecastElapsed, rej.RecastTotal) = _input.ReadFloatPair();
-        rej.LogMessageID = _input.ReadUInt(false);
-        return new(rej);
+        var action = _input.ReadAction();
+        var sourceSequence = _input.ReadUInt(false);
+        var (recastElapsed, recastTotal) = _input.ReadFloatPair();
+        var logMessageID = _input.ReadUInt(false);
+        return new(new(action, sourceSequence, recastElapsed, recastTotal, logMessageID));
     }
 
     private ClientState.OpCountdownChange ParseClientCountdown(bool start) => new(start ? _input.ReadFloat() : null);
@@ -710,11 +883,19 @@ public sealed class ReplayParserLog : IDisposable
         var reset = _input.ReadBool();
         List<(int, Cooldown)> cooldowns = [];
         cooldowns.Capacity = _input.ReadByte(false);
-        for (int i = 0; i < cooldowns.Capacity; ++i)
+        for (var i = 0; i < cooldowns.Capacity; ++i)
+        {
             cooldowns.Add((_input.ReadByte(false), new(_input.ReadFloat(), _input.ReadFloat())));
+        }
+
         if (_version < 19)
+        {
             foreach (ref var cd in cooldowns.AsSpan())
+            {
                 cd.Item2.Elapsed = cd.Item2.Total - cd.Item2.Elapsed; // there was a mistake before v19 where remaining was saved instead of elapsed
+            }
+        }
+
         return new(reset, cooldowns);
     }
 
@@ -729,8 +910,10 @@ public sealed class ReplayParserLog : IDisposable
 
         var count = _input.ReadByte(false);
         var actions = new ClientState.DutyAction[count];
-        for (var i = 0; i < count; i++)
+        for (var i = 0; i < count; ++i)
+        {
             actions[i] = new ClientState.DutyAction(_input.ReadAction(), _input.ReadByte(false), _input.ReadByte(false));
+        }
 
         return new(actions);
     }
@@ -739,8 +922,11 @@ public sealed class ReplayParserLog : IDisposable
     {
         List<(BozjaHolsterID, byte)> contents = [];
         contents.Capacity = _input.ReadByte(false);
-        for (int i = 0; i < contents.Capacity; ++i)
+        for (var i = 0; i < contents.Capacity; ++i)
+        {
             contents.Add(((BozjaHolsterID)_input.ReadByte(false), _input.ReadByte(false)));
+        }
+
         return new(contents);
     }
 
@@ -748,20 +934,26 @@ public sealed class ReplayParserLog : IDisposable
     {
         var contents = new uint[ClientState.NumBlueMageSpells];
         var count = _input.ReadByte(false);
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; ++i)
+        {
             contents[i] = _input.ReadUInt(false);
+        }
+
         return new(contents);
     }
 
     private ClientState.OpClassJobLevelsChange ParseClientClassJobLevels()
     {
         var contents = new short[_input.ReadByte(false)];
-        for (int i = 0; i < contents.Length; i++)
+        for (var i = 0; i < contents.Length; ++i)
+        {
             contents[i] = _input.ReadShort();
+        }
+
         return new(contents);
     }
 
-    private ClientState.OpActiveFateChange ParseClientActiveFate() => new(new(_input.ReadUInt(false), _input.ReadVec3(), _input.ReadFloat(), _version >= 27 ? _input.ReadByte(false) : default, _version >= 27 ? _input.ReadByte(false) : default, _version >= 28 ? _input.ReadUInt(false) : default));
+    private ClientState.OpActiveFateChange ParseClientActiveFate() => new(new(_input.ReadUInt(false), _input.ReadVec3(), _input.ReadFloat(), _version >= 27 ? _input.ReadByte(false) : default, _version >= 27 ? _input.ReadByte(false) : default, _version >= 29 ? _input.ReadUInt(false) : default));
     private ClientState.OpActivePetChange ParseClientActivePet() => new(new(_input.ReadULong(true), _input.ReadByte(false), _input.ReadByte(false)));
     private ClientState.OpActiveCompanionChange ParseClientActiveCompanion() => new(new(_input.ReadULong(true), _input.ReadByte(false), _input.ReadFloat(), _version >= 30 && _input.ReadBool()));
     private ClientState.OpFocusTargetChange ParseClientFocusTarget() => new(_input.ReadULong(true));
@@ -797,22 +989,31 @@ public sealed class ReplayParserLog : IDisposable
     private DeepDungeonState.OpPartyStateChange ParseDeepDungeonParty()
     {
         var pt = new DeepDungeonState.PartyMember[DeepDungeonState.NumPartyMembers];
-        for (var i = 0; i < pt.Length; i++)
+        for (var i = 0; i < pt.Length; ++i)
+        {
             pt[i] = new(_input.ReadActorID(), _input.ReadByte(false));
+        }
+
         return new(pt);
     }
     private DeepDungeonState.OpPomandersChange ParseDeepDungeonPomanders()
     {
         var it = new DeepDungeonState.PomanderState[DeepDungeonState.NumPomanderSlots];
-        for (var i = 0; i < it.Length; i++)
+        for (var i = 0; i < it.Length; ++i)
+        {
             it[i] = new(_input.ReadByte(false), _input.ReadByte(true));
+        }
+
         return new(it);
     }
     private DeepDungeonState.OpChestsChange ParseDeepDungeonChests()
     {
         var ct = new DeepDungeonState.Chest[DeepDungeonState.NumChests];
-        for (var i = 0; i < ct.Length; i++)
+        for (var i = 0; i < ct.Length; ++i)
+        {
             ct[i] = new(_input.ReadByte(false), _input.ReadByte(false));
+        }
+
         return new(ct);
     }
     private DeepDungeonState.OpMagiciteChange ParseDeepDungeonMagicite() => new(_input.ReadBytes());

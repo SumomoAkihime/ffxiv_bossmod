@@ -1,18 +1,18 @@
 ﻿namespace BossMod.Endwalker.Ultimate.DSW2;
 
-class P6MortalVow : Components.UniformStackSpread
+sealed class P6MortalVow : Components.UniformStackSpread
 {
-    public int Progress { get; private set; } // 0 before application, N before Nth pass
+    public int Progress; // 0 before application, N before Nth pass
     private readonly DSW2Config _config = Service.Config.Get<DSW2Config>();
     private Actor? _vow;
     private Actor? _target;
     private DateTime _vowExpiration;
     private readonly DateTime[] _atonementExpiration = new DateTime[PartyState.MaxPartySize];
 
-    public P6MortalVow(BossModule module) : base(module, 5, 5, 2, 2, true, false)
+    public P6MortalVow(BossModule module) : base(module, 5f, 5f, 2, 2, false)
     {
         // prepare for initial application on random DD
-        AddSpreads(Raid.WithoutSlot(true).Where(p => p.Class.IsDD())); // TODO: activation
+        AddSpreads(Raid.WithoutSlot(true, true, true).Where(p => p.Class.IsDD())); // TODO: activation
     }
 
     public void ShowNextPass()
@@ -20,48 +20,50 @@ class P6MortalVow : Components.UniformStackSpread
         if (_vow == null)
             return;
         _target = DetermineNextPassTarget();
-        var forbidden = _target != null ? Raid.WithSlot(true).Exclude(_target).Mask() : Raid.WithSlot(true).WhereSlot(i => _atonementExpiration[i] < _vowExpiration).Mask();
+        var forbidden = _target != null ? Raid.WithSlot(true, true, true).Exclude(_target).Mask() : Raid.WithSlot(true, true, true).WhereSlot(i => _atonementExpiration[i] < _vowExpiration).Mask();
         AddStack(_vow, _vowExpiration, forbidden);
     }
 
     public override void AddMovementHints(int slot, Actor actor, MovementHints movementHints)
     {
         if (_vow != null && _target != null && (actor == _vow || actor == _target))
-            movementHints.Add(actor.Position, (actor == _vow ? _target : _vow).Position, ArenaColor.Safe);
+            movementHints.Add(actor.Position, (actor == _vow ? _target : _vow).Position, Colors.Safe);
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         base.DrawArenaForeground(pcSlot, pc);
         if (_vow != null && _target != null && (pc == _vow || pc == _target))
-            Arena.AddCircle(Module.Center, 1, ArenaColor.Safe);
+            Arena.AddCircle(Arena.Center, 1f, Colors.Safe);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.MortalVow:
+            case (uint)SID.MortalVow:
                 _vow = actor;
                 _vowExpiration = status.ExpireAt;
                 break;
-            case SID.MortalAtonement:
-                if (Raid.TryFindSlot(actor, out var slot))
+            case (uint)SID.MortalAtonement:
+                var slot = Raid.FindSlot(actor.InstanceID);
+                if (slot >= 0)
                     _atonementExpiration[slot] = status.ExpireAt;
                 break;
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.MortalVow:
+            case (uint)SID.MortalVow:
                 if (_vow == actor)
                     _vow = null;
                 break;
-            case SID.MortalAtonement:
-                if (Raid.TryFindSlot(actor, out var slot))
+            case (uint)SID.MortalAtonement:
+                var slot = Raid.FindSlot(actor.InstanceID);
+                if (slot >= 0)
                     _atonementExpiration[slot] = default;
                 break;
         }
@@ -69,7 +71,7 @@ class P6MortalVow : Components.UniformStackSpread
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.MortalVowApply or AID.MortalVowPass)
+        if (spell.Action.ID is (uint)AID.MortalVowApply or (uint)AID.MortalVowPass)
         {
             ++Progress;
             Spreads.Clear();

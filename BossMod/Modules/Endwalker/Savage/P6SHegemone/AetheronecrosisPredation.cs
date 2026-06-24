@@ -3,8 +3,8 @@
 // TODO: improve...
 class AetheronecrosisPredation(BossModule module) : BossComponent(module)
 {
-    public int NumCastsAetheronecrosis { get; private set; }
-    public int NumCastsDualPredation { get; private set; }
+    public int NumCastsAetheronecrosis;
+    public int NumCastsDualPredation;
     private readonly int[] _orders = new int[PartyState.MaxPartySize];
     private BitMask _vulnSnake;
     private BitMask _vulnWing;
@@ -17,7 +17,7 @@ class AetheronecrosisPredation(BossModule module) : BossComponent(module)
             hints.Add($"Order: {_orders[slot]}, side: {(_vulnSnake[slot] ? "wing" : _vulnWing[slot] ? "snake" : "???")}", false);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         switch ((SID)status.ID)
         {
@@ -28,7 +28,8 @@ class AetheronecrosisPredation(BossModule module) : BossComponent(module)
                 _vulnWing.Set(Raid.FindSlot(actor.InstanceID));
                 break;
             case SID.Aetheronecrosis:
-                if (Raid.TryFindSlot(actor, out var slot))
+                var slot = Raid.FindSlot(actor.InstanceID);
+                if (slot >= 0)
                 {
                     _orders[slot] = (status.ExpireAt - WorldState.CurrentTime).TotalSeconds switch
                     {
@@ -42,7 +43,7 @@ class AetheronecrosisPredation(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
         switch ((SID)status.ID)
         {

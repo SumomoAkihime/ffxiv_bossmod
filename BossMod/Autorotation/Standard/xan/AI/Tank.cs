@@ -2,7 +2,7 @@
 
 namespace BossMod.Autorotation.xan;
 
-public class TankAI(RotationModuleManager manager, Actor player) : AIBase<TankAI.Strategy>(manager, player)
+public sealed class TankAI(RotationModuleManager manager, Actor player) : AIBase<TankAI.Strategy>(manager, player)
 {
     public struct Strategy
     {
@@ -124,7 +124,7 @@ public class TankAI(RotationModuleManager manager, Actor player) : AIBase<TankAI
 
     private TankActions JobActions => ActionsForJob(Player.Class);
 
-    public override void Execute(in Strategy strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(in Strategy strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         // ranged
         if (ShouldRanged(strategy, primaryTarget))
@@ -204,8 +204,8 @@ public class TankAI(RotationModuleManager manager, Actor player) : AIBase<TankAI
     {
         var threat = Hints.PotentialTargets.TakeWhile(t => t.Priority >= AIHints.Enemy.PriorityInvincible).FirstOrDefault(x =>
             // fate mobs are immune to provoke and we probably don't care about this anyway
-            x.Actor.FateID == 0
-            && World.Party.TryFindSlot(x.Actor.TargetID, out var slot)
+            x.Actor.FateID == default
+            && World.Party.FindSlot(x.Actor.TargetID) is var slot && slot >= 0
             && World.Party[slot]!.Class.GetRole() != Role.Tank
         );
         if (threat != null)
@@ -232,7 +232,7 @@ public class TankAI(RotationModuleManager manager, Actor player) : AIBase<TankAI
             }
 
         foreach (var (ally, t) in Tankbusters)
-            if (ally != Player && (t - World.CurrentTime).TotalSeconds < 4)
+            if (ally != Player && (t - World.CurrentTime).TotalSeconds < 4d)
                 Hints.ActionsToExecute.Push(JobActions.AllyMit.ID, ally, ActionQueue.Priority.Low);
     }
 
@@ -312,7 +312,7 @@ public class TankAI(RotationModuleManager manager, Actor player) : AIBase<TankAI
     {
         var currentCD = NextChargeIn(action);
         var maxCD = ActionDefinitions.Instance[action]!.Cooldown;
-        var effectRemaining = MathF.Max(0, actionDuration + currentCD - maxCD);
+        var effectRemaining = Math.Max(0, actionDuration + currentCD - maxCD);
         var ready = currentCD < deadline;
         if (resourceCheck != null)
             ready &= resourceCheck(this);

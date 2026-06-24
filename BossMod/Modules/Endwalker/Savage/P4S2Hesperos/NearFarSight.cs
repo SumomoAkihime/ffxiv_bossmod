@@ -13,10 +13,10 @@ class NearFarSight : BossComponent
 
     public NearFarSight(BossModule module) : base(module)
     {
-        CurState = (AID)(Module.PrimaryActor.CastInfo?.Action.ID ?? 0) switch
+        CurState = (Module.PrimaryActor.CastInfo?.Action.ID ?? 0) switch
         {
-            AID.Nearsight => State.Near,
-            AID.Farsight => State.Far,
+            (uint)AID.Nearsight => State.Near,
+            (uint)AID.Farsight => State.Far,
             _ => State.Done
         };
         if (CurState == State.Done)
@@ -25,15 +25,15 @@ class NearFarSight : BossComponent
 
     public override void Update()
     {
-        _targets = _inAOE = new();
+        _targets = _inAOE = default;
         if (CurState == State.Done)
             return;
 
-        var playersByRange = Raid.WithSlot().SortedByRange(Module.PrimaryActor.Position);
-        foreach ((int i, var player) in CurState == State.Near ? playersByRange.Take(2) : playersByRange.TakeLast(2))
+        var playersByRange = Raid.WithSlot(false, true, true).SortedByRange(Module.PrimaryActor.Position);
+        foreach ((var i, var player) in CurState == State.Near ? playersByRange.Take(2) : playersByRange.TakeLast(2))
         {
             _targets.Set(i);
-            _inAOE |= Raid.WithSlot().InRadiusExcluding(player, _aoeRadius).Mask();
+            _inAOE |= Raid.WithSlot(false, true, true).InRadiusExcluding(player, _aoeRadius).Mask();
         }
     }
 
@@ -42,10 +42,10 @@ class NearFarSight : BossComponent
         if (_targets.None())
             return;
 
-        bool isTarget = _targets[slot];
-        bool shouldBeTarget = actor.Role == Role.Tank;
-        bool isFailing = isTarget != shouldBeTarget;
-        bool shouldBeNear = CurState == State.Near ? shouldBeTarget : !shouldBeTarget;
+        var isTarget = _targets[slot];
+        var shouldBeTarget = actor.Role == Role.Tank;
+        var isFailing = isTarget != shouldBeTarget;
+        var shouldBeNear = CurState == State.Near ? shouldBeTarget : !shouldBeTarget;
         hints.Add(shouldBeNear ? "Stay near boss" : "Stay on max melee", isFailing);
         if (_inAOE[slot])
         {
@@ -58,23 +58,23 @@ class NearFarSight : BossComponent
         if (_targets.None())
             return;
 
-        foreach ((int i, var player) in Raid.WithSlot())
+        foreach ((var i, var player) in Raid.WithSlot(false, true, true))
         {
             if (_targets[i])
             {
-                Arena.Actor(player, ArenaColor.Danger);
-                Arena.AddCircle(player.Position, _aoeRadius, ArenaColor.Danger);
+                Arena.Actor(player, Colors.Danger);
+                Arena.AddCircle(player.Position, _aoeRadius, Colors.Danger);
             }
             else
             {
-                Arena.Actor(player, _inAOE[i] ? ArenaColor.PlayerInteresting : ArenaColor.PlayerGeneric);
+                Arena.Actor(player, _inAOE[i] ? Colors.PlayerInteresting : Colors.PlayerGeneric);
             }
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.NearsightAOE or AID.FarsightAOE)
+        if (spell.Action.ID is (uint)AID.NearsightAOE or (uint)AID.FarsightAOE)
             CurState = State.Done;
     }
 }

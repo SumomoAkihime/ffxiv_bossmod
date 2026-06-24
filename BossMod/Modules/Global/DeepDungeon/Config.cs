@@ -6,7 +6,7 @@ using Lumina.Excel.Sheets;
 namespace BossMod.Global.DeepDungeon;
 
 [ConfigDisplay(Name = "Auto-DeepDungeon (Experimental)", Parent = typeof(ModuleConfig))]
-public class AutoDDConfig : ConfigNode
+public sealed class AutoDDConfig : ConfigNode
 {
     public enum ClearBehavior
     {
@@ -24,20 +24,15 @@ public class AutoDDConfig : ConfigNode
     public bool Enable = true;
     [PropertyDisplay("Enable minimap")]
     public bool EnableMinimap = true;
-    [PropertyDisplay("Minimap scale")]
-    [PropertySlider(min: 0.2f, max: 3, Speed = 0.05f)]
-    public float MinimapScale = 1.0f;
-    [PropertyDisplay("Try to avoid traps", tooltip: "Avoid known trap locations sourced from PalacePal data. (Traps revealed by a Pomander of Sight will always be avoided regardless of this setting.)")]
+    [PropertyDisplay("Try to avoid traps", tooltip: "Avoid known trap locations sourced from PalacePal data. Does not need PalacePal installed since data is included in BMR. (Traps revealed by a Pomander of Sight will always be avoided regardless of this setting.)")]
     public bool TrapHints = true;
-    [PropertyDisplay("Draw potential trap locations in game world")]
-    public bool DrawTraps = false;
     [PropertyDisplay("Automatically navigate to Cairn of Passage")]
     public bool AutoPassage = true;
 
     [PropertyDisplay("Automatic mob targeting behavior")]
     public ClearBehavior AutoClear = ClearBehavior.Leveling;
 
-    [PropertyDisplay("Disable DoTs on non-boss floors (only affects VBM autorotation)")]
+    [PropertyDisplay("Disable DoTs on non-boss floors (only affects BMR autorotation)")]
     public bool ForbidDOTs = false;
 
     [PropertyDisplay("Max number of mobs to pull before pausing navigation (0 = do not navigate while in combat)")]
@@ -76,8 +71,8 @@ public class AutoDDConfig : ConfigNode
                 {
                     var row = Service.LuminaRow<DeepDungeonItem>((uint)i)!.Value;
                     var wrap = Service.Texture.GetFromGameIcon(row.Icon).GetWrapOrEmpty();
-                    var scale = new Vector2(32 * ImGuiHelpers.GlobalScale);
-                    ImGui.Image(wrap.Handle, scale, new Vector2(0), tintCol: new Vector4(1) with { W = AutoPoms[i] ? 1 : 0.4f });
+                    var scale = new Vector2(32, 32) * ImGuiHelpers.GlobalScale;
+                    ImGui.Image(wrap.Handle, scale, new Vector2(0, 0), tintCol: AutoPoms[i] ? new(1, 1, 1, 1) : new(1, 1, 1, 0.4f));
                     if (ImGui.IsItemClicked())
                     {
                         AutoPoms.Toggle(i);

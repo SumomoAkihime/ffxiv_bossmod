@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Alliance.A11Cetus;
+﻿namespace BossMod.Heavensward.Alliance.A11Cetus;
 
 class A11CetusStates : StateMachineBuilder
 {

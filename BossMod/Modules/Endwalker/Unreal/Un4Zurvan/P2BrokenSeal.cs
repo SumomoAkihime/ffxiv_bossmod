@@ -11,11 +11,11 @@ class P2BrokenSeal(BossModule module) : BossComponent(module)
         public bool TooFar;
     }
 
-    public int NumAssigned { get; private set; }
-    public int NumCasts { get; private set; }
+    public int NumAssigned;
+    public int NumCasts;
     private readonly PlayerState[] _playerStates = Utils.MakeArray(PartyState.MaxPartySize, new PlayerState() { Partner = -1 });
-    private readonly IReadOnlyList<Actor> _fireTowers = module.Enemies(OID.FireTower);
-    private readonly IReadOnlyList<Actor> _iceTowers = module.Enemies(OID.IceTower);
+    private readonly List<Actor> _fireTowers = module.Enemies((uint)OID.FireTower);
+    private readonly List<Actor> _iceTowers = module.Enemies((uint)OID.IceTower);
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
@@ -47,45 +47,47 @@ class P2BrokenSeal(BossModule module) : BossComponent(module)
         var partner = state.Color != Color.None && state.Partner >= 0 ? Raid[state.Partner] : null;
         if (partner != null)
         {
-            Arena.AddLine(pc.Position, partner.Position, state.Color == Color.Fire ? 0xff0080ff : 0xffff8000, state.TooFar ? 2 : 1);
+            Arena.AddLine(pc.Position, partner.Position, state.Color == Color.Fire ? Colors.Object : Colors.Other8, state.TooFar ? 2 : 1);
         }
 
-        foreach (var t in _fireTowers)
-            Arena.AddCircle(t.Position, 2, state.Color == Color.Fire ? ArenaColor.Safe : ArenaColor.Danger);
-        foreach (var t in _iceTowers)
-            Arena.AddCircle(t.Position, 2, state.Color == Color.Ice ? ArenaColor.Safe : ArenaColor.Danger);
+        for (var i = 0; i < _fireTowers.Count; ++i)
+            Arena.AddCircle(_fireTowers[i].Position, 2, state.Color == Color.Fire ? Colors.Safe : default);
+        for (var i = 0; i < _iceTowers.Count; ++i)
+            Arena.AddCircle(_iceTowers[i].Position, 2, state.Color == Color.Ice ? Colors.Safe : default);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.InfiniteFire:
+            case (uint)AID.InfiniteFire:
                 AssignColor(spell.MainTargetID, Color.Fire);
                 break;
-            case AID.InfiniteIce:
+            case (uint)AID.InfiniteIce:
                 AssignColor(spell.MainTargetID, Color.Ice);
                 break;
-            case AID.SouthStar:
-            case AID.NorthStar:
-            case AID.SouthStarUnsoaked:
-            case AID.NorthStarUnsoaked:
-            case AID.SouthStarWrong:
-            case AID.NorthStarWrong:
+            case (uint)AID.SouthStar:
+            case (uint)AID.NorthStar:
+            case (uint)AID.SouthStarUnsoaked:
+            case (uint)AID.NorthStarUnsoaked:
+            case (uint)AID.SouthStarWrong:
+            case (uint)AID.NorthStarWrong:
                 ++NumCasts;
                 break;
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
-        if ((TetherID)tether.ID is TetherID.InfiniteAnguish or TetherID.InfiniteFire or TetherID.InfiniteIce)
+        if (tether.ID is (uint)TetherID.InfiniteAnguish or (uint)TetherID.InfiniteFire or (uint)TetherID.InfiniteIce)
         {
-            if (Raid.TryFindSlot(source, out var from) && Raid.TryFindSlot(tether.Target, out var to))
+            var from = Raid.FindSlot(source.InstanceID);
+            var to = Raid.FindSlot(tether.Target);
+            if (from >= 0 && to >= 0)
             {
                 _playerStates[from].Partner = to;
                 _playerStates[to].Partner = from;
-                _playerStates[from].TooFar = _playerStates[to].TooFar = (TetherID)tether.ID == TetherID.InfiniteAnguish;
+                _playerStates[from].TooFar = _playerStates[to].TooFar = tether.ID == (uint)TetherID.InfiniteAnguish;
             }
         }
     }
@@ -93,7 +95,8 @@ class P2BrokenSeal(BossModule module) : BossComponent(module)
     private void AssignColor(ulong playerID, Color color)
     {
         ++NumAssigned;
-        if (Raid.TryFindSlot(playerID, out var slot))
+        var slot = Raid.FindSlot(playerID);
+        if (slot >= 0)
             _playerStates[slot].Color = color;
     }
 }

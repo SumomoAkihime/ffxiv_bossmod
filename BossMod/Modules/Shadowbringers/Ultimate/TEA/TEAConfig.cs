@@ -1,6 +1,7 @@
 ﻿namespace BossMod.Shadowbringers.Ultimate.TEA;
 
-public class GroupAssignmentFourUnique : GroupAssignment
+[SkipLocalsInit]
+public sealed class GroupAssignmentFourUnique : GroupAssignment
 {
     public static GroupAssignmentFourUnique Default()
     {
@@ -17,10 +18,10 @@ public class GroupAssignmentFourUnique : GroupAssignment
     {
         var assigned = new int[5];
 
-        for (var i = 0; i < (int)PartyRolesConfig.Assignment.Unassigned; i++)
+        for (var i = 0; i < (int)PartyRolesConfig.Assignment.Unassigned; ++i)
         {
             if (Assignments[i] >= 0)
-                assigned[Assignments[i]]++;
+                ++assigned[Assignments[i]];
         }
 
         // TODO: implement doll skip, i don't know what people do with dolls there
@@ -31,8 +32,9 @@ public class GroupAssignmentFourUnique : GroupAssignment
     }
 }
 
+[SkipLocalsInit]
 [ConfigDisplay(Order = 0x200, Parent = typeof(ShadowbringersConfig))]
-public class TEAConfig() : ConfigNode()
+public sealed class TEAConfig() : ConfigNode()
 {
     [PropertyDisplay("P1: Doll assignments (middle tornado = relative south)")]
     [GroupDetails(["NW", "NE", "SE", "SW", "Ignore"])]

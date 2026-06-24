@@ -15,9 +15,9 @@ public enum AID : uint
     Epigraph = 7997, // Boss->self, 3.5s cast, range 50+R width 8 rect
 }
 
-class TremblingEpigraph(BossModule module) : Components.RaidwideCast(module, AID.TremblingEpigraph, "Raidwide x4");
-class FlaringEpigraph(BossModule module) : Components.RaidwideCast(module, AID.FlaringEpigraph);
-class Epigraph(BossModule module) : Components.StandardAOEs(module, AID.Epigraph, new AOEShapeRect(55.04f, 4));
+class TremblingEpigraph(BossModule module) : Components.RaidwideCast(module, (uint)AID.TremblingEpigraph, "Raidwide x4");
+class FlaringEpigraph(BossModule module) : Components.RaidwideCast(module, (uint)AID.FlaringEpigraph);
+class Epigraph(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Epigraph, new AOEShapeRect(55.04f, 4));
 
 class OrghanaStates : StateMachineBuilder
 {
@@ -30,5 +30,5 @@ class OrghanaStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.S, NameID = 5986)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.S, NameID = 5986)]
 public class Orghana(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);

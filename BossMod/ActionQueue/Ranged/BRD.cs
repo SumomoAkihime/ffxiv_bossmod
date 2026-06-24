@@ -110,9 +110,9 @@ public enum SID : uint
     Peloton = ClassShared.SID.Peloton, // applied by Peloton to self/party
 }
 
-public sealed class Definitions : Defs
+public sealed class Definitions : IDisposable
 {
-    public override void Define(ActionDefinitions d)
+    public Definitions(ActionDefinitions d)
     {
         d.RegisterSpell(AID.SagittariusArrow, true, castAnimLock: 3.70f); // animLock=3.700s?
         d.RegisterSpell(AID.HeavyShot, true);
@@ -153,6 +153,8 @@ public sealed class Definitions : Defs
         Customize(d);
     }
 
+    public void Dispose() { }
+
     private void Customize(ActionDefinitions d)
     {
         // hardcoded mechanics
@@ -165,3 +167,4 @@ public sealed class Definitions : Defs
         d.Spell(AID.RepellingShot)!.ForbidExecute = ActionDefinitions.BackdashCheck(10);
     }
 }
+

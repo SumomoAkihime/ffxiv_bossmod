@@ -24,39 +24,41 @@ class Aspect(BossModule module) : Components.GenericAOEs(module)
 {
     private AOEShape? _imminentAOE;
     private DateTime _activation;
+    private static readonly AOEShapeCone cone = new(30f, 135f.Degrees());
+    private static readonly AOEShapeDonut donut = new(10f, 40f);
+    private static readonly AOEShapeCircle circle = new(22f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         if (_imminentAOE != null)
-            yield return new(_imminentAOE, Module.PrimaryActor.Position, Module.PrimaryActor.CastInfo?.Rotation ?? Module.PrimaryActor.Rotation, _activation);
+            return new AOEInstance[1] { new(_imminentAOE, Module.PrimaryActor.Position, Module.PrimaryActor.CastInfo?.Rotation ?? Module.PrimaryActor.Rotation, _activation) };
+        return [];
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (caster != Module.PrimaryActor)
-            return;
-        AOEShape? shape = (AID)spell.Action.ID switch
+        AOEShape? shape = spell.Action.ID switch
         {
-            AID.AspectEarth => new AOEShapeCone(30, 135.Degrees()),
-            AID.AspectWind => new AOEShapeDonut(10, 40),
-            AID.AspectLightning => new AOEShapeCircle(22),
+            (uint)AID.AspectEarth => cone,
+            (uint)AID.AspectWind => donut,
+            (uint)AID.AspectLightning => circle,
             _ => null
         };
         if (shape != null)
         {
             _imminentAOE = shape;
-            _activation = WorldState.FutureTime(10.4f);
+            _activation = WorldState.FutureTime(10.4d);
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (caster == Module.PrimaryActor && (AID)spell.Action.ID is AID.Whorlstorm or AID.Defibrillate or AID.EarthenAugur)
+        if (spell.Action.ID is (uint)AID.Whorlstorm or (uint)AID.Defibrillate or (uint)AID.EarthenAugur)
             _imminentAOE = null;
     }
 }
 
-class FangsEnd(BossModule module) : Components.SingleTargetCast(module, AID.FangsEnd);
+class FangsEnd(BossModule module) : Components.SingleTargetCast(module, (uint)AID.FangsEnd);
 
 class StorsieStates : StateMachineBuilder
 {
@@ -68,5 +70,5 @@ class StorsieStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.A, NameID = 10623)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.A, NameID = 10623)]
 public class Storsie(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);

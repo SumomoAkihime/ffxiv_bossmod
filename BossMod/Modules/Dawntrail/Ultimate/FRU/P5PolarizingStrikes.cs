@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Dawntrail.Ultimate.FRU;
 
-class P5PolarizingStrikes(BossModule module) : Components.GenericAOEs(module)
+sealed class P5PolarizingStrikes(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly FRUConfig _config = Service.Config.Get<FRUConfig>();
     private readonly List<AOEInstance> _aoes = []; // 'afterglow'
@@ -9,9 +9,9 @@ class P5PolarizingStrikes(BossModule module) : Components.GenericAOEs(module)
     private Actor? _source;
     private bool _baitsActive;
 
-    private static readonly AOEShapeRect _shape = new(100, 3);
+    private static readonly AOEShapeRect _shape = new(100f, 3f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
     public override void Update()
     {
@@ -20,7 +20,7 @@ class P5PolarizingStrikes(BossModule module) : Components.GenericAOEs(module)
         {
             var left = _source.Rotation.ToDirection().OrthoL();
             float distL = float.MaxValue, distR = float.MaxValue;
-            foreach (var p in Raid.WithoutSlot())
+            foreach (var p in Raid.WithoutSlot(false, true, true))
             {
                 var off = p.Position - _source.Position;
                 var side = left.Dot(off) > 0;
@@ -65,7 +65,7 @@ class P5PolarizingStrikes(BossModule module) : Components.GenericAOEs(module)
         {
             // avoid aftershock aoe by moving behind boss
             base.AddAIHints(slot, actor, assignment, hints);
-            hints.GoalZones.Add(hints.GoalSingleTarget(_source.Position - 9 * _source.Rotation.ToDirection(), 1, 0.25f));
+            hints.GoalZones.Add(AIHints.GoalSingleTarget(_source.Position - 9 * _source.Rotation.ToDirection(), 1, 0.25f));
         }
         else if (_baitsActive)
         {
@@ -80,7 +80,7 @@ class P5PolarizingStrikes(BossModule module) : Components.GenericAOEs(module)
                     left ^= true;
                 var distance = front ? 5 : 9;
                 var dir = _source.Rotation + (left ? 135 : -135).Degrees();
-                hints.AddForbiddenZone(ShapeContains.InvertedCircle(_source.Position + distance * dir.ToDirection(), 1));
+                hints.AddForbiddenZone(new SDInvertedCircle(_source.Position + distance * dir.ToDirection(), 1f));
             }
         }
     }
@@ -91,20 +91,20 @@ class P5PolarizingStrikes(BossModule module) : Components.GenericAOEs(module)
             return;
         foreach (var (baiter, forbidden) in _baiters.Zip(_forbidden))
             if (baiter != null)
-                _shape.Outline(Arena, _source.Position, Angle.FromDirection(baiter.Position - _source.Position), forbidden[pcSlot] ? ArenaColor.Danger : ArenaColor.Safe);
+                _shape.Outline(Arena, _source.Position, Angle.FromDirection(baiter.Position - _source.Position), forbidden[pcSlot] ? default : Colors.Safe);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.PolarizingStrikes:
-            case AID.PolarizingPaths:
+            case (uint)AID.PolarizingStrikes:
+            case (uint)AID.PolarizingPaths:
                 _source = caster;
                 _baitsActive = true;
                 break;
-            case AID.CruelPathOfLightBait:
-            case AID.CruelPathOfDarknessBait:
+            case (uint)AID.CruelPathOfLightBait:
+            case (uint)AID.CruelPathOfDarknessBait:
                 _baitsActive = false;
                 break;
         }
@@ -112,29 +112,29 @@ class P5PolarizingStrikes(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.CruelPathOfLightBait:
-            case AID.CruelPathOfDarknessBait:
+            case (uint)AID.CruelPathOfLightBait:
+            case (uint)AID.CruelPathOfDarknessBait:
                 ++NumCasts;
-                _aoes.Add(new(_shape, caster.Position, caster.Rotation, WorldState.FutureTime(2)));
+                _aoes.Add(new(_shape, caster.Position, caster.Rotation, WorldState.FutureTime(2d)));
                 break;
-            case AID.CruelPathOfLightAOE:
-            case AID.CruelPathOfDarknessAOE:
+            case (uint)AID.CruelPathOfLightAOE:
+            case (uint)AID.CruelPathOfDarknessAOE:
                 ++NumCasts;
                 _aoes.Clear();
                 break;
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.LightResistanceDown:
+            case (uint)SID.LightResistanceDown:
                 _forbidden[0].Set(Raid.FindSlot(actor.InstanceID));
                 break;
-            case SID.DarkResistanceDown:
+            case (uint)SID.DarkResistanceDown:
                 _forbidden[1].Set(Raid.FindSlot(actor.InstanceID));
                 break;
         }

@@ -1,21 +1,29 @@
-﻿namespace BossMod.Dawntrail.Alliance.A11Prishe;
+namespace BossMod.Dawntrail.Alliance.A11Prishe;
 
-class AsuranFists(BossModule module) : Components.GenericTowers(module)
+sealed class AsuranFists(BossModule module) : Components.GenericTowers(module)
 {
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.AsuranFists)
+        if (spell.Action.ID == (uint)AID.AsuranFistsVisual)
         {
-            Towers.Add(new(caster.Position, 6, 8, 24, default, Module.CastFinishAt(spell, 0.5f)));
+            Towers.Add(new(spell.LocXZ, 6f, PartyState.MaxAllianceSize, PartyState.MaxAllianceSize, activation: Module.CastFinishAt(spell, 0.5d)));
+        }
+    }
+
+    public override void OnActorEAnim(Actor actor, uint state)
+    {
+        if (Towers.Count != 0 && actor.OID == (uint)OID.Tower && state == 0x00100020u)
+        {
+            Towers.Ref(0).Position = actor.Position; // spell position can be about one or two pixels off the real tower position...
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.AsuranFistsAOE1 or AID.AsuranFistsAOE2 or AID.AsuranFistsAOE3)
+        if (spell.Action.ID is (uint)AID.AsuranFists1 or (uint)AID.AsuranFists2 or (uint)AID.AsuranFists3)
         {
             ++NumCasts;
-            if ((AID)spell.Action.ID == AID.AsuranFistsAOE3)
+            if (spell.Action.ID == (uint)AID.AsuranFists3)
                 Towers.Clear();
         }
     }

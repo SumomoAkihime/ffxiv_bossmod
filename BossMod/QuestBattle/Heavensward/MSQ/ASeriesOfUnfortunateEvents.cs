@@ -1,6 +1,6 @@
 ﻿namespace BossMod.QuestBattle.Heavensward.MSQ;
 
-[ZoneModuleInfo(395)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 395)]
 public sealed class ASeriesOfUnfortunateEvents(WorldState ws) : QuestBattle(ws)
 {
     public override List<QuestObjective> DefineObjectives(WorldState ws) => [
@@ -21,13 +21,7 @@ public sealed class ASeriesOfUnfortunateEvents(WorldState ws) : QuestBattle(ws)
                 var emmanellain = World.Actors.FirstOrDefault(i => i.OID == 0x1003);
                 if (emmanellain != null)
                 {
-                    foreach (var h in hints.PotentialTargets)
-                        if (h.Actor.TargetID == emmanellain.InstanceID)
-                            h.Priority = 0;
-
-                    if (!player.InCombat && player.DistanceToHitbox(emmanellain) > 50)
-                        hints.ForcedMovement = player.DirectionTo(emmanellain).ToVec3();
-                }
+                    foreach (var h in hints.PotentialTargets) { if (h.Actor.TargetID == emmanellain.InstanceID) { h.Priority = 0; } } if (!player.InCombat && player.DistanceToHitbox(emmanellain) > 50) { hints.ForcedMovement = player.DirectionTo(emmanellain).ToVec3(); } }
             })
     ];
 }

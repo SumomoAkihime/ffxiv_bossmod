@@ -19,14 +19,14 @@ sealed class Ex3TitanAIRotation(RotationModuleManager manager, Actor player) : A
         return res;
     }
 
-    public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         SetForcedMovement(CalculateDestination(strategy.Option(Track.Movement)));
     }
 
     private WPos CalculateDestination(StrategyValues.OptionRef strategy) => strategy.As<MovementStrategy>() switch
     {
-        MovementStrategy.Pathfind => NavigationDecision.Build(NavigationContext, World.CurrentTime, Hints, Player.Position, Speed()).Destination ?? Player.Position,
+        MovementStrategy.Pathfind => NavigationDecision.Build(NavigationContext, World.CurrentTime, Hints, Player, Speed()).Destination ?? Player.Position,
         MovementStrategy.Explicit => ResolveTargetLocation(strategy.Value),
         _ => Player.Position
     };
@@ -39,13 +39,13 @@ class Ex3TitanAI(BossModule module) : BossComponent(module)
 
     public override void Update()
     {
-        if (KillNextBomb && !Module.Enemies(OID.BombBoulder).Any())
+        if (KillNextBomb && Module.Enemies((uint)OID.BombBoulder).Count == 0)
             KillNextBomb = false;
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        bool haveGaolers = Module.Enemies(OID.GraniteGaoler).Any(a => a.IsTargetable && !a.IsDead);
+        bool haveGaolers = Module.Enemies((uint)OID.GraniteGaoler).Any(a => a.IsTargetable && !a.IsDead);
         foreach (var e in hints.PotentialTargets)
         {
             e.StayAtLongRange = true;
@@ -55,7 +55,7 @@ class Ex3TitanAI(BossModule module) : BossComponent(module)
                 case OID.TitansHeart:
                     e.Priority = 1;
                     e.AttackStrength = 0.25f;
-                    e.DesiredPosition = Module.Center - new WDir(0, Arena.Bounds.Radius - 6);
+                    e.DesiredPosition = Arena.Center - new WDir(0, Arena.Bounds.Radius - 6);
                     e.DesiredRotation = 180.Degrees();
                     e.TankDistance = 0;
                     if (actor.Role == Role.Tank)
@@ -72,11 +72,11 @@ class Ex3TitanAI(BossModule module) : BossComponent(module)
                     break;
                 case OID.GraniteGaoler:
                     e.Priority = 2;
-                    e.DesiredPosition = Module.Center + (Module.Bounds.Radius - 4) * 30.Degrees().ToDirection(); // move them away from boss, healer gaol spots and upheaval knockback spots
+                    e.DesiredPosition = Arena.Center + (Arena.Bounds.Radius - 4) * 30.Degrees().ToDirection(); // move them away from boss, healer gaol spots and upheaval knockback spots
                     e.ShouldBeTanked = Module.PrimaryActor.TargetID != actor.InstanceID && actor.Role == Role.Tank;
                     break;
                 case OID.BombBoulder:
-                    e.Priority = KillNextBomb && e.Actor.Position.AlmostEqual(Module.Center, 1) ? 3 : 0; // kill center bomb when needed
+                    e.Priority = KillNextBomb && e.Actor.Position.AlmostEqual(Arena.Center, 1) ? 3 : 0; // kill center bomb when needed
                     e.ShouldBeTanked = false;
                     break;
                 case OID.GraniteGaol:
@@ -93,15 +93,15 @@ class Ex3TitanAI(BossModule module) : BossComponent(module)
             if (_rockThrow != null && _rockThrow.PendingFetters[slot])
             {
                 var pos = actor.Role == Role.Healer
-                    ? Module.Center + Module.Bounds.Radius * (-30).Degrees().ToDirection() // healers should go to the back; 30 degrees will be safe if landslide is baited straight to south (which it should, since it will follow upheaval)
+                    ? Arena.Center + Arena.Bounds.Radius * (-30).Degrees().ToDirection() // healers should go to the back; 30 degrees will be safe if landslide is baited straight to south (which it should, since it will follow upheaval)
                     : Module.PrimaryActor.Position + new WDir(0, 1);
-                hints.AddForbiddenZone(ShapeContains.InvertedCircle(pos, 2), _rockThrow.ResolveAt);
+                hints.AddForbiddenZone(new SDInvertedCircle(pos, 2), _rockThrow.ResolveAt);
             }
             else
             {
                 var pos = StackPosition();
                 if (pos != null)
-                    hints.AddForbiddenZone(ShapeContains.InvertedCircle(pos.Value, 2), /*module.StateMachine.NextTransitionWithFlag(StateMachine.StateHint.BossCastStart)*/DateTime.MaxValue);
+                    hints.AddForbiddenZone(new SDInvertedCircle(pos.Value, 2), /*module.StateMachine.NextTransitionWithFlag(StateMachine.StateHint.BossCastStart)*/DateTime.MaxValue);
             }
         }
     }

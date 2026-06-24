@@ -5,7 +5,7 @@ public enum OID : uint
     Boss = 0x252B, //R=6.75
     MagitekTrooper = 0x252A, //R=0.9
     Helper = 0x233C,
-    Noctis = 0x2529,
+    Noctis = 0x2529
 }
 
 public enum AID : uint
@@ -20,9 +20,9 @@ public enum AID : uint
     unknown2 = 14533, // Boss->self, no cast, single-target
 }
 
-class Chainsaw(BossModule module) : Components.StandardAOEs(module, AID.Chainsaw, new AOEShapeCone(10, 45.Degrees()));
-class Shock(BossModule module) : Components.StandardAOEs(module, AID.Shock, new AOEShapeCircle(10));
-class MagitekMissile(BossModule module) : Components.StandardAOEs(module, AID.MagitekMissile2, 5);
+class Chainsaw(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Chainsaw, new AOEShapeCone(10f, 45f.Degrees()));
+class Shock(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Shock, 10f);
+class MagitekMissile(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MagitekMissile2, 5f);
 
 class MAxStates : StateMachineBuilder
 {
@@ -35,15 +35,13 @@ class MAxStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Quest, GroupID = 68694, NameID = 7898)] // also: fate 1409
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Quest, GroupID = 68694, NameID = 7898)] // also: fate 1409
 public class MAx(WorldState ws, Actor primary) : BossModule(ws, primary, new(295, -22), new ArenaBoundsCircle(25))
 {
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.Noctis))
-            Arena.Actor(s, ArenaColor.Vulnerable);
-        foreach (var s in Enemies(OID.MagitekTrooper))
-            Arena.Actor(s, ArenaColor.Object);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.Noctis), Colors.Vulnerable);
+        Arena.Actors(Enemies((uint)OID.MagitekTrooper), Colors.Object);
     }
 }

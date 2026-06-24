@@ -1,6 +1,6 @@
 namespace BossMod.QuestBattle.ARealmReborn.ClassJobQuests.THM;
 
-[ZoneModuleInfo(325)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 325)]
 internal class TheThreatOfPerplexity(WorldState ws) : QuestBattle(ws)
 {
     public override List<QuestObjective> DefineObjectives(WorldState ws) => [

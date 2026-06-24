@@ -1,6 +1,5 @@
 ﻿using System.IO;
 using TerraFX.Interop.Windows;
-using System.Runtime.InteropServices;
 
 namespace BossMod;
 
@@ -11,10 +10,16 @@ namespace BossMod;
 // - supports only top-down bitmaps (with negative height)
 // - horizontal/vertical resolution is equal and is 'pixels per 1024 world units'
 // - per bitmap spec, rows are padded to 4 byte alignment
+[SkipLocalsInit]
 public sealed class Bitmap
 {
-    public record struct Rect(int Left, int Top, int Right, int Bottom) // bottom/right exclusive
+    public readonly struct Rect(int left, int top, int right, int bottom) // bottom/right exclusive
     {
+        public readonly int Left = left;
+        public readonly int Top = top;
+        public readonly int Right = right;
+        public readonly int Bottom = bottom;
+
         public readonly int Width => Right - Left;
         public readonly int Height => Bottom - Top;
 
@@ -38,12 +43,14 @@ public sealed class Bitmap
             var offY = destY - Rect.Top;
             var r = Rect.Clamped(Bitmap.FullRect).Clamped(dest.FullRect, offX, offY);
             if (r.Width <= 0)
+            {
                 return; // nothing to copy
+            }
 
             // note: this could be optimized if needed...
-            for (int y = r.Top; y < r.Bottom; ++y)
+            for (var y = r.Top; y < r.Bottom; ++y)
             {
-                for (int x = r.Left; x < r.Right; ++x)
+                for (var x = r.Left; x < r.Right; ++x)
                 {
                     dest[x + offX, y + offY] = Bitmap[x, y];
                 }
@@ -62,7 +69,9 @@ public sealed class Bitmap
             var offY = destY - Rect.Top;
             var r = Rect.Clamped(Bitmap.FullRect).Clamped(new(0, 0, (dest.Width - subX) >> 1, (dest.Height - subY) >> 1), offX, offY);
             if (r.Width <= 0)
+            {
                 return; // nothing to copy
+            }
 
             // note: this could be optimized if needed...
             for (int y = r.Top, dy = ((r.Top + offY) << 1) + subY; y < r.Bottom; ++y, dy += 2)
@@ -86,7 +95,9 @@ public sealed class Bitmap
             var offY = destY - r.Top;
             r = r.Clamped(new(0, 0, (Bitmap.Width - subX) >> 1, (Bitmap.Height - subY) >> 1)).Clamped(dest.FullRect, offX, offY);
             if (r.Width <= 0)
+            {
                 return; // nothing to copy
+            }
 
             // note: this could be optimized if needed...
             for (int y = r.Top, sy = (r.Top << 1) + subY; y < r.Bottom; ++y, sy += 2)
@@ -95,7 +106,10 @@ public sealed class Bitmap
                 {
                     var v = Bitmap[sx, sy];
                     if (v != Bitmap[sx + 1, sy] || v != Bitmap[sx, sy + 1] || v != Bitmap[sx + 1, sy + 1])
+                    {
                         v = fallback;
+                    }
+
                     dest[x + offX, y + offY] = v;
                 }
             }
@@ -133,9 +147,13 @@ public sealed class Bitmap
         set
         {
             if (value)
+            {
                 ByteAt(x, y) |= CoordToMask(x);
+            }
             else
+            {
                 ByteAt(x, y) &= (byte)~CoordToMask(x);
+            }
         }
     }
 
@@ -155,23 +173,45 @@ public sealed class Bitmap
         using var reader = new BinaryReader(stream);
         var fileHeader = stream.ReadStruct<FileHeader>();
         if (fileHeader.Type != Magic)
+        {
             throw new ArgumentException($"Not a bitmap: magic is {fileHeader.Type:X4}");
+        }
 
         var header = stream.ReadStruct<BITMAPINFOHEADER>();
         if (header.biSize != Marshal.SizeOf<BITMAPINFOHEADER>())
+        {
             throw new ArgumentException($"Bitmap has unsupported header size {header.biSize}");
+        }
+
         if (header.biWidth <= 0)
+        {
             throw new ArgumentException($"Bitmap has non-positive width {header.biWidth}");
+        }
+
         if (header.biHeight >= 0)
+        {
             throw new ArgumentException($"Bitmap is not top-down (height={header.biHeight})");
+        }
+
         if (header.biBitCount != 1)
+        {
             throw new ArgumentException($"Bitmap is not 1bpp (bitcount={header.biBitCount})");
-        if (header.biCompression != 0)
+        }
+
+        if (header.biCompression != 0u)
+        {
             throw new ArgumentException($"Bitmap has unsupported compression method {header.biCompression:X8}");
+        }
+
         if (header.biXPelsPerMeter != header.biYPelsPerMeter || header.biXPelsPerMeter <= 0)
+        {
             throw new ArgumentException($"Bitmap has inconsistent or non-positive resolution {header.biXPelsPerMeter}x{header.biYPelsPerMeter}");
-        if (header.biClrUsed is not (0 or 2))
+        }
+
+        if (header.biClrUsed is not (0u or 2u))
+        {
             throw new ArgumentException($"Bitmap has wrong palette size {header.biClrUsed}");
+        }
 
         Width = header.biWidth;
         Height = -header.biHeight;

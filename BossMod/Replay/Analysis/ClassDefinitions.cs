@@ -1,10 +1,9 @@
-﻿using BossMod.Data;
+using BossMod.Data;
 using Dalamud.Bindings.ImGui;
-using System.Text;
 
 namespace BossMod.ReplayAnalysis;
 
-class ClassDefinitions
+sealed class ClassDefinitions
 {
     private const string GroupRoleActions = "Multi-role actions";
     private const string GroupLimitBreaks = "Shared limit breaks";
@@ -42,7 +41,7 @@ class ClassDefinitions
         public bool Error => Definition == null || Row == null || SeenDifferentInstantAnimLocks || SeenDifferentCastAnimLocks || PotentiallyRemoved || ReplayOnly;
     }
 
-    private class StatusData
+    private sealed class StatusData
     {
         public HashSet<ActionID> Actions = [];
         public bool OnSource;
@@ -52,7 +51,7 @@ class ClassDefinitions
         public string AppliedToString() => OnSource ? (OnTarget ? "self/target" : "self") : "target";
     }
 
-    private record class ClassData(Class ID, Class Base)
+    private sealed record class ClassData(Class ID, Class Base)
     {
         public readonly List<ActionData> Actions = [];
         public readonly SortedDictionary<int, List<ActionData>> ByCDGroup = [];
@@ -80,7 +79,9 @@ class ClassDefinitions
             var row = classSheet.GetRow(i)!;
             var curClass = (Class)i;
             if (curClass is Class.ACN or Class.ROG)
+            {
                 continue;
+            }
 
             _classPerCategory[(int)curClass.GetClassCategory()].Set((int)i);
             var baseClass = curClass == Class.SCH ? Class.SCH : (Class)row.ClassJobParent.RowId; // both SCH and SMN are based on ACN, but SMN is closer
@@ -88,21 +89,28 @@ class ClassDefinitions
 
             bool actionIsInteresting(Lumina.Excel.Sheets.Action a) => !a.IsPvP && ((int)a.ClassJob.RowId != -1 || a.IsRoleAction) && a.ClassJobLevel > 0 && cjcSheet.GetRow(a.ClassJobCategory.RowId).ReadBoolColumn((int)i + 1);
             foreach (var a in actionSheet.Where(actionIsInteresting))
+            {
                 RegisterAction(new ActionID(ActionType.Spell, a.RowId), a, classData, out _);
+            }
+
             RegisterLimitBreak(row.LimitBreak1.RowId, classData, 1);
             RegisterLimitBreak(row.LimitBreak2.RowId, classData, 2);
             RegisterLimitBreak(row.LimitBreak3.RowId, classData, 3);
 
             bool traitIsInteresting(Lumina.Excel.Sheets.Trait t) => cjcSheet.GetRow(t.ClassJobCategory.RowId).ReadBoolColumn((int)i + 1);
             classData.Traits.AddRange(traitSheet.Where(traitIsInteresting));
-            classData.Traits.SortBy(e => e.Level);
+            classData.Traits.Sort(static (a, b) => a.Level.CompareTo(b.Level));
         }
         var nullOwner = _classData[Class.None] = new(Class.None, Class.None);
 
         // add any actions from definitions that weren't found yet
         foreach (var def in ActionDefinitions.Instance.Definitions)
+        {
             if (RegisterAction(def.ID, def.ID.Type == ActionType.Spell ? actionSheet?.GetRow(def.ID.ID) : null, nullOwner, out var data))
+            {
                 data.PotentiallyRemoved = true;
+            }
+        }
 
         // add any actions observed in replays
         foreach (var r in replays)
@@ -113,7 +121,9 @@ class ClassDefinitions
                 _byLock.GetOrAdd(alock).GetOrAdd(a.ID).Add(new(r, a));
 
                 if (RegisterAction(a.ID, a.ID.Type == ActionType.Spell ? actionSheet?.GetRow(a.ID.ID) : null, nullOwner, out var data))
+                {
                     data.ReplayOnly = true;
+                }
 
                 var cast = a.Source.Casts.Find(c => c.ID == a.ID && c.Time.Contains(a.Timestamp));
                 if (cast != null)
@@ -129,69 +139,87 @@ class ClassDefinitions
 
                 foreach (var target in a.Targets)
                 {
-                    foreach (var eff in target.Effects.Where(eff => eff.Type is ActionEffectType.ApplyStatusEffectTarget or ActionEffectType.ApplyStatusEffectSource or ActionEffectType.FullResistStatus && !eff.FromTarget))
+                    var effects = target.Effects.ValidEffects();
+                    var len = effects.Length;
+                    for (var i = 0; i < len; ++i)
                     {
-                        var onTarget = eff.Type == ActionEffectType.ApplyStatusEffectTarget && target.Target != a.Source && !eff.AtSource;
-                        (onTarget ? data.AppliedStatusesToTarget : data.AppliedStatusesToSource).Add(eff.Value);
+                        ref readonly var eff = ref effects[i];
+                        if (eff.Type is ActionEffectType.ApplyStatusEffectTarget or ActionEffectType.ApplyStatusEffectSource or ActionEffectType.FullResistStatus && !eff.FromTarget)
+                        {
+                            var onTarget = eff.Type == ActionEffectType.ApplyStatusEffectTarget && target.Target != a.Source && !eff.AtSource;
+                            (onTarget ? data.AppliedStatusesToTarget : data.AppliedStatusesToSource).Add(eff.Value);
+                        }
                     }
                 }
             }
-        }
 
-        // mark bozja holster actions
-        for (var i = BozjaHolsterID.None + 1; i < BozjaHolsterID.Count; ++i)
-            _actionData[BozjaActionID.GetNormal(i)].IsBozjaHolster = true;
-
-        foreach (var id in typeof(PhantomID).GetEnumValues())
-            if ((uint)id > 0)
-                _actionData[ActionID.MakeSpell((PhantomID)id)].IsPhantomAction = true;
-
-        // split actions by categories
-        foreach (var (aid, data) in _actionData)
-        {
-            data.OwningClasses.Clear(0); // that's pointless
-            var shared = data.OwningClasses.NumSetBits() > 1 ? Array.IndexOf(_classPerCategory, data.OwningClasses) : -1;
-            if (shared >= 0)
-                data.SharedCategory = (ClassCategory)shared;
-
-            var category = aid.Type switch
+            // mark bozja holster actions
+            for (var i = BozjaHolsterID.None + 1; i < BozjaHolsterID.Count; ++i)
             {
-                ActionType.Spell => data.SharedCategory > ClassCategory.Undefined ? $"Category: {data.SharedCategory}"
-                    : data.IsRoleAction ? GroupRoleActions
-                    : data.LimitBreakLevel > 0 && data.OwningClasses.NumSetBits() > 1 ? GroupLimitBreaks
-                    : data.IsBozjaHolster ? "Bozja action"
-                    : data.IsPhantomAction ? "Phantom action"
-                    : data.OwningClasses.Any() ? $"Class: {string.Join(" ", data.OwningClasses.SetBits().Select(i => (Class)i))}"
-                    : "???",
-                ActionType.Item => "Item",
-                ActionType.General => "General actions",
-                ActionType.Mount => "Mount",
-                ActionType.Ornament => "Ornament",
-                ActionType.BozjaHolsterSlot0 or ActionType.BozjaHolsterSlot1 => "Bozja holster",
-                _ => data.Row?.ClassJobCategory.ValueNullable?.Name.ToString() ?? "???"
-            };
-            _byCategory.GetOrAdd(category).Add(data);
-            AddActionsToCDGroups(data, data.MainCDGroup);
-            AddActionsToCDGroups(data, data.ExtraCDGroup);
-        }
-        foreach (var (_, list) in _byCategory)
-            list.SortBy(d => d.Row?.ClassJobLevel ?? 0);
-        foreach (var (_, cd) in _classData)
-        {
-            cd.Actions.SortBy(d => d.Row?.ClassJobLevel ?? 0);
-            foreach (var a in cd.Actions)
+                _actionData[BozjaActionID.GetNormal(i)].IsBozjaHolster = true;
+            }
+
+            foreach (var id in typeof(PhantomID).GetEnumValues())
             {
-                foreach (var s in a.AppliedStatusesToSource)
+                if ((uint)id > 0)
                 {
-                    var sd = cd.Statuses.GetOrAdd(s);
-                    sd.Actions.Add(a.ID);
-                    sd.OnSource = true;
+                    _actionData[ActionID.MakeSpell((PhantomID)id)].IsPhantomAction = true;
                 }
-                foreach (var s in a.AppliedStatusesToTarget)
+            }
+
+            // split actions by categories
+            foreach (var (aid, data) in _actionData)
+            {
+                data.OwningClasses.Clear(0); // that's pointless
+                var shared = data.OwningClasses.NumSetBits() > 1 ? Array.IndexOf(_classPerCategory, data.OwningClasses) : -1;
+                if (shared >= 0)
                 {
-                    var sd = cd.Statuses.GetOrAdd(s);
-                    sd.Actions.Add(a.ID);
-                    sd.OnTarget = true;
+                    data.SharedCategory = (ClassCategory)shared;
+                }
+
+                var category = aid.Type switch
+                {
+                    ActionType.Spell => data.SharedCategory > ClassCategory.Undefined ? $"Category: {data.SharedCategory}"
+                        : data.IsRoleAction ? GroupRoleActions
+                        : data.LimitBreakLevel > 0 && data.OwningClasses.NumSetBits() > 1 ? GroupLimitBreaks
+                        : data.IsBozjaHolster ? "Bozja action"
+                        : data.IsPhantomAction ? "Phantom action"
+                        : data.OwningClasses.Any() ? $"Class: {string.Join(" ", data.OwningClasses.SetBits().Select(i => (Class)i))}"
+                        : "???",
+                    ActionType.Item => "Item",
+                    ActionType.General => "General actions",
+                    ActionType.Mount => "Mount",
+                    ActionType.Ornament => "Ornament",
+                    ActionType.BozjaHolsterSlot0 or ActionType.BozjaHolsterSlot1 => "Bozja holster",
+                    _ => data.Row?.ClassJobCategory.ValueNullable?.Name.ToString() ?? "???"
+                };
+                _byCategory.GetOrAdd(category).Add(data);
+                AddActionsToCDGroups(data, data.MainCDGroup);
+                AddActionsToCDGroups(data, data.ExtraCDGroup);
+            }
+            foreach (var (_, list) in _byCategory)
+            {
+                list.Sort(static (a, b) => (a.Row?.ClassJobLevel ?? 0).CompareTo(b.Row?.ClassJobLevel ?? 0));
+            }
+
+            foreach (var (_, cd) in _classData)
+            {
+                cd.Actions.Sort(static (a, b) => (a.Row?.ClassJobLevel ?? 0).CompareTo(b.Row?.ClassJobLevel ?? 0));
+
+                foreach (var a in cd.Actions)
+                {
+                    foreach (var s in a.AppliedStatusesToSource)
+                    {
+                        var sd = cd.Statuses.GetOrAdd(s);
+                        sd.Actions.Add(a.ID);
+                        sd.OnSource = true;
+                    }
+                    foreach (var s in a.AppliedStatusesToTarget)
+                    {
+                        var sd = cd.Statuses.GetOrAdd(s);
+                        sd.Actions.Add(a.ID);
+                        sd.OnTarget = true;
+                    }
                 }
             }
         }
@@ -276,10 +304,15 @@ class ClassDefinitions
     private void AddActionsToCDGroups(ActionData action, int cdgroup)
     {
         if (cdgroup < 0)
+        {
             return;
+        }
+
         _byCDGroup.GetOrAdd(cdgroup).Add(action);
         foreach (var c in action.OwningClasses.SetBits())
+        {
             _classData[(Class)c].ByCDGroup.GetOrAdd(cdgroup).Add(action);
+        }
     }
 
     private void DrawActions(UITree tree, List<ActionData> actions)
@@ -290,16 +323,16 @@ class ClassDefinitions
             1 => "",
             _ => " [shared]"
         };
-        foreach (var na in tree.Nodes(actions, kv => new($"L{kv.Row?.ClassJobLevel} {kv.ID}{suffix(kv.OwningClasses)}", false, kv.Error ? 0xff0000ff : kv.Warning ? 0xff00ffff : 0xffffffff)))
+        foreach (var na in tree.Nodes(actions, kv => new($"L{kv.Row?.ClassJobLevel} {kv.ID}{suffix(kv.OwningClasses)}", false, kv.Error ? Colors.TextColor3 : kv.Warning ? Colors.TextColor2 : Colors.TextColor1)))
         {
             tree.LeafNode($"Definition: {na.Definition}");
             tree.LeafNode($"Row: {na.Row}, raw range: {na.Row?.Range}, class: {na.Row?.ClassJob.ValueNullable?.Abbreviation}, category: {na.Row?.ClassJobCategory.ValueNullable?.Name}");
             tree.LeafNode($"Unlock: {UnlockString(na.Row?.ClassJobLevel ?? 0, na.Row?.UnlockLink.RowId ?? 0)}");
-            tree.LeafNode($"Warnings: {(na.PotentiallyRemoved ? "PR " : "")}{(na.ReplayOnly ? "RO " : "")}", na.PotentiallyRemoved || na.ReplayOnly ? 0xff0000ff : 0xffffffff);
+            tree.LeafNode($"Warnings: {(na.PotentiallyRemoved ? "PR " : "")}{(na.ReplayOnly ? "RO " : "")}", na.PotentiallyRemoved || na.ReplayOnly ? Colors.TextColor3 : Colors.TextColor1);
             tree.LeafNode($"Targets: [{ActionDefinitions.Instance.ActionAllowedTargets(na.ID)}]");
             tree.LeafNode($"Can be put on action bar: {na.CanBePutOnActionBar}");
             tree.LeafNode($"Is role action: {na.IsRoleAction}");
-            tree.LeafNode($"Expected anim lock: {na.ExpectedInstantAnimLock} / {na.ExpectedCastAnimLock}", na.SeenDifferentInstantAnimLocks || na.SeenDifferentCastAnimLocks ? 0xff0000ff : 0xffffffff);
+            tree.LeafNode($"Expected anim lock: {na.ExpectedInstantAnimLock} / {na.ExpectedCastAnimLock}", na.SeenDifferentInstantAnimLocks || na.SeenDifferentCastAnimLocks ? Colors.TextColor3 : Colors.TextColor1);
             foreach (var nl in tree.Nodes(na.InstantByAnimLock, kv => new($"Observed instant anim lock: {kv.Key}")))
             {
                 DrawEntries(tree, nl.Value);
@@ -325,7 +358,7 @@ class ClassDefinitions
         {
             foreach (var t in tree.Nodes(n.Action.Targets, t => new(ReplayUtils.ActionTargetString(t, n.Action.Timestamp))))
             {
-                tree.LeafNodes(t.Effects, ReplayUtils.ActionEffectString);
+                tree.LeafNodes(t.Effects.ValidEffects(), ReplayUtils.ActionEffectString);
             }
         }
     }
@@ -340,7 +373,10 @@ class ClassDefinitions
             writer.Add("None", 0);
             writer.Add("Sprint", ActionDefinitions.IDSprint.ID);
             for (var c = ClassCategory.Tank; c <= ClassCategory.Limited; ++c)
+            {
                 writer.Group(c.ToString(), _byCategory.GetOrAdd($"Category: {c}"), false);
+            }
+
             writer.Group(GroupRoleActions, _byCategory.GetOrAdd(GroupRoleActions), true);
             writer.Group(GroupLimitBreaks, _byCategory.GetOrAdd(GroupLimitBreaks), true);
             // TODO: bozja...
@@ -353,7 +389,10 @@ class ClassDefinitions
             var writer = new DefinitionWriter(ns);
             writer.Add(_actionData[ActionDefinitions.IDSprint]);
             for (var c = ClassCategory.Tank; c <= ClassCategory.Limited; ++c)
+            {
                 writer.Group(c.ToString(), _byCategory.GetOrAdd($"Category: {c}"));
+            }
+
             writer.Group(GroupRoleActions, _byCategory.GetOrAdd(GroupRoleActions));
             writer.Group(GroupLimitBreaks, _byCategory.GetOrAdd(GroupLimitBreaks));
             // TODO: bozja...
@@ -406,9 +445,11 @@ class ClassDefinitions
         sb.AppendLine();
         sb.Append(stub ? "// *** paste SID enum here ***\n" : GenerateClassSID(cd));
         sb.AppendLine();
-        sb.AppendLine("public sealed class Definitions : Defs");
+        sb.AppendLine("public sealed class Definitions : IDisposable");
         sb.AppendLine("{");
         sb.Append(stub ? "    // *** paste constructor here ***\n" : GenerateClassRegistration(cd));
+        sb.AppendLine();
+        sb.AppendLine("    public void Dispose() { }");
         sb.AppendLine();
         sb.AppendLine("    private void Customize(ActionDefinitions d)");
         sb.AppendLine("    {");
@@ -433,7 +474,10 @@ class ClassDefinitions
         var writer = new EnumWriter("TraitID");
         writer.Add("None", 0);
         foreach (var trait in cd.Traits)
+        {
             writer.Add(TraitIDName(cd.ID.ToString(), trait), trait.RowId, $"L{trait.Level}");
+        }
+
         return writer.Result();
     }
 
@@ -442,7 +486,10 @@ class ClassDefinitions
         var writer = new EnumWriter("SID");
         writer.Add("None", 0);
         foreach (var (sid, data) in cd.Statuses)
+        {
             writer.Add(StatusIDName(cd.ID.ToString(), sid), sid, $"applied by {data.AppliedByString()} to {data.AppliedToString()}");
+        }
+
         return writer.Result();
     }
 
@@ -450,7 +497,10 @@ class ClassDefinitions
     {
         var writer = new DefinitionWriter(cd.ID.ToString());
         foreach (var a in cd.Actions.Where(a => a.OwningClasses.NumSetBits() == 1))
+        {
             writer.Add(a);
+        }
+
         return writer.Result();
     }
 
@@ -468,7 +518,7 @@ class ClassDefinitions
         }
     }
 
-    private record class AIDWriter(string Namespace) : EnumWriter("AID")
+    private sealed record class AIDWriter(string Namespace) : EnumWriter("AID")
     {
         public void Add(ActionData a, bool allowClasses, bool shared = false)
         {
@@ -478,14 +528,17 @@ class ClassDefinitions
 
         public void Group(string group, IEnumerable<ActionData> actions, bool allowClasses, bool shared = false)
         {
-            bool writtenHeader = false;
+            var writtenHeader = false;
             foreach (var a in actions)
             {
                 if (!writtenHeader)
                 {
                     _sb.AppendLine();
                     if (group.Length > 0)
+                    {
                         _sb.AppendLine($"    // {group}");
+                    }
+
                     writtenHeader = true;
                 }
                 Add(a, allowClasses, shared);
@@ -546,7 +599,9 @@ class ClassDefinitions
         {
             var omen = data.Omen.ValueNullable;
             if (omen == null)
+            {
                 return null;
+            }
 
             var path = omen.Value.Path.ToString();
             var pos = path.IndexOf("fan", StringComparison.Ordinal);
@@ -555,41 +610,71 @@ class ClassDefinitions
 
         private float? DetermineDonutInner(Lumina.Excel.Sheets.Action data)
         {
-            Utils.GuessDonutInner(data, out var innerRadius);
-            return innerRadius;
+            var omen = data.Omen.ValueNullable;
+            if (omen == null)
+            {
+                return null;
+            }
+
+            var path = omen.Value.Path.ToString();
+            var pos = path.IndexOf("sircle_", StringComparison.Ordinal);
+            if (pos >= 0 && pos + 11 <= path.Length && int.TryParse(path.AsSpan(pos + 9, 2), out var inner))
+            {
+                return inner;
+            }
+
+            pos = path.IndexOf("circle", StringComparison.Ordinal);
+            if (pos >= 0 && pos + 10 <= path.Length && int.TryParse(path.AsSpan(pos + 8, 2), out inner))
+            {
+                return inner;
+            }
+
+            return null;
         }
     }
 
-    private record class DefinitionWriter(string Namespace)
+    private sealed record class DefinitionWriter(string Namespace)
     {
-        private readonly StringBuilder _sb = new("public override void Define(ActionDefinitions d)\n{\n");
+        private readonly StringBuilder _sb = new("public Definitions(ActionDefinitions d)\n{\n");
 
         public void Add(List<string> args, string comment = "") => _sb.AppendLine($"    d.RegisterSpell({string.Join(", ", args)});{(comment.Length > 0 ? " // " : "")}{comment}");
         public void Add(ActionData a)
         {
             List<string> args = [$"AID.{ActionIDName(Namespace, a.ID)}"];
             if (a.IsPhysRanged)
+            {
                 args.Add("true");
+            }
+
             var instAnimLock = AnimLock(a.InstantByAnimLock, a.ExpectedInstantAnimLock, 0.6f);
             if (instAnimLock != 0.6f)
+            {
                 args.Add($"instantAnimLock: {instAnimLock:f}f");
+            }
+
             var castAnimLock = AnimLock(a.CastByAnimLock, a.ExpectedCastAnimLock, 0.1f);
             if (castAnimLock != 0.1f)
+            {
                 args.Add($"castAnimLock: {castAnimLock:f}f");
+            }
+
             var animLockStr = AnimLockString(a);
             Add(args, animLockStr.Length > 0 ? animLockStr[2..] : "");
         }
 
         public void Group(string group, IEnumerable<ActionData> actions)
         {
-            bool writtenHeader = false;
+            var writtenHeader = false;
             foreach (var a in actions)
             {
                 if (!writtenHeader)
                 {
                     _sb.AppendLine();
                     if (group.Length > 0)
+                    {
                         _sb.AppendLine($"        // {group}");
+                    }
+
                     writtenHeader = true;
                 }
                 Add(a);
@@ -612,7 +697,7 @@ class ClassDefinitions
         };
     }
 
-    private record class UnlockWriter(string EnumName)
+    private sealed record class UnlockWriter(string EnumName)
     {
         private readonly StringBuilder _sb = new($"public static bool Unlocked({EnumName} id, int level, int questProgress) => id switch\n{{\n");
 
@@ -634,7 +719,10 @@ class ClassDefinitions
     {
         var res = $"L{level}";
         if (link != 0)
+        {
             res += $" (unlocked by quest {link} '{Service.LuminaRow<Lumina.Excel.Sheets.Quest>(link)?.Name}')";
+        }
+
         return res;
     }
 
@@ -644,7 +732,7 @@ class ClassDefinitions
 
     private static string AnimLockString(ActionData action)
     {
-        string resInst = "";
+        var resInst = "";
         if (action.SeenInstant)
         {
             if (action.InstantByAnimLock.Count > 1 || action.InstantByAnimLock.First().Key != 600)

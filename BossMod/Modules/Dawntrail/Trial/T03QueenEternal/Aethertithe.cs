@@ -1,11 +1,11 @@
-﻿namespace BossMod.Dawntrail.Trial.T03QueenEternal;
+namespace BossMod.Dawntrail.Trial.T03QueenEternal;
 
 sealed class Aethertithe(BossModule module) : Components.GenericAOEs(module)
 {
     private AOEInstance[] _aoe = [];
     private static readonly AOEShapeCone cone = new(100f, 35f.Degrees());
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnMapEffect(byte index, uint state)
     {
@@ -20,7 +20,7 @@ sealed class Aethertithe(BossModule module) : Components.GenericAOEs(module)
         };
         if (angle is Angle rot)
         {
-            _aoe = [new(cone, Module.PrimaryActor.Position, rot, WorldState.FutureTime(5f))];
+            _aoe = [new(cone, Module.PrimaryActor.Position.Quantized(), rot, WorldState.FutureTime(5d))];
         }
     }
 
@@ -32,4 +32,3 @@ sealed class Aethertithe(BossModule module) : Components.GenericAOEs(module)
         }
     }
 }
-

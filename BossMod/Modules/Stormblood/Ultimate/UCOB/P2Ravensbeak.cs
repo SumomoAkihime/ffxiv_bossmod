@@ -19,7 +19,7 @@ class P2Ravensbeak(BossModule module) : BossComponent(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.Ravensbeak)
+        if (spell.Action.ID == (uint)AID.Ravensbeak)
         {
             _caster = caster;
             _targetId = spell.TargetID;

@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Alliance.A13Cuchulainn;
+﻿namespace BossMod.Heavensward.Alliance.A13Cuchulainn;
 
 class A13CuchulainnStates : StateMachineBuilder
 {
@@ -7,6 +7,7 @@ class A13CuchulainnStates : StateMachineBuilder
         TrivialPhase()
             .ActivateOnEnter<CorrosiveBile1>()
             .ActivateOnEnter<FlailingTentacles2>()
+            //.ActivateOnEnter<FlailingTentacles2Knockback>()
             .ActivateOnEnter<Beckon>()
             .ActivateOnEnter<BileBelow>()
             .ActivateOnEnter<Pestilence>()

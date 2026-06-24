@@ -1,27 +1,34 @@
 namespace BossMod.Shadowbringers.Foray.Duel.Duel2Lyon;
 
-class Duel2LyonStates : StateMachineBuilder
+sealed class Duel2LyonStates : StateMachineBuilder
 {
     public Duel2LyonStates(BossModule module) : base(module)
     {
         TrivialPhase()
+            .ActivateOnEnter<ArenaChange>()
             .ActivateOnEnter<Enaero>()
-            .ActivateOnEnter<HeartOfNatureConcentric>()
+            .ActivateOnEnter<HeartOfNature>()
             .ActivateOnEnter<TasteOfBlood>()
-            .ActivateOnEnter<RavenousGaleTwister>()
-            .ActivateOnEnter<RavenousGaleHint>()
+            .ActivateOnEnter<TasteOfBloodHint>()
+            .ActivateOnEnter<RavenousGale>()
             .ActivateOnEnter<WindsPeakKB>()
             .ActivateOnEnter<WindsPeak>()
             .ActivateOnEnter<SplittingRage>()
             .ActivateOnEnter<TheKingsNotice>()
             .ActivateOnEnter<TwinAgonies>()
             .ActivateOnEnter<NaturesBlood>()
-            .ActivateOnEnter<VermillionFlame>()
+            .ActivateOnEnter<SpitefulFlameCircleVoidzone>()
             .ActivateOnEnter<SpitefulFlameRect>()
             .ActivateOnEnter<DynasticFlame>()
             .ActivateOnEnter<SkyrendingStrike>();
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.BozjaDuel, GroupID = 735, NameID = 8)] // bnpcname=9409
-public class Duel2Lyon(WorldState ws, Actor primary) : BossModule(ws, primary, new(211, 380), new ArenaBoundsCircle(20));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.BozjaDuel, GroupID = 735, NameID = 8)] // bnpcname=9409
+public sealed class Duel2Lyon(WorldState ws, Actor primary) : BossModule(ws, primary, startingArena.Center, startingArena)
+{
+    private static readonly ArenaBoundsCustom startingArena = new([new Polygon(new(211f, 380f), 24.5f, 32)]);
+    public static readonly ArenaBoundsCircle DefaultArena = new(20f); // default arena got no extra collision, just a donut aoe
+
+    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 25f);
+}

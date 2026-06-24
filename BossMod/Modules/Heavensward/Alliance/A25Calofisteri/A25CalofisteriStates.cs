@@ -1,6 +1,6 @@
-namespace BossMod.Heavensward.Alliance.A25Calofisteri;
+﻿namespace BossMod.Heavensward.Alliance.A25Calofisteri;
 
-sealed class A25CalofisteriStates : StateMachineBuilder
+class A25CalofisteriStates : StateMachineBuilder
 {
     public A25CalofisteriStates(BossModule module) : base(module)
     {

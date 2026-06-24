@@ -2,10 +2,11 @@
 
 // generic 'shared tankbuster' component; assumes only 1 concurrent cast is active
 // TODO: revise and improve (track invuln, ai hints, num stacked tanks?)
-public class GenericSharedTankbuster(BossModule module, Enum? aid, AOEShape shape, bool originAtTarget = false) : CastCounter(module, aid)
+[SkipLocalsInit]
+public class GenericSharedTankbuster(BossModule module, uint aid, AOEShape shape, bool originAtTarget = false) : CastCounter(module, aid)
 {
-    public AOEShape Shape { get; init; } = shape;
-    public bool OriginAtTarget { get; init; } = originAtTarget;
+    public readonly AOEShape Shape = shape;
+    public readonly bool OriginAtTarget = originAtTarget;
     protected Actor? Source;
     protected Actor? Target;
     protected DateTime Activation;
@@ -13,56 +14,85 @@ public class GenericSharedTankbuster(BossModule module, Enum? aid, AOEShape shap
     public bool Active => Source != null;
 
     // circle shapes typically have origin at target
-    public GenericSharedTankbuster(BossModule module, Enum? aid, float radius) : this(module, aid, new AOEShapeCircle(radius), true) { }
-
-    public static readonly uint[] InvulnStatuses = [
-        82, // Hallowed Ground
-        409, // Holmgang
-        810, // Living Dead
-        811, // Walking Dead
-        1836, // Superbolide
-        2564, // Lost EXcellence
-    ];
-
-    public static bool IsInvulnerableAt(Actor actor, DateTime time)
-    {
-        foreach (var status in actor.Statuses)
-            if (InvulnStatuses.Contains(status.ID))
-                return status.ExpireAt > time;
-
-        return false;
-    }
+    public GenericSharedTankbuster(BossModule module, uint aid, float radius) : this(module, aid, new AOEShapeCircle(radius), true) { }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
         if (Target == null)
+        {
             return;
-
-        var targetInvuln = IsInvulnerableAt(Target, Activation);
+        }
 
         if (Target == actor)
         {
-            if (!targetInvuln)
-                hints.Add("Stack with other tanks!", !Raid.WithoutSlot().Any(a => a != actor && a.Role == Role.Tank && InAOE(a)));
+            var otherTanksInAOE = false;
+            var party = Raid.WithoutSlot();
+            var len = party.Length;
+            for (var i = 0; i < len; ++i)
+            {
+                ref readonly var a = ref party[i];
+                if (a != actor && a.Role == Role.Tank && InAOE(a))
+                {
+                    otherTanksInAOE = true;
+                    break;
+                }
+            }
+            hints.Add("Stack with other tanks or press invuln!", !otherTanksInAOE);
         }
         else if (actor.Role == Role.Tank)
         {
-            if (!targetInvuln)
-                hints.Add("Stack with tank!", !InAOE(actor));
+            hints.Add("Stack with tank!", !InAOE(actor));
         }
         else
+        {
             hints.Add("GTFO from tank!", InAOE(actor));
+        }
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         if (Source != null && Target != null && Target != actor)
         {
-            var shape = OriginAtTarget ? Shape.CheckFn(Target.Position, Target.Rotation) : Shape.CheckFn(Source.Position, Angle.FromDirection(Target.Position - Source.Position));
             if (actor.Role == Role.Tank)
-                hints.AddForbiddenZone(p => !shape(p), Activation);
+            {
+                hints.AddForbiddenZone(OriginAtTarget ? Shape.InvertedDistance(Target.Position, Target.Rotation) : Shape.InvertedDistance(Source.Position, Angle.FromDirection(Target.Position - Source.Position)), Activation);
+            }
             else
-                hints.AddForbiddenZone(shape, Activation);
+            {
+                hints.AddForbiddenZone(OriginAtTarget ? Shape.Distance(Target.Position, Target.Rotation) : Shape.Distance(Source.Position, Angle.FromDirection(Target.Position - Source.Position)), Activation);
+            }
+        }
+        else if (Source != null && Target != null && Target == actor && Shape is AOEShapeCircle circle)
+        {
+            var radius = circle.Radius;
+            var party = Raid.WithoutSlot();
+            var len = party.Length;
+            for (var i = 0; i < len; ++i)
+            {
+                var p = party[i];
+                if (p.Role != Role.Tank && p != Target)
+                {
+                    hints.AddForbiddenZone(new SDCircle(p.Position, radius), Activation);
+                }
+            }
+        }
+        if (Source != null)
+        {
+            BitMask predictedDamage = default;
+            var party = Raid.WithSlot();
+            var len = party.Length;
+            for (var i = 0; i < len; ++i)
+            {
+                ref readonly var p = ref party[i];
+                if (p.Item2.Role == Role.Tank)
+                {
+                    predictedDamage.Set(p.Item1);
+                }
+            }
+            if (predictedDamage != default)
+            {
+                hints.AddPredictedDamage(predictedDamage, Activation, AIHints.PredictedDamageType.Tankbuster);
+            }
         }
     }
 
@@ -70,12 +100,31 @@ public class GenericSharedTankbuster(BossModule module, Enum? aid, AOEShape shap
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        if (Source != null && Target != null)
+        if (Source != null && Target != null && pc.Role == Role.Tank)
         {
             if (OriginAtTarget)
-                Shape.Outline(Arena, Target);
+            {
+                Shape.Outline(Arena, Target, Target == pc ? default : Colors.Safe);
+            }
             else
-                Shape.Outline(Arena, Source.Position, Angle.FromDirection(Target.Position - Source.Position));
+            {
+                Shape.Outline(Arena, Source.Position, Angle.FromDirection(Target.Position - Source.Position), Target == pc ? default : Colors.Safe);
+            }
+        }
+    }
+
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    {
+        if (Source != null && Target != null && pc.Role != Role.Tank)
+        {
+            if (OriginAtTarget)
+            {
+                Shape.Draw(Arena, Target);
+            }
+            else
+            {
+                Shape.Draw(Arena, Source.Position, Angle.FromDirection(Target.Position - Source.Position));
+            }
         }
     }
 
@@ -83,13 +132,14 @@ public class GenericSharedTankbuster(BossModule module, Enum? aid, AOEShape shap
 }
 
 // shared tankbuster at cast target
-public class CastSharedTankbuster(BossModule module, Enum aid, AOEShape shape, bool originAtTarget = false) : GenericSharedTankbuster(module, aid, shape, originAtTarget)
+[SkipLocalsInit]
+public class CastSharedTankbuster(BossModule module, uint aid, AOEShape shape, bool originAtTarget = false) : GenericSharedTankbuster(module, aid, shape, originAtTarget)
 {
-    public CastSharedTankbuster(BossModule module, Enum aid, float radius) : this(module, aid, new AOEShapeCircle(radius), true) { }
+    public CastSharedTankbuster(BossModule module, uint aid, float radius) : this(module, aid, new AOEShapeCircle(radius), true) { }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
         {
             Source = caster;
             Target = WorldState.Actors.Find(spell.TargetID);
@@ -100,14 +150,17 @@ public class CastSharedTankbuster(BossModule module, Enum aid, AOEShape shape, b
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
         if (caster == Source)
+        {
             Source = Target = null;
+        }
     }
 }
 
 // shared tankbuster at icon
-public class IconSharedTankbuster(BossModule module, uint iconId, Enum aid, AOEShape shape, float activationDelay = 5.1f, bool originAtTarget = false) : GenericSharedTankbuster(module, aid, shape, originAtTarget)
+[SkipLocalsInit]
+public class IconSharedTankbuster(BossModule module, uint iconId, uint aid, AOEShape shape, double activationDelay = 5.1d, bool originAtTarget = false) : GenericSharedTankbuster(module, aid, shape, originAtTarget)
 {
-    public IconSharedTankbuster(BossModule module, uint iconId, Enum aid, float radius, float activationDelay = 5.1f) : this(module, iconId, aid, new AOEShapeCircle(radius), activationDelay, true) { }
+    public IconSharedTankbuster(BossModule module, uint iconId, uint aid, float radius, double activationDelay = 5.1d) : this(module, iconId, aid, new AOEShapeCircle(radius), activationDelay, true) { }
 
     public virtual Actor? BaitSource(Actor target) => Module.PrimaryActor;
 
@@ -124,7 +177,9 @@ public class IconSharedTankbuster(BossModule module, uint iconId, Enum aid, AOES
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         base.OnEventCast(caster, spell);
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
+        {
             Source = Target = null;
+        }
     }
 }

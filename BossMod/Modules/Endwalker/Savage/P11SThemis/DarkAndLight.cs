@@ -14,8 +14,8 @@ class DarkAndLight(BossModule module) : BossComponent(module)
     public bool ShowSafespots = true;
     private readonly PlayerState[] _states = new PlayerState[PartyState.MaxPartySize];
 
-    private const float _farOffset = 13;
-    private const float _nearOffset = 7;
+    private const float _farOffset = 13f;
+    private const float _nearOffset = 7f;
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
@@ -27,7 +27,7 @@ class DarkAndLight(BossModule module) : BossComponent(module)
     public override void AddMovementHints(int slot, Actor actor, MovementHints movementHints)
     {
         if (Safespot(slot, actor) is var safespot && safespot != null)
-            movementHints.Add(actor.Position, safespot.Value, ArenaColor.Safe);
+            movementHints.Add(actor.Position, safespot.Value, Colors.Safe);
     }
 
     public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
@@ -40,27 +40,27 @@ class DarkAndLight(BossModule module) : BossComponent(module)
     {
         var pcState = _states[pcSlot];
         if (pcState.Tether != TetherType.None && Raid[pcState.PartnerSlot] is var partner && partner != null)
-            Arena.AddLine(pc.Position, partner.Position, pcState.TetherBad ? ArenaColor.Danger : ArenaColor.Safe);
+            Arena.AddLine(pc.Position, partner.Position, pcState.TetherBad ? default : Colors.Safe);
         if (Safespot(pcSlot, pc) is var safespot && safespot != null)
-            Arena.AddCircle(safespot.Value, 1, ArenaColor.Safe);
+            Arena.AddCircle(safespot.Value, 1f, Colors.Safe);
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
-        switch ((TetherID)tether.ID)
+        switch (tether.ID)
         {
-            case TetherID.LightLightGood:
-            case TetherID.DarkDarkGood:
+            case (uint)TetherID.LightLightGood:
+            case (uint)TetherID.DarkDarkGood:
                 UpdateTether(Raid.FindSlot(source.InstanceID), Raid.FindSlot(tether.Target), TetherType.Far, false);
                 break;
-            case TetherID.LightLightBad:
-            case TetherID.DarkDarkBad:
+            case (uint)TetherID.LightLightBad:
+            case (uint)TetherID.DarkDarkBad:
                 UpdateTether(Raid.FindSlot(source.InstanceID), Raid.FindSlot(tether.Target), TetherType.Far, true);
                 break;
-            case TetherID.DarkLightGood:
+            case (uint)TetherID.DarkLightGood:
                 UpdateTether(Raid.FindSlot(source.InstanceID), Raid.FindSlot(tether.Target), TetherType.Near, false);
                 break;
-            case TetherID.DarkLightBad:
+            case (uint)TetherID.DarkLightBad:
                 UpdateTether(Raid.FindSlot(source.InstanceID), Raid.FindSlot(tether.Target), TetherType.Near, true);
                 break;
         }
@@ -81,13 +81,13 @@ class DarkAndLight(BossModule module) : BossComponent(module)
         if (!ShowSafespots || tether == TetherType.None)
             return null;
 
-        bool isFar = tether == TetherType.Far;
-        Angle dir = actor.Role switch
+        var isFar = tether == TetherType.Far;
+        var dir = actor.Role switch
         {
-            Role.Tank => isFar ? 180.Degrees() : -90.Degrees(),
-            Role.Healer => isFar ? 0.Degrees() : 90.Degrees(),
-            _ => Raid[_states[slot].PartnerSlot]?.Role == Role.Tank ? (isFar ? -45.Degrees() : -135.Degrees()) : (isFar ? 135.Degrees() : 45.Degrees())
+            Role.Tank => isFar ? 180f.Degrees() : -90f.Degrees(),
+            Role.Healer => isFar ? default : 90f.Degrees(),
+            _ => Raid[_states[slot].PartnerSlot]?.Role == Role.Tank ? (isFar ? -45f.Degrees() : -135f.Degrees()) : (isFar ? 135f.Degrees() : 45f.Degrees())
         };
-        return Module.Center + (isFar ? _farOffset : _nearOffset) * dir.ToDirection();
+        return Arena.Center + (isFar ? _farOffset : _nearOffset) * dir.ToDirection();
     }
 }

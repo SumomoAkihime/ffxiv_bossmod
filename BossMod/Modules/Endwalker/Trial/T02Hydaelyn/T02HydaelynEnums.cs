@@ -19,12 +19,13 @@ public enum AID : uint
     AutoAttack = 870, // Boss->player, no cast, single-target
     AutoAttackStaff = 27732, // Boss->player, no cast, single-target
     AutoAttackChakram = 27733, // Boss->player, no cast, single-target
-    HerossRadiance = 26071, // Boss->self, 5.0s cast, range 40 circle
-    Teleport = 26025, // Boss->location, no cast, single-target, boss teleports mid
+    Teleport1 = 26025, // Boss->location, no cast, single-target, boss teleports mid
     Teleport2 = 28282, // Boss->location, no cast, single-target
     Teleport3 = 26030, // 3503->location, no cast, single-target, Mystic Refulgence teleports
+
+    HerossRadiance = 26071, // Boss->self, 5.0s cast, range 40 circle
     DawnMantle = 27660, // Boss->self, 4.9s cast, single-target
-    Anthelion = 26056, // Boss->self, no cast, range 5-40 donut (not sure if 5.04 or 5, impossible to tell with naked eye)
+    Anthelion = 26056, // Boss->self, no cast, range 5-40 donut
     MousasScorn = 26070, // Boss->players, 5.0s cast, range 4 circle, shared tankbuster
     HighestHoly = 26055, // Boss->self, no cast, range 10 circle
     MagossRadiance = 26072, // Boss->self, 5.0s cast, range 40 circle
@@ -41,8 +42,11 @@ public enum AID : uint
     Crystallize2 = 27853, // EchoOfHydaelyn->self, no cast, single-target
     CrystallineBlizzardIII = 27854, // EchoOfHydaelyn->self, 5.0s cast, single-target
     CrystallineBlizzardIII2 = 27738, // Helper->players, 5.0s cast, range 5 circle
-    Exodus = 26043, // Boss->self, no cast, single-target
-    Exodus2 = 26066, // Helper->self, no cast, range 40 circle
+
+    ExodusVisual = 26043, // Boss->self, no cast, single-target
+    Exodus = 26066, // Helper->self, no cast, range 40 circle
+    ExodusEnrage = 27911, // Helper->self, no cast, range 40 circle
+
     CrystallizeStaffIce = 26012, // Boss->self, 4.0s cast, single-target
     ParhelicCircle = 26028, // Boss->self, 6.0s cast, single-target
     IncandescenceTrigger = 26029, // 34C9->self, no cast, single-target
@@ -51,7 +55,7 @@ public enum AID : uint
     CrystallizeTriggerWater = 26017, // Boss->self, no cast, single-target
     Parhelion = 26032, // Boss->self, 5.0s cast, single-target
     Parhelion2 = 26033, // Boss->self, no cast, single-target
-    Beacon = 26062, // Parhelion->location, 5.2s cast, width 6 rect charge
+    Beacon1 = 26062, // Parhelion->location, 5.2s cast, width 6 rect charge
     Beacon2 = 26063, // Parhelion->self, 5.0s cast, range 45 width 6 rect
     Subparhelion = 27734, // Boss->self, 5.0s cast, single-target
     RadiantHalo = 26064, // Boss->self, 5.0s cast, range 40 circle

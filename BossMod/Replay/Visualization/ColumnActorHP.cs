@@ -1,6 +1,6 @@
 ﻿namespace BossMod.ReplayVisualization;
 
-public class ColumnActorHP : Timeline.ColumnGroup, IToggleableColumn
+public sealed class ColumnActorHP : Timeline.ColumnGroup, IToggleableColumn
 {
     private readonly ColumnGenericHistory _hpBase;
     private readonly ColumnGenericHistory _hpExtended;
@@ -21,7 +21,7 @@ public class ColumnActorHP : Timeline.ColumnGroup, IToggleableColumn
         _shield = Add<ColumnGenericHistory>(new(timeline, tree, phaseBranches, "Shield"));
 
         var initial = actor.HPMPAt(enc.Time.Start);
-        DateTime prevTime = enc.Time.Start;
+        var prevTime = enc.Time.Start;
         var prevHPMP = initial;
         foreach (var h in actor.HPMPHistory.SkipWhile(e => e.Key <= enc.Time.Start).TakeWhile(e => e.Key < enc.Time.End))
         {
@@ -33,19 +33,23 @@ public class ColumnActorHP : Timeline.ColumnGroup, IToggleableColumn
 
         foreach (var a in replay.EncounterActions(enc))
         {
-            int damage = 0;
-            int heal = 0;
+            var damage = 0;
+            var heal = 0;
             foreach (var t in a.Targets)
             {
-                foreach (var e in t.Effects)
+                foreach (var e in t.Effects.ValidEffects())
                 {
                     var effTarget = e.AtSource ? a.Source : t.Target;
                     if (effTarget == actor)
                     {
                         if (e.Type is ActionEffectType.Damage or ActionEffectType.BlockedDamage or ActionEffectType.ParriedDamage)
+                        {
                             damage += e.DamageHealValue;
+                        }
                         else if (e.Type == ActionEffectType.Heal)
+                        {
                             heal += e.DamageHealValue;
+                        }
                     }
                 }
             }
@@ -53,7 +57,7 @@ public class ColumnActorHP : Timeline.ColumnGroup, IToggleableColumn
             if (damage != 0 || heal != 0)
             {
                 var name = $"-{damage} +{heal}: {a.ID} {ReplayUtils.ParticipantString(a.Source, a.Timestamp)} -> {ReplayUtils.ParticipantString(a.MainTarget, a.Timestamp)} #{a.GlobalSequence}";
-                var color = damage == 0 ? 0xff00ff00 : heal == 0 ? 0xff00ffff : 0xffff00ff;
+                var color = damage == 0 ? Colors.TextColor4 : heal == 0 ? Colors.TextColor2 : Colors.TextColor6;
                 _hpBase.AddHistoryEntryDot(enc.Time.Start, a.Timestamp, name, color).AddActionTooltip(a);
             }
         }
@@ -62,18 +66,20 @@ public class ColumnActorHP : Timeline.ColumnGroup, IToggleableColumn
     private void AddRange(DateTime encStart, DateTime rangeStart, DateTime rangeEnd, uint initialMax, ActorHPMP hpmp)
     {
         if (hpmp.CurHP == 0)
+        {
             return;
+        }
 
         var pctFromInitial = (float)hpmp.CurHP / initialMax;
         var text = $"{hpmp.CurHP}+{hpmp.Shield}/{hpmp.MaxHP} ({pctFromInitial * 100:f2}%)";
-        _hpBase.AddHistoryEntryRange(encStart, rangeStart, rangeEnd, text, 0x80808080, Math.Min(pctFromInitial, 1));
+        _hpBase.AddHistoryEntryRange(encStart, rangeStart, rangeEnd, text, Colors.TextColor7, Math.Min(pctFromInitial, 1));
         if (pctFromInitial > 1)
         {
-            _hpExtended.AddHistoryEntryRange(encStart, rangeStart, rangeEnd, text, 0x8080ff80, Math.Min(pctFromInitial - 1, 1));
+            _hpExtended.AddHistoryEntryRange(encStart, rangeStart, rangeEnd, text, Colors.TextColor17, Math.Min(pctFromInitial - 1, 1));
         }
         if (hpmp.Shield > 0)
         {
-            _shield.AddHistoryEntryRange(encStart, rangeStart, rangeEnd, text, 0x80008080, Math.Min((float)hpmp.Shield / initialMax, 1));
+            _shield.AddHistoryEntryRange(encStart, rangeStart, rangeEnd, text, Colors.TextColor16, Math.Min((float)hpmp.Shield / initialMax, 1));
         }
     }
 }

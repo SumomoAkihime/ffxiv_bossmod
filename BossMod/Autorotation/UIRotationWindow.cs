@@ -1,5 +1,4 @@
-﻿using BossMod.Services;
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 
@@ -8,11 +7,11 @@ namespace BossMod.Autorotation;
 public sealed class UIRotationWindow : UIWindow
 {
     private readonly RotationModuleManager _mgr;
-    private readonly IAmex _amex;
+    private readonly ActionManagerEx _amex;
     private readonly AutorotationConfig _config = Service.Config.Get<AutorotationConfig>();
     private readonly EventSubscriptions _subscriptions;
 
-    public UIRotationWindow(RotationModuleManager mgr, IAmex amex, Action openConfig) : base("Autorotation", false, new(400, 400), ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoFocusOnAppearing)
+    public UIRotationWindow(RotationModuleManager mgr, ActionManagerEx amex, Action openConfig) : base("Autorotation", false, new(400, 400), ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoFocusOnAppearing)
     {
         _mgr = mgr;
         _amex = amex;
@@ -63,7 +62,7 @@ public sealed class UIRotationWindow : UIWindow
             {
                 ImGui.SameLine();
                 var plans = _mgr.Database.Plans.GetPlans(activeModule.GetType(), player.Class);
-                var newSel = UIPlanDatabaseEditor.DrawPlanCombo(plans, plans.SelectedIndex, "###root");
+                var newSel = UIPlanDatabaseEditor.DrawPlanCombo(plans, plans.SelectedIndex, "");
                 if (newSel != plans.SelectedIndex)
                 {
                     plans.SelectedIndex = newSel;
@@ -82,26 +81,18 @@ public sealed class UIRotationWindow : UIWindow
                     UIPlanDatabaseEditor.StartPlanEditor(_mgr.Database.Plans, plans.Plans[plans.SelectedIndex], activeModule.StateMachine);
                 }
 
-                if (newSel >= 0 && _mgr.Presets.Count > 0)
+                if (newSel >= 0 && _mgr.Preset != null)
                 {
                     ImGui.SameLine();
-                    using var style = ImRaii.PushColor(ImGuiCol.Text, 0xff00ffff);
+                    using var style = ImRaii.PushColor(ImGuiCol.Text, Colors.TextColor2);
                     UIMisc.HelpMarker(() => "You have a preset activated, which fully overrides the CD plan!", FontAwesomeIcon.ExclamationTriangle);
                 }
             }
         }
 
-        ImGui.TextUnformatted("Modules: ");
-
-        var dups = _mgr.DuplicateModules.ToList();
-        if (dups.Count > 0)
-        {
-            ImGui.SameLine();
-            using var style = ImRaii.PushColor(ImGuiCol.Text, 0xff00ffff);
-            UIMisc.HelpMarker(() => $"You have multiple copies of the same module active ({string.Join(", ", dups)}). Only one of each will execute. This is probably not what you want.", FontAwesomeIcon.ExclamationTriangle);
-        }
-
-        if (_mgr.Presets.Any(p => p.Modules.Any(m => m.TransientSettings.Count > 0)))
+        // TODO: more fancy action history/queue...
+        ImGui.TextUnformatted($"Modules: {_mgr}");
+        if (_mgr.Preset?.Modules.Any(m => m.TransientSettings.Count > 0) ?? false)
         {
             ImGui.SameLine();
             using (ImRaii.PushColor(ImGuiCol.Text, 0xff00ff00))
@@ -110,24 +101,18 @@ public sealed class UIRotationWindow : UIWindow
             {
                 using var tooltip = ImRaii.Tooltip();
                 ImGui.TextUnformatted("Transient strategies:");
-                foreach (var p in _mgr.Presets)
+                foreach (var m in _mgr.Preset.Modules.Where(m => m.TransientSettings.Count > 0))
                 {
-                    foreach (var m in p.Modules.Where(m => m.TransientSettings.Count > 0))
+                    ImGui.TextUnformatted($"> {m.Type.FullName}");
+                    using var indent = ImRaii.PushIndent();
+                    foreach (var s in m.TransientSettings)
                     {
-                        ImGui.TextUnformatted($"> {m.Type.FullName}");
-                        using var indent = ImRaii.PushIndent();
-                        foreach (var s in m.TransientSettings)
-                        {
-                            var track = m.Definition.Configs[s.Track];
-                            ImGui.TextUnformatted($"{track.InternalName} = {track.ToDisplayString(s.Value)}");
-                        }
+                        var track = m.Definition.Configs[s.Track];
+                        ImGui.TextUnformatted($"{track.InternalName} = {track.ToDisplayString(s.Value)}");
                     }
                 }
             }
         }
-
-        ImGui.SameLine();
-        ImGui.TextUnformatted(_mgr.ToString());
 
         ImGui.TextUnformatted($"GCD={_mgr.WorldState.Client.Cooldowns[ActionDefinitions.GCDGroup].Remaining:f3}, AnimLock={_amex.EffectiveAnimationLock:f3}+{_amex.AnimationLockDelayEstimate:f3}, Combo={_amex.ComboTimeLeft:f3}, RBIn={_mgr.Bossmods.RaidCooldowns.NextDamageBuffIn():f3}");
         foreach (var a in _mgr.Hints.ActionsToExecute.Entries)
@@ -148,32 +133,30 @@ public sealed class UIRotationWindow : UIWindow
 
         ImGui.SameLine();
 
-        using (ImRaii.PushColor(ImGuiCol.Button, 0xff000080, mgr.IsForceDisabled))
-        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, 0xff000050, mgr.IsForceDisabled))
-        using (ImRaii.PushColor(ImGuiCol.ButtonActive, 0xff000060, mgr.IsForceDisabled))
+        using (ImRaii.PushColor(ImGuiCol.Button, Colors.ButtonPushColor1, mgr.Preset == RotationModuleManager.ForceDisable))
+        using (ImRaii.PushColor(ImGuiCol.ButtonHovered, Colors.ButtonPushColor3, mgr.Preset == RotationModuleManager.ForceDisable))
+        using (ImRaii.PushColor(ImGuiCol.ButtonActive, Colors.ButtonPushColor4, mgr.Preset == RotationModuleManager.ForceDisable))
         {
             if (ImGui.Button("Disabled"))
             {
-                if (mgr.IsForceDisabled)
-                    mgr.Clear();
-                else
-                    mgr.SetForceDisabled();
+                mgr.Preset = mgr.Preset == RotationModuleManager.ForceDisable ? null : RotationModuleManager.ForceDisable;
                 modified |= true;
             }
         }
 
         foreach (var p in mgr.Database.Presets.PresetsForClass(mgr.Player.Class))
         {
-            var isActive = mgr.Presets.Contains(p);
-            if (!isActive && p.HiddenByDefault)
+            if (p.HiddenByDefault)
+            {
                 continue;
+            }
             ImGui.SameLine();
-            using var col = ImRaii.PushColor(ImGuiCol.Button, 0xff008080, isActive);
-            using var colHovered = ImRaii.PushColor(ImGuiCol.ButtonHovered, 0xff005050, isActive);
-            using var colActive = ImRaii.PushColor(ImGuiCol.ButtonActive, 0xff006060, isActive);
+            using var col = ImRaii.PushColor(ImGuiCol.Button, Colors.ButtonPushColor2, mgr.Preset == p);
+            using var colHovered = ImRaii.PushColor(ImGuiCol.ButtonHovered, Colors.ButtonPushColor5, mgr.Preset == p);
+            using var colActive = ImRaii.PushColor(ImGuiCol.ButtonActive, Colors.ButtonPushColor6, mgr.Preset == p);
             if (ImGui.Button(p.Name))
             {
-                mgr.Toggle(p);
+                mgr.Preset = mgr.Preset == p ? null : p;
                 modified |= true;
             }
         }
@@ -200,7 +183,7 @@ public sealed class UIRotationWindow : UIWindow
         }
     }
 
-    private uint PositionalColor(bool imminent, bool correct) => imminent
-        ? (correct ? 0xff00ff00 : 0xff0000ff)
-        : (correct ? 0xffffffff : 0xff00ffff);
+    private static uint PositionalColor(bool imminent, bool correct) => imminent
+        ? (correct ? Colors.PositionalColor1 : Colors.PositionalColor2)
+        : (correct ? Colors.PositionalColor3 : Colors.PositionalColor4);
 }

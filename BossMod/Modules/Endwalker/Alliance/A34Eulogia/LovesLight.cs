@@ -2,33 +2,45 @@ namespace BossMod.Endwalker.Alliance.A34Eulogia;
 
 class LovesLight(BossModule module) : Components.GenericAOEs(module)
 {
-    public readonly List<(WPos position, Angle rotation, DateTime activation)> AOEs = [];
-    private static readonly AOEShapeRect _shape = new(80, 12.5f);
+    public readonly List<AOEInstance> AOEs = new(4);
+    private static readonly AOEShapeRect _shape = new(80f, 12.5f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if (AOEs.Count > 1)
-            yield return new(_shape, AOEs[1].position, AOEs[1].rotation, AOEs[1].activation);
-        if (AOEs.Count > 0)
-            yield return new(_shape, AOEs[0].position, AOEs[0].rotation, AOEs[0].activation, ArenaColor.Danger);
+        var count = AOEs.Count;
+        if (count == 0)
+            return [];
+        var max = count > 2 ? 2 : count;
+        var aoes = CollectionsMarshal.AsSpan(AOEs)[..max];
+        if (count > 1)
+        {
+            ref var aoe0 = ref aoes[0];
+            aoe0.Color = Colors.Danger;
+        }
+        return aoes;
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.FirstBlush1 or AID.FirstBlush2 or AID.FirstBlush3 or AID.FirstBlush4)
+        if (spell.Action.ID is (uint)AID.FirstBlush1 or (uint)AID.FirstBlush2 or (uint)AID.FirstBlush3 or (uint)AID.FirstBlush4)
         {
-            AOEs.Add((caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
-            AOEs.SortBy(aoe => aoe.activation);
+            AOEs.Add(new(_shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
+            if (AOEs.Count == 4)
+            {
+                SortHelpers.SortAOEByActivation(AOEs);
+            }
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.FirstBlush1 or AID.FirstBlush2 or AID.FirstBlush3 or AID.FirstBlush4)
+        if (spell.Action.ID is (uint)AID.FirstBlush1 or (uint)AID.FirstBlush2 or (uint)AID.FirstBlush3 or (uint)AID.FirstBlush4)
         {
             ++NumCasts;
-            if (AOEs.Count > 0)
+            if (AOEs.Count != 0)
+            {
                 AOEs.RemoveAt(0);
+            }
         }
     }
 }

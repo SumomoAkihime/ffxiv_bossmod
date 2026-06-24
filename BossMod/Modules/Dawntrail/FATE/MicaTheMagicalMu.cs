@@ -2,16 +2,17 @@
 
 public enum OID : uint
 {
-    Boss = 0x43EB, // R7.999, x1
-    Helper = 0x43EC, // R0.500, x0 (spawn during fight)
-    CardHelper = 0x43ED, // R0.500, x0 (spawn during fight)
-    MagicalHoop = 0x43F4, // R1.000, x0 (spawn during fight)
-    Card1 = 0x43EE, // R1.000, x0 (spawn during fight)
-    Card2 = 0x43EF, // R1.000, x0 (spawn during fight)
-    Card3 = 0x43F0, // R1.000, x0 (spawn during fight)
-    Card4 = 0x43F1, // R1.000, x0 (spawn during fight)
-    Card5 = 0x43F2, // R1.000, x0 (spawn during fight)
-    Card6 = 0x43F3, // R1.000, x0 (spawn during fight)
+    Boss = 0x43EB, // R7.999
+
+    CardHelper = 0x43ED, // R0.5
+    MagicalHoop = 0x43F4, // R1.0
+    Card1 = 0x43EE, // R1.0
+    Card2 = 0x43EF, // R1.0
+    Card3 = 0x43F0, // R1.0
+    Card4 = 0x43F1, // R1.0
+    Card5 = 0x43F2, // R1.0
+    Card6 = 0x43F3, // R1.0
+    Helper = 0x43EC
 }
 
 public enum AID : uint
@@ -71,179 +72,203 @@ public enum AID : uint
     ShimmerstrikeAOE = 38705, // Helper->players, 5.0s cast, range 6 circle
     SparkOfImagination = 38706, // Boss->self, 4.5+0.5s cast, single-target, visual (raidwide)
     SparkOfImaginationAOE = 38707, // Helper->location, 4.0s cast, range 35 circle, raidwide
-    End = 38710, // Boss->self, no cast, single-target, visual (end fight)
+    End = 38710 // Boss->self, no cast, single-target, visual (end fight)
 }
 
-class Draw(BossModule module) : Components.GenericAOEs(module)
+sealed class Draw(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly IReadOnlyList<Actor>[] _cards = [
-        module.Enemies(OID.Card1),
-        module.Enemies(OID.Card2),
-        module.Enemies(OID.Card3),
-        module.Enemies(OID.Card4),
-        module.Enemies(OID.Card5),
-        module.Enemies(OID.Card6),
+    private readonly List<Actor>[] _cards = [
+        module.Enemies((uint)OID.Card1),
+        module.Enemies((uint)OID.Card2),
+        module.Enemies((uint)OID.Card3),
+        module.Enemies((uint)OID.Card4),
+        module.Enemies((uint)OID.Card5),
+        module.Enemies((uint)OID.Card6),
     ];
-    private readonly List<int> _safeZones = [];
-    private DateTime _activation = DateTime.MaxValue;
+    private AOEInstance[] _aoes = [];
+    private readonly List<int> cachedCardIndices = new(2);
 
-    private static readonly AOEShapeRect _shape = new(10, 7, 10);
+    private static readonly AOEShapeRect _shape = new(20f, 7f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        if (_safeZones.Count > 0)
-            for (int i = 0; i < _cards.Length; ++i)
-                if (i != _safeZones[0])
-                    foreach (var a in _cards[i])
-                        yield return new(_shape, a.Position, default, _activation);
-    }
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.DrawFirst1:
-            case AID.DrawRest1:
-                _safeZones.Add(0);
+            case (uint)AID.DrawFirst1:
+            case (uint)AID.DrawRest1:
+                AddAOEs(0);
                 break;
-            case AID.DrawFirst2:
-            case AID.DrawRest2:
-                _safeZones.Add(1);
+            case (uint)AID.DrawFirst2:
+            case (uint)AID.DrawRest2:
+                AddAOEs(1);
                 break;
-            case AID.DrawFirst3:
-            case AID.DrawRest3:
-                _safeZones.Add(2);
+            case (uint)AID.DrawFirst3:
+            case (uint)AID.DrawRest3:
+                AddAOEs(2);
                 break;
-            case AID.DrawFirst4:
-            case AID.DrawRest4:
-                _safeZones.Add(3);
+            case (uint)AID.DrawFirst4:
+            case (uint)AID.DrawRest4:
+                AddAOEs(3);
                 break;
-            case AID.DrawFirst5:
-            case AID.DrawRest5:
-                _safeZones.Add(4);
+            case (uint)AID.DrawFirst5:
+            case (uint)AID.DrawRest5:
+                AddAOEs(4);
                 break;
-            case AID.DrawFirst6:
-            case AID.DrawRest6:
-                _safeZones.Add(5);
+            case (uint)AID.DrawFirst6:
+            case (uint)AID.DrawRest6:
+                AddAOEs(5);
                 break;
-            case AID.CardTrick:
-                _activation = Module.CastFinishAt(spell, 0.6f);
+            case (uint)AID.CardTrick:
+                var activation = Module.CastFinishAt(spell, 0.6d);
+                if (_aoes.Length != 0)
+                {
+                    for (var i = 0; i < 5; ++i)
+                    {
+                        ref var aoe = ref _aoes[i];
+                        aoe.Activation = activation;
+                        aoe.Risky = true;
+                    }
+                }
                 break;
+        }
+    }
+
+    private void AddAOEs(int safeZoneIndex)
+    {
+        if (_aoes.Length != 0)
+        {
+            cachedCardIndices.Add(safeZoneIndex);
+            return;
+        }
+        _aoes = new AOEInstance[5];
+        var index = 0;
+        var dir = new WDir(default, -10f);
+        for (var i = 0; i < 6; ++i)
+        {
+            if (i != safeZoneIndex)
+            {
+                var cards = _cards[i];
+                if (cards.Count != 0)
+                {
+                    _aoes[index++] = new(_shape, (cards[0].Position + dir).Quantized(), Angle.AnglesCardinals[1], risky: false);
+                }
+            }
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.CardTrickAOEFake)
+        if (spell.Action.ID == (uint)AID.CardTrickAOEFake)
         {
-            _activation = DateTime.MaxValue;
-            if (_safeZones.Count > 0)
-                _safeZones.RemoveAt(0);
+            _aoes = [];
+            if (cachedCardIndices.Count != 0)
+            {
+                AddAOEs(cachedCardIndices[0]);
+                cachedCardIndices.RemoveAt(0);
+            }
         }
     }
 }
 
-class FlourishingBow(BossModule module) : Components.GenericAOEs(module)
+sealed class FlourishingBow(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = [];
+    private readonly List<AOEInstance> _aoes = new(2);
 
-    private static readonly AOEShapeCircle _shapeOut = new(10);
-    private static readonly AOEShapeDonut _shapeIn = new(10, 30);
+    private static readonly AOEShapeCircle _shapeOut = new(10f);
+    private static readonly AOEShapeDonut _shapeIn = new(10f, 30f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Take(1);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Count != 0 ? CollectionsMarshal.AsSpan(_aoes)[..1] : [];
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        AOEShape? shape = (AID)spell.Action.ID switch
+        AOEShape? shape = spell.Action.ID switch
         {
-            AID.TwinklingFlourishLong or AID.TwinklingFlourishShort => _shapeOut,
-            AID.TwinklingRingLong or AID.TwinklingRingShort => _shapeIn,
+            (uint)AID.TwinklingFlourishLong or (uint)AID.TwinklingFlourishShort => _shapeOut,
+            (uint)AID.TwinklingRingLong or (uint)AID.TwinklingRingShort => _shapeIn,
             _ => null
         };
         if (shape != null)
         {
-            _aoes.Add(new(shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
-            _aoes.SortBy(aoe => aoe.Activation);
+            _aoes.Add(new(shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
+            if (_aoes.Count > 1)
+            {
+                var aoes = CollectionsMarshal.AsSpan(_aoes);
+                ref var aoe1 = ref aoes[0];
+                ref var aoe2 = ref aoes[1];
+                if (aoe1.Activation > aoe2.Activation)
+                {
+                    (aoe1, aoe2) = (aoe2, aoe1);
+                }
+            }
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.TwinklingFlourishLong or AID.TwinklingFlourishShort or AID.TwinklingRingLong or AID.TwinklingRingShort && _aoes.Count > 0)
+        if (_aoes.Count != 0 && spell.Action.ID is (uint)AID.TwinklingFlourishLong or (uint)AID.TwinklingFlourishShort or (uint)AID.TwinklingRingLong or (uint)AID.TwinklingRingShort)
         {
             _aoes.RemoveAt(0);
         }
     }
 }
 
-class DoubleMisdirect(BossModule module) : Components.GenericAOEs(module)
+sealed class DoubleMisdirect(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.DoubleMisdirectAOELong, (uint)AID.DoubleMisdirectAOEShort], new AOEShapeCone(40f, 30f.Degrees()), 3, 6);
+
+sealed class RollingStarlight(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = [];
+    private readonly List<AOEInstance> _aoes = new(7);
+    private int lastVersion;
+    private static readonly AOEShapeRect[] rects = [new(20f, 5f), new(29f, 5f), new(43f, 5f), new(52f, 5f)];
 
-    private static readonly AOEShapeCone _shape = new(40, 30.Degrees());
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Take(3);
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    public override void Update()
     {
-        if ((AID)spell.Action.ID is AID.DoubleMisdirectAOELong or AID.DoubleMisdirectAOEShort)
+        var count = _aoes.Count;
+        if (lastVersion != count)
         {
-            _aoes.Add(new(_shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
-            _aoes.SortBy(aoe => aoe.Activation);
+            if (count > 1)
+            {
+                ref var aoe = ref _aoes.Ref(0);
+                aoe.Color = Colors.Danger;
+            }
+            lastVersion = count;
         }
     }
 
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.DoubleMisdirectAOELong or AID.DoubleMisdirectAOEShort && _aoes.Count > 0)
-        {
-            _aoes.RemoveAt(0);
-        }
-    }
-}
-
-class RollingStarlight(BossModule module) : Components.GenericAOEs(module)
-{
-    private readonly List<AOEInstance> _aoes = [];
-
-    private static readonly AOEShapeRect _shape1 = new(20, 5);
-    private static readonly AOEShapeRect _shape2 = new(29, 5);
-    private static readonly AOEShapeRect _shape3 = new(43, 5);
-    private static readonly AOEShapeRect _shape4 = new(52, 5);
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
-
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        var shape = (AID)spell.Action.ID switch
+        var shape = spell.Action.ID switch
         {
-            AID.RollingStarlightVisual1 => _shape1,
-            AID.RollingStarlightVisual2 => _shape2,
-            AID.RollingStarlightVisual3 => _shape3,
-            AID.RollingStarlightVisual4 => _shape4,
+            (uint)AID.RollingStarlightVisual1 => rects[0],
+            (uint)AID.RollingStarlightVisual2 => rects[1],
+            (uint)AID.RollingStarlightVisual3 => rects[2],
+            (uint)AID.RollingStarlightVisual4 => rects[3],
             _ => null
         };
         if (shape != null)
         {
-            _aoes.Add(new(shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell, 5 + _aoes.Count * 0.6f)));
+            _aoes.Add(new(shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell, 5d + _aoes.Count * 0.6d)));
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.RollingStarlightFirst or AID.RollingStarlightRest && _aoes.Count > 0)
+        if (_aoes.Count != 0 && spell.Action.ID is (uint)AID.RollingStarlightFirst or (uint)AID.RollingStarlightRest)
         {
             _aoes.RemoveAt(0);
         }
     }
 }
 
-class MagicalHat(BossModule module) : Components.StandardAOEs(module, AID.TwinkleToss, new AOEShapeRect(42, 2.5f), 4);
-class Shimmerstorm(BossModule module) : Components.StandardAOEs(module, AID.ShimmerstormAOE, 6);
-class Shimmerstrike(BossModule module) : Components.BaitAwayCast(module, AID.ShimmerstrikeAOE, new AOEShapeCircle(6), true);
-class SparkOfImagination(BossModule module) : Components.RaidwideCast(module, AID.SparkOfImaginationAOE);
+sealed class MagicalHat(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TwinkleToss, new AOEShapeRect(42f, 2.5f), 4);
+sealed class Shimmerstorm(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ShimmerstormAOE, 6f);
+sealed class Shimmerstrike(BossModule module) : Components.BaitAwayCast(module, (uint)AID.ShimmerstrikeAOE, 6f, tankbuster: true, damageType: AIHints.PredictedDamageType.Tankbuster);
+sealed class SparkOfImagination(BossModule module) : Components.RaidwideCast(module, (uint)AID.SparkOfImaginationAOE);
 
-class MicaTheMagicalMuStates : StateMachineBuilder
+sealed class MicaTheMagicalMuStates : StateMachineBuilder
 {
     public MicaTheMagicalMuStates(BossModule module) : base(module)
     {
@@ -259,5 +284,8 @@ class MicaTheMagicalMuStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.Fate, GroupID = 1922, NameID = 13049)]
-public class MicaTheMagicalMu(WorldState ws, Actor primary) : BossModule(ws, primary, new(791, 593), new ArenaBoundsRect(21, 20));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, GroupType = BossModuleInfo.GroupType.Fate, GroupID = 1922, NameID = 13049)]
+public sealed class MicaTheMagicalMu(WorldState ws, Actor primary) : BossModule(ws, primary, new(791f, 593f), new ArenaBoundsRect(20.5f, 19.5f))
+{
+    protected override bool CheckPull() => base.CheckPull() && (Center - Raid.Player()!.Position).LengthSq() < 420f;
+}

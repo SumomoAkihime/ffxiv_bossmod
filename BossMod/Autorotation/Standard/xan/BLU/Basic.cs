@@ -68,7 +68,7 @@ public sealed class BLU(RotationModuleManager manager, Actor player) : Castxan<A
 
         Mimic = CurrentMimic();
 
-        if (Utils.IsPlayerUnsynced(World, mightyGuard: true))
+        if (World.CurrentCFCID > 0 && World.Party.WithoutSlot().Count(p => p.Type == ActorType.Player) == 1)
         {
             if (CanUse(AID.BasicInstinct) && Player.FindStatus(SID.MightyGuard) == null)
                 PushGCD(AID.MightyGuard, Player);
@@ -91,7 +91,7 @@ public sealed class BLU(RotationModuleManager manager, Actor player) : Castxan<A
         var haveModule = Bossmods.ActiveModule?.StateMachine.ActiveState != null;
 
         // mortal flame
-        if (primaryTarget is { } p && StatusDetails(p.Actor, SID.MortalFlame, Player.InstanceID).Left == 0 && Hints.PriorityTargets.Count() == 1 && haveModule)
+        if (primaryTarget is { } p && StatusDetails(p.Actor, SID.MortalFlame, Player.InstanceID).Left == 0 && Hints.PriorityTargets.Count == 1 && haveModule)
             PushGCD(AID.MortalFlame, p, GCDPriority.GCDWithCooldown);
 
         if (haveModule && currentHP * 2 < Player.HPMP.MaxHP)
@@ -128,10 +128,10 @@ public sealed class BLU(RotationModuleManager manager, Actor player) : Castxan<A
 
         if (CanUse(AID.PeatPelt) && CanUse(AID.DeepClean) && StatusLeft(SID.SpickAndSpan) < GCDLength)
         {
-            var (poopTarget, poopNum) = SelectTarget(strategy, primaryTarget, 25, (primary, other) => Hints.TargetInAOECircle(other, primary.Position, 6));
+            var (poopTarget, poopNum) = SelectTarget(strategy, primaryTarget, 25, (primary, other) => TargetInAOECircle(other, primary.Position, 6));
             if (poopTarget != null && poopNum > 2)
             {
-                var scoopNum = Hints.NumPriorityTargetsInAOE(act => StatusDetails(act.Actor, SID.Begrimed, Player.InstanceID).Left > SpellGCDLength && Hints.TargetInAOECircle(act.Actor, poopTarget.Actor.Position, 6));
+                var scoopNum = Hints.NumPriorityTargetsInAOE(act => StatusDetails(act.Actor, SID.Begrimed, Player.InstanceID).Left > SpellGCDLength && TargetInAOECircle(act.Actor, poopTarget.Actor.Position, 6));
                 if (scoopNum > 2)
                     PushGCD(AID.DeepClean, poopTarget, GCDPriority.Scoop);
                 PushGCD(AID.PeatPelt, poopTarget, GCDPriority.Poop);
@@ -140,19 +140,19 @@ public sealed class BLU(RotationModuleManager manager, Actor player) : Castxan<A
 
         if (CanUse(AID.TheRamsVoice) && CanUse(AID.Ultravibration))
         {
-            Hints.GoalZones.Add(Hints.GoalAOECircle(6));
+            Hints.GoalZones.Add(Hints.GoalAOECircle(6f));
             var priorityTotal = 0;
             var nearbyTotal = 0;
             var nearbyFrozen = 0;
 
             foreach (var target in Hints.PriorityTargets)
             {
-                priorityTotal++;
+                ++priorityTotal;
                 if (target.Actor.Position.InCircle(Player.Position, 6 + Player.HitboxRadius + target.Actor.HitboxRadius))
                 {
-                    nearbyTotal++;
+                    ++nearbyTotal;
                     if (StatusDetails(target.Actor, SID.DeepFreeze, Player.InstanceID).Left > 3)
-                        nearbyFrozen++;
+                        ++nearbyFrozen;
                 }
             }
             if (nearbyTotal == priorityTotal && nearbyTotal > 2)
@@ -178,7 +178,7 @@ public sealed class BLU(RotationModuleManager manager, Actor player) : Castxan<A
             PushOGCD(AID.LucidDreaming, Player);
 
         if (NextGCD is AID.GoblinPunch or AID.Devour && primaryTarget is { } t)
-            Hints.GoalZones.Add(Hints.GoalSingleTarget(t.Actor, Positional.Front, 3));
+            Hints.GoalZones.Add(GoalSingleTarget(t.Actor, Positional.Front, 3));
     }
 
     private void TankSpecific(Enemy? primaryTarget)

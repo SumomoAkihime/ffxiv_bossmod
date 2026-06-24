@@ -7,72 +7,87 @@ namespace BossMod.Endwalker.Alliance.A31Thaliak;
 // XXXX       XXXO
 // OXXX       XXXX
 // the pattern is then rotated CW or CCW, giving 4 possible results
-class Hieroglyphika(BossModule module) : Components.GenericAOEs(module, AID.HieroglyphikaAOE)
+class Hieroglyphika(BossModule module) : Components.GenericAOEs(module, (uint)AID.HieroglyphikaAOE)
 {
     public bool BindsAssigned;
     public WDir SafeSideDir;
-    public readonly List<AOEInstance> AOEs = [];
+    public readonly List<AOEInstance> AOEs = new(14);
 
-    private static readonly AOEShapeRect _shape = new(6, 6, 6);
-    private static readonly WDir[] _canonicalSafespots = [new(6, -18), new(-18, 18)];
+    private static readonly AOEShapeRect _shape = new(12f, 6f);
+    private static readonly WDir[] _canonicalSafespots = [new(6f, -18f), new(-18f, 18f)];
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => AOEs;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(AOEs);
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Bind)
+        if (status.ID == (uint)SID.Bind)
             BindsAssigned = true;
     }
 
     public override void OnMapEffect(byte index, uint state)
     {
-        if (state != 0x00020001)
+        if (state != 0x00020001u)
+        {
             return;
+        }
 
         WDir dir = index switch
         {
-            0x17 => new(-1, 0),
-            0x4A => new(0, 1),
+            0x17 => new(-1f, default),
+            0x4A => new(default, 1f),
             _ => default
         };
         if (dir != default)
+        {
             SafeSideDir = dir;
+        }
     }
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        var dir = (IconID)iconID switch
+        var dir = iconID switch
         {
-            IconID.HieroglyphikaCW => SafeSideDir.OrthoR(),
-            IconID.HieroglyphikaCCW => SafeSideDir.OrthoL(),
+            (uint)IconID.HieroglyphikaCW => SafeSideDir.OrthoR(),
+            (uint)IconID.HieroglyphikaCCW => SafeSideDir.OrthoL(),
             _ => default
         };
         if (dir == default)
-            return;
-
-        WDir[] safespots = [.. _canonicalSafespots.Select(d => d.Rotate(dir))];
-        var activation = WorldState.FutureTime(17.1f);
-        for (int z = -3; z <= 3; z += 2)
         {
-            for (int x = -3; x <= 3; x += 2)
+            return;
+        }
+
+        var safespots = new WDir[2];
+        for (var i = 0; i < 2; ++i)
+        {
+            safespots[i] = _canonicalSafespots[i].Rotate(dir);
+        }
+
+        var activation = WorldState.FutureTime(17.1d);
+        for (var z = -3; z <= 3; z += 2)
+        {
+            for (var x = -3; x <= 3; x += 2)
             {
-                var cellOffset = new WDir(x * 6, z * 6);
-                if (!safespots.Any(s => s.AlmostEqual(cellOffset, 1)))
+                var cellOffset = new WDir(x * 6f, z * 6f);
+                for (var i = 0; i < 2; ++i)
                 {
-                    AOEs.Add(new(_shape, Module.Center + cellOffset, default, activation));
+                    if (safespots[i] == cellOffset)
+                    {
+                        goto next;
+                    }
                 }
+                AOEs.Add(new(_shape, (Arena.Center + cellOffset + new WDir(default, -6f)).Quantized(), Angle.AnglesCardinals[1], activation));
+            next:
+                ;
             }
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action == WatchedAction)
+        if (AOEs.Count != 0 && spell.Action.ID == WatchedAction)
         {
+            AOEs.Clear();
             ++NumCasts;
-            var cnt = AOEs.RemoveAll(aoe => aoe.Origin.AlmostEqual(caster.Position, 1));
-            if (cnt != 1)
-                ReportError($"Incorrect AOE prediction: {caster.Position} matched {cnt} aoes");
         }
     }
 }

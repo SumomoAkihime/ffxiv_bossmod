@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Unreal.Un2Sephirot;
 
-class P3GevurahChesed(BossModule module) : Components.CastCounter(module, AID.LifeForce) // doesn't matter which spell to track
+class P3GevurahChesed(BossModule module) : Components.CastCounter(module, (uint)AID.LifeForce) // doesn't matter which spell to track
 {
     private BitMask _physResistMask;
     private int _physSide; // 0 if not active, -1 if left, +1 if right
@@ -21,7 +21,7 @@ class P3GevurahChesed(BossModule module) : Components.CastCounter(module, AID.Li
             _shape.Draw(Arena, Origin(side), 0.Degrees());
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         if ((SID)status.ID == SID.ForceAgainstMight)
             _physResistMask.Set(Raid.FindSlot(actor.InstanceID));

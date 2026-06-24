@@ -3,14 +3,15 @@
 // this class represents parts of a world state that are interesting to boss modules
 // it does not know anything about dalamud, so it can be used for UI test - there is a separate utility that updates it based on game state every frame
 // world state is supposed to be modified using "operations" - this provides opportunity to listen and react to state changes
+[SkipLocalsInit]
 public sealed class WorldState
 {
     // state access
     public ulong QPF;
     public string GameVersion;
     public FrameState Frame;
-    public ushort CurrentZone { get; private set; }
-    public ushort CurrentCFCID { get; private set; }
+    public ushort CurrentZone;
+    public ushort CurrentCFCID;
     public readonly Dictionary<string, string> RSVEntries = [];
     public readonly WaymarkState Waymarks = new();
     public readonly ActorState Actors = new();
@@ -20,7 +21,9 @@ public sealed class WorldState
     public readonly NetworkState Network = new();
 
     public DateTime CurrentTime => Frame.Timestamp;
-    public DateTime FutureTime(float deltaSeconds) => Frame.Timestamp.AddSeconds(deltaSeconds);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public DateTime FutureTime(double deltaSeconds) => Frame.Timestamp.AddSeconds(deltaSeconds);
 
     public WorldState(ulong qpf, string gameVersion)
     {
@@ -31,7 +34,7 @@ public sealed class WorldState
 
     // state modification
     public Event<Operation> Modified = new();
-    public abstract record class Operation
+    public abstract class Operation
     {
         public DateTime Timestamp; // TODO: reconsider this field; it's very convenient for replays, but not really needed for operations themselves, and is filled late
 
@@ -52,32 +55,48 @@ public sealed class WorldState
     }
 
     // generate a set of operations that would turn default-constructed state into current state
-    public IEnumerable<Operation> CompareToInitial()
+    public List<Operation> CompareToInitial()
     {
-        if (CurrentTime != default)
-            yield return new OpFrameStart(Frame, default, Client.GaugePayload, Client.CameraAzimuth);
-        if (CurrentZone != 0 || CurrentCFCID != 0)
-            yield return new OpZoneChange(CurrentZone, CurrentCFCID);
-        foreach (var (k, v) in RSVEntries)
-            yield return new OpRSVData(k, v);
-        foreach (var o in Waymarks.CompareToInitial())
-            yield return o;
-        foreach (var o in Actors.CompareToInitial())
-            yield return o;
-        foreach (var o in Party.CompareToInitial())
-            yield return o;
-        foreach (var o in Client.CompareToInitial())
-            yield return o;
-        foreach (var o in Network.CompareToInitial())
-            yield return o;
-        foreach (var o in DeepDungeon.CompareToInitial())
-            yield return o;
-    }
+        var waymarks = Waymarks.CompareToInitial();
+        var actors = Actors.CompareToInitial();
+        var party = Party.CompareToInitial();
+        var client = Client.CompareToInitial();
+        // var network = Network.CompareToInitial();
+        var deepdungeon = DeepDungeon.CompareToInitial();
+        List<Operation> ops = new(RSVEntries.Count + waymarks.Count + actors.Count + party.Count + client.Count + deepdungeon.Count + 2); // todo add network back
 
+        if (CurrentTime != default)
+        {
+            ops.Add(new OpFrameStart(Frame, default, Client.GaugePayload, Client.CameraAzimuth));
+        }
+
+        if (CurrentZone != default || CurrentCFCID != default)
+        {
+            ops.Add(new OpZoneChange(CurrentZone, CurrentCFCID));
+        }
+
+        foreach (var (k, v) in RSVEntries)
+        {
+            ops.Add(new OpRSVData(k, v));
+        }
+
+        ops.AddRange(waymarks);
+        ops.AddRange(actors);
+        ops.AddRange(party);
+        ops.AddRange(client);
+        // ops.AddRange(network);
+        ops.AddRange(deepdungeon);
+        return ops;
+    }
     // implementation of operations
     public Event<OpFrameStart> FrameStarted = new();
-    public sealed record class OpFrameStart(FrameState Frame, TimeSpan PrevUpdateTime, ClientState.Gauge GaugePayload, Angle CameraAzimuth) : Operation
+    public sealed class OpFrameStart(in FrameState frame, TimeSpan prevUpdateTime, ClientState.Gauge gaugePayload, Angle cameraAzimuth) : Operation
     {
+        public readonly FrameState Frame = frame;
+        public readonly TimeSpan PrevUpdateTime = prevUpdateTime;
+        public readonly ClientState.Gauge GaugePayload = gaugePayload;
+        public readonly Angle CameraAzimuth = cameraAzimuth;
+
         protected override void Exec(WorldState ws)
         {
             ws.Frame = Frame;
@@ -101,18 +120,23 @@ public sealed class WorldState
     }
 
     public Event<OpUserMarker> UserMarkerAdded = new();
-    public sealed record class OpUserMarker(string Text) : Operation
+    public sealed class OpUserMarker(string text) : Operation
     {
+        public readonly string Text = text;
+
         protected override void Exec(WorldState ws) => ws.UserMarkerAdded.Fire(this);
         public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("UMRK"u8).Emit(Text);
     }
 
     public Event<OpRSVData> RSVDataReceived = new();
-    public sealed record class OpRSVData(string Key, string Value) : Operation
+    public sealed class OpRSVData(string key, string value) : Operation
     {
+        public readonly string Key = key;
+        public readonly string Value = value;
+
         protected override void Exec(WorldState ws)
         {
-            Service.LuminaRSV[Key] = System.Text.Encoding.UTF8.GetBytes(Value); // TODO: reconsider...
+            Service.LuminaRSV[Key] = Encoding.UTF8.GetBytes(Value); // TODO: reconsider...
             ws.RSVEntries[Key] = Value;
             ws.RSVDataReceived.Fire(this);
         }
@@ -120,8 +144,11 @@ public sealed class WorldState
     }
 
     public Event<OpZoneChange> CurrentZoneChanged = new();
-    public sealed record class OpZoneChange(ushort Zone, ushort CFCID) : Operation
+    public sealed class OpZoneChange(ushort zone, ushort cfcid) : Operation
     {
+        public readonly ushort Zone = zone;
+        public readonly ushort CFCID = cfcid;
+
         protected override void Exec(WorldState ws)
         {
             ws.CurrentZone = Zone;
@@ -133,40 +160,56 @@ public sealed class WorldState
 
     // global events
     public Event<OpDirectorUpdate> DirectorUpdate = new();
-    public sealed record class OpDirectorUpdate(uint DirectorID, uint UpdateID, uint Param1, uint Param2, uint Param3, uint Param4) : Operation
+    public sealed class OpDirectorUpdate(uint directorID, uint updateID, uint param1, uint param2, uint param3, uint param4) : Operation
     {
+        public readonly uint DirectorID = directorID;
+        public readonly uint UpdateID = updateID;
+        public readonly uint Param1 = param1;
+        public readonly uint Param2 = param2;
+        public readonly uint Param3 = param3;
+        public readonly uint Param4 = param4;
+
         protected override void Exec(WorldState ws) => ws.DirectorUpdate.Fire(this);
         public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("DIRU"u8).Emit(DirectorID, "X8").Emit(UpdateID, "X8").Emit(Param1, "X8").Emit(Param2, "X8").Emit(Param3, "X8").Emit(Param4, "X8");
     }
 
     public Event<OpMapEffect> MapEffect = new();
-    public sealed record class OpMapEffect(byte Index, uint State) : Operation
+    public sealed class OpMapEffect(byte index, uint state) : Operation
     {
+        public readonly byte Index = index;
+        public readonly uint State = state;
+
         protected override void Exec(WorldState ws) => ws.MapEffect.Fire(this);
         public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("ENVC"u8).Emit(Index, "X2").Emit(State, "X8");
     }
 
     public Event<OpLegacyMapEffect> LegacyMapEffect = new();
-    public sealed record class OpLegacyMapEffect(byte Sequence, byte Param, byte[] Data) : Operation
+    public sealed class OpLegacyMapEffect(byte sequence, byte param, byte[] data) : Operation
     {
-        public readonly byte[] Data = Data;
+        public readonly byte Sequence = sequence;
+        public readonly byte Param = param;
+        public readonly byte[] Data = data;
 
         protected override void Exec(WorldState ws) => ws.LegacyMapEffect.Fire(this);
         public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("LEME"u8).Emit(Sequence, "X2").Emit(Param, "X2").Emit(Data);
     }
 
     public Event<OpSystemLogMessage> SystemLogMessage = new();
-    public sealed record class OpSystemLogMessage(uint MessageId, int[] Args) : Operation
+    public sealed class OpSystemLogMessage(uint messageId, int[] args) : Operation
     {
-        public readonly int[] Args = Args;
+        public readonly uint MessageID = messageId;
+        public readonly int[] Args = args;
 
         protected override void Exec(WorldState ws) => ws.SystemLogMessage.Fire(this);
         public override void Write(ReplayRecorder.Output output)
         {
-            output.EmitFourCC("SLOG"u8).Emit(MessageId);
-            output.Emit(Args.Length);
-            foreach (var arg in Args)
-                output.Emit(arg);
+            output.EmitFourCC("SLOG"u8).Emit(MessageID);
+            var len = Args.Length;
+            output.Emit(len);
+            for (var i = 0; i < len; ++i)
+            {
+                output.Emit(Args[i]);
+            }
         }
     }
 }

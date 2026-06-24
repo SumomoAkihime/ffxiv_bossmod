@@ -1,8 +1,8 @@
 ﻿namespace BossMod.Stormblood.Ultimate.UCOB;
 
-class Twister(BossModule module) : Components.CastTwister(module, 2, (uint)OID.VoidzoneTwister, AID.Twister, 0.3f, 0.5f); // TODO: verify radius
+class Twister(BossModule module) : Components.CastTwister(module, 2f, (uint)OID.VoidzoneTwister, (uint)AID.Twister, 0.3f, 0.5f); // TODO: verify radius
 
-class P1Twister : Twister
+class P1Twister(BossModule module) : Twister(module)
 {
-    public P1Twister(BossModule module) : base(module) { KeepOnPhaseChange = true; }
+    public override bool KeepOnPhaseChange => true;
 }

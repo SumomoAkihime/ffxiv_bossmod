@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Savage.P5SProtoCarbuncle;
 
-class VenomousMass(BossModule module) : Components.CastCounter(module, AID.VenomousMassAOE)
+class VenomousMass(BossModule module) : Components.CastCounter(module, (uint)AID.VenomousMassAOE)
 {
     private Actor? _target;
 
@@ -15,7 +15,7 @@ class VenomousMass(BossModule module) : Components.CastCounter(module, AID.Venom
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         if (_target != null)
-            Arena.AddCircle(_target.Position, _radius, ArenaColor.Danger);
+            Arena.AddCircle(_target.Position, _radius, Colors.Danger);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)

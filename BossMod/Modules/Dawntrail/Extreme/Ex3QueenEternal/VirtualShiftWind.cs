@@ -1,29 +1,33 @@
-namespace BossMod.Dawntrail.Extreme.Ex3QueenEternal;
+﻿namespace BossMod.Dawntrail.Extreme.Ex3QueenEternal;
 
-sealed class Aeroquell(BossModule module) : Components.StackWithCastTargets(module, AID.Aeroquell, 5, 4);
-sealed class AeroquellTwister(BossModule module) : Components.PersistentVoidzone(module, 5, m => m.Enemies(OID.Twister));
-sealed class MissingLink(BossModule module) : Components.Chains(module, (uint)TetherID.MissingLink, default, 25);
+sealed class Aeroquell(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.Aeroquell, 5f, 4);
+sealed class AeroquellTwister(BossModule module) : Components.Voidzone(module, 5f, GetTwister)
+{
+    private static List<Actor> GetTwister(BossModule module) => module.Enemies((uint)OID.Twister);
+}
+sealed class MissingLink(BossModule module) : Components.Chains(module, (uint)TetherID.MissingLink, default, 25f);
 
-sealed class WindOfChange(BossModule module) : Components.Knockback(module, AID.WindOfChange, true)
+sealed class WindOfChange(BossModule module) : Components.GenericKnockback(module, (uint)AID.WindOfChange)
 {
     private readonly Angle[] _directions = new Angle[PartyState.MaxPartySize];
     private DateTime _activation;
 
-    public override IEnumerable<Source> Sources(int slot, Actor actor)
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
         if (_directions[slot] != default)
-            yield return new(actor.Position, 20, _activation, null, _directions[slot], Kind.DirForward);
+            return new Knockback[1] { new(actor.Position, 20f, _activation, null, _directions[slot], Kind.DirForward, ignoreImmunes: true) };
+        return [];
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        var dir = (SID)status.ID switch
+        var dir = status.ID switch
         {
-            SID.WestWindOfChange => 90.Degrees(),
-            SID.EastWindOfChange => -90.Degrees(),
+            (uint)SID.WestWindOfChange => 90f.Degrees(),
+            (uint)SID.EastWindOfChange => -90f.Degrees(),
             _ => default
         };
-        if (dir != default && Raid.TryFindSlot(actor.InstanceID, out var slot))
+        if (dir != default && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
         {
             _directions[slot] = dir;
             _activation = status.ExpireAt;
@@ -32,10 +36,10 @@ sealed class WindOfChange(BossModule module) : Components.Knockback(module, AID.
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
         {
             ++NumCasts;
-            if (Raid.TryFindSlot(spell.MainTargetID, out var slot))
+            if (Raid.FindSlot(spell.MainTargetID) is var slot && slot >= 0)
                 _directions[slot] = default;
         }
     }

@@ -19,7 +19,7 @@ class P1DeathSentence(BossModule module) : BossComponent(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.DeathSentence)
+        if (spell.Action.ID == (uint)AID.DeathSentence)
         {
             _caster = caster;
             _targetId = spell.TargetID;

@@ -3,11 +3,11 @@
 public enum OID : uint
 {
     Boss = 0x7D7, // x1, and more spawn during fight
-    Helper = 0x1B2, // x1
     DarkMatterSlime = 0x7D8, // spawn during fight
     Platform = 0x1E8729, // x13
     Regorge = 0x1E8B20, // EventObj type, spawn during fight
     Syrup = 0x1E88F1, // EventObj type, spawn during fight
+    Helper = 0x1B2
 }
 
 public enum AID : uint
@@ -30,7 +30,7 @@ public enum SID : uint
     SteelScales = 349, // Boss->Boss, extra=1-8 (num stacks)
 }
 
-class HoodSwing(BossModule module) : Components.Cleave(module, AID.HoodSwing, new AOEShapeCone(11, 60.Degrees()), (uint)OID.Boss) // TODO: verify angle
+class HoodSwing(BossModule module) : Components.Cleave(module, (uint)AID.HoodSwing, new AOEShapeCone(11, 60.Degrees())) // TODO: verify angle
 {
     private DateTime _lastBossCast; // assume boss/add cleaves are synchronized?..
     public float SecondsUntilNextCast() => Math.Max(0, 18 - (float)(WorldState.CurrentTime - _lastBossCast).TotalSeconds);
@@ -43,14 +43,14 @@ class HoodSwing(BossModule module) : Components.Cleave(module, AID.HoodSwing, ne
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         base.OnEventCast(caster, spell);
-        if (spell.Action == WatchedAction && caster == Module.PrimaryActor)
+        if (spell.Action.ID == WatchedAction && caster == Module.PrimaryActor)
             _lastBossCast = WorldState.CurrentTime;
     }
 }
 
-class WhipBack(BossModule module) : Components.StandardAOEs(module, AID.WhipBack, new AOEShapeCone(9, 60.Degrees()));
-class Regorge(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 4, AID.Regorge, m => m.Enemies(OID.Regorge).Where(z => z.EventState != 7), 2.1f);
-class Syrup(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 4, AID.Syrup, m => m.Enemies(OID.Syrup).Where(z => z.EventState != 7), 0.3f);
+class WhipBack(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WhipBack, new AOEShapeCone(9, 60.Degrees()));
+class Regorge(BossModule module) : Components.VoidzoneAtCastTarget(module, 4, (uint)AID.Regorge, m => m.Enemies((uint)OID.Regorge).Where(z => z.EventState != 7), 2.1f);
+class Syrup(BossModule module) : Components.VoidzoneAtCastTarget(module, 4, (uint)AID.Syrup, m => m.Enemies((uint)OID.Syrup).Where(z => z.EventState != 7), 0.3f);
 
 // TODO: merge happens if bosses are 'close enough' (threshold is >20.82 at least) or have high enough hp difference (>5% at least) and more than 20s passed since split
 class CloneMerge(BossModule module) : BossComponent(module)
@@ -63,7 +63,7 @@ class CloneMerge(BossModule module) : BossComponent(module)
     {
         if (Clone != null || Module.PrimaryActor.HPMP.CurHP > Module.PrimaryActor.HPMP.MaxHP / 2)
             return;
-        Clone = Module.Enemies(OID.Boss).FirstOrDefault(a => a != Module.PrimaryActor);
+        Clone = Module.Enemies((uint)OID.Boss).FirstOrDefault(a => a != Module.PrimaryActor);
         if (Clone != null)
             CloneSpawnTime = WorldState.CurrentTime;
     }
@@ -81,7 +81,7 @@ class CloneMerge(BossModule module) : BossComponent(module)
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        Arena.Actor(Clone, ArenaColor.Enemy);
+        Arena.Actor(Clone);
     }
 }
 
@@ -100,7 +100,7 @@ class T01CaduceusStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 93, NameID = 1466, SortOrder = 2, PlanLevel = 50)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 93, NameID = 1466, SortOrder = 2, PlanLevel = 50)]
 public class T01Caduceus : BossModule
 {
     public T01Caduceus(WorldState ws, Actor primary) : base(ws, primary, new(-26, -407), new ArenaBoundsRect(35, 43))

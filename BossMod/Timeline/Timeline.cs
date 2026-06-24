@@ -1,10 +1,10 @@
-﻿using Dalamud.Interface.Utility;
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility;
 
 namespace BossMod;
 
 // utility for drawing time-related data
-public class Timeline
+public sealed class Timeline
 {
     // definition of a timeline column
     public class Column(Timeline timeline)
@@ -19,7 +19,7 @@ public class Timeline
         public virtual void DrawHeader(Vector2 topLeft)
         {
             var s = ImGui.CalcTextSize(Name);
-            ImGui.GetWindowDrawList().AddText(topLeft + new Vector2((Width - s.X) * 0.5f, 0), 0xffffffff, Name);
+            ImGui.GetWindowDrawList().AddText(topLeft + new Vector2((Width - s.X) * 0.5f, 0), BossMod.Colors.TextColor4, Name);
         }
 
         public virtual void Draw() { }
@@ -56,10 +56,14 @@ public class Timeline
             }
             else
             {
-                foreach (var c in Columns.Where(c => c.Width > 0))
+                for (var ci = 0; ci < Columns.Count; ++ci)
                 {
-                    c.DrawHeader(topLeft);
-                    topLeft.X += c.Width;
+                    var c = Columns[ci];
+                    if (c.Width > 0)
+                    {
+                        c.DrawHeader(topLeft);
+                        topLeft.X += c.Width;
+                    }
                 }
             }
         }
@@ -67,8 +71,14 @@ public class Timeline
         public override void DrawAdvance(ref float x)
         {
             Draw(); // in case someone overrides this...
-            foreach (var c in Columns.Where(c => c.Width > 0))
-                c.DrawAdvance(ref x);
+            for (var ci = 0; ci < Columns.Count; ++ci)
+            {
+                var c = Columns[ci];
+                if (c.Width > 0)
+                {
+                    c.DrawAdvance(ref x);
+                }
+            }
         }
 
         public T Add<T>(T col) where T : Column
@@ -94,9 +104,9 @@ public class Timeline
     public float MinTime;
     public float MaxTime;
     public float? CurrentTime;
-    public float PixelsPerSecond = 10 * ImGuiHelpers.GlobalScale;
-    public float TopMargin = 20 * ImGuiHelpers.GlobalScale;
-    public float BottomMargin = 5 * ImGuiHelpers.GlobalScale;
+    public float PixelsPerSecond = 10f * ImGuiHelpers.GlobalScale;
+    public float TopMargin = 20f * ImGuiHelpers.GlobalScale;
+    public float BottomMargin = 5f * ImGuiHelpers.GlobalScale;
     public ColumnGroup Columns;
 
     private float _tickFrequency = 5;
@@ -107,16 +117,13 @@ public class Timeline
     private Vector2 _screenClientTL;
     private readonly List<List<string>> _tooltip = [];
     private readonly List<(float t, uint color)> _highlightTime = [];
-    public float MinVisibleTime { get; private set; }
+    public float MinVisibleTime;
     public float MaxVisibleTime => MinVisibleTime + Height / PixelsPerSecond;
 
-    public float Height { get; private set; }
+    public float Height;
     public Vector2 ScreenClientTL => _screenClientTL;
 
-    public Timeline()
-    {
-        Columns = new(this);
-    }
+    public Timeline() => Columns = new(this);
 
     public void Draw()
     {
@@ -129,7 +136,7 @@ public class Timeline
         ImGui.SetCursorScreenPos(_screenClientTL);
         _screenClientTL.X += _timeAxisWidth;
 
-        Height = MathF.Max(10, ImGui.GetWindowPos().Y + ImGui.GetWindowHeight() - _screenClientTL.Y - TopMargin - BottomMargin - 8);
+        Height = Math.Max(10, ImGui.GetWindowPos().Y + ImGui.GetWindowHeight() - _screenClientTL.Y - TopMargin - BottomMargin - 8);
         ImGui.InvisibleButton("canvas", new(_timeAxisWidth + Columns.Width, Height), ImGuiButtonFlags.MouseButtonLeft | ImGuiButtonFlags.MouseButtonRight);
         HandleScrollZoom();
         DrawTimeAxis();
@@ -140,7 +147,10 @@ public class Timeline
 
         // cursor lines
         foreach (var h in _highlightTime)
+        {
             ImGui.GetWindowDrawList().AddLine(CanvasCoordsToScreenCoords(0, h.t), CanvasCoordsToScreenCoords(Columns.Width, h.t), h.color);
+        }
+
         _highlightTime.Clear();
 
         ImGui.PopClipRect();
@@ -148,14 +158,19 @@ public class Timeline
         if (_tooltip.Count > 0)
         {
             ImGui.BeginTooltip();
-            bool first = true;
+            var first = true;
             foreach (var strings in _tooltip)
             {
                 if (!first)
+                {
                     ImGui.Separator();
+                }
+
                 first = false;
                 foreach (var s in strings)
+                {
                     ImGui.TextUnformatted(s);
+                }
             }
             ImGui.EndTooltip();
             _tooltip.Clear();
@@ -164,7 +179,7 @@ public class Timeline
 
     // API below is supposed to be called during column's Draw() function
     public void AddTooltip(List<string> strings) => _tooltip.Add(strings);
-    public void HighlightTime(float t, uint color = 0xffffffff) => _highlightTime.Add((t, color));
+    public void HighlightTime(float t, uint color = 0) => _highlightTime.Add((t, color == 0 ? BossMod.Colors.TextColor1 : color));
 
     public float TimeDeltaToScreenDelta(float dt) => dt * PixelsPerSecond;
     public float ScreenDeltaToTimeDelta(float dy) => dy / PixelsPerSecond;
@@ -190,11 +205,19 @@ public class Timeline
 
                 _tickFrequency = 5;
                 while (_tickFrequency < 60 && PixelsPerSecond * _tickFrequency < 30)
+                {
                     _tickFrequency *= 2;
+                }
+
                 while (_tickFrequency > 1 && PixelsPerSecond * _tickFrequency > 55)
+                {
                     _tickFrequency = MathF.Floor(_tickFrequency * 0.5f);
+                }
+
                 while (_tickFrequency > 0.1f && PixelsPerSecond * _tickFrequency > 55)
+                {
                     _tickFrequency = MathF.Floor(_tickFrequency * 5) * 0.1f;
+                }
             }
             else
             {
@@ -203,23 +226,23 @@ public class Timeline
         }
 
         // clamp to data range
-        MinVisibleTime = MathF.Min(MinVisibleTime, MaxTime - Height / PixelsPerSecond);
-        MinVisibleTime = MathF.Max(MinVisibleTime, MinTime);
+        MinVisibleTime = Math.Min(MinVisibleTime, MaxTime - Height / PixelsPerSecond);
+        MinVisibleTime = Math.Max(MinVisibleTime, MinTime);
     }
 
     private void DrawTimeAxis()
     {
         var maxT = Math.Min(MaxTime, MinVisibleTime + Height / PixelsPerSecond);
         var drawlist = ImGui.GetWindowDrawList();
-        drawlist.AddLine(_screenClientTL, CanvasCoordsToScreenCoords(0, maxT), 0xffffffff);
-        for (float t = MathF.Ceiling(MinVisibleTime / _tickFrequency) * _tickFrequency; t <= maxT; t += _tickFrequency)
+        drawlist.AddLine(_screenClientTL, CanvasCoordsToScreenCoords(0, maxT), BossMod.Colors.TextColor1);
+        for (var t = MathF.Ceiling(MinVisibleTime / _tickFrequency) * _tickFrequency; t <= maxT; t += _tickFrequency)
         {
-            string tickText = $"{t:f1}";
+            var tickText = $"{t:f1}";
             var tickTextSize = ImGui.CalcTextSize(tickText);
 
             var p = CanvasCoordsToScreenCoords(0, t);
-            drawlist.AddLine(p, p - new Vector2(3, 0), 0xffffffff);
-            drawlist.AddText(p - new Vector2(tickTextSize.X + 5, tickTextSize.Y / 2), 0xffffffff, tickText);
+            drawlist.AddLine(p, p - new Vector2(3, 0), BossMod.Colors.TextColor1);
+            drawlist.AddText(p - new Vector2(tickTextSize.X + 5, tickTextSize.Y / 2), BossMod.Colors.TextColor1, tickText);
         }
 
         if (CurrentTime != null)
@@ -228,7 +251,7 @@ public class Timeline
             if (CurrentTime.Value >= MinVisibleTime && CurrentTime.Value <= maxT)
             {
                 // draw timeline mark
-                drawlist.AddTriangleFilled(p, p - new Vector2(4, 2), p - new Vector2(4, -2), 0xffffffff);
+                drawlist.AddTriangleFilled(p, p - new Vector2(4, 2), p - new Vector2(4, -2), BossMod.Colors.TextColor1);
             }
 
             if (ImGui.IsWindowFocused() && ImGui.IsMouseClicked(ImGuiMouseButton.Left))

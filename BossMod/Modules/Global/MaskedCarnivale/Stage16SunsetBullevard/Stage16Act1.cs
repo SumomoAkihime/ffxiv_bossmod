@@ -2,15 +2,15 @@ namespace BossMod.Global.MaskedCarnivale.Stage16.Act1;
 
 public enum OID : uint
 {
-    Boss = 0x26F2, //R=3.2
+    Boss = 0x26F2 //R=3.2
 }
 
 public enum AID : uint
 {
-    Attack = 6497, // 26F2->player, no cast, single-target
+    AutoAttack = 6497 // Boss->player, no cast, single-target
 }
 
-class Hints(BossModule module) : BossComponent(module)
+sealed class Hints(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -18,27 +18,28 @@ class Hints(BossModule module) : BossComponent(module)
     }
 }
 
-class Stage16Act1States : StateMachineBuilder
+sealed class Stage16Act1States : StateMachineBuilder
 {
     public Stage16Act1States(BossModule module) : base(module)
     {
         TrivialPhase()
             .DeactivateOnEnter<Hints>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed((uint)OID.Boss);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 626, NameID = 8112, SortOrder = 1)]
-public class Stage16Act1 : BossModule
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 626, NameID = 8112, SortOrder = 1)]
+public sealed class Stage16Act1 : BossModule
 {
-    public Stage16Act1(WorldState ws, Actor primary) : base(ws, primary, new(100, 100), new ArenaBoundsCircle(25))
+    public Stage16Act1(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleBig)
     {
         ActivateComponent<Hints>();
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        foreach (var s in Enemies(OID.Boss))
-            Arena.Actor(s, ArenaColor.Enemy);
+        Arena.Actors(Enemies((uint)OID.Boss));
     }
+
+    protected override bool CheckPull() => IsAnyActorInCombat((uint)OID.Boss);
 }

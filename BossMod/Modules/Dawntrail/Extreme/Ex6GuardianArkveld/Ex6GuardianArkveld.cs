@@ -1,58 +1,35 @@
-﻿namespace BossMod.Dawntrail.Extreme.Ex6GuardianArkveld;
+namespace BossMod.Dawntrail.Extreme.Ex6GuardianArkveld;
 
-class Roar1(BossModule module) : Components.RaidwideCast(module, AID.Roar1);
-class Roar2(BossModule module) : Components.RaidwideCast(module, AID.Roar2);
-class Roar3(BossModule module) : Components.RaidwideCast(module, AID.Roar3);
+sealed class Roar(BossModule module) : Components.RaidwideCasts(module, [(uint)AID.Roar1, (uint)AID.Roar2, (uint)AID.Roar3]);
+sealed class ForgedFury(BossModule module) : Components.RaidwideCasts(module, [(uint)AID.ForgedFury1, (uint)AID.ForgedFury2, (uint)AID.ForgedFury3]);
+sealed class WhiteFlash(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.WhiteFlash, 6f, 4, 4);
+sealed class Dragonspark(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.Dragonspark, 6f, 4, 4);
+sealed class WildEnergy(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.WildEnergy, 6f);
+sealed class WyvernsRadianceGuardianResonanceCircle(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.WyvernsRadianceCircle, (uint)AID.GuardianResonanceAOE], 6f);
+sealed class WyvernsRadianceChainbladeCharge(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WyvernsRadianceChainbladeCharge, 12f);
+sealed class WyvernsOuroblade(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.WyvernsOuroblade1, (uint)AID.WyvernsOuroblade2,
+(uint)AID.WyvernsOuroblade3, (uint)AID.WyvernsOuroblade4], new AOEShapeCone(40f, 90f.Degrees()));
+sealed class SteeltailThrust(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.SteeltailThrust1, (uint)AID.SteeltailThrust2], new AOEShapeRect(60f, 3f));
+sealed class ChainbladeCharge(BossModule module) : Components.StackWithIcon(module, (uint)IconID.ChainbladeCharge, (uint)AID.ChainbladeCharge, 6f, 8.4d, PartyState.MaxPartySize, PartyState.MaxPartySize);
 
-class WyvernsRadiancePuddle(BossModule module) : Components.StandardAOEs(module, AID.WyvernsRadiancePuddleSmall, 6);
-class WyvernsRadianceBigPuddle(BossModule module) : Components.StandardAOEs(module, AID.WyvernsRadiancePuddleLarge, 12);
-
-class WyvernsOuroblade(BossModule module) : Components.GroupedAOEs(module, [AID.Ouroblade1, AID.Ouroblade2, AID.Ouroblade3, AID.Ouroblade4], new AOEShapeCone(40, 90.Degrees()));
-
-class WildEnergy(BossModule module) : Components.SpreadFromCastTargets(module, AID.WildEnergy, 6);
-
-class SteeltailThrust(BossModule module) : Components.GroupedAOEs(module, [AID.SteeltailThrust1, AID.SteeltailThrust2], new AOEShapeRect(60, 3));
-
-class ChainbladeCharge(BossModule module) : Components.StackWithIcon(module, (uint)IconID.Share, AID.ChainbladeChargeStack, 6, 8.3f, minStackSize: 5);
-
-class ForgedFury(BossModule module) : Components.CastHint(module, null, "Raidwide")
+[ModuleInfo(BossModuleInfo.Maturity.Verified,
+StatesType = typeof(Ex6GuardianArkveldStates),
+ConfigType = typeof(Ex6GuardianArkveldConfig),
+ObjectIDType = typeof(OID),
+ActionIDType = typeof(AID),
+StatusIDType = null,
+TetherIDType = null,
+IconIDType = typeof(IconID),
+PrimaryActorOID = (uint)OID.GuardianArkveld,
+Contributors = "The Combat Reborn Team (Malediktus)",
+Expansion = BossModuleInfo.Expansion.Dawntrail,
+Category = BossModuleInfo.Category.Extreme,
+GroupType = BossModuleInfo.GroupType.CFC,
+GroupID = 1044u,
+NameID = 14237u,
+SortOrder = 1,
+PlanLevel = 100)]
+public sealed class Ex6GuardianArkveld(WorldState ws, Actor primary) : BossModule(ws, primary, arenaCenter, new ArenaBoundsCustom([new Polygon(arenaCenter, 20.030838f, 40)]))
 {
-    private readonly List<DateTime> _activations = [];
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.ForgedFuryHit1 or AID.ForgedFuryHit2 or AID.ForgedFuryHit3)
-        {
-            _activations.Add(Module.CastFinishAt(spell));
-            _activations.Sort();
-        }
-    }
-
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        if (_activations.Count > 0)
-            hints.Add(Hint);
-    }
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        if (_activations.Count > 0)
-            hints.AddPredictedDamage(Raid.WithSlot().Mask(), _activations[0]);
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if ((AID)spell.Action.ID is AID.ForgedFuryHit1 or AID.ForgedFuryHit2 or AID.ForgedFuryHit3)
-        {
-            NumCasts++;
-            if (_activations.Count > 0)
-                _activations.RemoveAt(0);
-        }
-    }
+    private static readonly WPos arenaCenter = new(100f, 100f);
 }
-
-class SmallCrystal(BossModule module) : Components.StandardAOEs(module, AID.SmallCrystalExplosion, 6);
-class BigCrystal(BossModule module) : Components.StandardAOEs(module, AID.BigCrystalExplosion, 12);
-
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1044, NameID = 14237, PlanLevel = 100)]
-public class Ex6GuardianArkveld(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(20));

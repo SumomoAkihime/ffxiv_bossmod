@@ -20,29 +20,29 @@ class Pangenesis(BossModule module) : Components.GenericTowers(module)
     private readonly List<Color> _towerColors = []; // parallel to Towers
     private Color _firstLeftTower;
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.UnstableFactor:
-                if (Raid.TryFindSlot(actor.InstanceID, out var slotUnstable))
+            case (uint)SID.UnstableFactor:
+                if (Raid.FindSlot(actor.InstanceID) is var slotUnstable && slotUnstable >= 0)
                 {
                     _states[slotUnstable].UnstableCount = status.Extra;
                 }
                 break;
-            case SID.UmbralTilt:
-            case SID.AstralTilt:
-                if (Raid.TryFindSlot(actor.InstanceID, out var slotColor))
+            case (uint)SID.UmbralTilt:
+            case (uint)SID.AstralTilt:
+                if (Raid.FindSlot(actor.InstanceID) is var slotColor && slotColor >= 0)
                 {
-                    _states[slotColor].Color = (SID)status.ID == SID.UmbralTilt ? Color.Light : Color.Dark;
+                    _states[slotColor].Color = status.ID == (uint)SID.UmbralTilt ? Color.Light : Color.Dark;
                     _states[slotColor].ColorExpire = status.ExpireAt;
 
                     // update forbidden towers
-                    bool isLeft = actor.Position.X < Module.Center.X;
-                    for (int i = 0; i < Towers.Count; ++i)
+                    var isLeft = actor.PosRot.X < Arena.Center.X;
+                    for (var i = 0; i < Towers.Count; ++i)
                     {
                         ref var tower = ref Towers.Ref(i);
-                        if ((tower.Position.X < Module.Center.X) == isLeft)  // don't care about towers on other side, keep forbidden
+                        if ((tower.Position.X < Arena.Center.X) == isLeft)  // don't care about towers on other side, keep forbidden
                         {
                             tower.ForbiddenSoakers[slotColor] = _states[slotColor].Color == _towerColors[i];
                         }
@@ -54,17 +54,17 @@ class Pangenesis(BossModule module) : Components.GenericTowers(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.UmbralAdvent or AID.AstralAdvent)
+        if (spell.Action.ID is (uint)AID.UmbralAdvent or (uint)AID.AstralAdvent)
         {
-            bool isLight = (AID)spell.Action.ID == AID.UmbralAdvent;
-            bool isLeft = caster.Position.X < Module.Center.X;
-            bool isPrimary = caster.Position.Z > 90; // first tower at 91, second/third same color is 94, opposite is 88
+            var isLight = spell.Action.ID == (uint)AID.UmbralAdvent;
+            var isLeft = caster.PosRot.X < Arena.Center.X;
+            var isPrimary = caster.PosRot.Z > 90f; // first tower at 91, second/third same color is 94, opposite is 88
             var towerColor = isLight ? Color.Light : Color.Dark;
 
             if (_firstLeftTower == Color.None)
             {
                 _firstLeftTower = isLeft == isLight ? Color.Light : Color.Dark;
-                for (int i = 0; i < _states.Length; ++i)
+                for (var i = 0; i < _states.Length; ++i)
                 {
                     _states[i].AssignedSide = _states[i].Color switch
                     {
@@ -77,10 +77,10 @@ class Pangenesis(BossModule module) : Components.GenericTowers(module)
 
             var cfg = Service.Config.Get<P12S2PallasAthenaConfig>();
             BitMask forbiddenMask = default;
-            for (int i = 0; i < _states.Length; ++i)
+            for (var i = 0; i < _states.Length; ++i)
             {
                 var state = _states[i];
-                bool forbidden = isLeft ? state.AssignedSide > 0 : state.AssignedSide < 0; // forbid towers on wrong side
+                var forbidden = isLeft ? state.AssignedSide > 0 : state.AssignedSide < 0; // forbid towers on wrong side
                 forbidden |= state.Color == towerColor; // forbid towers of same color
                 forbidden |= NumCasts switch
                 {
@@ -98,10 +98,10 @@ class Pangenesis(BossModule module) : Components.GenericTowers(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.UmbralAdvent or AID.AstralAdvent)
+        if (spell.Action.ID is (uint)AID.UmbralAdvent or (uint)AID.AstralAdvent)
         {
             ++NumCasts;
-            var index = Towers.FindIndex(t => t.Position.AlmostEqual(caster.Position, 1));
+            var index = Towers.FindIndex(t => t.Position.AlmostEqual(caster.Position, 1f));
             if (index >= 0)
             {
                 Towers.RemoveAt(index);
@@ -110,18 +110,19 @@ class Pangenesis(BossModule module) : Components.GenericTowers(module)
             // note: tower will assign new color in ~0.4s; clear previous colors immediately, since new towers will start before debuffs are gone
             foreach (var t in spell.Targets)
             {
-                if (Raid.TryFindSlot(t.ID, out var slot))
+                var slot = Raid.FindSlot(t.ID);
+                if (slot >= 0)
                 {
                     _states[slot].Color = Color.None;
-                    _states[slot].AssignedSide = caster.Position.X < Module.Center.X ? -1 : 1; // ensure correct side is assigned
-                    _states[slot].SoakedPrimary = caster.Position.Z > 90;
+                    _states[slot].AssignedSide = caster.PosRot.X < Arena.Center.X ? -1 : 1; // ensure correct side is assigned
+                    _states[slot].SoakedPrimary = caster.PosRot.Z > 90f;
                 }
             }
         }
     }
 }
 
-class FactorIn(BossModule module) : Components.GenericBaitAway(module, AID.FactorIn, centerAtTarget: true)
+class FactorIn(BossModule module) : Components.GenericBaitAway(module, (uint)AID.FactorIn, centerAtTarget: true)
 {
     private readonly List<(Actor source, Actor target)> _slimes = [];
 
@@ -132,18 +133,18 @@ class FactorIn(BossModule module) : Components.GenericBaitAway(module, AID.Facto
         base.DrawArenaForeground(pcSlot, pc);
         foreach (var s in _slimes)
         {
-            Arena.Actor(s.source, ArenaColor.Object, true);
-            Arena.AddLine(s.source.Position, s.target.Position, ArenaColor.Danger);
+            Arena.Actor(s.source, Colors.Object, true);
+            Arena.AddLine(s.source.Position, s.target.Position);
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.CriticalFactor)
+        if (status.ID == (uint)SID.CriticalFactor)
             ForbiddenPlayers.Set(Raid.FindSlot(actor.InstanceID));
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == (uint)TetherID.FactorIn && WorldState.Actors.Find(tether.Target) is var target && target != null)
         {
@@ -152,7 +153,7 @@ class FactorIn(BossModule module) : Components.GenericBaitAway(module, AID.Facto
         }
     }
 
-    public override void OnUntethered(Actor source, ActorTetherInfo tether)
+    public override void OnUntethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == (uint)TetherID.FactorIn)
         {

@@ -1,33 +1,55 @@
 ﻿namespace BossMod.Shadowbringers.Ultimate.TEA;
 
-class P1FluidSwing(BossModule module) : Components.Cleave(module, AID.FluidSwing, new AOEShapeCone(11.5f, 45.Degrees()));
-class P1FluidStrike(BossModule module) : Components.Cleave(module, AID.FluidSwing, new AOEShapeCone(11.6f, 45.Degrees()), (uint)OID.LiquidHand);
-class P1Sluice(BossModule module) : Components.StandardAOEs(module, AID.Sluice, 5);
-class P1Splash(BossModule module) : Components.CastCounter(module, AID.Splash);
-class P1Drainage(BossModule module) : Components.TankbusterTether(module, AID.DrainageP1, (uint)TetherID.Drainage, 6);
-class P2JKick(BossModule module) : Components.CastCounter(module, AID.JKick);
-class P2EyeOfTheChakram(BossModule module) : Components.StandardAOEs(module, AID.EyeOfTheChakram, new AOEShapeRect(73, 3));
-class P2HawkBlasterOpticalSight(BossModule module) : Components.StandardAOEs(module, AID.HawkBlasterP2, 10);
-class P2Photon(BossModule module) : Components.CastCounter(module, AID.PhotonAOE);
-class P2SpinCrusher(BossModule module) : Components.StandardAOEs(module, AID.SpinCrusher, new AOEShapeCone(10, 45.Degrees()));
-class P2Drainage(BossModule module) : Components.PersistentVoidzone(module, 8, m => m.Enemies(OID.LiquidRage)); // TODO: verify distance
+[SkipLocalsInit]
+sealed class P1FluidSwing(BossModule module) : Components.Cleave(module, (uint)AID.FluidSwing, new AOEShapeCone(11.5f, 45f.Degrees()));
+[SkipLocalsInit]
+sealed class P1FluidStrike(BossModule module) : Components.Cleave(module, (uint)AID.FluidStrike, new AOEShapeCone(11.6f, 45f.Degrees()), [(uint)OID.LiquidHand]);
+[SkipLocalsInit]
+sealed class P1Sluice(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Sluice, 5f);
+[SkipLocalsInit]
+sealed class P1Splash(BossModule module) : Components.CastCounter(module, (uint)AID.Splash);
+[SkipLocalsInit]
+sealed class P1Drainage(BossModule module) : Components.TankbusterTether(module, (uint)AID.DrainageP1, (uint)TetherID.Drainage, 6f);
 
-class P2PropellerWind(BossModule module) : Components.CastLineOfSightAOE(module, AID.PropellerWind, 50, false)
+[SkipLocalsInit]
+sealed class P2JKick(BossModule module) : Components.CastCounter(module, (uint)AID.JKick);
+[SkipLocalsInit]
+sealed class P2HawkBlasterOpticalSight(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HawkBlasterP2, 10f);
+[SkipLocalsInit]
+sealed class P2Photon(BossModule module) : Components.CastCounter(module, (uint)AID.PhotonAOE);
+[SkipLocalsInit]
+sealed class P2SpinCrusher(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpinCrusher, new AOEShapeCone(10f, 45f.Degrees()));
+[SkipLocalsInit]
+sealed class P2Drainage(BossModule module) : Components.Voidzone(module, 8f, GetVoidzones) // TODO: verify distance
 {
-    public override IEnumerable<Actor> BlockerActors() => Module.Enemies(OID.GelidGaol);
+    private static List<Actor> GetVoidzones(BossModule module) => module.Enemies((uint)OID.LiquidRage);
 }
 
-class P2DoubleRocketPunch(BossModule module) : Components.CastSharedTankbuster(module, AID.DoubleRocketPunch, 3);
-class P3ChasteningHeat(BossModule module) : Components.BaitAwayCast(module, AID.ChasteningHeat, new AOEShapeCircle(5), true);
-class P3DivineSpear(BossModule module) : Components.Cleave(module, AID.DivineSpear, new AOEShapeCone(24.2f, 45.Degrees()), (uint)OID.AlexanderPrime); // TODO: verify angle
-class P3DivineJudgmentRaidwide(BossModule module) : Components.CastCounter(module, AID.DivineJudgmentRaidwide);
-
-[ModuleInfo(PrimaryActorOID = (uint)OID.BossP1, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 694, PlanLevel = 80)]
-public class TEA : BossModule
+[SkipLocalsInit]
+sealed class P2PropellerWind(BossModule module) : Components.CastLineOfSightAOE(module, (uint)AID.PropellerWind, 50f)
 {
-    private readonly IReadOnlyList<Actor> _liquidHand;
-    public Actor? BossP1() => PrimaryActor.IsDestroyed ? null : PrimaryActor;
-    public Actor? LiquidHand() => _liquidHand.FirstOrDefault();
+    public override ReadOnlySpan<Actor> BlockerActors() => CollectionsMarshal.AsSpan(Module.Enemies((uint)OID.GelidGaol));
+}
+
+[SkipLocalsInit]
+sealed class P2DoubleRocketPunch(BossModule module) : Components.CastSharedTankbuster(module, (uint)AID.DoubleRocketPunch, 3f);
+[SkipLocalsInit]
+sealed class P3ChasteningHeat(BossModule module) : Components.BaitAwayCast(module, (uint)AID.ChasteningHeat, 5f, tankbuster: true, damageType: AIHints.PredictedDamageType.Tankbuster);
+[SkipLocalsInit]
+sealed class P3DivineSpear(BossModule module) : Components.Cleave(module, (uint)AID.DivineSpear, new AOEShapeCone(24.2f, 45f.Degrees()), [(uint)OID.AlexanderPrime]);
+[SkipLocalsInit]
+sealed class P3DivineJudgmentRaidwide(BossModule module) : Components.CastCounter(module, (uint)AID.DivineJudgmentRaidwide);
+
+[SkipLocalsInit]
+sealed class P4IrresistibleGrace(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.IrresistibleGrace, 6f, 8, 8);
+
+[ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.BossP1, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 694u, NameID = 9042u, PlanLevel = 80, Category = BossModuleInfo.Category.Ultimate, Expansion = BossModuleInfo.Expansion.Shadowbringers, SortOrder = 1)]
+[SkipLocalsInit]
+public sealed class TEA : BossModule
+{
+    public Actor? LiquidHand2;
+    public Actor? BossP1() => PrimaryActor;
+    public Actor? LiquidHand() => LiquidHand2;
 
     private Actor? _bruteJustice;
     private Actor? _cruiseChaser;
@@ -35,29 +57,29 @@ public class TEA : BossModule
     public Actor? CruiseChaser() => _cruiseChaser;
 
     private Actor? _alexPrime;
-    private readonly IReadOnlyList<Actor> _trueHeart;
+    private readonly List<Actor> _trueHeart;
     public Actor? AlexPrime() => _alexPrime;
-    public Actor? TrueHeart() => _trueHeart.FirstOrDefault();
+    public Actor? TrueHeart() => _trueHeart.Count != 0 ? _trueHeart[0] : null;
 
     private Actor? _perfectAlex;
     public Actor? PerfectAlex() => _perfectAlex;
 
-    public TEA(WorldState ws, Actor primary) : base(ws, primary, new(100, 100), new ArenaBoundsCircle(20))
+    private static readonly ArenaBoundsCustom arena = new([new Polygon(new(100f, 100f), 20f, 48)]);
+
+    public TEA(WorldState ws, Actor primary) : base(ws, primary, arena.Center, arena)
     {
-        _liquidHand = Enemies(OID.LiquidHand);
-        _trueHeart = Enemies(OID.TrueHeart);
+        _trueHeart = Enemies((uint)OID.TrueHeart);
     }
 
     public override bool ShouldPrioritizeAllEnemies => true;
 
     protected override void UpdateModule()
     {
-        // TODO: this is an ugly hack, think how multi-actor fights can be implemented without it...
-        // the problem is that on wipe, any actor can be deleted and recreated in the same frame
-        _bruteJustice ??= StateMachine.ActivePhaseIndex >= 0 ? Enemies(OID.BruteJustice).FirstOrDefault() : null;
-        _cruiseChaser ??= StateMachine.ActivePhaseIndex >= 0 ? Enemies(OID.CruiseChaser).FirstOrDefault() : null;
-        _alexPrime ??= StateMachine.ActivePhaseIndex >= 0 ? Enemies(OID.AlexanderPrime).FirstOrDefault() : null;
-        _perfectAlex ??= StateMachine.ActivePhaseIndex >= 0 ? Enemies(OID.PerfectAlexander).FirstOrDefault() : null;
+        LiquidHand2 ??= GetActor((uint)OID.LiquidHand);
+        _bruteJustice ??= GetActor((uint)OID.BruteJustice);
+        _cruiseChaser ??= GetActor((uint)OID.CruiseChaser);
+        _alexPrime ??= GetActor((uint)OID.AlexanderPrime);
+        _perfectAlex ??= GetActor((uint)OID.PerfectAlexander);
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
@@ -66,21 +88,21 @@ public class TEA : BossModule
         {
             case -1:
             case 0:
-                Arena.Actor(BossP1(), ArenaColor.Enemy);
-                Arena.Actor(LiquidHand(), ArenaColor.Enemy);
+                Arena.Actor(PrimaryActor);
+                Arena.Actor(LiquidHand2);
                 break;
             case 1:
-                Arena.Actor(_bruteJustice, ArenaColor.Enemy, true);
-                Arena.Actor(_cruiseChaser, ArenaColor.Enemy, true);
+                Arena.Actor(_bruteJustice, allowDeadAndUntargetable: true);
+                Arena.Actor(_cruiseChaser, allowDeadAndUntargetable: true);
                 break;
             case 2:
-                Arena.Actor(_alexPrime, ArenaColor.Enemy);
-                Arena.Actor(TrueHeart(), ArenaColor.Enemy);
-                Arena.Actor(_bruteJustice, ArenaColor.Enemy);
-                Arena.Actor(_cruiseChaser, ArenaColor.Enemy);
+                Arena.Actor(_alexPrime);
+                Arena.Actor(TrueHeart());
+                Arena.Actor(_bruteJustice);
+                Arena.Actor(_cruiseChaser);
                 break;
             case 3:
-                Arena.Actor(_perfectAlex, ArenaColor.Enemy);
+                Arena.Actor(_perfectAlex);
                 break;
         }
     }

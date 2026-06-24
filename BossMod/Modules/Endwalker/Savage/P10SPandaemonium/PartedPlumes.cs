@@ -1,16 +1,16 @@
 ﻿namespace BossMod.Endwalker.Savage.P10SPandaemonium;
 
-class PartedPlumes(BossModule module) : Components.StandardAOEs(module, AID.PartedPlumesAOE, new AOEShapeCone(50, 10.Degrees()), 16)
+class PartedPlumes : Components.SimpleAOEs
 {
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => ActiveCasters.Select((c, i) => new AOEInstance(Shape, c.Position, c.CastInfo!.Rotation, Module.CastFinishAt(c.CastInfo), i < 2 ? ArenaColor.Danger : ArenaColor.AOE));
+    public PartedPlumes(BossModule module) : base(module, (uint)AID.PartedPlumes, new AOEShapeCone(50f, 10f.Degrees()), 16) { MaxDangerColor = 2; }
 }
 
 class PartedPlumesVoidzone(BossModule module) : Components.GenericAOEs(module, default, "GTFO from voidzone!")
 {
-    private static readonly AOEShapeCircle _shape = new(8);
+    private readonly AOEShapeCircle _shape = new(8f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        yield return new(_shape, new WPos(100, 100));
+        return new AOEInstance[1] { new(_shape, new WPos(100f, 100f)) };
     }
 }

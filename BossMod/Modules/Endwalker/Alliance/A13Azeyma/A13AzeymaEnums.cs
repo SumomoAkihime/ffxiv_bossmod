@@ -7,7 +7,7 @@ public enum OID : uint
     WardensFlame = 0x38D3, // x2
     Sunstorm = 0x38D4, // spawn during fight after solar wings cast
     ProdigalSun = 0x38D5, // spawn during fight
-    Helper = 0x233C, // x33
+    Helper = 0x233C
 }
 
 public enum AID : uint
@@ -31,8 +31,8 @@ public enum AID : uint
     MoveSunstorm = 28807, // Helper->Sunstorm, no cast, attract
 
     SolarFans = 28813, // Boss->self, 4.0s cast, visual
-    SolarFansAOE = 29374, // Helper->location, 4.0s cast, 5 half-width rect between source and target ?
-    SolarFansCharge = 28814, // WardensFlame->location, 4.5s cast, 5 half-width rect between source and target ?
+    SolarFansAOE = 29374, // Helper->location, 4.0s cast, 10 width charge
+    SolarFansCharge = 28814, // WardensFlame->location, 4.5s cast, 10 width charge, visual
     RadiantRhythmFirst = 28815, // Boss->self, 5.0s cast, visual
     RadiantRhythmRest = 28816, // Boss->self, no cast, visual
     RadiantFlight = 28819, // Helper->self, no cast, range 20?-30 donut 90-degree cone, starting from flame and CCW
@@ -58,5 +58,5 @@ public enum AID : uint
     SunbeamStart = 28822, // Helper->location, no cast, range 3 visual
     Sunbeam = 28823, // Helper->self, 6.0s cast, range 9 aoe
     SublimeSunset = 28824, // Boss->self, 9.0s cast
-    SublimeSunsetAOE = 28825, // ProdigalSun->location, 9.5s cast, range 60 aoe with ? falloff
+    SublimeSunsetAOE = 28825 // ProdigalSun->location, 9.5s cast, range 60 aoe with ? falloff
 }

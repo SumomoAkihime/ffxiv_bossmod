@@ -1,14 +1,13 @@
 ﻿namespace BossMod;
 
-[ConfigDisplay(Name = "Automatic out-of-combat utility actions", Parent = typeof(ActionTweaksConfig), Since = "0.0.0.245", Order = -10, Tags = ["peloton"])]
+[ConfigDisplay(Name = "Automatic out-of-combat utility actions", Parent = typeof(ActionTweaksConfig), Order = -10, Tags = ["peloton"])]
 class OutOfCombatActionsConfig : ConfigNode
 {
-    [PropertyDisplay("Enabled")]
+    [PropertyDisplay("Enable the feature")]
     public bool Enabled = false;
 
-    // changed name so that it's treated as a new option (that's set to false) since everyone hates this feature and it's extremely hard to find in the settings
-    [PropertyDisplay("Auto use Peloton when moving out of combat", since: "0.0.0.294", depends: nameof(Enabled))]
-    public bool AutoPeloton2 = false;
+    [PropertyDisplay("Auto use Peloton when moving out of combat")]
+    public bool AutoPeloton = false;
 }
 
 // Tweak to automatically use out-of-combat convenience actions (peloton, pet summoning, etc).
@@ -29,21 +28,28 @@ public sealed class OutOfCombatActionsTweak : IDisposable
         );
     }
 
-    public void Dispose()
-    {
-        _subscriptions.Dispose();
-    }
+    public void Dispose() => _subscriptions.Dispose();
 
     public void FillActions(Actor player, AIHints hints)
     {
-        if (!_config.Enabled || player.InCombat || _ws.Client.CountdownRemaining != null || player.MountId != 0 || player.Statuses.Any(s => s.ID is 418 or 2648)) // note: in overworld content, you leave combat on death...
-            return;
-
-        if (_config.AutoPeloton2 && player.ClassCategory == ClassCategory.PhysRanged && _ws.CurrentTime >= _nextAutoPeloton)
+        var transcendent2 = false;
+        foreach (var s in player.Statuses)
         {
-            var movementThreshold = 5 * _ws.Frame.Duration;
+            if (s.ID is 418u or 2648u) { transcendent2 = true; break; }
+        }
+
+        if (!_config.Enabled || player.InCombat || _ws.Client.CountdownRemaining != null || player.MountId != 0 || transcendent2) // note: in overworld content, you leave combat on death...
+        {
+            return;
+        }
+
+        if (_config.AutoPeloton && player.ClassCategory == ClassCategory.PhysRanged && _ws.CurrentTime >= _nextAutoPeloton)
+        {
+            var movementThreshold = 5f * _ws.Frame.Duration;
             if (player.LastFrameMovement.LengthSq() >= movementThreshold * movementThreshold)
+            {
                 hints.ActionsToExecute.Push(ActionID.MakeSpell(ClassShared.AID.Peloton), player, ActionQueue.Priority.VeryLow);
+            }
         }
 
         // TODO: other things
@@ -52,7 +58,9 @@ public sealed class OutOfCombatActionsTweak : IDisposable
     private void OnStatusGain(Actor actor, int index)
     {
         if (actor != _ws.Party.Player())
+        {
             return;
+        }
 
         switch (actor.Statuses[index].ID)
         {
@@ -65,13 +73,18 @@ public sealed class OutOfCombatActionsTweak : IDisposable
     private void OnStatusLose(Actor actor, int index)
     {
         if (actor != _ws.Party.Player())
+        {
             return;
+        }
 
         switch (actor.Statuses[index].ID)
         {
             case (uint)BRD.SID.Peloton:
                 if (_ws.CurrentTime < _nextAutoPeloton)
+                {
                     _nextAutoPeloton = _ws.FutureTime(1); // if peloton expired earlier than expected, don't recast immediately - this could've been caused by entering combat, status is lost few frames before combat flag is set
+                }
+
                 break;
         }
     }

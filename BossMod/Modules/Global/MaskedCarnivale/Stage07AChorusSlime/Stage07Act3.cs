@@ -3,39 +3,62 @@ namespace BossMod.Global.MaskedCarnivale.Stage07.Act3;
 public enum OID : uint
 {
     Boss = 0x2706, //R=5.0
-    Slime = 0x2707, //R=0.8
+    Slime = 0x2707 //R=0.8
 }
 
 public enum AID : uint
 {
-    LowVoltage = 14710, // 2706->self, 12.0s cast, range 30+R circle - can be line of sighted by barricade
-    Detonation = 14696, // 2707->self, no cast, range 6+R circle
-    Object130 = 14711, // 2706->self, no cast, range 30+R circle - instant kill if you do not line of sight the towers when they die
+    LowVoltage = 14710, // Boss->self, 12.0s cast, range 30+R circle - can be line of sighted by barricade
+    Detonation = 14696, // Slime->self, no cast, range 6+R circle
+    Object130 = 14711 // Boss->self, no cast, range 30+R circle - instant kill if you do not line of sight the towers when they die
 }
 
-class LowVoltage(BossModule module) : Components.GenericLineOfSightAOE(module, AID.LowVoltage, 35, true); //TODO: find a way to use the obstacles on the map and draw proper AOEs, this does nothing right now
+sealed class LowVoltage(BossModule module) : Components.CastLineOfSightAOEComplex(module, (uint)AID.LowVoltage, Layouts.Layout2CornersBlockers, riskyWithSecondsLeft: 99d);
 
-class SlimeExplosion(BossModule module) : Components.GenericStackSpread(module)
+sealed class SlimeExplosion(BossModule module) : Components.GenericStackSpread(module)
 {
+    private readonly List<Actor> slimes = new(6);
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if (actor.OID == (uint)OID.Slime)
+        {
+            slimes.Add(actor);
+        }
+    }
+
+    public override void OnActorDeath(Actor actor)
+    {
+        if (actor.OID == (uint)OID.Slime)
+        {
+            slimes.Remove(actor);
+        }
+    }
+
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (var p in Module.Enemies(OID.Slime).Where(x => !x.IsDead))
+        var count = slimes.Count;
+        for (var i = 0; i < count; ++i)
         {
-            if (Arena.Config.ShowOutlinesAndShadows)
-                Arena.AddCircle(p.Position, 7.6f, 0xFF000000, 2);
-            Arena.AddCircle(p.Position, 7.6f, ArenaColor.Danger);
+            Arena.AddCircle(slimes[i].Position, 7.6f);
         }
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        foreach (var p in Module.Enemies(OID.Slime).Where(x => !x.IsDead))
-            if (actor.Position.InCircle(p.Position, 7.5f))
+        var count = slimes.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            if (actor.Position.InCircle(slimes[i].Position, 7.6f))
+            {
                 hints.Add("In slime explosion radius!");
+                return;
+            }
+        }
     }
 }
 
-class Hints(BossModule module) : BossComponent(module)
+sealed class Hints(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -43,33 +66,31 @@ class Hints(BossModule module) : BossComponent(module)
     }
 }
 
-class Stage07Act3States : StateMachineBuilder
+sealed class Stage07Act3States : StateMachineBuilder
 {
     public Stage07Act3States(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<LowVoltage>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.Slime).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed(Stage07Act3.Trash);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 617, NameID = 8095, SortOrder = 3)]
-public class Stage07Act3 : BossModule
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 617, NameID = 8095, SortOrder = 3)]
+public sealed class Stage07Act3 : BossModule
 {
-    public Stage07Act3(WorldState ws, Actor primary) : base(ws, primary, new(100, 100), new ArenaBoundsCircle(25))
+    public Stage07Act3(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.Layout2Corners)
     {
         ActivateComponent<Hints>();
-        ActivateComponent<Layout2Corners>();
         ActivateComponent<SlimeExplosion>();
     }
+    public static readonly uint[] Trash = [(uint)OID.Boss, (uint)OID.Slime];
 
-    protected override bool CheckPull() { return PrimaryActor.IsTargetable && PrimaryActor.InCombat || Enemies(OID.Slime).Any(e => e.InCombat); }
+    protected override bool CheckPull() => IsAnyActorInCombat(Trash);
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        foreach (var s in Enemies(OID.Boss))
-            Arena.Actor(s, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.Slime))
-            Arena.Actor(s, ArenaColor.Enemy);
+        Arena.Actors(Enemies((uint)OID.Boss));
+        Arena.Actors(Enemies((uint)OID.Slime));
     }
 }

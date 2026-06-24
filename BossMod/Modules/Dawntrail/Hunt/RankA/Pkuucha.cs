@@ -2,85 +2,86 @@
 
 public enum OID : uint
 {
-    Boss = 0x4580, // R4.340, x1
+    Boss = 0x4580 // R4.34
 }
 
 public enum AID : uint
 {
-    AutoAttack = 872, // Boss->player, no cast, single-target
-    MesmerizingMarch = 39863, // Boss->self, 4.0s cast, range 12 circle
-    StirringSamba = 39864, // Boss->self, 4.0s cast, range 40 180-degree cone
-    GlidingSwoop = 39757, // Boss->self, 3.5s cast, range 18 width 16 rect
-    MarchingSamba = 39797, // Boss->self, 5.0s cast, single-target, visual (followed by short circle + cone)
-    MesmerizingMarchShort = 39755, // Boss->self, 1.5s cast, range 12 circle
-    StirringSambaShort = 39756, // Boss->self, 1.0s cast, range 40 180-degree cone
-    DeadlySwoop = 39799, // Boss->player, no cast, single-target, deadly damage on targets hit by sambas
-    PeckingFlurryFirst = 39760, // Boss->self, 5.0s cast, range 40 circle, raidwide (first in series of 3)
-    PeckingFlurryRest = 39761, // Boss->self, no cast, range 40 circle, raidwide (remaining ones)
+    AutoAttack = 872, //  Boss->player, no cast, single-target
+
+    MesmerizingMarch1 = 39863, //  Boss->self, 4.0s cast, range 12 circle
+    MesmerizingMarch2 = 39755, //  Boss->self, 1.5s cast, range 12 circle
+    StirringSamba1 = 39864, //  Boss->self, 4.0s cast, range 40 90-degree cone
+    StirringSamba2 = 39756, //  Boss->self, 1.0s cast, range 40 90-degree cone
+    GlidingSwoop = 39757, //  Boss->self, 3.5s cast, range 18 width 16 rect
+    MarchingSamba = 39797, //  Boss->self, 5.0s cast, single-target
+    PeckingFlurryFirst = 39760, //  Boss->self, 5.0s cast, range 40 circle
+    PeckingFlurryRest = 39761, // Boss->self, no cast, range 40 circle
+    DeadlySwoop = 39799 // Boss->player, no cast, single-target, deadly ability if caught in samba mechanic
 }
 
-class MesmerizingMarchStirringSamba(BossModule module) : Components.GenericAOEs(module)
+sealed class GlidingSwoop(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GlidingSwoop, new AOEShapeRect(18f, 8f));
+sealed class PeckingFlurry(BossModule module) : Components.RaidwideCast(module, (uint)AID.PeckingFlurryFirst, "Raidwide (3x)");
+
+sealed class MesmerizingMarchStirringSamba(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = [];
+    private readonly List<AOEInstance> _aoes = new(2);
+    private static readonly AOEShapeCircle circle = new(12f);
+    private static readonly AOEShapeCone cone = new(40f, 90f.Degrees());
 
-    private static readonly AOEShapeCircle _shapeCircle = new(12);
-    private static readonly AOEShapeCone _shapeFrontal = new(40, 90.Degrees());
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var count = _aoes.Count;
+        if (count == 0)
+            return [];
+        var aoes = CollectionsMarshal.AsSpan(_aoes);
+        if (count > 1)
+            aoes[0].Color = Colors.Danger;
+        return aoes;
+    }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        void AddAOE(AOEShape shape, float delay = default) => _aoes.Add(new(shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell, delay)));
+        switch (spell.Action.ID)
         {
-            case AID.MesmerizingMarch:
-                _aoes.Add(new(_shapeCircle, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
+            case (uint)AID.MesmerizingMarch1:
+                AddAOE(circle);
                 break;
-            case AID.StirringSamba:
-                _aoes.Add(new(_shapeFrontal, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
+            case (uint)AID.StirringSamba1:
+                AddAOE(cone);
                 break;
-            case AID.MarchingSamba:
-                _aoes.Add(new(_shapeCircle, caster.Position, spell.Rotation, Module.CastFinishAt(spell, 1.7f)));
-                _aoes.Add(new(_shapeFrontal, caster.Position, spell.Rotation, Module.CastFinishAt(spell, 5.7f)));
+            case (uint)AID.MarchingSamba:
+                AddAOE(circle, 1.7f);
+                AddAOE(cone, 5.7f);
                 break;
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        AOEShape? shape = (AID)spell.Action.ID switch
-        {
-            AID.MesmerizingMarch or AID.MesmerizingMarchShort => _shapeCircle,
-            AID.StirringSamba or AID.StirringSambaShort => _shapeFrontal,
-            _ => null
-        };
-        if (shape == null)
-            return;
+        if (_aoes.Count != 0 && spell.Action.ID is (uint)AID.MesmerizingMarch1 or (uint)AID.MesmerizingMarch2 or (uint)AID.StirringSamba1 or (uint)AID.StirringSamba2)
+            _aoes.RemoveAt(0);
+    }
 
-        if (_aoes.Count == 0)
-        {
-            ReportError($"Unexpected resolve: {spell.Action}");
-            return;
-        }
-
-        if (_aoes[0].Shape != shape)
-            ReportError($"Unexpected resolve: got {spell.Action}, expected {_aoes[0].Shape}");
-        _aoes.RemoveAt(0);
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        base.AddAIHints(slot, actor, assignment, hints);
+        // stay close to the middle
+        hints.AddForbiddenZone(new SDInvertedCircle(Module.PrimaryActor.Position, 14f));
     }
 }
 
-class GlidingSwoop(BossModule module) : Components.StandardAOEs(module, AID.GlidingSwoop, new AOEShapeRect(18, 8));
-class PeckingFlurry(BossModule module) : Components.RaidwideCast(module, AID.PeckingFlurryFirst, "Raidwide x3");
-
-class PkuuchaStates : StateMachineBuilder
+sealed class PkuuchaStates : StateMachineBuilder
 {
     public PkuuchaStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<MesmerizingMarchStirringSamba>()
             .ActivateOnEnter<GlidingSwoop>()
+            .ActivateOnEnter<MesmerizingMarchStirringSamba>()
             .ActivateOnEnter<PeckingFlurry>();
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.A, NameID = 13443)]
-public class Pkuucha(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Shinryin, Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.A, NameID = 13443)]
+public sealed class Pkuucha(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);

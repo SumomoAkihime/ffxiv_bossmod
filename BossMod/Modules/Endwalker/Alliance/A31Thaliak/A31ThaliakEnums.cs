@@ -2,10 +2,10 @@ namespace BossMod.Endwalker.Alliance.A31Thaliak;
 
 public enum OID : uint
 {
-    Boss = 0x404C, // R9.496, x1
-    Clone = 0x404D, // R9.496, x1
-    HieroglyphikaIndicator = 0x40AA, // R0.500, x1
-    Helper = 0x233C, // R0.500, x44, 523 type
+    Boss = 0x404C, // R9.496
+    Clone = 0x404D, // R9.496
+    HieroglyphikaIndicator = 0x40AA, // R0.5
+    Helper = 0x233C
 }
 
 public enum AID : uint
@@ -39,13 +39,13 @@ public enum AID : uint
     Hieroglyphika = 35023, // Boss->self, 5.0s cast, single-target, visual (rotating safespots)
     HieroglyphikaAOE = 35024, // Helper->self, 3.0s cast, range 12 width 12 rect
     HieroglyphikaLeftBank = 35884, // Boss->self, 22.0s cast, range 60 180-degree cone
-    HieroglyphikaRightBank = 35885, // Boss->self, 22.0s cast, range 60 180-degree cone
+    HieroglyphikaRightBank = 35885 // Boss->self, 22.0s cast, range 60 180-degree cone
 }
 
 public enum SID : uint
 {
     Inscribed = 3732, // none->player, extra=0x0
-    Bind = 2518, // none->player, extra=0x0
+    Bind = 2518 // none->player, extra=0x0
 }
 
 public enum IconID : uint
@@ -54,5 +54,5 @@ public enum IconID : uint
     Hydroptosis = 139, // player
     Rhyton = 471, // player
     HieroglyphikaCW = 487, // HieroglyphikaIndicator
-    HieroglyphikaCCW = 490, // HieroglyphikaIndicator
+    HieroglyphikaCCW = 490 // HieroglyphikaIndicator
 }

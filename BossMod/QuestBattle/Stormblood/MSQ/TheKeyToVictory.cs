@@ -1,6 +1,6 @@
 ﻿namespace BossMod.QuestBattle.Stormblood.MSQ;
 
-[ZoneModuleInfo(467)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 467)]
 public sealed class TheKeyToVictory(WorldState ws) : QuestBattle(ws)
 {
     enum OID : uint
@@ -12,16 +12,14 @@ public sealed class TheKeyToVictory(WorldState ws) : QuestBattle(ws)
         Colossus = 0x1E7F
     }
 
-    public override List<QuestObjective> DefineObjectives(WorldState ws)
-    {
-        return [
+    public override List<QuestObjective> DefineObjectives(WorldState ws) => [
             new QuestObjective(ws)
                 .WithConnection(new Vector3(-396.38f, 4.94f, 122.21f))
                 .WithConnection(new Vector3(-285.98f, 11.18f, 223.66f))
                 .Hints((player, hints) =>
                 {
                     // eventobj doesn't spawn until all the npcs are out of combat - way faster to kill all the soblyns than to wait
-                    hints.PrioritizeTargetsByOID(OID.Soblyn);
+                    hints.PrioritizeTargetsByOID((uint)OID.Soblyn);
                 })
                 .WithInteract(OID.QueerDevice)
                 .CompleteOnTargetable((uint)OID.QueerDevice, false),
@@ -49,5 +47,4 @@ public sealed class TheKeyToVictory(WorldState ws) : QuestBattle(ws)
                 .WithConnection(new Vector3(50.57f, 42.00f, 724.45f))
                 .WithInteract(0x1EA771)
         ];
-    }
 }

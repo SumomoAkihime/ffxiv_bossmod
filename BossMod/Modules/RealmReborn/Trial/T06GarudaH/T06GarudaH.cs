@@ -13,12 +13,13 @@ public enum OID : uint
     Monolith1 = 0x1E8706, // x1, EventObj type
     Monolith2 = 0x1E8707, // x1, EventObj type
     Monolith3 = 0x1E8708, // x1, EventObj type
-    Monolith4 = 0x1E8709, // x1, EventObj type
+    Monolith4 = 0x1E8709 // x1, EventObj type
 }
 
 public enum AID : uint
 {
     AutoAttack = 870, // Boss/Chirada/Suparna->player, no cast, single-target
+
     Friction = 1379, // Boss/Chirada/Suparna->players, no cast, range 5 circle at random target
     Downburst = 1380, // Boss/Chirada/Suparna->self, no cast, range 10+R ?-degree cone cleave
     WickedWheel = 1381, // Boss/Chirada/Suparna->self, no cast, range 7+R circle cleave
@@ -29,7 +30,7 @@ public enum AID : uint
     GreatWhirlwind = 1386, // Whirlwind->location, 3.0s cast, range 8 circle aoe with knockback 15
     EyeOfTheStorm = 1387, // EyeOfTheStorm->self, 3.0s cast, range 12-25 donut
     Featherlance = 1388, // RazorPlume->self, no cast, range 8 circle, suicide attack if not killed in ~25s
-    ThermalTumult = 1389, // SatinPlume->self, no cast, range 6 circle, suicide attack (applies sleep) if not killed in ~25s
+    ThermalTumult = 1389 // SatinPlume->self, no cast, range 6 circle, suicide attack (applies sleep) if not killed in ~25s
 }
 
 public enum TetherID : uint
@@ -45,26 +46,26 @@ class Friction(BossModule module) : BossComponent(module)
     {
         if (Module.PrimaryActor.CastInfo == null) // don't forbid standing near monoliths while boss is casting to allow avoiding aoes
             foreach (var m in ((T06GarudaH)Module).ActiveMonoliths)
-                hints.AddForbiddenZone(ShapeContains.Circle(m.Position, 5));
+                hints.AddForbiddenZone(new SDCircle(m.Position, 5f));
     }
 }
 
-class Downburst(BossModule module) : Components.Cleave(module, AID.Downburst, new AOEShapeCone(11.7f, 60.Degrees()));
-class Slipstream(BossModule module) : Components.StandardAOEs(module, AID.Slipstream, new AOEShapeCone(11.7f, 45.Degrees()));
+class Downburst(BossModule module) : Components.Cleave(module, (uint)AID.Downburst, new AOEShapeCone(11.7f, 60f.Degrees()));
+class Slipstream(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Slipstream, new AOEShapeCone(11.7f, 45f.Degrees()));
 
-class MistralShriek(BossModule module) : Components.CastLineOfSightAOE(module, AID.MistralShriek, 24.7f, true)
+class MistralShriek(BossModule module) : Components.CastLineOfSightAOE(module, (uint)AID.MistralShriek, 24.7f, true)
 {
-    public override IEnumerable<Actor> BlockerActors() => ((T06GarudaH)Module).ActiveMonoliths;
+    public override ReadOnlySpan<Actor> BlockerActors() => CollectionsMarshal.AsSpan(((T06GarudaH)Module).ActiveMonoliths);
 }
 
-class MistralSong(BossModule module) : Components.CastLineOfSightAOE(module, AID.MistralSong, 31.7f, true)
+class MistralSong(BossModule module) : Components.CastLineOfSightAOE(module, (uint)AID.MistralSong, 31.7f, true)
 {
-    public override IEnumerable<Actor> BlockerActors() => ((T06GarudaH)Module).ActiveMonoliths;
+    public override ReadOnlySpan<Actor> BlockerActors() => CollectionsMarshal.AsSpan(((T06GarudaH)Module).ActiveMonoliths);
 }
 
-class AerialBlast(BossModule module) : Components.RaidwideCast(module, AID.AerialBlast);
-class GreatWhirlwind(BossModule module) : Components.StandardAOEs(module, AID.GreatWhirlwind, 8);
-class EyeOfTheStorm(BossModule module) : Components.StandardAOEs(module, AID.EyeOfTheStorm, new AOEShapeDonut(12, 25));
+class AerialBlast(BossModule module) : Components.RaidwideCast(module, (uint)AID.AerialBlast);
+class GreatWhirlwind(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GreatWhirlwind, 8f);
+class EyeOfTheStorm(BossModule module) : Components.SimpleAOEs(module, (uint)AID.EyeOfTheStorm, new AOEShapeDonut(12f, 25f));
 
 class T06GarudaHStates : StateMachineBuilder
 {
@@ -82,27 +83,28 @@ class T06GarudaHStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 61, NameID = 1644)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 61, NameID = 1644)]
 public class T06GarudaH : BossModule
 {
-    private readonly IReadOnlyList<Actor> _monoliths;
-    public IEnumerable<Actor> ActiveMonoliths => _monoliths;
+    public readonly List<Actor> ActiveMonoliths;
 
-    public T06GarudaH(WorldState ws, Actor primary) : base(ws, primary, new(0, 0), new ArenaBoundsCircle(22))
+    public T06GarudaH(WorldState ws, Actor primary) : base(ws, primary, default, new ArenaBoundsCircle(22))
     {
-        _monoliths = Enemies(OID.Monolith);
+        ActiveMonoliths = Enemies((uint)OID.Monolith);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.Suparna or OID.Chirada => e.Actor.Tether.ID == (uint)TetherID.Rehabilitation ? 3 : 2,
-                OID.SatinPlume => 3,
-                OID.RazorPlume => 2,
-                OID.Boss => 1,
+                (uint)OID.Suparna or (uint)OID.Chirada => e.Actor.Tether.ID == (uint)TetherID.Rehabilitation ? 3 : 2,
+                (uint)OID.SatinPlume => 3,
+                (uint)OID.RazorPlume => 2,
+                (uint)OID.Boss => 1,
                 _ => 0
             };
         }
@@ -110,12 +112,9 @@ public class T06GarudaH : BossModule
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var m in ActiveMonoliths)
-            Arena.Actor(m, ArenaColor.Object, true);
-        foreach (var e in Enemies(OID.Suparna))
-            Arena.Actor(e, ArenaColor.Enemy);
-        foreach (var e in Enemies(OID.Chirada))
-            Arena.Actor(e, ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(ActiveMonoliths, Colors.Object, true);
+        Arena.Actors(Enemies((uint)OID.Suparna));
+        Arena.Actors(Enemies((uint)OID.Chirada));
     }
 }

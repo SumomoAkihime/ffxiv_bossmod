@@ -1,6 +1,6 @@
 ﻿namespace BossMod.QuestBattle.Heavensward.ClassJobQuests.AST;
 
-[ZoneModuleInfo(411)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 411)]
 internal class FortuneFavorsTheBole(WorldState ws) : QuestBattle(ws)
 {
     private QuestObjective Card(WorldState ws, Vector3 pos, uint oid)
@@ -21,8 +21,12 @@ internal class FortuneFavorsTheBole(WorldState ws) : QuestBattle(ws)
     public override void AddQuestAIHints(Actor player, AIHints hints)
     {
         foreach (var h in hints.PotentialTargets)
+        {
             if (h.Actor.InCombat)
+            {
                 h.Priority = h.Actor.OID == 0x10D0 ? 1 : 0;
+            }
+        }
     }
 }
 

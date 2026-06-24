@@ -4,7 +4,7 @@ using System.Reflection;
 namespace BossMod.Shadowbringers.Foray;
 
 [AttributeUsage(AttributeTargets.Field)]
-public sealed class DuelAttribute(uint nameID, uint prepNameID, uint fateID = 0) : Attribute
+public sealed class DuelAttribute(uint nameID, uint prepNameID, uint fateID = default) : Attribute
 {
     public uint NameID => nameID;
     public uint PrepNameID => prepNameID;
@@ -16,9 +16,6 @@ public sealed class DuelAttribute(uint nameID, uint prepNameID, uint fateID = 0)
 [ConfigDisplay(Name = "Bozja duel farming", Parent = typeof(ShadowbringersConfig))]
 public class DuelFarmConfig : ConfigNode
 {
-    [PropertyDisplay("Enable zone module")]
-    public bool Enabled = true;
-
     [PropertyDisplay("Max range to look for new mobs to pull")]
     [PropertySlider(20, 100, Speed = 0.1f)]
     public float MaxPullDistance = 30f;
@@ -27,12 +24,15 @@ public class DuelFarmConfig : ConfigNode
     [PropertySlider(0, 30, Speed = 0.1f)]
     public int MaxPullCount = 10;
 
+    [PropertyDisplay("Show auto farm window")]
+    public bool ShowAutoFarmWindow = false;
+
     public bool AssistMode;
 }
 
 public abstract class DuelFarm<Duel> : ZoneModule where Duel : struct, Enum
 {
-    protected readonly DuelFarmConfig _globalConfig = Service.Config.Get<DuelFarmConfig>();
+    protected static readonly DuelFarmConfig globalConfig = Service.Config.Get<DuelFarmConfig>();
 
     public readonly string Zone;
 
@@ -52,7 +52,7 @@ public abstract class DuelFarm<Duel> : ZoneModule where Duel : struct, Enum
 
     private void OnFateSpawn(ClientState.OpFateInfo fate)
     {
-        if (GetFateID(FarmTarget) == fate.FateId)
+        if (GetFateID(FarmTarget) == fate.FateID)
             FarmTarget = default;
     }
 
@@ -62,65 +62,74 @@ public abstract class DuelFarm<Duel> : ZoneModule where Duel : struct, Enum
         base.Dispose(disposing);
     }
 
-    public override bool WantDrawExtra() => _globalConfig.Enabled;
+    public override bool WantDrawExtra() => globalConfig.ShowAutoFarmWindow;
 
-    public override string WindowName() => $"{Zone}###Eureka module";
+    public override string WindowName() => $"{Zone}###Bozja module";
 
     protected virtual void AddAIHints(int playerSlot, Actor player, AIHints hints) { }
 
     public override void CalculateAIHints(int playerSlot, Actor player, AIHints hints)
     {
-        if (!_globalConfig.Enabled)
-            return;
-
         AddAIHints(playerSlot, player, hints);
 
         var farmNameID = GetPrepID(FarmTarget);
-        var farmMax = _globalConfig.MaxPullCount;
-        var farmRange = _globalConfig.MaxPullDistance;
+        var farmMax = globalConfig.MaxPullCount;
+        var farmRange = globalConfig.MaxPullDistance;
 
-        if (farmMax > 0 && hints.PotentialTargets.Count(e => e.Priority >= 0) >= farmMax)
-            return;
+        if (farmMax > 0)
+        {
+            var count = 0;
+            var countTargets = hints.PotentialTargets.Count;
+            for (var i = 0; i < countTargets; ++i)
+            {
+                var e = hints.PotentialTargets[i];
+                if (e.Priority >= 0)
+                {
+                    ++count;
+                    if (count >= farmMax)
+                        return;
+                }
+            }
+        }
 
         if (farmNameID == 0)
             return;
 
         // only need to check "undesirable" targets, as mobs already attacking party members will be handled by autofarm
-        bool canTarget(AIHints.Enemy enemy) => enemy.Priority == AIHints.Enemy.PriorityUndesirable && (!_globalConfig.AssistMode || enemy.Actor.InCombat);
+        static bool canTarget(AIHints.Enemy enemy) => enemy.Priority == AIHints.Enemy.PriorityUndesirable && (!globalConfig.AssistMode || enemy.Actor.InCombat);
 
         foreach (var e in hints.PotentialTargets.Where(t => t.Actor.NameID == farmNameID))
+        {
             if (canTarget(e) && (e.Actor.Position - player.Position).LengthSq() <= farmRange * farmRange)
             {
-                if (e.Actor.InCombat)
-                    // someone else pulled
-                    e.Priority = 0;
-                else
-                    // we pull
-                    e.ShouldBeTargeted = true;
+                e.Priority = 0;
+
+                var wePull = !e.Actor.InCombat;
+
+                if (wePull && (hints.ForcedTarget == null || (hints.ForcedTarget.Position - player.Position).LengthSq() > (e.Actor.Position - player.Position).LengthSq()))
+                    hints.ForcedTarget = e.Actor;
             }
+        }
     }
 
     public override void DrawExtra()
     {
-        var modified = false;
-
-        ImGui.SetNextItemWidth(200);
-        modified |= ImGui.Checkbox("Enable", ref _globalConfig.Enabled);
-
         var tar = FarmTarget;
         if (UICombo.Enum("Prep", ref tar, t => GetAttr(t)?.Label ?? t.ToString()))
             FarmTarget = tar;
 
         ImGui.Spacing();
 
+        var modified = false;
+
         ImGui.SetNextItemWidth(200);
-        modified |= ImGui.DragFloat("Max distance to look for new mobs", ref _globalConfig.MaxPullDistance, 1, 20, 120);
+        modified |= ImGui.DragFloat("Max distance to look for new mobs", ref globalConfig.MaxPullDistance, 1, 20, 120);
         ImGui.SetNextItemWidth(200);
-        modified |= ImGui.DragInt("Max mobs to pull (set to 0 for no limit)", ref _globalConfig.MaxPullCount, 1, 0, 30);
-        modified |= ImGui.Checkbox("Assist mode (only attack mobs that are already in combat)", ref _globalConfig.AssistMode);
+        modified |= ImGui.DragInt("Max mobs to pull (set to 0 for no limit)", ref globalConfig.MaxPullCount, 1, 0, 30);
+        modified |= ImGui.Checkbox("Assist mode (only attack mobs that are already in combat)", ref globalConfig.AssistMode);
 
         if (modified)
-            _globalConfig.Modified.Fire();
+            globalConfig.Modified.Fire();
     }
 }
 
@@ -141,7 +150,7 @@ public enum BozjaDuel : uint
     Menenius
 }
 
-[ZoneModuleInfo(735)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 735)]
 public class Bozja(WorldState ws) : DuelFarm<BozjaDuel>(ws, "Bozja")
 {
     private readonly BozjaFarmConfig _config = Service.Config.Get<BozjaFarmConfig>();
@@ -174,7 +183,7 @@ public enum ZadnorDuel : uint
     Lyon
 }
 
-[ZoneModuleInfo(778)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 778)]
 public class Zadnor(WorldState ws) : DuelFarm<ZadnorDuel>(ws, "Zadnor")
 {
     private readonly ZadnorFarmConfig _config = Service.Config.Get<ZadnorFarmConfig>();

@@ -1,4 +1,4 @@
-﻿namespace BossMod.Endwalker.Criterion.C03AAI.C030Trash2;
+﻿namespace BossMod.Endwalker.VariantCriterion.C03AAI.C030Trash2;
 
 public enum OID : uint
 {
@@ -30,4 +30,4 @@ public enum AID : uint
     SAncientQuagaEnrage = 35914, // SIslekeeper->self, 10.0s cast, range 100 circle enrage
 }
 
-public abstract class C030Trash2(WorldState ws, Actor primary) : BossModule(ws, primary, new(200, 128), new ArenaBoundsSquare(30));
+public abstract class C030Trash2(WorldState ws, Actor primary) : BossModule(ws, primary, new(200f, 128f), new ArenaBoundsSquare(30f));

@@ -1,14 +1,13 @@
 ﻿namespace BossMod.Shadowbringers.Ultimate.TEA;
 
-class P1ProteanWaveTornado : Components.GenericBaitAway
+[SkipLocalsInit]
+abstract class P1ProteanWaveTornado : Components.GenericBaitAway
 {
-    private readonly IReadOnlyList<Actor> _liquidRage;
+    private readonly List<Actor> _liquidRage;
 
-    private static readonly AOEShapeCone _shape = new(40, 15.Degrees());
-
-    public P1ProteanWaveTornado(BossModule module, bool enableHints) : base(module, AID.ProteanWaveTornadoInvis)
+    public P1ProteanWaveTornado(BossModule module, bool enableHints) : base(module, (uint)AID.ProteanWaveTornadoInvis)
     {
-        _liquidRage = module.Enemies(OID.LiquidRage);
+        _liquidRage = module.Enemies((uint)OID.LiquidRage);
         EnableHints = enableHints;
     }
 
@@ -17,13 +16,16 @@ class P1ProteanWaveTornado : Components.GenericBaitAway
         CurrentBaits.Clear();
         foreach (var tornado in _liquidRage)
         {
-            var target = Raid.WithoutSlot().Closest(tornado.Position);
+            var target = Raid.WithoutSlot(false, true, true).Closest(tornado.Position);
             if (target != null)
-                CurrentBaits.Add(new(tornado, target, _shape));
+                CurrentBaits.Add(new(tornado, target, P1ProteanWaveLiquid.Cone));
         }
     }
 }
 
-class P1ProteanWaveTornadoVisCast(BossModule module) : Components.StandardAOEs(module, AID.ProteanWaveTornadoVis, new AOEShapeCone(40, 15.Degrees()));
-class P1ProteanWaveTornadoVisBait(BossModule module) : P1ProteanWaveTornado(module, false);
-class P1ProteanWaveTornadoInvis(BossModule module) : P1ProteanWaveTornado(module, true);
+[SkipLocalsInit]
+sealed class P1ProteanWaveTornadoVisCast(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ProteanWaveTornadoVis, P1ProteanWaveLiquid.Cone);
+[SkipLocalsInit]
+sealed class P1ProteanWaveTornadoVisBait(BossModule module) : P1ProteanWaveTornado(module, false);
+[SkipLocalsInit]
+sealed class P1ProteanWaveTornadoInvis(BossModule module) : P1ProteanWaveTornado(module, true);

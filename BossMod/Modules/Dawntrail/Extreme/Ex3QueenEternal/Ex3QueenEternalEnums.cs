@@ -158,4 +158,3 @@ public enum TetherID : uint
     RushLong = 1, // IcePillar2/IcePillar1->player
     IceDart = 89, // player->BossP1
 }
-

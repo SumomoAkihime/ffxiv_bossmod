@@ -1,5 +1,4 @@
-﻿using Dalamud.Bindings.ImGui;
-using System.Text;
+using Dalamud.Bindings.ImGui;
 
 namespace BossMod;
 
@@ -7,7 +6,8 @@ namespace BossMod;
 // by far the most common state has a single transition to a neighbouring state, and by far the most common transition is spell cast/finish by boss
 // some bosses have multiple "phases"; when phase condition is triggered, initial state of the next phase is activated
 // typical phase condition is boss reaching specific hp %
-public class StateMachine(List<StateMachine.Phase> phases)
+[SkipLocalsInit]
+public sealed class StateMachine(List<StateMachine.Phase> phases)
 {
     [Flags]
     public enum StateHint
@@ -58,7 +58,7 @@ public class StateMachine(List<StateMachine.Phase> phases)
         public PhaseHint Hint = PhaseHint.None; // special flags for phase
     }
 
-    public List<Phase> Phases { get; private init; } = phases;
+    public readonly List<Phase> Phases = phases;
 
     private DateTime _curTime;
     private DateTime _activation;
@@ -67,32 +67,34 @@ public class StateMachine(List<StateMachine.Phase> phases)
     public float TimeSinceActivation => (float)(_curTime - _activation).TotalSeconds;
     public float TimeSincePhaseEnter => (float)(_curTime - _phaseEnter).TotalSeconds;
     public float TimeSinceTransition => (float)(_curTime - _lastTransition).TotalSeconds;
-    public float TimeSinceTransitionClamped => MathF.Min(TimeSinceTransition, ActiveState?.Duration ?? 0);
+    public float TimeSinceTransitionClamped => Math.Min(TimeSinceTransition, ActiveState?.Duration ?? 0);
 
-    public int ActivePhaseIndex { get; private set; } = -1;
-    public Phase? ActivePhase => Phases.ElementAtOrDefault(ActivePhaseIndex);
-    public State? ActiveState { get; private set; }
+    public int ActivePhaseIndex = -1;
+    public Phase? ActivePhase => ActivePhaseIndex >= 0 && ActivePhaseIndex < Phases.Count ? Phases[ActivePhaseIndex] : null;
+    public State? ActiveState;
 
     public void Start(DateTime now)
     {
         _activation = _curTime = now;
-        if (Phases.Count > 0)
+        if (Phases.Count != 0)
+        {
             TransitionToPhase(0);
+        }
     }
 
-    public void Reset()
-    {
-        TransitionToPhase(-1);
-    }
+    public void Reset() => TransitionToPhase(-1);
 
     public void Update(DateTime now)
     {
         _curTime = now;
         while (ActivePhase != null)
         {
-            bool transition = ActivePhase.Update?.Invoke() ?? false;
+            var transition = ActivePhase.Update?.Invoke() ?? false;
             if (!transition)
+            {
                 break;
+            }
+
             Service.Log($"[StateMachine] Phase transition from {ActivePhaseIndex} '{ActivePhase.Name}', time={TimeSincePhaseEnter:f2}");
             TransitionToPhase(ActivePhaseIndex + 1);
         }
@@ -101,7 +103,10 @@ public class StateMachine(List<StateMachine.Phase> phases)
             var transition = ActiveState.Update?.Invoke(TimeSinceTransition) ?? -1;
             var nextState = ActiveState.NextStates != null && transition >= 0 && transition < ActiveState.NextStates.Length ? ActiveState.NextStates[transition] : null;
             if (nextState == null)
+            {
                 break;
+            }
+
             Service.Log($"[StateMachine] State transition from {ActiveState.ID:X} '{ActiveState.Name}' to {nextState.ID:X} '{nextState.Name}', overdue={TimeSinceTransition:f2}-{ActiveState.Duration:f2}={TimeSinceTransition - ActiveState.Duration:f2}");
             TransitionToState(nextState);
         }
@@ -125,7 +130,7 @@ public class StateMachine(List<StateMachine.Phase> phases)
 
     public string BuildStateChain(State? start, string sep, int maxCount = 5)
     {
-        int count = 0;
+        var count = 0;
         var res = new StringBuilder();
         while (start != null && count < maxCount)
         {
@@ -133,7 +138,10 @@ public class StateMachine(List<StateMachine.Phase> phases)
             if (name.Length > 0)
             {
                 if (res.Length > 0)
+                {
                     res.Append(sep);
+                }
+
                 res.Append(name);
                 ++count;
             }
@@ -150,7 +158,10 @@ public class StateMachine(List<StateMachine.Phase> phases)
         {
             time = time.AddSeconds(next.Duration);
             if (next.EndHint.HasFlag(flag))
+            {
                 return time;
+            }
+
             next = next.NextStates?.Length == 1 ? next.NextStates[0] : null;
         }
         return DateTime.MaxValue;
@@ -159,7 +170,7 @@ public class StateMachine(List<StateMachine.Phase> phases)
     private (string, State?) BuildComplexStateNameAndDuration(State start, float timeActive, bool writeTime)
     {
         var res = new StringBuilder(start.Name);
-        var timeLeft = MathF.Max(0, start.Duration - timeActive);
+        var timeLeft = Math.Max(0, start.Duration - timeActive);
         if (writeTime && res.Length > 0)
         {
             res.Append($" in {timeLeft:f1}s");
@@ -169,11 +180,14 @@ public class StateMachine(List<StateMachine.Phase> phases)
         while (start.EndHint.HasFlag(StateHint.GroupWithNext) && start.NextStates?.Length == 1)
         {
             start = start.NextStates[0];
-            timeLeft += MathF.Max(0, start.Duration);
+            timeLeft += Math.Max(0, start.Duration);
             if (start.Name.Length > 0)
             {
                 if (res.Length > 0)
+                {
                     res.Append(" + ");
+                }
+
                 res.Append(start.Name);
 
                 if (writeTime && timeLeft > 0)
@@ -187,7 +201,10 @@ public class StateMachine(List<StateMachine.Phase> phases)
         if (writeTime && timeLeft > 0)
         {
             if (res.Length == 0)
+            {
                 res.Append("???");
+            }
+
             res.Append($" in {timeLeft:f1}s");
         }
 
@@ -197,7 +214,9 @@ public class StateMachine(List<StateMachine.Phase> phases)
     private void TransitionToPhase(int nextIndex)
     {
         if (ActivePhase != null)
+        {
             TransitionToState(null);
+        }
 
         ActivePhase?.Exit?.Invoke();
         ActivePhaseIndex = nextIndex;
@@ -205,7 +224,9 @@ public class StateMachine(List<StateMachine.Phase> phases)
         ActivePhase?.Enter?.Invoke();
 
         if (ActivePhase != null)
+        {
             TransitionToState(ActivePhase.InitialState);
+        }
     }
 
     private void TransitionToState(State? nextState)

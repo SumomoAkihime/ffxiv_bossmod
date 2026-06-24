@@ -1,6 +1,6 @@
 ﻿namespace BossMod.ReplayVisualization;
 
-public class ColumnEnemyCasts : ColumnGenericHistory, IToggleableColumn
+public sealed class ColumnEnemyCasts : ColumnGenericHistory, IToggleableColumn
 {
     public bool Visible
     {
@@ -15,12 +15,12 @@ public class ColumnEnemyCasts : ColumnGenericHistory, IToggleableColumn
         foreach (var c in enemy.Casts)
         {
             var name = $"{c.ID} ({moduleInfo?.ActionIDType?.GetEnumName(c.ID.ID)}) {ReplayUtils.ParticipantString(enemy, c.Time.Start)} -> {ReplayUtils.ParticipantString(c.Target, c.Time.Start)}";
-            this.AddHistoryEntryRange(enc.Time.Start, c.Time, name, c.Interruptible ? 0x80800080 : 0x80808080).AddCastTooltip(c);
+            this.AddHistoryEntryRange(enc.Time.Start, c.Time, name, c.Interruptible ? Colors.TextColor8 : Colors.TextColor7).AddCastTooltip(c);
         }
         foreach (var a in replay.EncounterActions(enc).Where(a => a.Source == enemy))
         {
             var name = $"{a.ID} ({moduleInfo?.ActionIDType?.GetEnumName(a.ID.ID)}) {ReplayUtils.ParticipantString(a.Source, a.Timestamp)} -> {ReplayUtils.ParticipantString(a.MainTarget, a.Timestamp)} #{a.GlobalSequence}";
-            var color = ColumnUtils.ActionHasDamageToPlayerEffects(a) ? 0xffffffff : 0x80808080;
+            var color = ColumnUtils.ActionHasDamageToPlayerEffects(a) ? Colors.TextColor1 : Colors.TextColor7;
             this.AddHistoryEntryDot(enc.Time.Start, a.Timestamp, name, color).AddActionTooltip(a);
         }
     }

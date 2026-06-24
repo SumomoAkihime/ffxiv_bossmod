@@ -4,21 +4,20 @@ public enum OID : uint
 {
     Boss = 0x25C1, //R1.8
     Flan = 0x25C5, //R1.8
-    Licorice = 0x25C3, //R=1.8
-
+    Licorice = 0x25C3 //R=1.8
 }
 
 public enum AID : uint
 {
-    Water = 14271, // 25C5->player, 1.0s cast, single-target
-    Stone = 14270, // 25C3->player, 1.0s cast, single-target
-    Blizzard = 14267, // 25C1->player, 1.0s cast, single-target
-    GoldenTongue = 14265, // 25C5/25C3/25C1->self, 5.0s cast, single-target
+    Water = 14271, // Flan->player, 1.0s cast, single-target
+    Stone = 14270, // Licorice->player, 1.0s cast, single-target
+    Blizzard = 14267, // Boss->player, 1.0s cast, single-target
+    GoldenTongue = 14265 // Flan/Licorice/Boss->self, 5.0s cast, single-target
 }
 
-class GoldenTongue(BossModule module) : Components.CastHint(module, AID.GoldenTongue, "Can be interrupted, increases its magic damage.");
+sealed class GoldenTongue(BossModule module) : Components.CastInterruptHint(module, (uint)AID.GoldenTongue);
 
-class Hints(BossModule module) : BossComponent(module)
+sealed class Hints(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -26,28 +25,28 @@ class Hints(BossModule module) : BossComponent(module)
     }
 }
 
-class Stage02Act2States : StateMachineBuilder
+sealed class Stage02Act2States : StateMachineBuilder
 {
     public Stage02Act2States(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<GoldenTongue>()
             .ActivateOnEnter<Hints>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.Flan).All(e => e.IsDead) && module.Enemies(OID.Licorice).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed(Stage02Act2.Trash);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 612, NameID = 8079, SortOrder = 2)]
-public class Stage02Act2(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(25))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 612, NameID = 8079, SortOrder = 2)]
+public sealed class Stage02Act2(WorldState ws, Actor primary) : BossModule(ws, primary, Layouts.ArenaCenter, Layouts.CircleBig)
 {
-    protected override bool CheckPull() { return PrimaryActor.IsTargetable && PrimaryActor.InCombat || Enemies(OID.Flan).Any(e => e.InCombat) || Enemies(OID.Licorice).Any(e => e.InCombat); }
+    public static readonly uint[] Trash = [(uint)OID.Boss, (uint)OID.Flan, (uint)OID.Licorice];
+
+    protected override bool CheckPull() => IsAnyActorInCombat(Trash);
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.Flan))
-            Arena.Actor(s, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.Licorice))
-            Arena.Actor(s, ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.Flan));
+        Arena.Actors(Enemies((uint)OID.Licorice));
     }
 }

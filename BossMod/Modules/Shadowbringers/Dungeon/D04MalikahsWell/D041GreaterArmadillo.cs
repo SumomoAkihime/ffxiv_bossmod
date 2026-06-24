@@ -10,8 +10,9 @@ public enum OID : uint
 
 public enum AID : uint
 {
-    AutoAttack = 872, // Boss->player, no cast, single-target
+    AutoAttack1 = 872, // Boss->player, no cast, single-target
     AutoAttack2 = 870, // PackArmadillo->player, no cast, single-target
+
     StoneFlail = 15589, // Boss->player, 4.5s cast, single-target
     FallingRock = 15594, // Helper->location, 3.0s cast, range 4 circle
     HeadToss = 15590, // Boss->player, 5.0s cast, range 6 circle
@@ -22,31 +23,36 @@ public enum AID : uint
     Rehydration = 16776 // PackArmadillo->self, 5.0s cast, single-target
 }
 
-class StoneFlail(BossModule module) : Components.SingleTargetCast(module, AID.StoneFlail);
-class FallingRock(BossModule module) : Components.StandardAOEs(module, AID.FallingRock, 4);
-class FlailSmash(BossModule module) : Components.StandardAOEs(module, AID.FlailSmash, 10);
-class HeadToss(BossModule module) : Components.StackWithCastTargets(module, AID.HeadToss, 6, 4, 4);
-class Earthshake(BossModule module) : Components.StandardAOEs(module, AID.Earthshake, new AOEShapeDonut(10, 20));
-class Rehydration(BossModule module) : Components.CastInterruptHint(module, AID.Rehydration, showNameInHint: true);
+class StoneFlail(BossModule module) : Components.SingleTargetCast(module, (uint)AID.StoneFlail);
+class FallingRock(BossModule module) : Components.SimpleAOEs(module, (uint)AID.FallingRock, 4f);
+class FlailSmash(BossModule module) : Components.SimpleAOEs(module, (uint)AID.FlailSmash, 10f);
+class HeadToss(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.HeadToss, 6f, 4, 4);
+class Earthshake(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Earthshake, new AOEShapeDonut(10f, 20f));
+class Rehydration(BossModule module) : Components.CastInterruptHint(module, (uint)AID.Rehydration, showNameInHint: true);
 
 class RightRound(BossModule module) : Components.GenericAOEs(module)
 {
-    private static readonly AOEShapeCircle circle = new(10);
-    private AOEInstance? _aoe;
+    private AOEInstance[] _aoe = [];
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.ZeroOrOne(_aoe);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        // the origin of the rightround cast event seems to be weird, using the primaryactor position is not pixel perfect, seen variances of almost 1y, so i increased the circle radius from 9 to 10
-        if ((AID)spell.Action.ID == AID.RightRoundVisual)
-            _aoe = new(circle, Module.PrimaryActor.Position, default, Module.CastFinishAt(spell, 0.9f));
+        if (spell.Action.ID == (uint)AID.RightRoundVisual)
+        {
+            // approximation of the mechanic with a capsule since the jump seems to behave quite unpredictable for long distances to the morning star
+            var len = (spell.LocXZ - caster.Position).Length();
+            var maxLen = len > 10f ? 10f : len;
+            _aoe = [new(new AOEShapeCapsule(9f, maxLen), spell.LocXZ, spell.Rotation + 180f.Degrees(), Module.CastFinishAt(spell, 0.9d))];
+        }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.RightRound)
-            _aoe = null;
+        if (spell.Action.ID == (uint)AID.RightRound)
+        {
+            _aoe = [];
+        }
     }
 }
 
@@ -65,17 +71,20 @@ class D041GreaterArmadilloStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(Contributors = "The Combat Reborn Team (Malediktus), Ported by Herculezz", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 656, NameID = 8252)]
-public class D041GreaterArmadillo(WorldState ws, Actor primary) : BossModule(ws, primary, new(278, 204), new ArenaBoundsCircle(19.5f))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 656, NameID = 8252)]
+public class D041GreaterArmadillo(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
 {
+    private static readonly ArenaBoundsCustom arena = new([new Polygon(new(278f, 204f), 19.5f, 40)], [new Rectangle(new(278f, 223.594f), 20f, 1f)]);
+
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.PackArmadillo => 2,
-                OID.Boss => 1,
+                (uint)OID.PackArmadillo => 1,
                 _ => 0
             };
         }
@@ -83,7 +92,7 @@ public class D041GreaterArmadillo(WorldState ws, Actor primary) : BossModule(ws,
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        Arena.Actors(Enemies(OID.PackArmadillo), ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.PackArmadillo));
     }
 }

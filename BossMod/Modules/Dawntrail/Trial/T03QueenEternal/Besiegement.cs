@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Trial.T03QueenEternal;
+namespace BossMod.Dawntrail.Trial.T03QueenEternal;
 
 sealed class Besiegement(BossModule module) : Components.GenericAOEs(module)
 {
@@ -6,7 +6,7 @@ sealed class Besiegement(BossModule module) : Components.GenericAOEs(module)
     public readonly List<AOEInstance> AOEs = new(4);
     private static readonly AOEShapeRect[] rects = [new(L, 2f), new(L, 4f), new(L, 5f), new(L, 6f), new(L, 9f)];
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => AOEs;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(AOEs);
 
     public override void OnMapEffect(byte index, uint state)
     {
@@ -41,11 +41,11 @@ sealed class Besiegement(BossModule module) : Components.GenericAOEs(module)
         if (len > 0)
         {
             ++NumCasts;
-            var act = WorldState.FutureTime(6.6f);
+            var act = WorldState.FutureTime(6.6d);
             for (var i = 0; i < len; ++i)
             {
                 var aoe = aoes[i];
-                AOEs.Add(new(rects[aoe.Item1], new WPos(aoe.Item2, 80f), 90f.Degrees(), act));
+                AOEs.Add(new(rects[aoe.Item1], new WPos(aoe.Item2, 80f).Quantized(), Angle.AnglesCardinals[1], act));
             }
         }
     }
@@ -67,4 +67,3 @@ sealed class Besiegement(BossModule module) : Components.GenericAOEs(module)
         }
     }
 }
-

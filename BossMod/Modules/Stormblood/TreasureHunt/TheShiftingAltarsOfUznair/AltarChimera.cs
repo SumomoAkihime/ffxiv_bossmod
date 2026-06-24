@@ -3,92 +3,106 @@ namespace BossMod.Stormblood.TreasureHunt.ShiftingAltarsOfUznair.AltarChimera;
 public enum OID : uint
 {
     Boss = 0x2539, //R=5.92
-    BossAdd = 0x256A, //R=2.07
-    BossHelper = 0x233C,
+    AltarAhriman = 0x256A, //R=2.07
     IceVoidzone = 0x1E8D9C,
-    BonusAddAltarMatanga = 0x2545, // R3.420
+    AltarMatanga = 0x2545, // R3.42
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    AutoAttack = 870, // 2539->player, no cast, single-target
-    AutoAttack2 = 872, // BonusAddAltarMatanga->player, no cast, single-target
+    AutoAttack1 = 870, // Boss->player, no cast, single-target
+    AutoAttack2 = 872, // AltarMatanga->player, no cast, single-target
+    AutoAttack3 = 6499, // AltarAhriman->player, no cast, single-target
 
-    AutoAttack3 = 6499, // 256A->player, no cast, single-target
-    TheScorpionsSting = 13393, // 2539->self, 3.5s cast, range 6+R 90-degree cone
-    TheRamsVoice = 13394, // 2539->self, 5.0s cast, range 4+R circle, interruptible, deep freeze + frostbite
-    TheLionsBreath = 13392, // 2539->self, 3.5s cast, range 6+R 120-degree cone, burn
-    LanguorousGaze = 13742, // 256A->self, 3.0s cast, range 6+R 90-degree cone
-    TheRamsKeeper = 13396, // 2539->location, 3.5s cast, range 6 circle, voidzone
-    TheDragonsVoice = 13395, // 2539->self, 5.0s cast, range 8-30 donut, interruptible, paralaysis
-    unknown = 9636, // BonusAddAltarMatanga->self, no cast, single-target
-    Spin = 8599, // BonusAddAltarMatanga->self, no cast, range 6+R 120-degree cone
-    RaucousScritch = 8598, // BonusAddAltarMatanga->self, 2.5s cast, range 5+R 120-degree cone
-    Hurl = 5352, // BonusAddAltarMatanga->location, 3.0s cast, range 6 circle
-    Telega = 9630, // bonusadds->self, no cast, single-target, bonus add disappear
+    TheScorpionsSting = 13393, // Boss->self, 3.5s cast, range 6+R 90-degree cone
+    TheRamsVoice = 13394, // Boss->self, 5.0s cast, range 4+R circle, interruptible, deep freeze + frostbite
+    TheLionsBreath = 13392, // Boss->self, 3.5s cast, range 6+R 120-degree cone, burn
+    LanguorousGaze = 13742, // AltarAhriman->self, 3.0s cast, range 6+R 90-degree cone
+    TheRamsKeeper = 13396, // Boss->location, 3.5s cast, range 6 circle, voidzone
+    TheDragonsVoice = 13395, // Boss->self, 5.0s cast, range 8-30 donut, interruptible, paralaysis
+
+    MatangaActivate = 9636, // AltarMatanga->self, no cast, single-target
+    Spin = 8599, // AltarMatanga->self, no cast, range 6+R 120-degree cone
+    RaucousScritch = 8598, // AltarMatanga->self, 2.5s cast, range 5+R 120-degree cone
+    Hurl = 5352, // AltarMatanga->location, 3.0s cast, range 6 circle
+    Telega = 9630 // AltarMatanga->self, no cast, single-target, bonus add disappear
 }
 
 public enum IconID : uint
 {
-    Baitaway = 23, // player
+    Baitaway = 23 // player
 }
 
-class TheScorpionsSting(BossModule module) : Components.StandardAOEs(module, AID.TheScorpionsSting, new AOEShapeCone(11.92f, 45.Degrees()));
-class TheRamsVoice(BossModule module) : Components.StandardAOEs(module, AID.TheRamsVoice, new AOEShapeCircle(9.92f));
-class TheRamsVoiceHint(BossModule module) : Components.CastInterruptHint(module, AID.TheRamsVoice);
-class TheLionsBreath(BossModule module) : Components.StandardAOEs(module, AID.TheLionsBreath, new AOEShapeCone(11.92f, 60.Degrees()));
-class LanguorousGaze(BossModule module) : Components.StandardAOEs(module, AID.LanguorousGaze, new AOEShapeCone(8.07f, 45.Degrees()));
-class TheDragonsVoice(BossModule module) : Components.StandardAOEs(module, AID.TheDragonsVoice, new AOEShapeDonut(8, 30));
-class TheDragonsVoiceHint(BossModule module) : Components.CastInterruptHint(module, AID.TheDragonsVoice);
-class TheRamsKeeper(BossModule module) : Components.StandardAOEs(module, AID.TheRamsKeeper, 6);
-
-class TheRamsKeeperBait(BossModule module) : Components.GenericBaitAway(module)
+class TheScorpionsSting(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TheScorpionsSting, new AOEShapeCone(11.92f, 45f.Degrees()));
+class TheRamsVoice(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TheRamsVoice, 9.92f);
+class TheRamsVoiceHint(BossModule module) : Components.CastInterruptHint(module, (uint)AID.TheRamsVoice);
+class TheLionsBreath(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TheLionsBreath, new AOEShapeCone(11.92f, 60f.Degrees()));
+class LanguorousGaze(BossModule module) : Components.SimpleAOEs(module, (uint)AID.LanguorousGaze, new AOEShapeCone(8.07f, 45f.Degrees()));
+class TheDragonsVoice(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TheDragonsVoice, new AOEShapeDonut(8f, 30f));
+class TheDragonsVoiceHint(BossModule module) : Components.CastInterruptHint(module, (uint)AID.TheDragonsVoice);
+class TheRamsKeeper(BossModule module) : Components.VoidzoneAtCastTarget(module, 6f, (uint)AID.TheRamsKeeper, GetVoidzones, 0.9f)
 {
-    private bool targeted;
-    private Actor? target;
+    private static Actor[] GetVoidzones(BossModule module)
+    {
+        var enemies = module.Enemies((uint)OID.IceVoidzone);
+        var count = enemies.Count;
+        if (count == 0)
+            return [];
+
+        var voidzones = new Actor[count];
+        var index = 0;
+        for (var i = 0; i < count; ++i)
+        {
+            var z = enemies[i];
+            if (z.EventState != 7)
+                voidzones[index++] = z;
+        }
+        return voidzones[..index];
+    }
+}
+
+class TheRamsKeeperBait(BossModule module) : Components.GenericBaitAway(module, centerAtTarget: true)
+{
+    private static readonly AOEShapeCircle circle = new(6f);
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
         if (iconID == (uint)IconID.Baitaway)
-        {
-            CurrentBaits.Add(new(actor, actor, new AOEShapeCircle(6)));
-            targeted = true;
-            target = actor;
-        }
+            CurrentBaits.Add(new(Module.PrimaryActor, actor, circle));
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.TheRamsKeeper)
-        {
+        if (spell.Action.ID == (uint)AID.TheRamsKeeper)
             CurrentBaits.Clear();
-            targeted = false;
-        }
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         base.AddAIHints(slot, actor, assignment, hints);
-        if (target == actor && targeted)
-            hints.AddForbiddenZone(ShapeContains.Circle(Module.Center, 18));
+        if (CurrentBaits.Count != 0 && CurrentBaits[0].Target == actor)
+            hints.AddForbiddenZone(new SDCircle(Arena.Center, 17.5f));
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        base.AddHints(slot, actor, hints);
-        if (target == actor && targeted)
-            hints.Add("Bait voidzone away!");
+        if (CurrentBaits.Count == 0)
+            return;
+        if (CurrentBaits[0].Target != actor)
+            base.AddHints(slot, actor, hints);
+        else
+            hints.Add("Bait away!");
     }
 }
 
-class IceVoidzone(BossModule module) : Components.PersistentVoidzone(module, 6, m => m.Enemies(OID.IceVoidzone).Where(z => z.EventState != 7));
-class RaucousScritch(BossModule module) : Components.StandardAOEs(module, AID.RaucousScritch, new AOEShapeCone(8.42f, 30.Degrees()));
-class Hurl(BossModule module) : Components.StandardAOEs(module, AID.Hurl, 6);
-class Spin(BossModule module) : Components.Cleave(module, AID.Spin, new AOEShapeCone(9.42f, 60.Degrees()), (uint)OID.BonusAddAltarMatanga);
+class RaucousScritch(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RaucousScritch, new AOEShapeCone(8.42f, 60f.Degrees()));
+class Hurl(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Hurl, 6f);
+class Spin(BossModule module) : Components.Cleave(module, (uint)AID.Spin, new AOEShapeCone(9.42f, 60f.Degrees()), [(uint)OID.AltarMatanga]);
 
-class ChimeraStates : StateMachineBuilder
+class AltarChimeraStates : StateMachineBuilder
 {
-    public ChimeraStates(BossModule module) : base(module)
+    public AltarChimeraStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<TheScorpionsSting>()
@@ -100,35 +114,35 @@ class ChimeraStates : StateMachineBuilder
             .ActivateOnEnter<LanguorousGaze>()
             .ActivateOnEnter<TheRamsKeeper>()
             .ActivateOnEnter<TheRamsKeeperBait>()
-            .ActivateOnEnter<IceVoidzone>()
             .ActivateOnEnter<Hurl>()
             .ActivateOnEnter<RaucousScritch>()
             .ActivateOnEnter<Spin>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.BossAdd).All(e => e.IsDead) && module.Enemies(OID.BonusAddAltarMatanga).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed(AltarChimera.All);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 586, NameID = 7591)]
-public class Chimera(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(20))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 586, NameID = 7591)]
+public class AltarChimera(WorldState ws, Actor primary) : THTemplate(ws, primary)
 {
+    public static readonly uint[] All = [(uint)OID.Boss, (uint)OID.AltarAhriman, (uint)OID.AltarMatanga];
+
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.BossAdd))
-            Arena.Actor(s, ArenaColor.Object);
-        foreach (var s in Enemies(OID.BonusAddAltarMatanga))
-            Arena.Actor(s, ArenaColor.Vulnerable);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.AltarAhriman));
+        Arena.Actors(Enemies((uint)OID.AltarMatanga), Colors.Vulnerable);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.BonusAddAltarMatanga => 3,
-                OID.BossAdd => 2,
-                OID.Boss => 1,
+                (uint)OID.AltarMatanga => 2,
+                (uint)OID.AltarAhriman => 1,
                 _ => 0
             };
         }

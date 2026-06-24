@@ -158,9 +158,9 @@ public enum SID : uint
     #endregion
 }
 
-public sealed class Definitions : Defs
+public sealed class Definitions : IDisposable
 {
-    public override void Define(ActionDefinitions d)
+    public Definitions(ActionDefinitions d)
     {
         d.RegisterSpell(AID.SatelliteBeam, true, castAnimLock: 3.70f); // animLock=3.700s?
         d.RegisterSpell(AID.SplitShot, true);
@@ -216,6 +216,8 @@ public sealed class Definitions : Defs
 
         Customize(d);
     }
+
+    public void Dispose() { }
 
     private void Customize(ActionDefinitions d)
     {

@@ -2,20 +2,20 @@
 
 abstract class SpiritTaker(BossModule module) : Components.GenericStackSpread(module)
 {
-    public const float Radius = 5;
+    public const float Radius = 5f;
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         foreach (var spread in ActiveSpreads.Where(s => s.Target != actor))
-            hints.AddForbiddenZone(ShapeContains.Capsule(spread.Target.Position, spread.Target.LastFrameMovement.Normalized(), 2, spread.Radius + 1), spread.Activation);
+            hints.AddForbiddenZone(new SDCapsule(spread.Target.Position, spread.Target.LastFrameMovement.Normalized(), 2, spread.Radius + 1f), spread.Activation);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.SpiritTaker)
+        if (spell.Action.ID == (uint)AID.SpiritTaker)
         {
-            var activation = Module.CastFinishAt(spell, 0.3f);
-            foreach (var (i, p) in Raid.WithSlot(true))
+            var activation = Module.CastFinishAt(spell, 0.3d);
+            foreach (var (i, p) in Raid.WithSlot(true, true, true))
             {
                 // TODO: i think this is right - we can't clip the entire hitbox of the fragment?..
                 Spreads.Add(new(p, Radius + (i < PartyState.MaxPartySize ? 0 : p.HitboxRadius), activation));
@@ -25,7 +25,7 @@ abstract class SpiritTaker(BossModule module) : Components.GenericStackSpread(mo
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.SpiritTakerAOE)
+        if (spell.Action.ID == (uint)AID.SpiritTakerAOE)
             Spreads.Clear();
     }
 }

@@ -1,6 +1,6 @@
 ﻿namespace BossMod.QuestBattle.ARealmReborn.MSQ;
 
-[ZoneModuleInfo(354)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 354)]
 internal class TheLominsanWay(WorldState ws) : QuestBattle(ws)
 {
     public override void AddQuestAIHints(Actor player, AIHints hints)

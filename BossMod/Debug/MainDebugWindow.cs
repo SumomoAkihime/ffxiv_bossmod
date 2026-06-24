@@ -11,7 +11,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 
 namespace BossMod;
 
-class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleManager zmm, ActionManagerEx amex, MovementOverride move, AIHintsBuilder hintBuilder, IDalamudPluginInterface dalamud) : UIWindow("Boss mod debug UI", false, new(300, 200))
+sealed class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleManager zmm, ActionManagerEx amex, MovementOverride move, AIHintsBuilder hintBuilder, IDalamudPluginInterface dalamud, RotationSolverRebornModule rsr) : UIWindow("Boss mod debug UI", false, new(300, 200))
 {
     private readonly DebugObstacles _debugObstacles = new(hintBuilder.Obstacles, dalamud);
     private readonly DebugObjects _debugObjects = new();
@@ -24,8 +24,8 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
     private readonly DebugAutorotation _debugAutorot = new(autorot);
     private readonly DebugAddon _debugAddon = new();
     private readonly DebugTiming _debugTiming = new();
+    private readonly DebugCollision _debugCollision = new();
     private readonly DebugQuests _debugQuests = new();
-    private readonly DebugVfx _debugVfx = new();
 
     protected override void Dispose(bool disposing)
     {
@@ -33,7 +33,7 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         _debugInput.Dispose();
         _debugAddon.Dispose();
         _debugMapEffect.Dispose();
-        _debugVfx.Dispose();
+        _debugCollision.Dispose();
         base.Dispose(disposing);
     }
 
@@ -49,7 +49,9 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         var instanceDirector = eventFwk != null ? eventFwk->GetInstanceContentDirector() : null;
         ImGui.TextUnformatted($"Content time left: {(instanceDirector != null ? $"{instanceDirector->ContentDirector.ContentTimeLeft:f1}" : "n/a")}");
         if (instanceDirector != null)
+        {
             ImGui.TextUnformatted($"Director address: 0x{(nint)instanceDirector:X}");
+        }
 
         if (ImGui.Button("Perform full dump"))
         {
@@ -108,7 +110,9 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         if (ImGui.CollapsingHeader("Solo duty module"))
         {
             if (zmm.ActiveModule is QuestBattle.QuestBattle qb)
+            {
                 qb.DrawDebugInfo();
+            }
         }
         if (ImGui.CollapsingHeader("Graphics scene"))
         {
@@ -178,9 +182,9 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         {
             DrawWindowSystem();
         }
-        if (ImGui.CollapsingHeader("VFX"))
+        if (ImGui.CollapsingHeader("Collision"))
         {
-            _debugVfx.Draw();
+            _debugCollision.Draw();
         }
         if (ImGui.CollapsingHeader("Limit break"))
         {
@@ -190,27 +194,81 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         {
             _debugQuests.Draw();
         }
+        if (ImGui.CollapsingHeader("Rotation Solver Reborn"))
+        {
+            DrawRSR();
+        }
+    }
+
+    private void DrawRSR()
+    {
+        ImGui.TextUnformatted($"RSR installed: {rsr.IsInstalled}");
+        if (!rsr.IsInstalled)
+        {
+            return;
+        }
+
+        if (ImGui.Button("Pause (NoCasting)"))
+        {
+            rsr.PauseRSR();
+        }
+
+        ImGui.SameLine();
+        if (ImGui.Button("Unpause (EndSpecial)"))
+        {
+            rsr.UnPauseRSR();
+        }
+
+        ImGui.Separator();
+        ImGui.TextUnformatted("TriggerSpecialStateWithDuration:");
+        foreach (var cmd in Enum.GetValues<RotationSolverRebornModule.SpecialCommandType>())
+        {
+            if (cmd == RotationSolverRebornModule.SpecialCommandType.EndSpecial)
+            {
+                continue;
+            }
+
+            if (ImGui.Button($"{cmd}##rsr"))
+            {
+                rsr.TriggerSpecialStateWithDuration(cmd, 7f);
+            }
+
+            ImGui.SameLine();
+        }
+        ImGui.NewLine();
     }
 
     private unsafe void DrawStatuses()
     {
         var player = (Character*)GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
         if (player == null)
+        {
             return;
+        }
 
         ImGui.TextUnformatted($"Forced movement direction: {MovementOverride.ForcedMovementDirection->Radians()}");
         ImGui.SameLine();
         if (ImGui.Button("Add misdirection"))
+        {
             player->GetStatusManager()->SetStatus(20, 3909, 20.0f, 100, (GameObjectId)0xE0000000, true);
+        }
+
         ImGui.SameLine();
         if (ImGui.Button("Add thin ice"))
+        {
             player->GetStatusManager()->SetStatus(20, 911, 20.0f, 50, (GameObjectId)0xE0000000, true); // param = distance * 10
+        }
+
         ImGui.SameLine();
         if (ImGui.Button("Add spinning"))
+        {
             player->GetStatusManager()->SetStatus(20, 2973, 20.0f, 7, (GameObjectId)0xE0000000, true);
+        }
 
         if (ImGui.Button("Clear temp status"))
+        {
             player->GetStatusManager()->RemoveStatus(20);
+        }
 
         ImGui.SameLine();
         ImGui.TextUnformatted($"Forced movement direction: {ws.Client.ForcedMovementDirection}");
@@ -249,7 +307,9 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         foreach (var elem in ws.Actors)
         {
             if (elem.CastInfo == null || elem.IsAlly)
+            {
                 continue;
+            }
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
@@ -274,7 +334,9 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
     {
         var player = Service.ObjectTable.LocalPlayer;
         if (player == null)
+        {
             return;
+        }
 
         ImGui.BeginTable("items", 3, ImGuiTableFlags.Resizable | ImGuiTableFlags.RowBg);
         ImGui.TableSetupColumn("ID", ImGuiTableColumnFlags.WidthFixed, 30);
@@ -300,11 +362,15 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
     {
         var player = Service.ObjectTable.LocalPlayer;
         if (player == null)
+        {
             return;
+        }
 
         var aeh = ((BattleChara*)player.Address)->GetActionEffectHandler();
         if (aeh == null)
+        {
             return;
+        }
 
         ImGui.TextUnformatted($"Effecthandler address: {(nint)aeh:X}");
 
@@ -319,7 +385,9 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         foreach (var entry in aeh->IncomingEffects)
         {
             if (entry.ActionId == 0)
+            {
                 continue;
+            }
 
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
@@ -336,7 +404,9 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
             foreach (var eff in entry.Effects.Effects)
             {
                 if (eff.Type > 0)
+                {
                     ImGui.TextUnformatted($"{(ActionEffectType)eff.Type} {eff.Param0:X2} {eff.Param1:X2} {eff.Param2:X2} {eff.Param3:X2} {eff.Param4:X2} {eff.Value}");
+                }
             }
         }
         ImGui.EndTable();
@@ -391,16 +461,31 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
 
         if (ImGui.Button("Target closest enemy"))
         {
-            var closest = Service.ObjectTable.Where(o => o.ObjectKind == Dalamud.Game.ClientState.Objects.Enums.ObjectKind.BattleNpc && o.SubKind == 5).MinBy(o => (o.Position - selfPos).LengthSquared());
+            IGameObject? closest = null;
+            var closestDist = float.MaxValue;
+            foreach (var o in Service.ObjectTable)
+            {
+                if (o.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.BattleNpc || o.SubKind != 5)
+                {
+                    continue;
+                }
+
+                var d = (o.Position - selfPos).LengthSquared();
+                if (d < closestDist) { closestDist = d; closest = o; }
+            }
             if (closest != null)
+            {
                 Service.TargetManager.Target = closest;
+            }
         }
     }
 
     private unsafe void DrawTarget(string kind, GameObject* obj, Vector3 selfPos, Angle refAngle)
     {
         if (obj == null)
+        {
             return;
+        }
 
         var selfToObj = (Vector3)obj->Position - selfPos;
         var dist = selfToObj.Length();
@@ -466,7 +551,7 @@ class MainDebugWindow(WorldState ws, RotationModuleManager autorot, ZoneModuleMa
         ImGui.TableSetupColumn("Index");
         ImGui.TableSetupColumn("Value");
         ImGui.TableHeadersRow();
-        for (int i = 0; i < 74; ++i)
+        for (var i = 0; i < 74; ++i)
         {
             ImGui.TableNextRow();
             ImGui.TableNextColumn();

@@ -3,115 +3,106 @@ namespace BossMod.Shadowbringers.Dungeon.D05MtGulg.D053ForgivenWhimsy;
 public enum OID : uint
 {
     Boss = 0x27CC, //R=20.00
-    Helper = 0x2E8, //R=0.5
-    Helper2 = 0x233C,
     Brightsphere = 0x27CD, //R=1.0
     Towers = 0x1EAACF, //R=0.5
+    Helper2 = 0x2E8, //R=0.5
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    AutoAttack = 15624, // 27CC->player, no cast, single-target
-    SacramentOfPenance = 15627, // 27CC->self, 4.0s cast, single-target
-    SacramentOfPenance2 = 15628, // 233C->self, no cast, range 50 circle
-    Reformation = 15620, // 27CC->self, no cast, single-target, boss changes pattern
-    ExegesisA = 16989, // 27CC->self, 5.0s cast, single-target
-    ExegesisB = 16987, // 27CC->self, 5.0s cast, single-target
-    ExegesisC = 15622, // 27CC->self, 5.0s cast, single-target
-    ExegesisD = 16988, // 27CC->self, 5.0s cast, single-target
-    Exegesis = 15623, // 233C->self, no cast, range 10 width 10 rect
-    Catechism = 15625, // 27CC->self, 4.0s cast, single-target
-    Catechism2 = 15626, // 233C->player, no cast, single-target
-    JudgmentDay = 15631, // 27CC->self, 3.0s cast, single-target, tower circle 5
-    Judged = 15633, // 233C->self, no cast, range 5 circle, tower success
-    FoundWanting = 15632, // 233C->self, no cast, range 40 circle, tower fail
-    RiteOfTheSacrament = 15629, // 27CC->self, no cast, single-target
-    PerfectContrition = 15630, // 27CD->self, 6.0s cast, range 5-15 donut
+    AutoAttack = 15624, // Boss->player, no cast, single-target
+
+    SacramentOfPenanceVisual = 15627, // Boss->self, 4.0s cast, single-target
+    SacramentOfPenance = 15628, // Helper->self, no cast, range 50 circle
+    Reformation = 15620, // Boss->self, no cast, single-target, boss changes pattern
+    ExegesisA = 16989, // Boss->self, 5.0s cast, single-target
+    ExegesisB = 16987, // Boss->self, 5.0s cast, single-target
+    ExegesisC = 15622, // Boss->self, 5.0s cast, single-target
+    ExegesisD = 16988, // Boss->self, 5.0s cast, single-target
+    Exegesis = 15623, // Helper->self, no cast, range 10 width 10 rect
+    Catechism = 15625, // Boss->self, 4.0s cast, single-target
+    Catechism2 = 15626, // Helper->player, no cast, single-target
+    JudgmentDay = 15631, // Boss->self, 3.0s cast, single-target, tower circle 5
+    Judged = 15633, // Helper->self, no cast, range 5 circle, tower success
+    FoundWanting = 15632, // Helper->self, no cast, range 40 circle, tower fail
+    RiteOfTheSacrament = 15629, // Boss->self, no cast, single-target
+    PerfectContrition = 15630 // Brightsphere->self, 6.0s cast, range 5-15 donut
 }
 
-class Catechism(BossModule module) : Components.SingleTargetCastDelay(module, AID.Catechism, AID.Catechism2, 0.5f);
-class SacramentOfPenance(BossModule module) : Components.RaidwideCastDelay(module, AID.SacramentOfPenance, AID.SacramentOfPenance2, 0.5f);
-class PerfectContrition(BossModule module) : Components.StandardAOEs(module, AID.PerfectContrition, new AOEShapeDonut(5, 15));
+class PerfectContrition(BossModule module) : Components.GenericAOEs(module)
+{
+    private static readonly AOEShapeDonut donut = new(5f, 15f);
+    private readonly List<AOEInstance> _aoes = new(4);
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if (actor.OID == (uint)OID.Brightsphere)
+            _aoes.Add(new(donut, actor.Position.Quantized(), default, WorldState.FutureTime(10.6d)));
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.PerfectContrition)
+            _aoes.Clear();
+    }
+}
+
+class Catechism(BossModule module) : Components.SingleTargetCastDelay(module, (uint)AID.Catechism, (uint)AID.Catechism2, 0.5f);
+class SacramentOfPenance(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.SacramentOfPenanceVisual, (uint)AID.SacramentOfPenance, 0.5f);
 
 class JudgmentDay(BossModule module) : Components.GenericTowers(module)
 {
     public override void OnActorCreated(Actor actor)
     {
-        if ((OID)actor.OID == OID.Towers)
-            Towers.Add(new(actor.Position, 5, activation: WorldState.FutureTime(7.7f)));
+        if (actor.OID == (uint)OID.Towers)
+            Towers.Add(new(actor.Position.Quantized(), 5f, activation: WorldState.FutureTime(7.6d)));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.Judged or AID.FoundWanting)
-            Towers.RemoveAll(t => t.Position.AlmostEqual(caster.Position, 1));
+        if (Towers.Count != 0 && spell.Action.ID is (uint)AID.Judged or (uint)AID.FoundWanting)
+            Towers.RemoveAt(0);
     }
 }
 
 class Exegesis(BossModule module) : Components.GenericAOEs(module)
 {
-    private DateTime _activation;
-    public enum Patterns { None, Diagonal, Cross, EastWest, NorthSouth }
-    public Patterns Pattern { get; private set; }
-    private static readonly AOEShapeRect rect = new(5, 5, 5);
+    private readonly List<AOEInstance> _aoes = new(5);
+    private static readonly AOEShapeRect rect = new(5f, 5f, 5f);
+    private static readonly AOEShapeCross cross = new(15f, 5f);
+    private static readonly WPos[] diagonalPositions = [new(-240f, -50f), new(-250f, -40f), new(-230f, -40f), new(-250f, -60f), new(-230f, -60f)];
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        if (Pattern == Patterns.Diagonal)
-        {
-            yield return new(rect, new(-240, -50), default, _activation);
-            yield return new(rect, new(-250, -40), default, _activation);
-            yield return new(rect, new(-230, -40), default, _activation);
-            yield return new(rect, new(-250, -60), default, _activation);
-            yield return new(rect, new(-230, -60), default, _activation);
-        }
-        if (Pattern == Patterns.EastWest)
-        {
-            yield return new(rect, new(-250, -50), default, _activation);
-            yield return new(rect, new(-230, -50), default, _activation);
-        }
-        if (Pattern == Patterns.NorthSouth)
-        {
-            yield return new(rect, new(-240, -60), default, _activation);
-            yield return new(rect, new(-240, -40), default, _activation);
-        }
-        if (Pattern == Patterns.Cross)
-        {
-            yield return new(rect, new(-230, -50), default, _activation);
-            yield return new(rect, new(-240, -60), default, _activation);
-            yield return new(rect, new(-240, -40), default, _activation);
-            yield return new(rect, new(-250, -50), default, _activation);
-            yield return new(rect, new(-240, -50), default, _activation);
-        }
-    }
-
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.ExegesisA:
-                Pattern = Patterns.Diagonal;
-                _activation = Module.CastFinishAt(spell);
+            case (uint)AID.ExegesisA: // diagonal
+                for (var i = 0; i < 5; ++i)
+                    AddAOE(rect, diagonalPositions[i]);
                 break;
-            case AID.ExegesisB:
-                Pattern = Patterns.EastWest;
-                _activation = Module.CastFinishAt(spell);
+            case (uint)AID.ExegesisB: // east+west
+                AddAOE(rect, new(-250f, -50f));
+                AddAOE(rect, new(-230f, -50f));
                 break;
-            case AID.ExegesisC:
-                Pattern = Patterns.NorthSouth;
-                _activation = Module.CastFinishAt(spell);
+            case (uint)AID.ExegesisC: // north+south
+                AddAOE(rect, new(-240f, -60f));
+                AddAOE(rect, new(-240f, -40f));
                 break;
-            case AID.ExegesisD:
-                Pattern = Patterns.Cross;
-                _activation = Module.CastFinishAt(spell);
+            case (uint)AID.ExegesisD: // cross
+                AddAOE(cross, new(-240f, -50f));
                 break;
         }
+        void AddAOE(AOEShape shape, WPos position) => _aoes.Add(new(shape, position, default, Module.CastFinishAt(spell, 0.4f)));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.Exegesis)
-            Pattern = Patterns.None;
+        if (spell.Action.ID == (uint)AID.Exegesis)
+            _aoes.Clear();
     }
 }
 
@@ -128,5 +119,5 @@ class D053ForgivenWhimsyStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus, xan", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 659, NameID = 8261)]
-public class D053ForgivenWhimsy(WorldState ws, Actor primary) : BossModule(ws, primary, new(-240, -50), new ArenaBoundsSquare(15));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 659, NameID = 8261)]
+public class D053ForgivenWhimsy(WorldState ws, Actor primary) : BossModule(ws, primary, new(-240f, -50f), new ArenaBoundsSquare(14.5f));

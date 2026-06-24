@@ -2,16 +2,16 @@
 
 class P4UltimateAnnihilation(BossModule module) : BossComponent(module)
 {
-    private readonly IReadOnlyList<Actor> _orbs = module.Enemies(OID.Aetheroplasm);
+    private readonly List<Actor> _orbs = module.Enemies((uint)OID.Aetheroplasm);
 
-    private const float _radius = 6;
+    private const float _radius = 6f;
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         foreach (var orb in _orbs.Where(o => !o.IsDead))
         {
-            Arena.Actor(orb, ArenaColor.Object, true);
-            Arena.AddCircle(orb.Position, _radius, ArenaColor.Object);
+            Arena.Actor(orb, Colors.Object, true);
+            Arena.AddCircle(orb.Position, _radius, Colors.Object);
         }
     }
 }

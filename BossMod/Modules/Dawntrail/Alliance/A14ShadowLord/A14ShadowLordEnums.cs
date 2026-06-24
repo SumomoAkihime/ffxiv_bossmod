@@ -2,15 +2,16 @@
 
 public enum OID : uint
 {
-    Boss = 0x4657, // R10.502, x1
-    LordlyShadow = 0x4659, // R10.502, x2
-    Helper = 0x233C, // R0.500, x40, Helper type
+    Boss = 0x4657, // R10.502
+    LordlyShadow = 0x4659, // R10.502
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
     AutoAttack = 41747, // Boss->player, no cast, single-target
     Teleport = 40810, // Boss->location, no cast, single-target
+
     GigaSlashL = 40766, // Boss/LordlyShadow->self, 11.0+1.0s cast, single-target, visual (left -> right)
     GigaSlashR = 40767, // Boss/LordlyShadow->self, 11.0+1.0s cast, single-target, visual (right -> left)
     GigaSlashLAOE1 = 40768, // Helper->self, 12.0s cast, range 60 225-degree cone (left cleave, first in LR sequence)
@@ -81,12 +82,12 @@ public enum AID : uint
     DamningStrikesImpact2 = 41110, // Helper->self, 13.0s cast, range 3 circle, tower 2
     DamningStrikesImpact3 = 41111, // Helper->self, 15.7s cast, range 3 circle, tower 3
     DamningStrikesShockwave = 41112, // Helper->self, no cast, range 100 circle, raidwide with dot if tower is not soaked
-    DoomArc = 40806, // Boss->self, 15.0s cast, range 100 circle, raidwide with bleed + damage up
+    DoomArc = 40806 // Boss->self, 15.0s cast, range 100 circle, raidwide with bleed + damage up
 }
 
 public enum IconID : uint
 {
     EchoesOfAgony = 545, // player->self
     UnbridledRage = 471, // player->self
-    DarkNova = 311, // player->self
+    DarkNova = 311 // player->self
 }

@@ -63,16 +63,16 @@ class Intemperance(BossModule module) : BossComponent(module)
         }
         else
         {
-            int actorCell = PositionFromCoords(actor.Position);
+            var actorCell = PositionFromCoords(actor.Position);
             if (_playerAssignment != null)
             {
-                int expectedCell = NumExplosions == 1 ? Position2(_playerAssignment[slot]) : Position3(_playerAssignment[slot]);
+                var expectedCell = NumExplosions == 1 ? Position2(_playerAssignment[slot]) : Position3(_playerAssignment[slot]);
                 if (actorCell != expectedCell)
                 {
                     hints.Add("Go to assigned cell!");
                 }
             }
-            else if (Raid.WithoutSlot().Exclude(actor).Any(other => PositionFromCoords(other.Position) == actorCell))
+            else if (Raid.WithoutSlot(false, true, true).Exclude(actor).Any(other => PositionFromCoords(other.Position) == actorCell))
             {
                 hints.Add("Stand in own cell!");
             }
@@ -126,8 +126,8 @@ class Intemperance(BossModule module) : BossComponent(module)
             {
                 // on first explosion, assign players to cubes
                 _playerAssignment = new int[PartyState.MaxPartySize];
-                int occupiedMask = 0;
-                foreach (var (slot, player) in Raid.WithSlot(true))
+                var occupiedMask = 0;
+                foreach (var (slot, player) in Raid.WithSlot(true, true, true))
                 {
                     var pos = _playerAssignment[slot] = PositionFromCoords(player.Position);
                     occupiedMask |= 1 << pos;
@@ -172,7 +172,7 @@ class Intemperance(BossModule module) : BossComponent(module)
 
     private int PositionFromCoords(WPos coords)
     {
-        return (coords - Module.Center) switch
+        return (coords - Arena.Center) switch
         {
             { X: < -7, Z: < -7 } => 0,
             { X: > +7, Z: < -7 } => 2,
@@ -193,7 +193,7 @@ class Intemperance(BossModule module) : BossComponent(module)
 
     private WPos PosCenter(int pos)
     {
-        return Module.Center + 14 * _offsets[pos];
+        return Arena.Center + 14 * _offsets[pos];
     }
 
     private int Position2(int pos1)
@@ -226,7 +226,7 @@ class Intemperance(BossModule module) : BossComponent(module)
         if (_pattern == Pattern.Symmetrical)
             return pos1; // everyone returns to initial spot
 
-        int swapCorner = SwapCorner();
+        var swapCorner = SwapCorner();
         if (pos1 == swapCorner)
             return 1; // swap-corner goes N
         else if (pos1 == 1)
@@ -241,11 +241,11 @@ class Intemperance(BossModule module) : BossComponent(module)
         {
             case 1:
                 var mid = PosCenter(Position2(assignment));
-                yield return (mid, PosCenter(Position3(assignment)), ArenaColor.Danger);
-                yield return (startingPosition, mid, ArenaColor.Safe);
+                yield return (mid, PosCenter(Position3(assignment)), Colors.Danger);
+                yield return (startingPosition, mid, Colors.Safe);
                 break;
             case 2:
-                yield return (startingPosition, PosCenter(Position3(assignment)), ArenaColor.Safe);
+                yield return (startingPosition, PosCenter(Position3(assignment)), Colors.Safe);
                 break;
         }
     }

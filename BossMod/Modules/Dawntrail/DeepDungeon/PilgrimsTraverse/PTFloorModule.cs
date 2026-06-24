@@ -53,7 +53,7 @@ public abstract class PTFloorModule(WorldState ws) : AutoClear(ws, 100)
     {
         base.CalculateAIHints(playerSlot, player, hints);
 
-        if (_config.Enable && !player.InCombat)
+        if (Config.Enable && !player.InCombat)
         {
             var interactDist = hints.InteractWithTarget is { } t ? player.DistanceToPoint(t.Position) : float.MaxValue;
             if (World.Actors.FirstOrDefault(t => t.OID == 0x1EBE27 && t.IsTargetable) is { } v && player.DistanceToPoint(v.Position) < interactDist)
@@ -63,8 +63,8 @@ public abstract class PTFloorModule(WorldState ws) : AutoClear(ws, 100)
         foreach (var tar in World.Actors.Where(o => o.OID == (uint)OID.TraverseTroubadour && !o.IsDead))
         {
             // turtles do 60k autos that apply vuln, but are much slower than the player
-            if (tar.TargetID == player.InstanceID && (tar.CastInfo == null || tar.CastInfo.RemainingTime < 1))
-                hints.AddForbiddenZone(ShapeContains.Circle(tar.Position, tar.HitboxRadius + 5.5f));
+            if (tar.TargetID == player.InstanceID && (tar.CastInfo == null || tar.CastInfo.RemainingTime < 1f))
+                hints.AddForbiddenZone(new SDCircle(tar.Position, tar.HitboxRadius + 5.5f));
 
             // TODO: add a separate forbidden zone for sight cone if turtle is out of combat
         }
@@ -79,44 +79,44 @@ public abstract class PTFloorModule(WorldState ws) : AutoClear(ws, 100)
 
         // does Tail Drive have a cast bar
 
-        switch ((AID)actor.CastInfo!.Action.ID)
+        switch (actor.CastInfo!.Action.ID)
         {
-            case AID.EarthenAuger:
-                AddDonut(actor, 3, 30, 135.Degrees());
+            case (uint)AID.EarthenAuger:
+                AddDonut(actor, 3f, 30f, 135f.Degrees());
                 HintDisabled.Add(actor);
                 break;
 
-            case AID.PeripheralLasers:
-                AddDonut(actor, 5, 60);
+            case (uint)AID.PeripheralLasers:
+                AddDonut(actor, 5f, 60f);
                 HintDisabled.Add(actor);
                 break;
 
-            case AID.Malice:
+            case (uint)AID.Malice:
                 Interrupts.Add(actor);
                 Stuns.Add(actor);
                 break;
 
-            case AID.MagneticShock:
-                KnockbackZones.Add((actor, 15));
+            case (uint)AID.MagneticShock:
+                KnockbackZones.Add((actor, 15f));
                 HintDisabled.Add(actor);
                 break;
 
-            case AID.RollingBarrage:
+            case (uint)AID.RollingBarrage:
                 Circles.Add((actor, 45));
                 break;
 
-            case AID.IncineratingLahar:
+            case (uint)AID.IncineratingLahar:
                 Circles.Add((actor, 46));
                 break;
 
             // stun for melee uptime
-            case AID.Plaincracker:
-            case AID.PainfulGust:
+            case (uint)AID.Plaincracker:
+            case (uint)AID.PainfulGust:
                 Stuns.Add(actor);
                 break;
 
-            case AID.MasterOfLevin:
-                AddDonut(actor, 5, 30);
+            case (uint)AID.MasterOfLevin:
+                AddDonut(actor, 5f, 30f);
                 HintDisabled.Add(actor);
                 break;
         }
@@ -124,44 +124,44 @@ public abstract class PTFloorModule(WorldState ws) : AutoClear(ws, 100)
 
     protected override void OnEventCast(Actor actor, ActorCastEvent ev)
     {
-        switch ((AID)ev.Action.ID)
+        switch (ev.Action.ID)
         {
-            case AID.ShrinkingCirclesOfAblution1:
-                AddVoidzone(actor, new AOEShapeCircle(10), World.FutureTime(3.1f));
+            case (uint)AID.ShrinkingCirclesOfAblution1:
+                AddVoidzone(actor, new AOEShapeCircle(10f));
                 break;
-            case AID.GrowingCirclesOfAblution1:
-                AddVoidzone(actor, new AOEShapeDonut(10, 40), World.FutureTime(3.1f));
+            case (uint)AID.GrowingCirclesOfAblution1:
+                AddVoidzone(actor, new AOEShapeDonut(10f, 40f));
                 break;
-            case AID.Accelerate:
-                AddVoidzone(actor, new AOEShapeDonut(5, 10));
-                break;
-
-            case AID.RightSidedShockwaveCast:
-                AddVoidzone(actor, new AOEShapeCone(30, 90.Degrees(), 90.Degrees()));
-                break;
-            case AID.LeftSidedShockwaveCast:
-                AddVoidzone(actor, new AOEShapeCone(30, 90.Degrees(), -90.Degrees()));
+            case (uint)AID.Accelerate:
+                AddVoidzone(actor, new AOEShapeDonut(5f, 10f));
                 break;
 
-            case AID.HailOfHeelsCast:
-                AddVoidzone(actor, new AOEShapeCone(8, 90.Degrees()), Counter: 3);
+            case (uint)AID.RightSidedShockwaveCast:
+                AddVoidzone(actor, new AOEShapeCone(30f, 90f.Degrees(), 90f.Degrees()));
+                break;
+            case (uint)AID.LeftSidedShockwaveCast:
+                AddVoidzone(actor, new AOEShapeCone(30f, 90f.Degrees(), -90f.Degrees()));
                 break;
 
-            case AID.HailOfHeels:
+            case (uint)AID.HailOfHeelsCast:
+                AddVoidzone(actor, new AOEShapeCone(8f, 90f.Degrees()), 3);
+                break;
+
+            case (uint)AID.HailOfHeels:
                 var vz = Voidzones.FindIndex(v => v.Source.InstanceID == actor.InstanceID);
                 if (vz >= 0)
                 {
-                    Voidzones.Ref(vz).Counter--;
+                    --Voidzones.Ref(vz).Counter;
                     if (Voidzones[vz].Counter <= 0)
                         Voidzones.RemoveAt(vz);
                 }
                 break;
 
-            case AID.ShrinkingCirclesOfAblution2:
-            case AID.GrowingCirclesOfAblution2:
-            case AID.RightSidedShockwave:
-            case AID.LeftSidedShockwave:
-            case AID.Subduction:
+            case (uint)AID.ShrinkingCirclesOfAblution2:
+            case (uint)AID.GrowingCirclesOfAblution2:
+            case (uint)AID.RightSidedShockwave:
+            case (uint)AID.LeftSidedShockwave:
+            case (uint)AID.Subduction:
                 Voidzones.RemoveAll(v => v.Source == actor);
                 break;
         }
@@ -169,42 +169,42 @@ public abstract class PTFloorModule(WorldState ws) : AutoClear(ws, 100)
 
     protected override void OnCastFinished(Actor actor)
     {
-        switch ((AID)actor.CastInfo!.Action.ID)
+        switch (actor.CastInfo!.Action.ID)
         {
-            case AID.SmolderingScales:
-                Spikes.Add((actor, World.FutureTime(10)));
+            case (uint)AID.SmolderingScales:
+                Spikes.Add((actor, World.FutureTime(10d)));
                 break;
         }
     }
 
     protected override void OnStatusLose(Actor actor, ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.BlazeSpikes:
+            case (uint)SID.BlazeSpikes:
                 Spikes.RemoveAll(s => s.Actor == actor);
                 break;
         }
     }
 }
 
-[ZoneModuleInfo(1032)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 1032)]
 public class PT10(WorldState ws) : PTFloorModule(ws);
-[ZoneModuleInfo(1033)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 1033)]
 public class PT20(WorldState ws) : PTFloorModule(ws);
-[ZoneModuleInfo(1034)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 1034)]
 public class PT30(WorldState ws) : PTFloorModule(ws);
-[ZoneModuleInfo(1035)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 1035)]
 public class PT40(WorldState ws) : PTFloorModule(ws);
-[ZoneModuleInfo(1036)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 1036)]
 public class PT50(WorldState ws) : PTFloorModule(ws);
-[ZoneModuleInfo(1037)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 1037)]
 public class PT60(WorldState ws) : PTFloorModule(ws);
-[ZoneModuleInfo(1038)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 1038)]
 public class PT70(WorldState ws) : PTFloorModule(ws);
-[ZoneModuleInfo(1039)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 1039)]
 public class PT80(WorldState ws) : PTFloorModule(ws);
-[ZoneModuleInfo(1040)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 1040)]
 public class PT90(WorldState ws) : PTFloorModule(ws);
-[ZoneModuleInfo(1041)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 1041)]
 public class PT100(WorldState ws) : PTFloorModule(ws);

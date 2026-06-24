@@ -2,72 +2,82 @@ namespace BossMod.Heavensward.Dungeon.D05GreatGubalLibrary.D051DemonTome;
 
 public enum OID : uint
 {
-    Boss = 0xE82, // R7.840, x?
-    DemonTome = 0xED6, // R0.500, x?
-    Helper = 0x233C, // x?
-}
-public enum AID : uint
-{
-    LiquefyInner = 3520, // ED6->self, 3.0s cast, range 50+R width 8 rect
-    LiquefyOuter = 3521, // ED6->self, 3.0s cast, range 50+R width 7 rect
-    Repel = 3519, // E82->self, 3.0s cast, range 40+R ?-degree cone
-    Disclosure = 4818, // ED6->self, 8.0s cast, range 20+R width 22 rect
-    DisclosureVisual = 3518, // E82->self, 8.0s cast, single-target
-    A = 3989, // ED6->self, no cast, range 12+R circle - I think this is the Spinaround Knockback Mech
-    WordsOfWinter = 3961, // ED6->self, 4.5s cast, range 40+R width 22 rect
-    WordsOfWinterVisual = 3517, // E82->self, 4.0s cast, single-target
+    Boss = 0xE82, // R7.84
+    IceFloor = 0x1E9944, // R0.5
+    Helper = 0xED6
 }
 
-class LiquefyInner(BossModule module) : Components.StandardAOEs(module, AID.LiquefyInner, new AOEShapeRect(50f + 7.84f, 4));
-class LiquefyOuter(BossModule module) : Components.StandardAOEs(module, AID.LiquefyOuter, new AOEShapeRect(50f + 7.84f, 3.5f));
-class Repel(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Repel, 20, true, kind: Kind.DirForward, stopAtWall: true);
-class Disclosure(BossModule module) : BossComponent(module)
+public enum AID : uint
 {
-    private readonly List<Actor> _casters = [];
+    Blizzard = 3522, // Boss->player, no cast, single-target
+    Repel = 3519, // Boss->self, 3.0s cast, range 40+R 180-degree cone, knockback 20, source forward
+    WordsOfWinterVisual = 3517, // Boss->self, 4.0s cast, single-target
+    WordsOfWinter = 3961, // Helper->self, 4.5s cast, range 40+R width 22 rect
+
+    LiquefyCenter = 3520, // Helper->self, 3.0s cast, range 50+R width 8 rect
+    LiquefySides = 3521, // Helper->self, 3.0s cast, range 50+R width 7 rect
+
+    DisclosureVisual = 3518, // Boss->self, 8.0s cast, single-target
+    Disclosure = 4818, // Helper->self, 8.0s cast, range 20+R width 22 rect
+    DisclosureSpin = 3989, // Helper->self, no cast, range 12+R circle, knockback 20 away from source
+    BetweenTheLines = 3926, // Boss->player, no cast, single-target, didn't switch sides in time, 25k dmg per hit
+}
+
+class Repel(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.Repel, 20, true, kind: Kind.DirForward, stopAtWall: true);
+class LiquefyCenter(BossModule module) : Components.SimpleAOEs(module, (uint)AID.LiquefyCenter, new AOEShapeRect(57.84f, 4));
+class LiquefySides(BossModule module) : Components.SimpleAOEs(module, (uint)AID.LiquefySides, new AOEShapeRect(57.84f, 3.5f));
+class Disclosure(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Disclosure, new AOEShapeRect(20.5f, 11f));
+
+class DisclosureSpin(BossModule module) : Components.GenericAOEs(module)
+{
+    private AOEInstance[] _aoe = [];
+    private static readonly AOEShapeCircle circle = new(12.5f);
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.Disclosure)
-            _casters.Add(caster);
+        if (spell.Action.ID == (uint)AID.Disclosure)
+        {
+            Arena.Bounds = D051DemonTome.SpinArena;
+            _aoe = [new(circle, Module.PrimaryActor.Position.Quantized(), default, Module.CastFinishAt(spell, 2.4d))];
+        }
     }
 
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.Disclosure)
-            _casters.Remove(caster);
-    }
-    public override void AddHints(int slot, Actor actor, TextHints hints)
-    {
-        if (_casters.Count > 0)
-            hints.Add("Get Behind Boss!");
-    }
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        foreach (var c in _casters)
+        if (spell.Action.ID == (uint)AID.DisclosureSpin)
         {
-            hints.AddForbiddenZone(new AOEShapeRect(20f + 7.84f, 11f, 7.84f), c.Position, c.Rotation);
-            hints.AddForbiddenZone(new AOEShapeRect(20f + 7.84f, 5.5f, 3.42f), c.Position, c.Rotation + 180.Degrees());
+            _aoe = [];
+            Arena.Bounds = D051DemonTome.DefaultArena;
         }
     }
-    public override void DrawArenaBackground(int pcSlot, Actor pc)
-    {
-        foreach (var c in _casters)
-        {
-            Arena.ZoneRect(c.Position, c.Rotation.ToDirection().Rotate(0.Degrees()), 20f + 7.84f, 7.84f, 11f, ArenaColor.Danger);
-            Arena.ZoneRect(c.Position, c.Rotation.ToDirection().Rotate(180.Degrees()), 8f + 7.84f, 3.42f, 5.5f, ArenaColor.Danger);
-        }
-    }
-};
+}
+
+class ThinIce(BossModule module) : Components.ThinIce(module, 15, stopAtWall: true);
+
 class D051DemonTomeStates : StateMachineBuilder
 {
     public D051DemonTomeStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<LiquefyInner>()
-            .ActivateOnEnter<LiquefyOuter>()
+            .ActivateOnEnter<ThinIce>()
+            .ActivateOnEnter<LiquefyCenter>()
+            .ActivateOnEnter<LiquefySides>()
             .ActivateOnEnter<Repel>()
-            .ActivateOnEnter<Disclosure>();
+            .ActivateOnEnter<Disclosure>()
+            .ActivateOnEnter<DisclosureSpin>();
     }
 }
-[ModuleInfo(Contributors = "VeraNala", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 31, NameID = 3923)]
-public class D051DemonTome(WorldState ws, Actor primary) : BossModule(ws, primary, new(0.5f, 0), new ArenaBoundsRect(19.5f, 10f));
+
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 31, NameID = 3923)]
+public class D051DemonTome(WorldState ws, Actor primary) : BossModule(ws, primary, DefaultArena.Center, DefaultArena)
+{
+    private static readonly Rectangle midRect = new(new(-0.182f, 0.014f), 3.475f, 4.5f, 0.02f.Degrees());
+    private static readonly Rectangle entranceRect = new(new(-20.486f, 0.109f), 1.25f, 8f);
+    private static readonly Rectangle exitRect = new(new(20.388f, -0.18f), 1.25f, 8f);
+    private static readonly Rectangle[] baseArena = [new Rectangle(default, 19.5f, 9.5f)];
+    public static readonly ArenaBoundsCustom DefaultArena = new(baseArena, [entranceRect, exitRect, midRect, new Rectangle(new(-0.166f, 8.588f), 3.487f, 5f),
+     new Rectangle(new(-0.185f, -8.554f), 3.475f, 5f)]);
+    public static readonly ArenaBoundsCustom SpinArena = new(baseArena, [entranceRect, exitRect, midRect]);
+}

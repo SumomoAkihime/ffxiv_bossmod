@@ -1,36 +1,54 @@
 ﻿namespace BossMod.Dawntrail.Extreme.Ex3QueenEternal;
 
-class LegitimateForce(BossModule module) : Components.GenericAOEs(module)
+sealed class LegitimateForce(BossModule module) : Components.GenericAOEs(module)
 {
-    public readonly List<AOEInstance> AOEs = [];
+    public readonly List<AOEInstance> AOEs = new(2);
+    private static readonly AOEShapeRect rect = new(20f, 40f);
 
-    private static readonly AOEShapeRect Shape = new(60, 15);
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => AOEs.Take(1);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var count = AOEs.Count;
+        if (count == 0)
+            return [];
+        var aoes = CollectionsMarshal.AsSpan(AOEs);
+        if (count == 1)
+        {
+            aoes[0].Risky = true;
+        }
+        return aoes;
+    }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        var dx = (AID)spell.Action.ID switch
+        switch (spell.Action.ID)
         {
-            AID.LegitimateForceFirstR => -15,
-            AID.LegitimateForceFirstL => +15,
-            _ => 0
-        };
-
-        if (dx != 0)
+            case (uint)AID.LegitimateForceFirstR:
+                AddAOEs(caster, -90f, 90f);
+                break;
+            case (uint)AID.LegitimateForceFirstL:
+                AddAOEs(caster, 90f, -90f);
+                break;
+        }
+        void AddAOEs(Actor caster, float first, float second)
         {
-            AOEs.Add(new(Shape, caster.Position + new WDir(dx, 0), default, Module.CastFinishAt(spell)));
-            AOEs.Add(new(Shape, caster.Position - new WDir(dx, 0), default, Module.CastFinishAt(spell, 3.1f)));
+            AddAOE(first);
+            AddAOE(second, 3.1f, false);
+            void AddAOE(float offset, float delay = default, bool first = true) => AOEs.Add(new(rect, caster.Position, spell.Rotation + offset.Degrees(), Module.CastFinishAt(spell, delay), first ? Colors.Danger : default, first));
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.LegitimateForceFirstR or AID.LegitimateForceFirstL or AID.LegitimateForceSecondR or AID.LegitimateForceSecondL)
+        switch (spell.Action.ID)
         {
-            ++NumCasts;
-            if (AOEs.Count > 0)
-                AOEs.RemoveAt(0);
+            case (uint)AID.LegitimateForceFirstL:
+            case (uint)AID.LegitimateForceFirstR:
+            case (uint)AID.LegitimateForceSecondL:
+            case (uint)AID.LegitimateForceSecondR:
+                ++NumCasts;
+                if (AOEs.Count != 0)
+                    AOEs.RemoveAt(0);
+                break;
         }
     }
 }

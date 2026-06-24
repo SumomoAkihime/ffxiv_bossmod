@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Alliance.A12IrminsulSawtooth;
+﻿namespace BossMod.Heavensward.Alliance.A12IrminsulSawtooth;
 
 class A12IrminsulSawtoothStates : StateMachineBuilder
 {
@@ -12,6 +12,7 @@ class A12IrminsulSawtoothStates : StateMachineBuilder
             .ActivateOnEnter<MucusSpray>()
             .ActivateOnEnter<Rootstorm>()
             .ActivateOnEnter<Ambush>()
+            //.ActivateOnEnter<AmbushKnockback>()
             .ActivateOnEnter<ShockwaveStomp>();
     }
 }

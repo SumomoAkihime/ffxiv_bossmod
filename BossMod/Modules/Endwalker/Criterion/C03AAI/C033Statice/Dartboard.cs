@@ -1,4 +1,4 @@
-﻿namespace BossMod.Endwalker.Criterion.C03AAI.C033Statice;
+﻿namespace BossMod.Endwalker.VariantCriterion.C03AAI.C033Statice;
 
 // dartboard layout:
 // - inner/outer rings split is at radius 12
@@ -8,8 +8,8 @@ class Dartboard(BossModule module) : BossComponent(module)
 {
     public enum Color { None, Red, Blue, Yellow }
 
-    public int NumCasts { get; private set; }
-    public Color ForbiddenColor { get; private set; }
+    public int NumCasts;
+    public Color ForbiddenColor;
     public BitMask Bullseye;
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -19,7 +19,7 @@ class Dartboard(BossModule module) : BossComponent(module)
             var color = PosToColor(actor.Position);
             if (color == ForbiddenColor)
                 hints.Add("GTFO from forbidden color!");
-            else if (Bullseye[slot] && Raid.WithSlot(true).Exclude(actor).WhereSlot(i => Bullseye[i]).WhereActor(p => PosToColor(p.Position) == color).Any())
+            else if (Bullseye[slot] && Raid.WithSlot(true, true, true).Exclude(actor).WhereSlot(i => Bullseye[i]).WhereActor(p => PosToColor(p.Position) == color).Any())
                 hints.Add("Stay on different segments!");
         }
     }
@@ -29,12 +29,12 @@ class Dartboard(BossModule module) : BossComponent(module)
     public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
         if (ForbiddenColor != Color.None)
-            DrawSegmentsOfColor(ForbiddenColor, ArenaColor.AOE);
+            DrawSegmentsOfColor(ForbiddenColor, Colors.AOE);
         if (Bullseye[pcSlot])
         {
             var color = PosToColor(pc.Position);
             if (color != ForbiddenColor)
-                DrawSegmentsOfColor(color, ArenaColor.SafeFromAOE);
+                DrawSegmentsOfColor(color, Colors.SafeFromAOE);
         }
     }
 
@@ -44,7 +44,7 @@ class Dartboard(BossModule module) : BossComponent(module)
             ForbiddenColor = PosToColor(actor.Position);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         if ((SID)status.ID == SID.BullsEye)
             Bullseye.Set(Raid.FindSlot(actor.InstanceID));
@@ -71,18 +71,18 @@ class Dartboard(BossModule module) : BossComponent(module)
 
     private Color PosToColor(WPos pos)
     {
-        var off = pos - Module.Center;
+        var off = pos - Arena.Center;
         return DirToColor(Angle.FromDirection(off), off.LengthSq() < 144);
     }
 
     private void DrawSegmentsOfColor(Color color, uint zoneColor)
     {
-        int index = (int)color - 1;
+        var index = (int)color - 1;
         var dirOut = (15 + index * 30).Degrees();
-        for (int i = 0; i < 4; ++i)
+        for (var i = 0; i < 4; ++i)
         {
-            Arena.ZoneCone(Module.Center, 0, 12, dirOut + 30.Degrees(), 15.Degrees(), zoneColor);
-            Arena.ZoneCone(Module.Center, 12, Module.Bounds.Radius, dirOut, 15.Degrees(), zoneColor);
+            Arena.ZoneCone(Arena.Center, 0, 12, dirOut + 30.Degrees(), 15.Degrees(), zoneColor);
+            Arena.ZoneCone(Arena.Center, 12, Arena.Bounds.Radius, dirOut, 15.Degrees(), zoneColor);
             dirOut += 90.Degrees();
         }
     }

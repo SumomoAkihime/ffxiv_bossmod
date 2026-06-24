@@ -9,7 +9,7 @@ class NaturalAlignment(BossModule module) : Components.GenericStackSpread(module
     private Mechanic CurMechanic;
     private Actor? CurMechanicSource;
     private bool CurMechanicInverted;
-    public int CurMechanicProgress { get; private set; }
+    public int CurMechanicProgress;
 
     public override void Update()
     {
@@ -18,8 +18,8 @@ class NaturalAlignment(BossModule module) : Components.GenericStackSpread(module
         if (CurMechanicProgress >= 2 || CurMechanicSource == null)
             return;
 
-        bool firstPart = CurMechanicProgress == (CurMechanicInverted ? 1 : 0);
-        var potentialTargets = Raid.WithSlot().ExcludedFromMask(_targets).Actors().ToList();
+        var firstPart = CurMechanicProgress == (CurMechanicInverted ? 1 : 0);
+        var potentialTargets = Raid.WithSlot(false, true, true).ExcludedFromMask(_targets).Actors().ToList();
         switch (CurMechanic)
         {
             case Mechanic.StackSpread:
@@ -56,7 +56,7 @@ class NaturalAlignment(BossModule module) : Components.GenericStackSpread(module
     {
         if (CurMechanicProgress >= 2 || CurMechanicSource == null)
             return;
-        bool firstPart = CurMechanicProgress == (CurMechanicInverted ? 1 : 0);
+        var firstPart = CurMechanicProgress == (CurMechanicInverted ? 1 : 0);
         var hint = CurMechanic switch
         {
             Mechanic.StackSpread => firstPart ? "Stack" : "Spread",
@@ -67,7 +67,7 @@ class NaturalAlignment(BossModule module) : Components.GenericStackSpread(module
             hints.Add($"Next NA: {hint}");
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         switch ((SID)status.ID)
         {

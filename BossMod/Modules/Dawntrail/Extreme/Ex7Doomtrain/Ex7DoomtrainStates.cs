@@ -1,343 +1,126 @@
-﻿namespace BossMod.Dawntrail.Extreme.Ex7Doomtrain;
+namespace BossMod.Dawntrail.Extreme.Ex7Doomtrain;
 
-class Ex7DoomtrainStates : StateMachineBuilder
+[SkipLocalsInit]
+sealed class Ex7DoomtrainStates : StateMachineBuilder
 {
     public Ex7DoomtrainStates(BossModule module) : base(module)
     {
-        SimplePhase(0, P1, "P1")
-            .ActivateOnEnter<CarGeometry>()
-            .Raw.Update = () => Module.Enemies(OID.AetherIntermission).FirstOrDefault()?.IsDead == true;
-
-        DeathPhase(1, P2);
+        DeathPhase(default, SinglePhase)
+            .ActivateOnEnter<ArenaChanges>()
+            .Raw.Update = () => Module.Enemies((uint)OID.Aether).Count != 0;
     }
 
-    void P1(uint id)
+    private void SinglePhase(uint id)
     {
         Car1(id, 8.2f);
-        Car2(id + 0x10000, 5.9f);
-        Car3_1(id + 0x20000, 5.7f);
-        Intermission(id + 0x30000, 7);
+        Car2(id + 0x10000u, 2.2f);
+        Car3p1(id + 0x20000u, 5.8f);
+        Intermission(id + 0x30000u, 10f);
+        // Car3p2(id + 0x40000u, 2.2f);
+        // Car4(id + 0x50000u, 2.2f);
+        // Car5(id + 0x60000u, 2.2f);
+        // Car6(id + 0x70000u, 2.2f);
+        SimpleState(id + 0xFF0000u, 10000f, "???");
     }
 
-    void P2(uint id)
+    private void Car1(uint id, float delay)
     {
-        ComponentCondition<RunawayTrain>(id, 4.3f, r => r.Activation != default)
-            .ActivateOnEnter<RunawayTrain>()
-            .SetHint(StateMachine.StateHint.DowntimeStart);
-
-        ComponentCondition<RunawayTrain>(id + 1, 15.2f, r => r.NumCasts > 0, "Raidwide")
-            .DeactivateOnExit<RunawayTrain>()
-            .SetHint(StateMachine.StateHint.Raidwide)
-            .ExecOnExit<CarGeometry>(c => c.Car = 3); // restore arena bounds
-
-        Car3_2(id + 0x10, 5.1f);
-        Car4(id + 0x10000, 5.2f);
-        Car5(id + 0x20000, 18.3f);
-        Car6(id + 0x30000, 10.3f);
-    }
-
-    void Car1(uint id, float delay)
-    {
-        CastStartMulti(id, [AID.DeadMansOverdraughtStack, AID.DeadMansOverdraughtSpread], delay)
-            .ActivateOnEnter<Plasma>()
-            .ActivateOnEnter<LevinSignal>()
+        CastMulti(id, [(uint)AID.DeadMansOverdraughtSpread, (uint)AID.DeadMansOverdraughtStack], delay, 4f, "Select spread/stack")
+            .ActivateOnEnter<DeadMansOverdraught>();
+        ComponentCondition<DeadMansExpress>(id + 0x10u, 8.1f, static comp => comp.NumCasts != 0, "Knockback")
+            .ActivateOnEnter<PlasmaBeam>()
             .ActivateOnEnter<DeadMansExpress>()
-            .ActivateOnEnter<DeadMansWindpipe>()
-            .ActivateOnEnter<DeadMansBlastpipe>();
-        CastEnd(id + 1, 4);
-
-        CastStartMulti(id + 0x10, [AID.DeadMansExpress, AID.DeadMansWindpipeBoss], 2.1f);
-
-        Plasma(id + 0x20, 11);
-
-        CastMulti(id + 0x30, [AID.DeadMansOverdraughtStack, AID.DeadMansOverdraughtSpread], 1.9f, 4)
-            .ActivateOnEnter<Plasma>();
-
-        CastStartMulti(id + 0x40, [AID.DeadMansExpress, AID.DeadMansWindpipeBoss], 2.1f);
-
-        Plasma(id + 0x50, 10.9f);
-
-        CastStart(id + 0x100, AID.UnlimitedExpressBoss, 1.9f)
-            .ActivateOnEnter<UnlimitedExpress1>();
-        ComponentCondition<UnlimitedExpress1>(id + 0x101, 5.9f, x => x.NumCasts > 0)
-            .DeactivateOnExit<UnlimitedExpress1>();
-        Targetable(id + 0x110, false, 0.2f, "Car 2 start");
-    }
-
-    void Car2(uint id, float delay)
-    {
-        Timeout(id, 0)
-            .ActivateOnEnter<Electray>()
-            .ExecOnEnter<CarGeometry>(c => c.Car++);
-
-        Targetable(id + 1, true, delay, "Boss reappears");
-
-        CastMulti(id + 0x10, [AID.DeadMansOverdraughtStack, AID.DeadMansOverdraughtSpread], 2, 4)
-            .ActivateOnEnter<Plasma>();
-        Cast(id + 0x20, AID.TurretCrossing, 2.1f, 3);
-
-        CastStartMulti(id + 0x30, [AID.DeadMansExpress, AID.DeadMansWindpipeBoss], 4.1f);
-
-        ComponentCondition<Electray>(id + 0x31, 5.2f, e => e.NumCasts >= 5, "Lasers");
-
-        Plasma(id + 0x40, 5.9f);
-
-        CastStartMulti(id + 0x50, [AID.DeadMansOverdraughtStack, AID.DeadMansOverdraughtSpread], 2)
-            .ActivateOnEnter<Plasma>()
-            .ActivateOnEnter<LightningBurst>();
-
-        ComponentCondition<Electray>(id + 0x51, 8.8f, e => e.NumCasts >= 10, "Lasers");
-        ComponentCondition<LightningBurst>(id + 0x52, 2.8f, l => l.NumCasts > 0, "Tankbusters")
-            .SetHint(StateMachine.StateHint.Tankbuster)
-            .ExecOnEnter<LightningBurst>(l => l.EnableHints = true)
-            .DeactivateOnExit<LightningBurst>();
-
-        ComponentCondition<Electray>(id + 0x53, 8.7f, e => e.NumCasts >= 15, "Lasers")
-            .DeactivateOnExit<Electray>();
-
-        Plasma(id + 0x60, 5.9f);
-
-        CastStart(id + 0x100, AID.UnlimitedExpressBoss, 2)
-            .ActivateOnEnter<UnlimitedExpress1>();
-        ComponentCondition<UnlimitedExpress1>(id + 0x101, 5.9f, x => x.NumCasts > 0)
-            .DeactivateOnExit<UnlimitedExpress1>();
-        Targetable(id + 0x110, false, 0.2f, "Car 2 start");
-    }
-
-    void Car3_1(uint id, float delay)
-    {
-        Timeout(id, 0).ExecOnEnter<CarGeometry>(c => c.Car++);
-
-        Targetable(id + 1, true, delay, "Boss reappears");
-
-        CastStart(id + 0x10, AID.LightningBurstCast, 4.1f)
-            .ActivateOnEnter<LightningBurst>()
-            .ExecOnEnter<LightningBurst>(b => b.EnableHints = true);
-
-        ComponentCondition<LightningBurst>(id + 0x52, 5.6f, l => l.NumCasts > 0, "Tankbusters")
-            .DeactivateOnExit<LightningBurst>();
-
-        Cast(id + 0x100, AID.RunawayTrainStart, 7.7f, 5);
-
-        Targetable(id + 0x102, false, 3.7f, "Intermission start");
-    }
-
-    void Intermission(uint id, float delay)
-    {
-        ActorTargetable(id, () => Module.Enemies(OID.AetherIntermission).FirstOrDefault(), true, delay, "Orb appears")
-            .OnEnter(() =>
-            {
-                Module.Arena.Bounds = new ArenaBoundsCircle(14.5f);
-                Module.Arena.Center = new(-400, -400);
-            })
-            .ActivateOnEnter<AetherialRay>()
-            .ActivateOnEnter<MultiToot>()
-            .SetHint(StateMachine.StateHint.DowntimeEnd);
-
-        // short vs long rotation differ by 1 second, so writing states isn't super useful here
-
-        Timeout(id + 0x10, 75, "Orb enrage");
-    }
-
-    void Car3_2(uint id, float delay)
-    {
-        Timeout(id, delay, "Boss reappears")
-            .ActivateOnEnter<Shockwave>()
-            .SetHint(StateMachine.StateHint.DowntimeEnd);
-
-        ComponentCondition<Shockwave>(id + 0x10, 13.1f, s => s.NumCasts > 0, "Raidwide")
-            .DeactivateOnExit<Shockwave>()
-            .ActivateOnEnter<LightningBurst>();
-        ComponentCondition<LightningBurst>(id + 0x20, 10, l => l.NumCasts > 0, "Tankbusters")
-            .SetHint(StateMachine.StateHint.Tankbuster)
-            .ExecOnEnter<LightningBurst>(l => l.EnableHints = true)
-            .DeactivateOnExit<LightningBurst>();
-
-        ComponentCondition<DerailmentSiege>(id + 0x30, 8.6f, d => d.NumCasts > 0, "Tower 1")
-            .ActivateOnEnter<Launchpad>()
-            .ActivateOnEnter<Derail>()
-            .ActivateOnEnter<DerailmentSiege>();
-        ComponentCondition<DerailmentSiege>(id + 0x31, 2.9f, d => d.NumCasts > 2, "Tower 3")
-            .ExecOnExit<CarGeometry>(c => c.MultiCar3());
-
-        ComponentCondition<Derail>(id + 0x40, 5.2f, d => d.NumCasts > 0, "Derail")
-            .DeactivateOnExit<Launchpad>()
-            .DeactivateOnExit<DerailmentSiege>()
-            .DeactivateOnExit<Derail>()
-            .ExecOnExit<CarGeometry>(c => c.Car++);
-    }
-
-    void Car4(uint id, float delay)
-    {
-        ComponentCondition<ZoomCounter>(id, delay, z => z.NumCasts > 0)
-            .ActivateOnEnter<ZoomCounter>();
-
-        ThirdRail(id + 0x10, 10.1f);
-
-        HeadlightBreath(id + 0x20, 10.2f);
-
-        Cast(id + 0x100, AID.ArcaneRevelation, 3.5f, 2, "AR start")
-            .ActivateOnEnter<HailOfThunder>()
-            .ActivateOnEnter<DesignatedConductor>();
-
-        ComponentCondition<HailOfThunder>(id + 0x110, 39.8f, h => h.NumCasts >= 3, "AR end")
-            .DeactivateOnExit<HailOfThunder>()
-            .DeactivateOnExit<DesignatedConductor>();
-
-        HeadlightBreath(id + 0x200, 12.8f);
-        ThirdRail(id + 0x210, 6.3f);
-
-        ComponentCondition<LightningBurst>(id + 0x220, 8.6f, l => l.NumCasts > 0, "Tankbusters")
-            .ActivateOnEnter<LightningBurst>()
-            .SetHint(StateMachine.StateHint.Tankbuster)
-            .ExecOnEnter<LightningBurst>(l => l.EnableHints = true)
-            .DeactivateOnExit<LightningBurst>();
-
-        ComponentCondition<DerailmentSiege>(id + 0x230, 10.7f, d => d.NumCasts > 0, "Tower 1")
-            .ActivateOnEnter<Launchpad>()
-            .ActivateOnEnter<Derail>()
-            .ActivateOnEnter<DerailmentSiege>();
-        ComponentCondition<DerailmentSiege>(id + 0x231, 3.9f, d => d.NumCasts > 3, "Tower 4")
-            .ExecOnExit<CarGeometry>(c => c.MultiCar4());
-
-        ComponentCondition<Derail>(id + 0x240, 6.2f, d => d.NumCasts > 0, "Derail")
-            .DeactivateOnExit<Launchpad>()
-            .DeactivateOnExit<DerailmentSiege>()
-            .DeactivateOnExit<Derail>()
-            .ExecOnExit<CarGeometry>(c => c.Car++);
-    }
-
-    void Car5(uint id, float delay)
-    {
-        ComponentCondition<Plummet>(id, delay, p => p.NumFinishedSpreads == 2, "Spreads 1")
-            .ActivateOnEnter<Plummet>();
-        ThirdRail(id + 0x10, 5);
-
-        ComponentCondition<Plummet>(id + 0x20, 10.1f, p => p.NumFinishedSpreads == 5, "Spreads 2");
-
-        ComponentCondition<LightningBurst>(id + 0x30, 6.6f, l => l.NumCasts > 0, "Tankbusters")
-            .ActivateOnEnter<LightningBurst>()
-            .SetHint(StateMachine.StateHint.Tankbuster)
-            .ExecOnEnter<LightningBurst>(l => l.EnableHints = true)
-            .DeactivateOnExit<LightningBurst>();
-
-        ComponentCondition<Plummet>(id + 0x40, 9.6f, p => p.NumFinishedSpreads == 10, "Spreads 3")
-            .DeactivateOnExit<Plummet>();
-
-        ThirdRail(id + 0x50, 5);
-
-        ComponentCondition<DerailmentSiege>(id + 0x60, 12.3f, d => d.NumCasts > 0, "Tower 1")
-            .ActivateOnEnter<Launchpad>()
-            .ActivateOnEnter<Derail>()
-            .ActivateOnEnter<DerailmentSiege>();
-        ComponentCondition<DerailmentSiege>(id + 0x61, 4.9f, d => d.NumCasts > 4, "Tower 5")
-            .ExecOnExit<CarGeometry>(c => c.MultiCar5());
-
-        ComponentCondition<Derail>(id + 0x70, 5.6f, d => d.NumCasts > 0, "Derail")
-            .DeactivateOnExit<Launchpad>()
-            .DeactivateOnExit<DerailmentSiege>()
-            .DeactivateOnExit<Derail>()
-            .ExecOnExit<CarGeometry>(c => c.Car++);
-    }
-
-    void Car6(uint id, float delay)
-    {
-        CastEnd(id, 0.3f);
-        CastStartMulti(id + 1, [AID.DeadMansOverdraughtStack, AID.DeadMansOverdraughtSpread], delay)
-            .ActivateOnEnter<Plasma>()
-            .ActivateOnEnter<LevinSignal>();
-        CastEnd(id + 2, 4);
-
-        Cast(id + 0x10, AID.TurretCrossing, 2.1f, 3)
-            .ActivateOnEnter<Electray>()
-            .ActivateOnEnter<Breathlight>()
-            .ExecOnEnter<Breathlight>(b => b.Draw = false);
-
-        ComponentCondition<Electray>(id + 0x20, 9.2f, e => e.NumCasts > 0, "Lasers")
-            .ExecOnExit<Breathlight>(b => b.Draw = true)
-            .DeactivateOnExit<Electray>();
-        HeadlightBreath(id + 0x21, 4, false);
-
-        ComponentCondition<Electray>(id + 0x30, 9.5f, e => e.NumCasts > 0, "Lasers + crates disappear")
-            .ActivateOnEnter<Electray>()
-            .ActivateOnEnter<Plummet>()
-            .DeactivateOnExit<Electray>();
-
-        ComponentCondition<Plummet>(id + 0x40, 3.8f, p => p.NumFinishedSpreads > 0, "Spreads")
-            .DeactivateOnExit<Plummet>();
-
-        ThirdRail(id + 0x50, 5);
-
-        ComponentCondition<Electray>(id + 0x60, 8.3f, e => e.NumCasts > 0, "Lasers")
-            .ActivateOnEnter<Electray>()
-            .ActivateOnEnter<DeadMansExpress>()
-            .ActivateOnEnter<DeadMansWindpipe>()
-            .ActivateOnEnter<DeadMansBlastpipe>()
-            .DeactivateOnExit<Electray>();
-
-        Plasma(id + 0x62, 6.9f);
-
-        ComponentCondition<LightningBurst>(id + 0x70, 7.5f, l => l.NumCasts > 0, "Tankbusters")
-            .ActivateOnEnter<LightningBurst>()
-            .SetHint(StateMachine.StateHint.Tankbuster)
-            .ExecOnEnter<LightningBurst>(l => l.EnableHints = true)
-            .DeactivateOnExit<LightningBurst>();
-
-        CastMulti(id + 0x80, [AID.DeadMansOverdraughtSpread, AID.DeadMansOverdraughtStack], 3.5f, 4)
-            .ActivateOnEnter<Plasma>();
-
-        Cast(id + 0x100, AID.ArcaneRevelation, 2.1f, 2, "Short AR start")
-            .ActivateOnEnter<HailOfThunder>()
-            .ActivateOnEnter<DesignatedConductor>();
-
-        ComponentCondition<HailOfThunder>(id + 0x110, 25.7f, h => h.NumCasts >= 2, "Short AR end")
-            .DeactivateOnExit<HailOfThunder>()
-            .DeactivateOnExit<DesignatedConductor>();
-
-        ThirdRail(id + 0x120, 6.6f);
-
-        Plasma(id + 0x131, 14.9f)
-            .DeactivateOnExit<DeadMansBlastpipe>()
             .DeactivateOnExit<DeadMansExpress>()
-            .DeactivateOnExit<DeadMansWindpipe>();
+            .ExecOnExit<DeadMansOverdraught>(static comp => comp.AddStackSpread(5.1d))
+            .SetHint(StateMachine.StateHint.Knockback);
+        ComponentCondition<PlasmaBeam>(id + 0x20u, 2f, static comp => comp.NumCasts != 0, "Line AOEs")
+            .DeactivateOnExit<PlasmaBeam>();
+        ComponentCondition<DeadMansOverdraught>(id + 0x30u, 3.1f, static comp => comp.Counter == 1u, "Spread/stack resolves");
+        CastMulti(id + 0x40u, [(uint)AID.DeadMansOverdraughtSpread, (uint)AID.DeadMansOverdraughtStack], 2f, 4f, "Select spread/stack");
+        ComponentCondition<DeadMansWindpipe>(id + 0x50u, 8.1f, static comp => comp.NumCasts != 0, "Pull")
+            .ActivateOnEnter<DeadMansBlastpipe>()
+            .ExecOnEnter<DeadMansOverdraught>(static comp => comp.AddStackSpread(5.1d))
+            .ActivateOnEnter<DeadMansWindpipe>()
+            .DeactivateOnExit<DeadMansWindpipe>()
+            .SetHint(StateMachine.StateHint.Knockback);
+        ComponentCondition<DeadMansBlastpipe>(id + 0x60u, 2f, static comp => comp.NumCasts != 0, "Rect AOE")
+            .DeactivateOnExit<DeadMansBlastpipe>();
+        ComponentCondition<DeadMansOverdraught>(id + 0x70u, 2.1f, static comp => comp.Counter == 2u, "Spread/stack resolves")
+            .DeactivateOnExit<DeadMansOverdraught>();
+        ComponentCondition<UnlimitedExpress>(id + 0x80u, 7.8f, static comp => comp.NumCasts != 0, "Raidwide")
+            .ActivateOnEnter<UnlimitedExpress>()
+            .DeactivateOnExit<UnlimitedExpress>()
+            .SetHint(StateMachine.StateHint.Raidwide);
+        Targetable(id + 0x90u, false, 0.2f, "Boss untargetable")
+            .SetHint(StateMachine.StateHint.DowntimeStart);
+        Targetable(id + 0xA0u, true, 5.8f, "Boss targetable")
+            .SetHint(StateMachine.StateHint.DowntimeEnd);
+    }
 
-        HeadlightBreath(id + 0x200, 9.1f);
-
-        ComponentCondition<LightningBurst>(id + 0x210, 9, l => l.NumCasts > 0, "Tankbusters")
-            .ActivateOnEnter<LightningBurst>()
-            .SetHint(StateMachine.StateHint.Tankbuster)
-            .ExecOnEnter<LightningBurst>(l => l.EnableHints = true)
+    private void Car2(uint id, float delay)
+    {
+        CastMulti(id, [(uint)AID.DeadMansOverdraughtSpread, (uint)AID.DeadMansOverdraughtStack], delay, 4f, "Select spread/stack 1")
+            .ActivateOnEnter<DeadMansOverdraught>();
+        ComponentCondition<ElectrayLong>(id + 0x10u, 14.3f, static comp => comp.NumCasts != 0, "Line AOEs 1")
+            .ActivateOnEnter<ElectrayShort>()
+            .ActivateOnEnter<ElectrayMedium>()
+            .ActivateOnEnter<ElectrayLong>()
+            .ActivateOnEnter<PlasmaBeam>()
+            .ActivateOnEnter<DeadMansBlastpipe>()
+            .ActivateOnEnter<DeadMansWindpipe>()
+            .ActivateOnEnter<DeadMansExpress>()
+            .ExecOnExit<ElectrayLong>(static comp => comp.NumCasts = 0)
+            .ExecOnExit<DeadMansOverdraught>(static comp => comp.AddStackSpread(5.9d));
+        ComponentCondition<DeadMansOverdraught>(id + 0x20u, 5.9f, static comp => comp.Counter == 1u, "Spread/stack resolves 1");
+        CastMulti(id + 0x40u, [(uint)AID.DeadMansOverdraughtSpread, (uint)AID.DeadMansOverdraughtStack], 2f, 4f, "Select spread/stack 2")
+            .ActivateOnExit<LightningBurst>();
+        ComponentCondition<ElectrayLong>(id + 0x30u, 4.6f, static comp => comp.NumCasts != 0, "Line AOEs 2")
+            .ExecOnExit<ElectrayLong>(static comp => comp.NumCasts = 0);
+        ComponentCondition<LightningBurst>(id + 040u, 2.6f, static comp => comp.NumCasts != 0, "Tankbusters")
             .DeactivateOnExit<LightningBurst>();
-
-        ThirdRail(id + 0x220, 5.5f);
-
-        ComponentCondition<DerailmentSiege>(id + 0x300, 11, d => d.NumCasts > 0, "Tower 1").ActivateOnEnter<DerailmentSiege>();
-        ComponentCondition<DerailmentSiege>(id + 0x310, 5.9f, d => d.NumCasts > 5, "Tower 6")
-            .DeactivateOnExit<DerailmentSiege>();
-
-        Cast(id + 0x10000, AID.DerailBossEnrage, 0.2f, 15.1f, "Enrage");
+        ComponentCondition<ElectrayLong>(id + 0x50u, 8.7f, static comp => comp.NumCasts != 0, "Line AOEs 3")
+            .DeactivateOnExit<ElectrayShort>()
+            .DeactivateOnExit<ElectrayMedium>()
+            .DeactivateOnExit<ElectrayLong>()
+            .ExecOnExit<DeadMansOverdraught>(static comp => comp.AddStackSpread(5.9d));
+        ComponentCondition<DeadMansOverdraught>(id + 0x60u, 5.9f, static comp => comp.Counter == 2u, "Spread/stack resolves 2")
+            .DeactivateOnExit<DeadMansBlastpipe>()
+            .DeactivateOnExit<DeadMansWindpipe>()
+            .DeactivateOnExit<DeadMansExpress>()
+            .DeactivateOnExit<PlasmaBeam>()
+            .DeactivateOnExit<DeadMansOverdraught>();
+        ComponentCondition<UnlimitedExpress>(id + 0x70u, 7.8f, static comp => comp.NumCasts != 0, "Raidwide")
+            .ActivateOnEnter<UnlimitedExpress>()
+            .DeactivateOnExit<UnlimitedExpress>()
+            .SetHint(StateMachine.StateHint.Raidwide);
+        Targetable(id + 0x90u, false, 0.2f, "Boss untargetable")
+            .SetHint(StateMachine.StateHint.DowntimeStart);
     }
 
-    State Plasma(uint id, float delay)
+    private void Car3p1(uint id, float delay)
     {
-        return ComponentCondition<Plasma>(id, delay, p => p.NumCasts > 0, "Stack/spread", maxOverdue: 100)
-            .DeactivateOnExit<Plasma>();
+        Targetable(id, true, delay, "Boss targetable")
+            .SetHint(StateMachine.StateHint.DowntimeEnd);
+        ComponentCondition<LightningBurst>(id + 0x10u, 2.6f, static comp => comp.NumCasts != 0, "Tankbusters")
+            .DeactivateOnExit<LightningBurst>();
+        Cast(id + 0x10u, (uint)AID.RunawayTrainVisual1, 8.5f, 5f, "Runaway Train Phase Transition");
+        Targetable(id + 0x20u, false, 0.2f, "Boss untargetable")
+            .SetHint(StateMachine.StateHint.DowntimeStart);
     }
 
-    State ThirdRail(uint id, float delay)
+    private void Intermission(uint id, float delay)
     {
-        return ComponentCondition<ThirdRail>(id, delay, t => t.NumCasts > 0, "Puddles")
-            .ActivateOnEnter<ThirdRailBait>()
-            .ActivateOnEnter<ThirdRail>()
-            .DeactivateOnExit<ThirdRailBait>()
-            .DeactivateOnExit<ThirdRail>();
-    }
 
-    void HeadlightBreath(uint id, float delay, bool activate = true)
-    {
-        ComponentCondition<Breathlight>(id, delay, b => b.NumCasts > 0, "Headlight/ground")
-            .ActivateOnEnter<Breathlight>(activate);
-        ComponentCondition<Breathlight>(id + 1, 2.5f, b => b.NumCasts > 1, "Headlight/ground")
-            .DeactivateOnExit<Breathlight>();
+        var Aether = Module.Enemies((uint)OID.Aether);
+        // If I'm reading this correctly, this blocks the state until Aether is dead, and then we can transition back once Doomtrain is targetable?
+        Condition(id + 0x10u, 120, () => Aether.Any(e => e.IsDead), "Aether down", 10000, 1) // note that time is arbitrary (What?)
+            .ActivateOnEnter<AetherocharAetherosote>()
+            .ActivateOnEnter<AetherialRay>()
+            .ActivateOnExit<RunawayTrain>()
+            .DeactivateOnExit<AetherocharAetherosote>()
+            .DeactivateOnExit<AetherialRay>();
+        Targetable(id + 0x20u, true, 5.2f, "Intermission end")
+            .DeactivateOnEnter<RunawayTrain>()
+            .SetHint(StateMachine.StateHint.DowntimeEnd);
     }
 }

@@ -1,15 +1,18 @@
-﻿namespace BossMod.Endwalker.Hunt.RankA.Sugriva;
+﻿using BossMod.AST;
+
+namespace BossMod.Endwalker.Hunt.RankA.Sugriva;
 
 public enum OID : uint
 {
-    Boss = 0x35FC, // R6.000, x1
+    Boss = 0x35FC // R6.0
 }
 
 public enum AID : uint
 {
     AutoAttack = 872, // Boss->player, no cast, single-target
-    Twister = 27219, // Boss->players, 5.0s cast, range 8 circle stack + knockback 20
-    BarrelingSmash = 27220, // Boss->player, no cast, single-target, charges to random player and starts casting Spark or Scythe Tail immediately afterwards
+
+    Twister = 27219, // Boss->players, 5.0s cast, range 8 circle stack + knockback 20 (except target)
+    BarrelingSmash = 27220, // Boss->player, no cast, single-target, knockback 10, charges to random player and starts casting Spark or Scythe Tail immediately afterwards
     Spark = 27221, // Boss->self, 5.0s cast, range 14-24+R donut
     ScytheTail = 27222, // Boss->self, 5.0s cast, range 17 circle
     Butcher = 27223, // Boss->self, 5.0s cast, range 8 120-degree cone
@@ -17,106 +20,119 @@ public enum AID : uint
     RockThrowFirst = 27225, // Boss->location, 4.0s cast, range 6 circle
     RockThrowRest = 27226, // Boss->location, 1.6s cast, range 6 circle
     Crosswind = 27227, // Boss->self, 5.0s cast, range 36 circle
-    ApplyPrey = 27229, // Boss->player, 0.5s cast, single-target
+    ApplyPrey = 27229 // Boss->player, 0.5s cast, single-target
 }
 
-class Twister(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Twister, 20, shape: new AOEShapeCircle(8))
+public enum SID : uint
 {
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        if (Casters.Count > 0)
-            hints.Add("Stack and knockback");
-    }
-
-    public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
-    {
-        return Casters.FirstOrDefault()?.CastInfo?.TargetID == player.InstanceID ? PlayerPriority.Interesting : PlayerPriority.Irrelevant;
-    }
-
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
-    {
-        base.DrawArenaForeground(pcSlot, pc);
-
-        var caster = Casters.FirstOrDefault();
-        var target = caster != null ? WorldState.Actors.Find(caster.CastInfo!.TargetID) : null;
-        if (target != null)
-            Shape!.Outline(Arena, target);
-    }
+    Prey = 2939 // Boss->player, extra=0x0
 }
 
-class Spark(BossModule module) : Components.StandardAOEs(module, AID.Spark, new AOEShapeDonut(14, 30));
-class ScytheTail(BossModule module) : Components.StandardAOEs(module, AID.ScytheTail, new AOEShapeCircle(17));
-
-class Butcher(BossModule module) : Components.BaitAwayCast(module, AID.Butcher, new AOEShapeCone(8, 60.Degrees()), endsOnCastEvent: true)
+sealed class TwisterStack(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.Twister, 8f, 8, 8);
+sealed class TwisterKB(BossModule module) : Components.GenericKnockback(module)
 {
-    public override void AddGlobalHints(GlobalHints hints)
+    private Actor? target;
+    private DateTime activation;
+
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
-        if (CurrentBaits.Count > 0)
-            hints.Add("Tankbuster cleave");
-    }
-}
+        if (target is not Actor t || actor == t)
+        {
+            return [];
+        }
 
-class Rip(BossModule module) : Components.StandardAOEs(module, AID.Rip, new AOEShapeCone(8, 60.Degrees()));
-
-// TODO: generalize to baited aoe
-class RockThrow(BossModule module) : Components.GenericAOEs(module, AID.RockThrowRest)
-{
-    private Actor? _target;
-    private static readonly AOEShapeCircle _shape = new(6);
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        if (Active())
-            yield return new(_shape, Module.PrimaryActor.CastInfo!.LocXZ, default, Module.CastFinishAt(Module.PrimaryActor.CastInfo));
-    }
-
-    public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
-    {
-        return player == _target ? PlayerPriority.Interesting : PlayerPriority.Irrelevant;
-    }
-
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
-    {
-        if (_target != null)
-            Arena.AddCircle(_target.Position, _shape.Radius, ArenaColor.Danger);
+        if (actor.Position.InCircle(t.Position, 8f))
+        {
+            return new Knockback[1] { new(t.Position, 20f, activation) };
+        }
+        return [];
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        if (spell.Action.ID == (uint)AID.Twister && WorldState.Actors.Find(spell.TargetID) is Actor t)
         {
-            case AID.ApplyPrey:
-                NumCasts = 0;
-                _target = WorldState.Actors.Find(spell.TargetID);
-                if (_target?.Type == ActorType.Chocobo) //Player Chocobos are immune against prey, so mechanic doesn't happen if a chocobo gets selected
-                    _target = null;
-                break;
-            case AID.RockThrowRest:
-                if (NumCasts >= 1)
-                    _target = null;
-                break;
+            target = t;
+            activation = Module.CastFinishAt(spell);
         }
     }
 
-    private bool Active() => (Module.PrimaryActor.CastInfo?.IsSpell() ?? false) && (AID)Module.PrimaryActor.CastInfo!.Action.ID is AID.RockThrowFirst or AID.RockThrowRest;
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.Twister)
+        {
+            target = null;
+        }
+    }
+
+    public override void AddGlobalHints(GlobalHints hints)
+    {
+        if (target != null)
+        {
+            hints.Add("Stack and knockback");
+        }
+    }
 }
 
-class Crosswind(BossModule module) : Components.RaidwideCast(module, AID.Crosswind);
+sealed class Spark(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Spark, new AOEShapeDonut(14f, 30f));
+sealed class ScytheTail(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ScytheTail, 17f);
 
-class SugrivaStates : StateMachineBuilder
+sealed class Butcher(BossModule module) : Components.BaitAwayCast(module, (uint)AID.Butcher, new AOEShapeCone(8f, 60f.Degrees()), endsOnCastEvent: true, tankbuster: true, damageType: AIHints.PredictedDamageType.Tankbuster);
+
+sealed class Rip(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Rip, new AOEShapeCone(8f, 60f.Degrees()));
+
+sealed class RockThrowAOE(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.RockThrowFirst, (uint)AID.RockThrowRest], 6f);
+sealed class RockThrowBait(BossModule module) : Components.GenericBaitAway(module, centerAtTarget: true)
+{
+    private static readonly AOEShapeCircle circle = new(6f);
+
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
+    {
+        if (status.ID == (uint)SID.Prey)
+        {
+            CurrentBaits.Clear(); // incase player dies
+        }
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        switch (spell.Action.ID)
+        {
+            case (uint)AID.ApplyPrey:
+                NumCasts = 0;
+                if (WorldState.Actors.Find(spell.TargetID) is Actor t && t.Type != ActorType.Chocobo) // player Chocobos are immune against prey, so mechanic doesn't happen if a chocobo gets selected
+                {
+                    CurrentBaits.Add(new(caster, t, circle, Module.CastFinishAt(spell, 1.1d)));
+                }
+                break;
+            case (uint)AID.RockThrowRest:
+                if (++NumCasts == 2)
+                {
+                    CurrentBaits.Clear();
+                }
+                break;
+        }
+    }
+}
+
+sealed class Crosswind(BossModule module) : Components.RaidwideCast(module, (uint)AID.Crosswind);
+
+sealed class SugrivaStates : StateMachineBuilder
 {
     public SugrivaStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<Twister>()
+            .ActivateOnEnter<TwisterStack>()
+            .ActivateOnEnter<TwisterKB>()
             .ActivateOnEnter<Spark>()
             .ActivateOnEnter<ScytheTail>()
             .ActivateOnEnter<Butcher>()
             .ActivateOnEnter<Rip>()
-            .ActivateOnEnter<RockThrow>()
+            .ActivateOnEnter<RockThrowAOE>()
+            .ActivateOnEnter<RockThrowBait>()
             .ActivateOnEnter<Crosswind>();
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.A, NameID = 10626)]
-public class Sugriva(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.A, NameID = 10626)]
+public sealed class Sugriva(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);

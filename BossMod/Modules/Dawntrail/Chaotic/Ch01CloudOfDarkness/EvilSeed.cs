@@ -1,13 +1,13 @@
 ﻿namespace BossMod.Dawntrail.Chaotic.Ch01CloudOfDarkness;
 
-class EvilSeedBait(BossModule module) : BossComponent(module)
+sealed class EvilSeedBait(BossModule module) : BossComponent(module)
 {
     public BitMask Baiters;
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (var p in Raid.WithSlot().IncludedInMask(Baiters).Actors())
-            Arena.AddCircle(p.Position, 5, ArenaColor.Danger);
+        foreach (var p in Raid.WithSlot(false, false, true).IncludedInMask(Baiters).Actors())
+            Arena.AddCircle(p.Position, 5f);
     }
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
@@ -17,17 +17,17 @@ class EvilSeedBait(BossModule module) : BossComponent(module)
     }
 }
 
-class EvilSeedAOE(BossModule module) : Components.StandardAOEs(module, AID.EvilSeedAOE, 5);
+sealed class EvilSeedAOE(BossModule module) : Components.SimpleAOEs(module, (uint)AID.EvilSeedAOE, 5f);
 
-class EvilSeedVoidzone(BossModule module) : Components.PersistentVoidzone(module, 5, module => module.Enemies(OID.EvilSeed).Where(z => z.EventState != 7));
+sealed class EvilSeedVoidzone(BossModule module) : Components.Voidzone(module, 5f, module => module.Enemies((uint)OID.EvilSeed).Where(z => z.EventState != 7));
 
-class ThornyVine(BossModule module) : Components.Chains(module, (uint)TetherID.ThornyVine, default, 25)
+sealed class ThornyVine(BossModule module) : Components.Chains(module, (uint)TetherID.ThornyVine, default, 25f)
 {
     public BitMask Targets;
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
         if (iconID == (uint)IconID.ThornyVineBait)
-            Targets.Set(Raid.FindSlot(actor.InstanceID));
+            Targets[Raid.FindSlot(actor.InstanceID)] = true;
     }
 }

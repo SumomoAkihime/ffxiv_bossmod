@@ -125,9 +125,9 @@ public enum SID : uint
     TrueNorth = ClassShared.SID.TrueNorth, // applied by True North to self
 }
 
-public sealed class Definitions : Defs
+public sealed class Definitions : IDisposable
 {
-    public override void Define(ActionDefinitions d)
+    public Definitions(ActionDefinitions d)
     {
         d.RegisterSpell(AID.Chimatsuri, castAnimLock: 3.70f); // animLock=3.700s?
         d.RegisterSpell(AID.SpinningEdge);
@@ -189,6 +189,8 @@ public sealed class Definitions : Defs
         Customize(d);
     }
 
+    public void Dispose() { }
+
     private void Customize(ActionDefinitions d)
     {
         d.RegisterChargeIncreaseTrait(AID.Shukuchi, TraitID.EnhancedShukuchiII);
@@ -197,3 +199,4 @@ public sealed class Definitions : Defs
         d.Spell(AID.Shukuchi)!.ForbidExecute = ActionDefinitions.DashToPositionCheck;
     }
 }
+

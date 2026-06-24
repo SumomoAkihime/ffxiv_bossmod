@@ -5,50 +5,61 @@
 // in p4, landslides are cast at predetermined angles (ultimate predation, ???)
 class Landslide(BossModule module) : Components.GenericAOEs(module)
 {
-    public bool Awakened { get; private set; }
+    public bool Awakened;
     public DateTime PredictedActivation;
     protected Actor? PredictedSource;
-    private readonly List<Actor> _casters = [];
+    private readonly List<AOEInstance> _aoes = new(5);
 
-    public static readonly AOEShapeRect ShapeBoss = new(44.55f, 3, 4.55f);
-    public static readonly AOEShapeRect ShapeHelper = new(40.5f, 3, 0.5f); // difference is only in hitbox radius
+    public static readonly AOEShapeRect ShapeBoss = new(44.55f, 3f, 4.55f);
+    public static readonly AOEShapeRect ShapeHelper = new(40.5f, 3f, 0.5f); // difference is only in hitbox radius
 
-    public bool CastsActive => _casters.Count > 0;
+    public bool CastsActive => _aoes.Count > 0;
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         if (PredictedSource != null)
         {
-            yield return new(ShapeBoss, PredictedSource.Position, PredictedSource.Rotation, PredictedActivation);
-            yield return new(ShapeHelper, PredictedSource.Position, PredictedSource.Rotation + 45.Degrees(), PredictedActivation);
-            yield return new(ShapeHelper, PredictedSource.Position, PredictedSource.Rotation - 45.Degrees(), PredictedActivation);
-            yield return new(ShapeHelper, PredictedSource.Position, PredictedSource.Rotation + 135.Degrees(), PredictedActivation);
-            yield return new(ShapeHelper, PredictedSource.Position, PredictedSource.Rotation - 135.Degrees(), PredictedActivation);
+            var aoes = new AOEInstance[5];
+            var predPos = PredictedSource.Position;
+            var predRot = PredictedSource.Rotation;
+            aoes[0] = new(ShapeBoss, predPos, predRot, PredictedActivation);
+            aoes[1] = new(ShapeHelper, predPos, predRot + 45f.Degrees(), PredictedActivation);
+            aoes[2] = new(ShapeHelper, predPos, predRot - 45f.Degrees(), PredictedActivation);
+            aoes[3] = new(ShapeHelper, predPos, predRot + 135f.Degrees(), PredictedActivation);
+            aoes[4] = new(ShapeHelper, predPos, predRot - 135f.Degrees(), PredictedActivation);
+            return aoes;
         }
-
-        foreach (var c in _casters)
-            yield return new((OID)c.OID == OID.Titan ? ShapeBoss : ShapeHelper, c.Position, c.CastInfo!.Rotation, Module.CastFinishAt(c.CastInfo));
+        return CollectionsMarshal.AsSpan(_aoes);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.LandslideBoss or AID.LandslideBossAwakened or AID.LandslideHelper or AID.LandslideHelperAwakened or AID.LandslideUltima or AID.LandslideUltimaHelper)
+        if (spell.Action.ID is (uint)AID.LandslideBoss or (uint)AID.LandslideBossAwakened or (uint)AID.LandslideHelper or (uint)AID.LandslideHelperAwakened or (uint)AID.LandslideUltima or (uint)AID.LandslideUltimaHelper)
         {
+            _aoes.Add(new(new AOEShapeRect(40f + caster.HitboxRadius, 3f), spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID));
             PredictedSource = null;
-            _casters.Add(caster);
-            if ((AID)spell.Action.ID == AID.LandslideBossAwakened)
+            if (spell.Action.ID == (uint)AID.LandslideBossAwakened)
                 Awakened = true;
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.LandslideBoss or AID.LandslideBossAwakened or AID.LandslideHelper or AID.LandslideHelperAwakened or AID.LandslideUltima or AID.LandslideUltimaHelper)
+        if (spell.Action.ID is (uint)AID.LandslideBoss or (uint)AID.LandslideBossAwakened or (uint)AID.LandslideHelper or (uint)AID.LandslideHelperAwakened or (uint)AID.LandslideUltima or (uint)AID.LandslideUltimaHelper)
         {
-            _casters.Remove(caster);
+            var count = _aoes.Count;
+            var id = caster.InstanceID;
+            for (var i = 0; i < count; ++i)
+            {
+                if (_aoes[i].ActorID == id)
+                {
+                    _aoes.RemoveAt(i);
+                    return;
+                }
+            }
             ++NumCasts;
-            if ((AID)spell.Action.ID == AID.LandslideBoss)
-                PredictedActivation = WorldState.FutureTime(2); // used if boss wasn't awakened when it should've been
+            if (spell.Action.ID == (uint)AID.LandslideBoss)
+                PredictedActivation = WorldState.FutureTime(2d); // used if boss wasn't awakened when it should've been
         }
     }
 }
@@ -59,10 +70,10 @@ class P4Landslide(BossModule module) : Landslide(module)
 {
     public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
     {
-        if ((OID)actor.OID == OID.Titan && id == 0x1E43)
+        if (actor.OID == (uint)OID.Titan && id == 0x1E43)
         {
             PredictedSource = actor;
-            PredictedActivation = WorldState.FutureTime(8.1f);
+            PredictedActivation = WorldState.FutureTime(8.1d);
         }
     }
 }

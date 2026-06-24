@@ -1,15 +1,14 @@
 using BossMod.Pathfinding;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Plugin;
-using Dalamud.Bindings.ImGui;
 using System.IO;
-using System.Threading.Tasks;
 
 namespace BossMod;
 
 sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterface dalamud)
 {
-    class Editor(DebugObstacles owner, Bitmap bm, ObstacleMapDatabase.Entry e) : UIBitmapEditor(bm)
+    sealed class Editor(DebugObstacles owner, Bitmap bm, ObstacleMapDatabase.Entry e) : UIBitmapEditor(bm)
     {
         private int _deltaCells;
 
@@ -18,14 +17,25 @@ sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterfac
             base.DrawSidebar();
 
             if (ImGui.InputFloat3("Min bounds", ref e.MinBounds))
+            {
                 owner.MarkModified();
+            }
+
             if (ImGui.InputFloat3("Max bounds", ref e.MaxBounds))
+            {
                 owner.MarkModified();
+            }
+
             ImGui.TextUnformatted($"Map area: {e.Origin} + {Bitmap.Width}x{Bitmap.Height} * {Bitmap.PixelSize}");
             if (ImGui.InputInt("Half-width in cells", ref e.ViewWidth))
+            {
                 owner.MarkModified();
+            }
+
             if (ImGui.InputInt("Half-height in cells", ref e.ViewHeight))
+            {
                 owner.MarkModified();
+            }
 
             ImGui.TextUnformatted($"Change resolution:");
             ImGui.SameLine();
@@ -98,7 +108,7 @@ sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterfac
                 var py = (int)playerOffset.Z;
                 var playerDeepInObstacle = px >= 0 && py >= 0 && px < Bitmap.Width && py < Bitmap.Height && Bitmap[px, py]
                     && (px == 0 || Bitmap[px - 1, py]) && (py == 0 || Bitmap[px, py - 1]) && (px == (Bitmap.Width - 1) || Bitmap[px + 1, py]) && (py == (Bitmap.Height - 1) || Bitmap[px, py + 1]);
-                using var color = ImRaii.PushColor(ImGuiCol.Text, 0xff0000ff, playerDeepInObstacle);
+                using var color = ImRaii.PushColor(ImGuiCol.Text, Colors.TextColor3, playerDeepInObstacle);
                 ImGui.TextUnformatted($"Player cell: {px}x{py}");
                 if (playerDeepInObstacle)
                 {
@@ -112,10 +122,10 @@ sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterfac
                 var y = player?.PosRot.Y ?? 0;
                 var tl = e.Origin + new WDir(HoveredPixel.x, HoveredPixel.y) * Bitmap.PixelSize;
                 var br = tl + new WDir(Bitmap.PixelSize, Bitmap.PixelSize);
-                Camera.Instance?.DrawWorldLine(new(tl.X, y, tl.Z), new(tl.X, y, br.Z), 0xff00ffff);
-                Camera.Instance?.DrawWorldLine(new(tl.X, y, br.Z), new(br.X, y, br.Z), 0xff00ffff);
-                Camera.Instance?.DrawWorldLine(new(br.X, y, br.Z), new(br.X, y, tl.Z), 0xff00ffff);
-                Camera.Instance?.DrawWorldLine(new(br.X, y, tl.Z), new(tl.X, y, tl.Z), 0xff00ffff);
+                Camera.Instance?.DrawWorldLine(new(tl.X, y, tl.Z), new(tl.X, y, br.Z), Colors.TextColor2);
+                Camera.Instance?.DrawWorldLine(new(tl.X, y, br.Z), new(br.X, y, br.Z), Colors.TextColor2);
+                Camera.Instance?.DrawWorldLine(new(br.X, y, br.Z), new(br.X, y, tl.Z), Colors.TextColor2);
+                Camera.Instance?.DrawWorldLine(new(br.X, y, tl.Z), new(tl.X, y, tl.Z), Colors.TextColor2);
             }
         }
 
@@ -125,7 +135,7 @@ sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterfac
             if (player != null)
             {
                 var playerOffset = ((player.Position - e.Origin) / Bitmap.PixelSize).Floor();
-                yield return ((int)playerOffset.X, (int)playerOffset.Z, new(0xff00ff00));
+                yield return ((int)playerOffset.X, (int)playerOffset.Z, new(Colors.Safe));
             }
         }
     }
@@ -199,7 +209,10 @@ sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterfac
         ImGui.TextUnformatted("Temp map (IPC / memory)");
         var gen = Obstacles.GenerationStatus;
         if (gen is not TaskStatus.RanToCompletion)
+        {
             ImGui.TextUnformatted($"Build task: {gen}");
+        }
+
         if (Obstacles.TempMapMeta is not { } meta)
         {
             ImGui.TextDisabled("No temp map loaded.");
@@ -208,30 +221,47 @@ sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterfac
         {
             ImGui.TextUnformatted($"{meta.Filename}  {meta.Width}x{meta.Height} cells");
             if (ImGui.Button("Open viewer##tempObstacle") && Obstacles.TryCloneTempMap(out var ent, out var bmp))
+            {
                 _ = new UISimpleWindow($"Temp obstacle map: {ent.Filename}", new TempMapViewer(this, bmp, ent).Draw, true, new(1000, 1000));
+            }
         }
 
         var curZoneEntries = Obstacles.Database.Entries.GetValueOrDefault(Obstacles.CurrentKey());
         using (ImRaii.Disabled(!Obstacles.CanEditDatabase()))
         {
             if (ImGui.Button("Create new region"))
+            {
                 CreateRegion();
+            }
+
             ImGui.SameLine();
             using (ImRaii.Disabled(!_dbModified))
+            {
                 if (ImGui.Button("Save"))
+                {
                     SaveDatabase();
+                }
+            }
+
             ImGui.SameLine();
             if (ImGui.Button(_dbModified ? "Revert" : "Reload"))
+            {
                 ReloadDatabase();
+            }
         }
 
         ImGui.DragFloat3("Map min bounds", ref _minBounds, 1, -1024, 1024);
         ImGui.DragFloat3("Map max bounds", ref _maxBounds, 1, -1024, 1024);
 
         foreach (var n in _tree.Node($"Current zone: {Obstacles.World.CurrentZone}.{Obstacles.World.CurrentCFCID}###curr", curZoneEntries == null || curZoneEntries.Count == 0))
+        {
             DrawEntries(curZoneEntries ?? []);
+        }
+
         foreach (var n in _tree.Nodes(Obstacles.Database.Entries, kv => new($"Zone {kv.Key >> 16}.{kv.Key & 0xFFFF}", kv.Value.Count == 0)))
+        {
             DrawEntries(n.Value);
+        }
     }
 
     internal void MarkModified() => _dbModified = true;
@@ -240,23 +270,39 @@ sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterfac
     {
         Action? modifications = null;
         using var disableScope = ImRaii.Disabled(!Obstacles.CanEditDatabase());
-        for (int i = 0; i < entries.Count; ++i)
+        for (var i = 0; i < entries.Count; ++i)
         {
             using var id = ImRaii.PushId(i);
             var index = i;
             using (ImRaii.Disabled(i == 0))
+            {
                 if (ImGui.Button("Move up"))
+                {
                     modifications += () => (entries[index], entries[index - 1]) = (entries[index - 1], entries[index]);
+                }
+            }
+
             ImGui.SameLine();
             using (ImRaii.Disabled(i == entries.Count - 1))
+            {
                 if (ImGui.Button("Move down"))
+                {
                     modifications += () => (entries[index], entries[index + 1]) = (entries[index + 1], entries[index]);
+                }
+            }
+
             ImGui.SameLine();
             if (ImGui.Button("Delete"))
+            {
                 modifications += () => DeleteMap(entries, index);
+            }
+
             ImGui.SameLine();
             if (ImGui.Button("Edit"))
+            {
                 OpenEditor(entries[index]);
+            }
+
             ImGui.SameLine();
             ImGui.TextUnformatted($"[{i}] {entries[i]}");
         }
@@ -298,11 +344,13 @@ sealed class DebugObstacles(ObstacleMapManager obstacles, IDalamudPluginInterfac
 
     private string GenerateMapName()
     {
-        for (int i = 1; ; ++i)
+        for (var i = 1; ; ++i)
         {
             var name = $"{Obstacles.World.CurrentZone}.{Obstacles.World.CurrentCFCID}.{i}.bmp";
             if (!new FileInfo(Obstacles.RootPath + name).Exists)
+            {
                 return name;
+            }
         }
     }
 

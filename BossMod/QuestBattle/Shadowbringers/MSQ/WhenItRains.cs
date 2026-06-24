@@ -1,6 +1,6 @@
 ﻿namespace BossMod.QuestBattle.Shadowbringers.MSQ;
 
-[ZoneModuleInfo(663)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 663)]
 public class WhenItRains(WorldState ws) : QuestBattle(ws)
 {
     public override List<QuestObjective> DefineObjectives(WorldState ws) => [
@@ -46,6 +46,8 @@ public class WhenItRains(WorldState ws) : QuestBattle(ws)
     public override void AddQuestAIHints(Actor player, AIHints hints)
     {
         foreach (var h in hints.PotentialTargets)
+        {
             h.Priority = 0;
+        }
     }
 }

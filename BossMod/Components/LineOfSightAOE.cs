@@ -1,16 +1,21 @@
 ﻿namespace BossMod.Components;
 
 // generic component that shows line-of-sight cones for arbitrary origin and blocking shapes
-public abstract class GenericLineOfSightAOE(BossModule module, Enum? aid, float maxRange, bool blockersImpassable, float blockerThickness = 0) : CastCounter(module, aid)
+[SkipLocalsInit]
+public abstract class GenericLineOfSightAOE(BossModule module, uint aid, float maxRange, bool blockersImpassable = false, bool rect = false, bool safeInsideHitbox = true) : GenericAOEs(module, aid, "Hide behind obstacle!")
 {
     public DateTime NextExplosion;
-    public bool BlockersImpassable = blockersImpassable;
+    public readonly bool BlockersImpassable = blockersImpassable;
+    public readonly bool SafeInsideHitbox = safeInsideHitbox;
     public readonly float MaxRange = maxRange;
-    public readonly float BlockerThickness = blockerThickness; // how far behind the center of the hitbox we have to go before it will actually block us...almost always 0, except when it isn't
+    public readonly bool Rect = rect; // if the AOE is a rectangle instead of a circle
     public BitMask IgnoredPlayers;
-    public WPos? Origin { get; private set; } // inactive if null
-    public List<(WPos Center, float Radius)> Blockers { get; private set; } = [];
-    public List<(float Distance, Angle Dir, Angle HalfWidth)> Visibility { get; private set; } = [];
+    public WPos? Origin; // inactive if null
+    public readonly List<(WPos Center, float Radius)> Blockers = [];
+    public readonly List<(float Distance, Angle Dir, Angle HalfWidth)> Visibility = [];
+    public readonly List<AOEInstance> Safezones = [];
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => Safezones.Count != 0 && !IgnoredPlayers[slot] ? CollectionsMarshal.AsSpan(Safezones)[..1] : [];
 
     public void Modify(WPos? origin, IEnumerable<(WPos Center, float Radius)> blockers, DateTime nextExplosion = default)
     {
@@ -21,106 +26,243 @@ public abstract class GenericLineOfSightAOE(BossModule module, Enum? aid, float 
         Visibility.Clear();
         if (origin != null)
         {
-            foreach (var b in Blockers)
+            var count = Blockers.Count;
+            for (var i = 0; i < count; ++i)
             {
+                var b = Blockers[i];
                 var toBlock = b.Center - origin.Value;
-                var dist = toBlock.Length() + BlockerThickness;
-                Visibility.Add((dist, Angle.FromDirection(toBlock), b.Radius < dist ? Angle.Asin(b.Radius / dist) : 90.Degrees()));
+                var dist = toBlock.Length();
+                Visibility.Add((dist, Angle.FromDirection(toBlock), b.Radius < dist ? Angle.Asin(b.Radius / dist) : 90f.Degrees()));
             }
         }
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        if (Origin != null
-            && !IgnoredPlayers[slot]
-            && actor.Position.InCircle(Origin.Value, MaxRange)
-            && !Visibility.Any(v => !actor.Position.InCircle(Origin.Value, v.Distance) && actor.Position.InCone(Origin.Value, v.Dir, v.HalfWidth)))
+        var aoes = ActiveAOEs(slot, actor);
+        var len = aoes.Length;
+        if (len == 0)
         {
-            hints.Add("Hide behind obstacle!");
+            return;
         }
-    }
 
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        if (Origin != null && !IgnoredPlayers[slot])
+        for (var i = 0; i < len; ++i)
         {
-            // inverse of a union of inverted max-range circle and a bunch of infinite cones minus inner cirles
-            var normals = Visibility.Select(v => (v.Distance, (v.Dir + v.HalfWidth).ToDirection().OrthoL(), (v.Dir - v.HalfWidth).ToDirection().OrthoR())).ToArray();
-            bool invertedDistanceToSafe(WPos p)
+            ref readonly var c = ref aoes[i];
+            if (c.Risky && !c.Check(actor.Position))
             {
-                var off = p - Origin.Value;
-                var distOrigin = off.Length();
-                var distanceToSafe = MaxRange - distOrigin; // this is positive if we're inside max-range
-                foreach (var (minRange, nl, nr) in normals)
+                if (Origin != null && ((WPos)Origin - actor.Position).LengthSq() < MaxRange * MaxRange)
                 {
-                    var distInnerInv = minRange - distOrigin;
-                    var distLeft = off.Dot(nl);
-                    var distRight = off.Dot(nr);
-                    var distCone = Math.Max(distInnerInv, Math.Max(distLeft, distRight));
-                    distanceToSafe = Math.Min(distanceToSafe, distCone);
+                    hints.Add(WarningText);
+                    return;
                 }
-                return distanceToSafe > 0;
             }
-            hints.AddForbiddenZone(invertedDistanceToSafe, NextExplosion);
-        }
-        if (BlockersImpassable)
-        {
-            var blockers = Blockers.Select(b => ShapeContains.Circle(b.Center, b.Radius)).ToArray();
-            if (blockers.Length > 0)
-                hints.TemporaryObstacles.Add(p => blockers.Any(b => b(p)));
         }
     }
-
-    public override void DrawArenaBackground(int pcSlot, Actor pc)
-    {
-        // TODO: reconsider, this looks like shit...
-        if (Origin != null && !IgnoredPlayers[pcSlot])
-        {
-            Arena.ZoneDonut(Origin.Value, MaxRange, 1000, ArenaColor.SafeFromAOE);
-            foreach (var v in Visibility)
-                Arena.ZoneCone(Origin.Value, v.Distance, 1000, v.Dir, v.HalfWidth, ArenaColor.SafeFromAOE);
-        }
-    }
-}
-
-// simple line-of-sight aoe that happens at the end of the cast
-public abstract class CastLineOfSightAOE : GenericLineOfSightAOE
-{
-    private readonly List<Actor> _casters = [];
-    public readonly float BlockerRadius;
-    public Actor? ActiveCaster => _casters.MinBy(c => c.CastInfo!.RemainingTime);
-
-    protected CastLineOfSightAOE(BossModule module, Enum aid, float maxRange, bool blockersImpassable, float blockerThickness = 0, float blockerRadius = 0) : base(module, aid, maxRange, blockersImpassable, blockerThickness)
-    {
-        BlockerRadius = blockerRadius;
-        Refresh();
-    }
-
-    public abstract IEnumerable<Actor> BlockerActors();
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
         {
-            _casters.Add(caster);
-            Refresh();
+            AddSafezone(Module.CastFinishAt(spell), spell.Rotation);
+        }
+    }
+
+    public void AddSafezone(DateTime activation, Angle rotation = default)
+    {
+        List<Shape> unionShapes = new(4);
+        List<Shape> differenceShapes = new(4);
+        if (Origin != null)
+        {
+            if (!Rect)
+            {
+                var count = Visibility.Count;
+                for (var i = 0; i < count; ++i)
+                {
+                    var v = Visibility[i];
+                    unionShapes.Add(new DonutSegmentHA(Origin.Value, v.Distance + 0.2f, MaxRange, v.Dir, v.HalfWidth));
+                }
+            }
+            else if (Rect)
+            {
+                var count = Blockers.Count;
+                for (var i = 0; i < count; ++i)
+                {
+                    var b = Blockers[i];
+                    var dir = rotation.ToDirection();
+                    unionShapes.Add(new RectangleSE(b.Center + 0.2f * dir, b.Center + MaxRange * dir, b.Radius));
+                }
+            }
+            if (BlockersImpassable || !SafeInsideHitbox)
+            {
+                var count = Blockers.Count;
+                for (var i = 0; i < count; ++i)
+                {
+                    var b = Blockers[i];
+                    differenceShapes.Add(new Circle(b.Center, !SafeInsideHitbox ? b.Radius : b.Radius + 0.5f));
+                }
+            }
+            if (unionShapes.Count != 0)
+            {
+                var shape = new AOEShapeCustom([.. unionShapes], [.. differenceShapes], invertForbiddenZone: true);
+                var origin = Arena.Center;
+                Safezones.Add(new(shape, origin, default, activation, Colors.SafeFromAOE, shapeDistance: shape.Distance(origin, default)));
+            }
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (Safezones.Count != 0 && spell.Action.ID == WatchedAction)
         {
-            _casters.Remove(caster);
+            Safezones.RemoveAt(0);
+        }
+    }
+}
+
+// simple line-of-sight aoe that happens at the end of the cast
+[SkipLocalsInit]
+public abstract class CastLineOfSightAOE : GenericLineOfSightAOE
+{
+    public readonly List<Actor> Casters = [];
+    public Actor? ActiveCaster
+    {
+        get
+        {
+            var count = Casters.Count;
+            if (count == 0)
+            {
+                return null;
+            }
+
+            Actor? activeCaster = null;
+            var minRemainingTime = double.MaxValue;
+            for (var i = 0; i < count; ++i)
+            {
+                var caster = Casters[i];
+                if (caster.CastInfo != null && caster.CastInfo.RemainingTime < minRemainingTime)
+                {
+                    minRemainingTime = caster.CastInfo.RemainingTime;
+                    activeCaster = caster;
+                }
+            }
+            return activeCaster;
+        }
+    }
+
+    protected CastLineOfSightAOE(BossModule module, uint aid, float maxRange, bool blockersImpassable = false, bool rect = false, bool safeInsideHitbox = true) : base(module, aid, maxRange, blockersImpassable, rect, safeInsideHitbox) => Refresh();
+
+    public abstract ReadOnlySpan<Actor> BlockerActors();
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == WatchedAction)
+        {
+            Casters.Add(caster);
             Refresh();
+            AddSafezone(Module.CastFinishAt(spell), spell.Rotation);
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == WatchedAction)
+        {
+            Casters.Remove(caster);
+            Refresh();
+            if (Safezones.Count != 0)
+            {
+                Safezones.RemoveAt(0);
+            }
         }
     }
 
     protected void Refresh()
     {
         var caster = ActiveCaster;
-        WPos? position = caster != null ? (WorldState.Actors.Find(caster.CastInfo!.TargetID)?.Position ?? caster.CastInfo!.LocXZ) : null;
-        Modify(position, BlockerActors().Select(b => (b.Position, BlockerRadius > 0 ? BlockerRadius : b.HitboxRadius)), Module.CastFinishAt(caster?.CastInfo));
+        WPos? position = caster != null ? caster.CastInfo!.LocXZ : null;
+        var blockers = BlockerActors();
+        var len = blockers.Length;
+        var blockerData = new (WPos, float)[len];
+
+        for (var i = 0; i < len; ++i)
+        {
+            ref readonly var b = ref blockers[i];
+            blockerData[i] = (b.Position, b.HitboxRadius);
+        }
+        Modify(position, blockerData, Module.CastFinishAt(caster?.CastInfo));
+    }
+}
+
+[SkipLocalsInit]
+public abstract class CastLineOfSightAOEComplex(BossModule module, uint aid, RelSimplifiedComplexPolygon blockerShape, int maxCasts = int.MaxValue, double riskyWithSecondsLeft = default, float maxRange = default) : GenericAOEs(module, aid)
+{
+    public readonly RelSimplifiedComplexPolygon BlockerShape = blockerShape;
+    public int MaxCasts = maxCasts; // used for staggered aoes, when showing all active would be pointless
+    public uint Color; // can be customized if needed
+    public bool Risky = true; // can be customized if needed
+    public int? MaxDangerColor;
+    public int? MaxRisky; // set a maximum amount of AOEs that are considered risky
+    public readonly double RiskyWithSecondsLeft = riskyWithSecondsLeft; // can be used to delay risky status of AOEs, so AI waits longer to dodge, if 0 it will just use the bool Risky
+    public readonly float MaxRange = maxRange; // useful if the AOE is smaller than the arena size
+
+    public readonly List<AOEInstance> AOEs = [];
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var count = AOEs.Count;
+        if (count == 0)
+        {
+            return [];
+        }
+        var time = WorldState.CurrentTime;
+        var max = count > MaxCasts ? MaxCasts : count;
+        var hasMaxDangerColor = count > MaxDangerColor;
+
+        var aoes = CollectionsMarshal.AsSpan(AOEs);
+        for (var i = 0; i < max; ++i)
+        {
+            ref var aoe = ref aoes[i];
+            var color = (hasMaxDangerColor && i < MaxDangerColor) ? Colors.Danger : Color;
+            var risky = Risky && (MaxRisky == null || i < MaxRisky);
+
+            if (RiskyWithSecondsLeft != default)
+            {
+                risky &= aoe.Activation.AddSeconds(-RiskyWithSecondsLeft) <= time;
+            }
+            aoe.Color = color;
+            aoe.Risky = risky;
+        }
+        return aoes[..max];
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == WatchedAction)
+        {
+            var center = Arena.Center;
+            var pos = caster.Position; // these LoS casts seem to typically use caster.Position instead of spell.LocXz
+            var shape = new AOEShapeCustom([new PolygonCustomRel(BlockerShape.Visibility(pos - center))],
+            MaxRange != default ? [new DonutV(pos, MaxRange, 1000f, 64)] : null);
+            AOEs.Add(new(shape, center, default, Module.CastFinishAt(spell), actorID: caster.InstanceID, shapeDistance: shape.Distance(center, default)));
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == WatchedAction)
+        {
+            var count = AOEs.Count;
+            var id = caster.InstanceID;
+            var aoes = CollectionsMarshal.AsSpan(AOEs);
+            for (var i = 0; i < count; ++i)
+            {
+                if (aoes[i].ActorID == id)
+                {
+                    AOEs.RemoveAt(i);
+                    return;
+                }
+            }
+        }
     }
 }

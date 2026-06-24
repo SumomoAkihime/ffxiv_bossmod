@@ -1,13 +1,13 @@
-﻿namespace BossMod.Endwalker.Criterion.C03AAI.C032Lala;
+﻿namespace BossMod.Endwalker.VariantCriterion.C03AAI.C032Lala;
 
 // TODO: we could detect aoe positions slightly earlier, when golems spawn
-class ConstructiveFigure(BossModule module, AID aid) : Components.StandardAOEs(module, aid, new AOEShapeRect(50, 4));
-class NConstructiveFigure(BossModule module) : ConstructiveFigure(module, AID.NAero);
-class SConstructiveFigure(BossModule module) : ConstructiveFigure(module, AID.SAero);
+abstract class ConstructiveFigure(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, new AOEShapeRect(50f, 4f));
+sealed class NConstructiveFigure(BossModule module) : ConstructiveFigure(module, (uint)AID.NAero);
+sealed class SConstructiveFigure(BossModule module) : ConstructiveFigure(module, (uint)AID.SAero);
 
-class ArcanePoint(BossModule module) : BossComponent(module)
+sealed class ArcanePoint(BossModule module) : BossComponent(module)
 {
-    public int NumCasts { get; private set; }
+    public int NumCasts;
     private readonly ArcanePlot? _plot = module.FindComponent<ArcanePlot>();
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -15,7 +15,7 @@ class ArcanePoint(BossModule module) : BossComponent(module)
         if (NumCasts > 0)
             return;
         var spot = CurrentSafeSpot(actor.Position);
-        if (spot != null && Raid.WithoutSlot().Exclude(actor).Any(p => CurrentSafeSpot(p.Position) == spot))
+        if (spot != null && Raid.WithoutSlot(false, true, true).Exclude(actor).Any(p => CurrentSafeSpot(p.Position) == spot))
             hints.Add("Spread on different squares!");
     }
 
@@ -30,12 +30,12 @@ class ArcanePoint(BossModule module) : BossComponent(module)
             return;
         var spot = CurrentSafeSpot(pc.Position);
         if (spot != null)
-            ArcaneArrayPlot.Shape.Draw(Arena, spot.Value, default, ArenaColor.SafeFromAOE);
+            ArcaneArrayPlot.Shape.Draw(Arena, spot.Value, default, Colors.SafeFromAOE);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.NPowerfulLight or AID.SPowerfulLight)
+        if (spell.Action.ID is (uint)AID.NPowerfulLight or (uint)AID.SPowerfulLight)
         {
             ++NumCasts;
             _plot?.AddAOE(caster.Position, default);
@@ -51,10 +51,10 @@ class ArcanePoint(BossModule module) : BossComponent(module)
     }
 }
 
-class ExplosiveTheorem(BossModule module, AID aid) : Components.SpreadFromCastTargets(module, aid, 8);
-class NExplosiveTheorem(BossModule module) : ExplosiveTheorem(module, AID.NExplosiveTheoremAOE);
-class SExplosiveTheorem(BossModule module) : ExplosiveTheorem(module, AID.SExplosiveTheoremAOE);
+abstract class ExplosiveTheorem(BossModule module, uint aid) : Components.SpreadFromCastTargets(module, aid, 8f);
+sealed class NExplosiveTheorem(BossModule module) : ExplosiveTheorem(module, (uint)AID.NExplosiveTheoremAOE);
+sealed class SExplosiveTheorem(BossModule module) : ExplosiveTheorem(module, (uint)AID.SExplosiveTheoremAOE);
 
-class TelluricTheorem(BossModule module, AID aid) : Components.StandardAOEs(module, aid, 8);
-class NTelluricTheorem(BossModule module) : TelluricTheorem(module, AID.NTelluricTheorem);
-class STelluricTheorem(BossModule module) : TelluricTheorem(module, AID.STelluricTheorem);
+abstract class TelluricTheorem(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, 8f);
+sealed class NTelluricTheorem(BossModule module) : TelluricTheorem(module, (uint)AID.NTelluricTheorem);
+sealed class STelluricTheorem(BossModule module) : TelluricTheorem(module, (uint)AID.STelluricTheorem);

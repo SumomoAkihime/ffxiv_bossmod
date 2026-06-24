@@ -30,7 +30,7 @@ class WreathOfThorns1(BossModule module) : BossComponent(module)
                     {
                         hints.Add("Soak the tower!");
                     }
-                    else if (Raid.WithoutSlot().Exclude(actor).InRadius(soakedTower.Position, P4S2.WreathTowerRadius).Any())
+                    else if (Raid.WithoutSlot(false, true, true).Exclude(actor).InRadius(soakedTower.Position, P4S2.WreathTowerRadius).Any())
                     {
                         hints.Add("Multiple soakers for the tower!");
                     }
@@ -49,7 +49,7 @@ class WreathOfThorns1(BossModule module) : BossComponent(module)
     {
         if (CurState is State.FirstAOEs or State.LastAOEs)
             foreach (var aoe in CurState == State.FirstAOEs ? FirstAOEs : LastAOEs)
-                Arena.ZoneCircle(aoe.Position, P4S2.WreathAOERadius, ArenaColor.AOE);
+                Arena.ZoneCircle(aoe.Position, P4S2.WreathAOERadius, Colors.AOE);
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
@@ -57,13 +57,13 @@ class WreathOfThorns1(BossModule module) : BossComponent(module)
         if (CurState == State.Towers)
         {
             foreach (var tower in Towers)
-                Arena.AddCircle(tower.Position, P4S2.WreathTowerRadius, ArenaColor.Safe);
-            foreach (var player in Raid.WithoutSlot())
-                Arena.Actor(player, ArenaColor.PlayerGeneric);
+                Arena.AddCircle(tower.Position, P4S2.WreathTowerRadius, Colors.Safe);
+            foreach (var player in Raid.WithoutSlot(false, true, true))
+                Arena.Actor(player, Colors.PlayerGeneric);
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (source.OID == (uint)OID.Helper && tether.ID == (uint)TetherID.WreathOfThorns)
             _relevantHelpers.Add(source);

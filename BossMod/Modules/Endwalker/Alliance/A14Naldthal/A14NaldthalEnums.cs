@@ -6,7 +6,7 @@ public enum OID : uint
     FortuneFluxHelper = 0x38A0, // x3
     SoulVesselFake = 0x3907, // untargetable/tethered placeholders that spawn during fight
     SoulVesselReal = 0x38A1, // adds that spawn during fight
-    Helper = 0x233C, // x31
+    Helper = 0x233C
 }
 
 // nald = orange, thal = blue
@@ -101,27 +101,25 @@ public enum AID : uint
     BalanceFail2 = 29743, // Helper->self, no cast, single-target, visual (balance not maintained)
     TippedScales = 29576, // Boss->self, no cast, visual
     TippedScalesAOE = 29561, // Helper->self, 34.0s cast, raidwide (on success)
-    TippedScalesEnrage = 29562, // Helper->self, 34.0s cast, wipe (on failure)
+    TippedScalesEnrage = 29562 // Helper->self, 34.0s cast, wipe (on failure)
 }
 
 public enum SID : uint
 {
-    None = 0,
     FiredUp = 2193, // Boss, 0x190 = knockback, 0x191 = aoe, 0x199 = ?
+    Weight = 3558 // none->player/SoulVesselReal, extra=0x1BD/0x1BC/0x1BB (1BD players, presumeably weight 1, 1BC vessel with 2 big weights, probably worth 8, 1BB vessel with 3 big weights, probably worth 12)
 }
 
 public enum TetherID : uint
 {
-    None = 0,
     FiredUp = 12, // Helper->Boss
-    SoulVessel = 7, // player->SoulVesselFake
+    SoulVessel = 7 // player->SoulVesselFake
 }
 
 public enum IconID : uint
 {
-    None = 0,
     HeavensTrialStack = 62,
     HeavensTrialCone = 237,
     DeepestPitTarget = 340,
-    MagmaticSpell = 62, // stack marker
+    MagmaticSpell = 62 // stack marker
 }

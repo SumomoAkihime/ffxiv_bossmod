@@ -138,9 +138,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         [Option("Do not use")]
         None,
         [Option("Use when outside melee range", Targets = ActionTargets.Party | ActionTargets.Hostile)]
-        GapClose,
-        [Option("Use to cancel knockback", Targets = ActionTargets.Party | ActionTargets.Hostile)]
-        Knockback
+        GapClose
     }
     public enum BlitzStrategy
     {
@@ -199,8 +197,6 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
     public int NumAOETargets;
     public int NumLineTargets;
 
-    private DateTime LastDash;
-
     private Enemy? BestBlitzTarget;
     private Enemy? BestRangedTarget; // fire's reply
     private Enemy? BestLineTarget; // enlightenment, wind's reply
@@ -211,7 +207,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
 
     protected override float GetCastTime(AID aid) => 0;
 
-    public float EffectiveDowntimeIn => MathF.Max(0, DowntimeIn - GetApplicationDelay(AID.SixSidedStar));
+    public float EffectiveDowntimeIn => Math.Max(0, DowntimeIn - GetApplicationDelay(AID.SixSidedStar));
 
     private (AID action, bool isTargeted) GetCurrentBlitz()
     {
@@ -304,9 +300,6 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
 
     public override void Exec(in Strategy strategy, Enemy? primaryTarget)
     {
-        if (Manager.LastCast is (var ts, { } data) && data.IsSpell(AID.Thunderclap))
-            LastDash = ts;
-
         SelectPrimaryTarget(strategy, ref primaryTarget, range: 3);
         HaveTarget = primaryTarget != null && Player.InCombat;
 
@@ -447,7 +440,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         if (PerfectBalanceLeft == 0)
             return;
 
-        var deadlineAll = MathF.Min(UptimeIn ?? float.MaxValue, PerfectBalanceLeft) - 0.5f;
+        var deadlineAll = Math.Min(UptimeIn ?? float.MaxValue, PerfectBalanceLeft) - 0.5f;
         var gcdsLeft = 3 - BeastCount;
         var deadlineNext = deadlineAll - gcdsLeft * AttackGCDLength;
         if (lunar)
@@ -594,24 +587,11 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         }
 
         var tc = strategy.TC;
-        switch (tc.Value)
+        if (tc.Value == TCStrategy.GapClose)
         {
-            case TCStrategy.GapClose:
-                var tcTarget = ResolveTargetOverride(tc) ?? primaryTarget;
-                if (Player.DistanceToHitbox(tcTarget) is > 3 and < 25)
-                    PushOGCD(AID.Thunderclap, tcTarget, OGCDPriority.TrueNorth);
-                break;
-
-            // we can't consistently use effectresult to time the dash since action requests are affected by RTT. maybe it would work for someone with better ping but not me
-            case TCStrategy.Knockback:
-                // FIXME: should instead check whether the last dash was before the start of this plan entry but that will be more work
-                if (LastDash.AddSeconds(2) < World.CurrentTime && Player.PendingKnockbacks.Count > 0)
-                {
-                    var dashTarget = ResolveTargetOverride(tc)?.Actor ?? primaryTarget?.Actor ?? World.Party.WithoutSlot(includeDead: false).Exclude(Player).Closest(Player.Position);
-                    if (dashTarget != null)
-                        Hints.ActionsToExecute.Push(ActionID.MakeSpell(AID.Thunderclap), dashTarget, tc.Priority(ActionQueue.Priority.Low + (int)OGCDPriority.PerfectBalance), forced: true);
-                }
-                break;
+            var tcTarget = ResolveTargetOverride(tc) ?? primaryTarget;
+            if (Player.DistanceToHitbox(tcTarget) is > 3 and < 25)
+                PushOGCD(AID.Thunderclap, tcTarget, OGCDPriority.TrueNorth);
         }
     }
 
@@ -647,12 +627,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
                 if (!Player.InCombat)
                     prio = GCDPriority.Meditate;
 
-                // real downtime according to state machine, we have time to meditate
-                if (UptimeIn > GCD + 1)
-                    prio = GCDPriority.Meditate;
-
-                // regular combat and no target, meditate is ok
-                if (UptimeIn == null && primaryTarget == null)
+                if (UptimeIn > GCD + 1 || (UptimeIn ?? 0) == 0 && primaryTarget == null)
                     prio = GCDPriority.Meditate;
                 break;
             case MeditationStrategy.Greedy:
@@ -677,7 +652,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
                 prio = GCDPriority.MeditateForce;
                 break;
             case OffensiveStrategy.Automatic:
-                if (UptimeIn > MathF.Max(GCD + AttackGCDLength, FormShiftLeft) && UptimeIn < 25)
+                if (UptimeIn > Math.Max(GCD + AttackGCDLength, FormShiftLeft) && UptimeIn < 25)
                     prio = GCDPriority.Meditate;
                 break;
         }
@@ -747,7 +722,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
     }
 
     private float DesiredFireWindow => GCDLength * 10;
-    private float EarliestRoF(float estimatedDelay) => MathF.Max(estimatedDelay + 0.8f, 20.6f - DesiredFireWindow);
+    private float EarliestRoF(float estimatedDelay) => Math.Max(estimatedDelay + 0.8f, 20.6f - DesiredFireWindow);
 
     private void Potion(float priority) => Hints.ActionsToExecute.Push(ActionDefinitions.IDPotionStr, Player, priority);
 

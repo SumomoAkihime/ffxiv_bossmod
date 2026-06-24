@@ -2,88 +2,93 @@ namespace BossMod.Shadowbringers.Hunt.RankA.Huracan;
 
 public enum OID : uint
 {
-    Boss = 0x28B5, // R=4.9
+    Boss = 0x28B5 // R=4.9
 }
 
 public enum AID : uint
 {
     AutoAttack = 872, // Boss->player, no cast, single-target
+
     WindsEnd = 17494, // Boss->player, no cast, single-target
     WinterRain = 17497, // Boss->location, 4.0s cast, range 6 circle
     Windburst = 18042, // Boss->self, no cast, range 80 width 10 rect
     SummerHeat = 17499, // Boss->self, 4.0s cast, range 40 circle
     DawnsEdge = 17495, // Boss->self, 3.5s cast, range 15 width 10 rect
     SpringBreeze = 17496, // Boss->self, 3.5s cast, range 80 width 10 rect
-    AutumnWreath = 17498, // Boss->self, 4.0s cast, range 10-20 donut
+    AutumnWreath = 17498 // Boss->self, 4.0s cast, range 10-20 donut
 }
 
-class SpringBreeze(BossModule module) : Components.StandardAOEs(module, AID.SpringBreeze, new AOEShapeRect(80, 5));
-class SummerHeat(BossModule module) : Components.RaidwideCast(module, AID.SummerHeat);
+sealed class SpringBreeze(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpringBreeze, new AOEShapeRect(80f, 5f));
+sealed class SummerHeat(BossModule module) : Components.RaidwideCast(module, (uint)AID.SummerHeat);
 
-class Combos(BossModule module) : Components.GenericAOEs(module)
+sealed class Combos(BossModule module) : Components.GenericAOEs(module)
 {
-    private static readonly AOEShapeDonut donut = new(10, 20);
-    private static readonly AOEShapeCircle circle = new(6);
-    private static readonly AOEShapeRect rect = new(15, 5);
-    private static readonly AOEShapeRect rect2 = new(40, 5, 40);
-    private DateTime _activation;
-    private Angle _rotation;
-    private AOEShape? _shape;
+    private readonly AOEShapeDonut donut = new(10f, 20f);
+    private readonly AOEShapeCircle circle = new(6f);
+    private readonly AOEShapeRect rect = new(15f, 5f);
+    private readonly AOEShapeRect rect2 = new(80f, 5f);
+    private readonly List<AOEInstance> _aoes = new(2);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void Update()
     {
-        if (_activation != default && _shape != null)
+        var count = _aoes.Count;
+        if (count == 0)
         {
-            if (NumCasts == 0)
+            return;
+        }
+        var aoes = CollectionsMarshal.AsSpan(_aoes);
+        ref var aoe0 = ref aoes[0];
+        if (count > 1)
+        {
+            aoe0.Color = Colors.Danger;
+            ref var aoe1 = ref aoes[1];
+            if (aoe0.Shape == circle) // unfortunately the circle is targeting a location and the boss can still slightly move after cast started 
             {
-                yield return new(_shape, Module.PrimaryActor.Position, _rotation, _activation, ArenaColor.Danger);
-                yield return new(rect2, Module.PrimaryActor.Position, Module.PrimaryActor.Rotation, _activation.AddSeconds(3.1f), Risky: false);
+                var prim = Module.PrimaryActor;
+                var rot = prim.Rotation;
+                var pos = prim.Position;
+                var origin = (pos - 40f * rot.ToDirection()).Quantized();
+                aoe1.Origin = origin;
+                aoe1.Rotation = rot;
+                aoe1.ShapeDistance = aoe1.Shape.Distance(origin, rot);
             }
-            if (NumCasts == 1)
-                yield return new(rect2, Module.PrimaryActor.Position, Module.PrimaryActor.Rotation, _activation.AddSeconds(3.1f), ArenaColor.Danger);
         }
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.AutumnWreath)
+        AOEShape? shape = spell.Action.ID switch
         {
-            _rotation = spell.Rotation;
-            _activation = Module.CastFinishAt(spell);
-            _shape = donut;
-        }
-        if ((AID)spell.Action.ID is AID.DawnsEdge)
+            (uint)AID.AutumnWreath => donut,
+            (uint)AID.DawnsEdge => rect,
+            (uint)AID.WinterRain => circle,
+            _ => null
+        };
+        if (shape != null)
         {
-            _rotation = spell.Rotation;
-            _activation = Module.CastFinishAt(spell);
-            _shape = rect;
+            var pos = spell.LocXZ;
+            var rot = spell.Rotation;
+            AddAOE(shape, pos, rot);
+            var primary = Module.PrimaryActor;
+            var check = shape == circle;
+            var pos2 = check ? primary.Position : pos;
+            AddAOE(rect2, pos2 - 40f * rot.ToDirection(), check ? primary.Rotation : rot, 3.1d);
         }
-        if ((AID)spell.Action.ID is AID.WinterRain)
-        {
-            _rotation = spell.Rotation;
-            _activation = Module.CastFinishAt(spell);
-            _shape = circle;
-        }
-    }
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.AutumnWreath or AID.DawnsEdge or AID.WinterRain)
-            ++NumCasts;
+        void AddAOE(AOEShape shape, WPos origin, Angle rotation, double delay = default) => _aoes.Add(new(shape, origin, rotation, Module.CastFinishAt(spell, delay), shapeDistance: shape.Distance(origin, rotation)));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.Windburst)
+        if (_aoes.Count != 0 && spell.Action.ID is (uint)AID.Windburst or (uint)AID.AutumnWreath or (uint)AID.DawnsEdge or (uint)AID.WinterRain)
         {
-            NumCasts = 0;
-            _activation = default;
-            _shape = null;
+            _aoes.RemoveAt(0);
         }
     }
 }
 
-class HuracanStates : StateMachineBuilder
+sealed class HuracanStates : StateMachineBuilder
 {
     public HuracanStates(BossModule module) : base(module)
     {
@@ -94,5 +99,5 @@ class HuracanStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.A, NameID = 8912)]
-public class Huracan(WorldState ws, Actor primary) : SimpleBossModule(ws, primary) { }
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.A, NameID = 8912)]
+public sealed class Huracan(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);

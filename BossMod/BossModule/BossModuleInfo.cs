@@ -1,21 +1,23 @@
 ﻿namespace BossMod;
 
+[SkipLocalsInit]
 public static class BossModuleInfo
 {
     public enum Maturity
     {
-        [PropertyDisplay("Work in progress; might be incomplete or have severe bugs")]
+        [PropertyDisplay("Work in progress; might be incomplete or have severe bugs.")]
         WIP,
 
-        [PropertyDisplay("Third-party contributed module that wasn't verified by the plugin author; might be working fine, might have any sorts of inconsistencies with other modules - YMMV")]
+        [PropertyDisplay("Third-party contributed module that wasn't verified by the plugin author; might be working fine, might have any sorts of inconsistencies with other modules - YMMV.")]
         Contributed,
 
-        [PropertyDisplay("First-party module created by the plugin author, or a third-party contributed module that was thoroughly verified and effectively taken over by the plugin author")]
+        [PropertyDisplay("First-party module created by the plugin author, or a third-party contributed module that was thoroughly verified.")]
         Verified,
 
-        [PropertyDisplay("Compatibility alias for external modules; treated as verified maturity")]
-        AISupport = Verified
+        [PropertyDisplay("Module that has been verified to work well with AI enabled.")]
+        AISupport
     }
+
     public enum Expansion
     {
         RealmReborn,
@@ -42,8 +44,7 @@ public static class BossModuleInfo
         Alliance,
         Chaotic,
         Foray,
-        Variant,
-        Criterion,
+        VariantCriterion,
         DeepDungeon,
         FATE,
         Hunt,
@@ -53,6 +54,7 @@ public static class BossModuleInfo
         MaskedCarnivale,
         GoldSaucer,
         Quantum,
+        Advanced,
 
         Count
     }
@@ -63,10 +65,15 @@ public static class BossModuleInfo
         CFC, // group id is ContentFinderCondition row
         MaskedCarnivale, // group id is ContentFinderCondition row
         RemovedUnreal, // group id is ContentFinderCondition row
+        BaldesionArsenal, // group id is ContentFinderCondition row
+        CastrumLacusLitore, // group id is ContentFinderCondition row
+        TheDalriada, // group id is ContentFinderCondition row
+        TheForkedTowerBlood, // group id is ContentFinderCondition row
+        ForayFATE, // group id is Fate row
         Quest, // group id is Quest row
         Fate, // group id is Fate row
         Hunt, // group id is HuntRank
-        BozjaCE, // group id is ContentFinderCondition row, name id is DynamicEvent row
+        CriticalEngagement, // group id is ContentFinderCondition row, name id is DynamicEvent row
         BozjaDuel, // group id is ContentFinderCondition row, name id is DynamicEvent row
         EurekaNM, // group id is ContentFinderCondition row, name id is Fate row
         GoldSaucer, // group id is GoldSaucerTextData row
@@ -89,18 +96,9 @@ public static class BossModuleInfo
 
 // attribute that allows customizing boss module's metadata; it is optional, each field has some defaults that are fine in most cases
 [AttributeUsage(AttributeTargets.Class, Inherited = false)]
-public sealed class ModuleInfoAttribute : Attribute
+[SkipLocalsInit]
+public sealed class ModuleInfoAttribute(BossModuleInfo.Maturity maturity) : Attribute
 {
-    public ModuleInfoAttribute() { }
-    // Backward-compat: many local modules still pass legacy maturity as positional argument.
-    public ModuleInfoAttribute(BossModuleInfo.Maturity maturity)
-    {
-        Maturity = maturity;
-        Incomplete = maturity == BossModuleInfo.Maturity.WIP;
-    }
-
-    public BossModuleInfo.Maturity Maturity { get; } = BossModuleInfo.Maturity.Verified;
-
     public Type? StatesType { get; set; } // default: ns.xxxStates
     public Type? ConfigType { get; set; } // default: ns.xxxConfig
     public Type? ObjectIDType { get; set; } // default: ns.OID
@@ -109,6 +107,7 @@ public sealed class ModuleInfoAttribute : Attribute
     public Type? TetherIDType { get; set; } // default: ns.TetherID
     public Type? IconIDType { get; set; } // default: ns.IconID
     public uint PrimaryActorOID { get; set; } // default: OID.Boss
+    public BossModuleInfo.Maturity Maturity { get; } = maturity;
     public string Contributors { get; set; } = "";
     public BossModuleInfo.Expansion Expansion { get; set; } = BossModuleInfo.Expansion.Count; // default: second namespace level
     public BossModuleInfo.Category Category { get; set; } = BossModuleInfo.Category.Count; // default: third namespace level
@@ -117,5 +116,4 @@ public sealed class ModuleInfoAttribute : Attribute
     public uint NameID { get; set; } // usually BNpcName row, unless GroupType uses it differently
     public int SortOrder { get; set; } // default: first number in type name
     public int PlanLevel { get; set; } // if > 0, module supports plans for this level
-    public bool Incomplete { get; set; } // user needs to opt-in to load these modules, they probably don't work (but could be useful for prog, e.g. new ultimates)
 }

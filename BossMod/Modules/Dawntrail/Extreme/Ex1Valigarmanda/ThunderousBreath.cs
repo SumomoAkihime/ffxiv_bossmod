@@ -1,29 +1,38 @@
 ﻿namespace BossMod.Dawntrail.Extreme.Ex1Valigarmanda;
 
-class ThunderousBreath : Components.CastCounter
+sealed class ThunderousBreath : Components.CastCounter
 {
-    public ThunderousBreath(BossModule module) : base(module, AID.ThunderousBreathAOE)
+    public ThunderousBreath(BossModule module) : base(module, (uint)AID.ThunderousBreathAOE)
     {
         var platform = module.FindComponent<ThunderPlatform>();
         if (platform != null)
-            foreach (var (i, _) in module.Raid.WithSlot(true))
-                platform.RequireHint[i] = platform.RequireLevitating[i] = true;
+        {
+            var party = module.Raid.WithSlot(true, true, true);
+            var len = party.Length;
+            for (var i = 0; i < len; ++i)
+            {
+                var slot = party[i].Item1;
+                platform.RequireHint[slot] = platform.RequireLevitating[slot] = true;
+            }
+        }
     }
 }
 
-class ArcaneLighning(BossModule module) : Components.GenericAOEs(module, AID.ArcaneLightning)
+sealed class ArcaneLighning(BossModule module) : Components.GenericAOEs(module, (uint)AID.ArcaneLightning)
 {
     public readonly List<AOEInstance> AOEs = [];
 
-    private static readonly AOEShapeRect _shape = new(50, 2.5f);
+    private readonly AOEShapeRect rect = new(50f, 2.5f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => AOEs;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(AOEs);
 
     public override void OnActorCreated(Actor actor)
     {
-        if ((OID)actor.OID == OID.ArcaneSphere)
+        if (actor.OID == (uint)OID.ArcaneSphere)
         {
-            AOEs.Add(new(_shape, actor.Position, actor.Rotation, WorldState.FutureTime(8.6f)));
+            var pos = actor.Position.Quantized();
+            var rot = actor.Rotation;
+            AOEs.Add(new(rect, pos, rot, WorldState.FutureTime(8.6d), shapeDistance: rect.Distance(pos, rot)));
         }
     }
 }

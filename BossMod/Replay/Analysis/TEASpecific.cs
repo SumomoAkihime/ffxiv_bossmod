@@ -2,7 +2,7 @@
 
 namespace BossMod.ReplayAnalysis;
 
-class TEASpecific
+sealed class TEASpecific
 {
     struct HandBaitData
     {
@@ -72,8 +72,8 @@ class TEASpecific
                 {
                     var handPos = new WPos(hand.PosRotAt(action.Timestamp).XZ());
                     var bossPos = new WPos(boss.PosRotAt(action.Timestamp).XZ());
-                    int damageSum = 0;
-                    int damageCount = 0;
+                    var damageSum = 0;
+                    var damageCount = 0;
                     foreach (var t in action.Targets)
                     {
                         var damage = ReplayUtils.ActionDamage(t);
@@ -99,7 +99,9 @@ class TEASpecific
                 var adjTS = action.Timestamp.AddSeconds(-2);
                 var s = replay.Statuses.Find(s => s.Target == t1 && s.Time.Contains(adjTS) && (SID)s.ID is SID.HouseArrest or SID.RestrainingOrder);
                 if (s == null)
+                {
                     continue;
+                }
 
                 var list = (SID)s.ID == SID.HouseArrest ? _suretyResolvesClose : _suretyResolvesFar;
                 var p1 = new WPos(t1.PosRotAt(action.Timestamp).XZ());
@@ -115,35 +117,50 @@ class TEASpecific
         {
             _plotHandBaits.Begin();
             foreach (var i in _handBaits)
-                _plotHandBaits.Point(new Vector2(i.Distance, i.IsPrayer ? 2 : 1), i.IsPrayer ? 0xff00ffff : 0xff808080, () => $"{(i.IsPrayer ? "prayer" : "parting")} {i.Replay.Path} @ {i.Timestamp:O}");
+            {
+                _plotHandBaits.Point(new Vector2(i.Distance, i.IsPrayer ? 2 : 1), i.IsPrayer ? Colors.TextColor2 : Colors.PlayerGeneric, () => $"{(i.IsPrayer ? "prayer" : "parting")} {i.Replay.Path} @ {i.Timestamp:O}");
+            }
+
             _plotHandBaits.End();
         }
         foreach (var _ in tree.Node("Hand of Parting: resolves damage"))
         {
             _plotHandResolvesParting.Begin();
             foreach (var i in _handResolvesParting)
-                _plotHandResolvesParting.Point(new Vector2(i.Distance, i.Damage), 0xff00ffff, () => $"{i.Replay.Path} @ {i.Timestamp:O}");
+            {
+                _plotHandResolvesParting.Point(new Vector2(i.Distance, i.Damage), Colors.TextColor2, () => $"{i.Replay.Path} @ {i.Timestamp:O}");
+            }
+
             _plotHandResolvesParting.End();
         }
         foreach (var _ in tree.Node("Hand of Prayer: resolves damage"))
         {
             _plotHandResolvesPrayer.Begin();
             foreach (var i in _handResolvesPrayer)
-                _plotHandResolvesPrayer.Point(new Vector2(i.Distance, i.Damage), 0xff00ffff, () => $"{i.Replay.Path} @ {i.Timestamp:O}");
+            {
+                _plotHandResolvesPrayer.Point(new Vector2(i.Distance, i.Damage), Colors.TextColor2, () => $"{i.Replay.Path} @ {i.Timestamp:O}");
+            }
+
             _plotHandResolvesPrayer.End();
         }
         foreach (var _ in tree.Node("Plaint of Surety: damage on close"))
         {
             _plotSuretyResolvesClose.Begin();
             foreach (var i in _suretyResolvesClose)
-                _plotSuretyResolvesClose.Point(new Vector2(i.Distance, i.Damage), 0xff00ffff, () => $"{i.Replay.Path} @ {i.Timestamp:O}");
+            {
+                _plotSuretyResolvesClose.Point(new Vector2(i.Distance, i.Damage), Colors.TextColor2, () => $"{i.Replay.Path} @ {i.Timestamp:O}");
+            }
+
             _plotSuretyResolvesClose.End();
         }
         foreach (var _ in tree.Node("Plaint of Surety: damage on far"))
         {
             _plotSuretyResolvesFar.Begin();
             foreach (var i in _suretyResolvesFar)
-                _plotSuretyResolvesFar.Point(new Vector2(i.Distance, i.Damage), 0xff00ffff, () => $"{i.Replay.Path} @ {i.Timestamp:O}");
+            {
+                _plotSuretyResolvesFar.Point(new Vector2(i.Distance, i.Damage), Colors.TextColor2, () => $"{i.Replay.Path} @ {i.Timestamp:O}");
+            }
+
             _plotSuretyResolvesFar.End();
         }
     }

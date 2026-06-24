@@ -1,4 +1,4 @@
-﻿namespace BossMod.Stormblood.Foray.Hydatos;
+namespace BossMod.Stormblood.Foray.Hydatos;
 
 [ConfigDisplay(Name = "Hydatos", Parent = typeof(EurekaConfig))]
 public class HydatosConfig : ConfigNode
@@ -33,10 +33,10 @@ public enum NotoriousMonster : uint
     PW
 }
 
-[ZoneModuleInfo(639)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 639)]
 public class Hydatos(WorldState ws) : EurekaZone<NotoriousMonster>(ws, "Hydatos")
 {
-    private readonly HydatosConfig _config = Service.Config.Get<HydatosConfig>();
+    private static readonly HydatosConfig _config = Service.Config.Get<HydatosConfig>();
 
     protected override NotoriousMonster FarmTarget
     {

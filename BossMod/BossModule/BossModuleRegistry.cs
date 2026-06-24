@@ -2,9 +2,10 @@
 
 namespace BossMod;
 
+[SkipLocalsInit]
 public static class BossModuleRegistry
 {
-    public class Info
+    public sealed class Info
     {
         public Type ModuleType;
         public Type StatesType;
@@ -17,6 +18,7 @@ public static class BossModuleRegistry
         public uint PrimaryActorOID;
         public Func<WorldState, Actor, BossModule> ModuleFactory;
 
+        public BossModuleInfo.Maturity Maturity;
         public string Contributors = "";
         public BossModuleInfo.Expansion Expansion;
         public BossModuleInfo.Category Category;
@@ -25,7 +27,6 @@ public static class BossModuleRegistry
         public uint NameID;
         public int SortOrder;
         public int PlanLevel;
-        public bool Incomplete;
 
         public static Info? Build(Type module)
         {
@@ -44,52 +45,13 @@ public static class BossModuleRegistry
                 return null;
             }
 
-            if (configType != null && !configType.IsSubclassOf(typeof(ConfigNode)))
-            {
-                Service.Log($"[ModuleRegistry] Module {module.FullName} has incorrect associated config type: it should be derived from ConfigNode");
-                configType = null;
-            }
-
-            if (oidType != null && !oidType.IsEnum)
-            {
-                Service.Log($"[ModuleRegistry] Module {module.FullName} has incorrect associated object ID type: it should be an enum");
-                oidType = null;
-            }
-
-            if (aidType != null && !aidType.IsEnum)
-            {
-                Service.Log($"[ModuleRegistry] Module {module.FullName} has incorrect associated action ID type: it should be an enum");
-                aidType = null;
-            }
-
-            if (sidType != null && !sidType.IsEnum)
-            {
-                Service.Log($"[ModuleRegistry] Module {module.FullName} has incorrect associated status ID type: it should be an enum");
-                sidType = null;
-            }
-
-            if (tidType != null && !tidType.IsEnum)
-            {
-                Service.Log($"[ModuleRegistry] Module {module.FullName} has incorrect associated tether ID type: it should be an enum");
-                tidType = null;
-            }
-
-            if (iidType != null && !iidType.IsEnum)
-            {
-                Service.Log($"[ModuleRegistry] Module {module.FullName} has incorrect associated icon ID type: it should be an enum");
-                iidType = null;
-            }
-
-            uint primaryOID = infoAttr?.PrimaryActorOID ?? 0;
-            if (primaryOID == 0 && oidType != null)
+            var primaryOID = infoAttr?.PrimaryActorOID ?? default;
+            if (primaryOID == default && oidType != null)
             {
                 if (Enum.TryParse(oidType, "Boss", out var oid))
+                {
                     primaryOID = (uint)oid!;
-            }
-            if (primaryOID == 0)
-            {
-                Service.Log($"[ModuleRegistry] Module {module.FullName} has no associated primary actor OID: either specify one explicitly or ensure OID enum has Boss entry");
-                return null;
+                }
             }
 
             var splitNamespace = module.Namespace?.Split('.') ?? []; // expected to be 'BossMod.expansion.category.rest'
@@ -117,18 +79,37 @@ public static class BossModuleRegistry
             }
 
             var groupType = infoAttr?.GroupType ?? BossModuleInfo.GroupType.None;
-            var groupID = infoAttr?.GroupID ?? 0;
-            var nameID = infoAttr?.NameID ?? 0;
-            if (groupType == BossModuleInfo.GroupType.None && groupID == 0)
-            {
-                Service.Log($"[ModuleRegistry] Module {module.FullName} does not have group type/id assignments.");
-            }
+            var groupID = infoAttr?.GroupID ?? default;
+            var nameID = infoAttr?.NameID ?? default;
 
             var sortOrder = infoAttr?.SortOrder ?? 0;
-            if (sortOrder == 0 && int.TryParse(module.Name.SkipWhile(c => !char.IsAsciiDigit(c)).TakeWhile(char.IsAsciiDigit).ToArray(), out var inferredSortOrder))
+
+            if (sortOrder == 0)
             {
-                sortOrder = inferredSortOrder;
+                var name = module.Name;
+                var i = 0;
+                var len = name.Length;
+                // Find the first ASCII digit
+                while (i < len && !char.IsAsciiDigit(name[i]))
+                {
+                    ++i;
+                }
+                // Extract digit sequence
+                var start = i;
+                while (i < len && char.IsAsciiDigit(name[i]))
+                {
+                    ++i;
+                }
+                if (start < i)
+                {
+                    var numberStr = name[start..i];
+                    if (int.TryParse(numberStr, out var inferredSortOrder))
+                    {
+                        sortOrder = inferredSortOrder;
+                    }
+                }
             }
+
             if (sortOrder == 0)
             {
                 sortOrder = (int)primaryOID;
@@ -144,6 +125,7 @@ public static class BossModuleRegistry
                 IconIDType = iidType,
                 PrimaryActorOID = primaryOID,
 
+                Maturity = infoAttr?.Maturity ?? BossModuleInfo.Maturity.WIP,
                 Contributors = infoAttr?.Contributors ?? "",
                 Expansion = expansion,
                 Category = category,
@@ -152,7 +134,6 @@ public static class BossModuleRegistry
                 NameID = nameID,
                 SortOrder = sortOrder,
                 PlanLevel = infoAttr?.PlanLevel ?? 0,
-                Incomplete = infoAttr?.Incomplete ?? false,
             };
         }
 
@@ -164,58 +145,52 @@ public static class BossModuleRegistry
         }
     }
 
-    private static readonly Dictionary<uint, Info> _modulesByOID = []; // [primary-actor-oid] = module info
+    public static readonly Dictionary<uint, Info> RegisteredModules = []; // [primary-actor-oid] = module info
     private static readonly Dictionary<Type, Info> _modulesByType = []; // [module-type] = module info
 
     static BossModuleRegistry()
     {
-        foreach (var t in Utils.GetDerivedTypes<BossModule>(Assembly.GetExecutingAssembly()).Where(t => !t.IsAbstract && t != typeof(DemoModule)))
+        foreach (var t in Utils.GetDerivedTypes<BossModule>(Assembly.GetExecutingAssembly()))
         {
-            var info = Info.Build(t);
-            if (info == null)
-                continue;
-            _modulesByType[t] = info;
-            if (!_modulesByOID.TryAdd(info.PrimaryActorOID, info))
-                Service.Log($"[ModuleRegistry] Two boss modules have same primary actor OID: {t.FullName} and {_modulesByOID[info.PrimaryActorOID].ModuleType.FullName}");
+            if (!t.IsAbstract && t != typeof(DemoModule))
+            {
+                var info = Info.Build(t);
+                if (info == null)
+                {
+                    continue;
+                }
+                _modulesByType[t] = info;
+                if (!RegisteredModules.TryAdd(info.PrimaryActorOID, info))
+                {
+                    Service.Log($"[ModuleRegistry] Two boss modules have same primary actor OID: {t.FullName} and {RegisteredModules[info.PrimaryActorOID].ModuleType.FullName}");
+                }
+            }
         }
     }
 
-    private static readonly BossModuleConfig _config = Service.Config.Get<BossModuleConfig>();
-
-    public static IReadOnlyDictionary<uint, Info> RegisteredModules => _modulesByOID;
-
-    public static Info? FindByOID(uint oid) => _modulesByOID.GetValueOrDefault(oid);
+    public static Info? FindByOID(uint oid) => RegisteredModules.GetValueOrDefault(oid);
     public static Info? FindByType(Type type) => _modulesByType.GetValueOrDefault(type);
 
     public static BossModule? CreateModule(Info? info, WorldState ws, Actor primary) => info?.ModuleFactory(ws, primary);
 
-    public static BossModule? CreateModuleForActor(WorldState ws, Actor primary, bool allowIncomplete, bool allowStrikingDummy)
+    public static BossModule? CreateModuleForActor(WorldState ws, Actor primary, BossModuleInfo.Maturity minMaturity)
     {
-        var info = primary.Type is ActorType.Enemy or ActorType.EventObj ? FindByOID(primary.OID) : null;
-        if (info is not { } inf)
+        if (primary.Type is not ActorType.Enemy and not ActorType.EventObj)
+        {
             return null;
+        }
 
-        if (_config.DisabledModules.Contains(inf.ModuleType.ToString()))
-            return null;
-        if (_config.DisabledCategories.Contains(inf.Category))
-            return null;
-
-        if (inf.Incomplete && !allowIncomplete)
-            return null;
-
-        if (inf.ModuleType == typeof(StrikingDummy.StrikingDummy) && !allowStrikingDummy)
-            return null;
-
-        return CreateModule(inf, ws, primary);
+        var info = FindByOID(primary.OID);
+        return info?.Maturity >= minMaturity ? CreateModule(info, ws, primary) : null;
     }
 
     // TODO: this is a hack...
     public static BossModule? CreateModuleForConfigPlanning(Type module)
     {
         var info = FindByType(module);
-        return info != null ? CreateModule(info, new(TimeSpan.TicksPerSecond, "fake"), new(0, info.PrimaryActorOID, -1, 0, "", 0, ActorType.None, Class.None, 0, new())) : null;
+        return info != null ? CreateModule(info, new(TimeSpan.TicksPerSecond, "fake"), new(0, info.PrimaryActorOID, -1, 0, "", 0, ActorType.None, Class.None, 0, default)) : null;
     }
 
     // TODO: this is a hack...
-    public static BossModule? CreateModuleForTimeline(uint oid) => CreateModule(FindByOID(oid), new(TimeSpan.TicksPerSecond, "fake"), new(0, oid, -1, 0, "", 0, ActorType.None, Class.None, 0, new()));
+    public static BossModule? CreateModuleForTimeline(uint oid) => CreateModule(FindByOID(oid), new(TimeSpan.TicksPerSecond, "fake"), new(0, oid, -1, 0, "", 0, ActorType.None, Class.None, 0, default));
 }

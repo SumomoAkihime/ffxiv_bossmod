@@ -1,9 +1,9 @@
 ﻿using BossMod.Autorotation;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Utility.Raii;
 using System.IO;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace BossMod;
 
@@ -65,24 +65,26 @@ public sealed class ReplayManager : IDisposable
         public void Show()
         {
             Analysis ??= new([.. Replays.Where(r => r.Replay.IsCompletedSuccessfully && r.Replay.Result.Ops.Count > 0).Select(r => r.Replay.Result)]);
-            Window ??= new($"Multiple logs: {Identifier}", Analysis.Draw, false, new(1200, 800));
+            Window ??= new($"Multiple logs: {Identifier}", Analysis.Draw, false, new(1200f, 800f));
             Window.IsOpen = true;
         }
     }
 
-    private readonly RotationDatabase _rotationDB;
+    private static readonly ReplayManagementConfig _config = Service.Config.Get<ReplayManagementConfig>();
     private readonly List<ReplayEntry> _replayEntries = [];
     private readonly List<AnalysisEntry> _analysisEntries = [];
-    private readonly ReplayHistory _replayHistory;
     private int _nextAnalysisId;
     private string _path = "";
-    private string _fileDialogStartPath;
+    private FileDialog? _fileDialog;
+    private string _logDirectory;
+    private readonly RotationDatabase _rotationDB;
 
-    public ReplayManager(RotationDatabase rotationDB, string fileDialogStartPath)
+    public void SetLogDirectory(string logDirectory) => _logDirectory = logDirectory;
+
+    public ReplayManager(RotationDatabase rotationDB, string logDirectory)
     {
         _rotationDB = rotationDB;
-        _fileDialogStartPath = fileDialogStartPath;
-        _replayHistory = ReplayHistory.Load();
+        _logDirectory = logDirectory;
         RestoreHistory();
     }
 
@@ -90,9 +92,14 @@ public sealed class ReplayManager : IDisposable
     {
         SaveHistory();
         foreach (var e in _analysisEntries)
+        {
             e.Dispose();
+        }
+
         foreach (var e in _replayEntries)
+        {
             e.Dispose();
+        }
     }
 
     public void Update()
@@ -128,15 +135,31 @@ public sealed class ReplayManager : IDisposable
         DrawNewEntry();
         DrawEntries();
         DrawEntriesOperations();
+
+        if (_fileDialog?.Draw() ?? false)
+        {
+            if (_fileDialog.GetIsOk())
+            {
+                _path = _fileDialog.GetResults().FirstOrDefault() ?? "";
+                _logDirectory = _fileDialog.GetCurrentPath();
+            }
+            _fileDialog.Hide();
+            _fileDialog = null;
+        }
     }
 
     private void DrawEntries()
     {
         using var table = ImRaii.Table("entries", 3);
+
         if (!table)
+        {
             return;
-        ImGui.TableSetupColumn("op", ImGuiTableColumnFlags.WidthFixed, 100);
-        ImGui.TableSetupColumn("unload", ImGuiTableColumnFlags.WidthFixed, 50);
+        }
+
+        var dispose = false;
+        ImGui.TableSetupColumn("op", ImGuiTableColumnFlags.WidthFixed, 100f);
+        ImGui.TableSetupColumn("unload", ImGuiTableColumnFlags.WidthFixed, 70f);
 
         foreach (var e in _replayEntries)
         {
@@ -145,7 +168,7 @@ public sealed class ReplayManager : IDisposable
             ImGui.TableNextColumn();
             if (!e.Replay.IsCompleted)
             {
-                ImGui.ProgressBar(e.Progress, new Vector2(100, 0));
+                ImGui.ProgressBar(e.Progress, new Vector2(100f, default));
             }
             else if (e.Replay.IsFaulted || e.Replay.Result.Ops.Count == 0)
             {
@@ -153,8 +176,11 @@ public sealed class ReplayManager : IDisposable
             }
             else
             {
-                if (ImGui.Button("Actions...", new(100, 0)))
+                if (ImGui.Button("Actions...", new(100f, default)))
+                {
                     ImGui.OpenPopup("ctx");
+                }
+
                 using var popup = ImRaii.Popup("ctx");
                 if (popup)
                 {
@@ -164,41 +190,65 @@ public sealed class ReplayManager : IDisposable
                         SaveHistory();
                     }
                     if (ImGui.MenuItem("Convert to verbose"))
+                    {
                         ConvertLog(e.Replay.Result, ReplayLogFormat.TextVerbose);
+                    }
+
                     if (ImGui.MenuItem("Convert to short text"))
+                    {
                         ConvertLog(e.Replay.Result, ReplayLogFormat.TextCondensed);
+                    }
+
                     if (ImGui.MenuItem("Convert to uncompressed binary"))
+                    {
                         ConvertLog(e.Replay.Result, ReplayLogFormat.BinaryUncompressed);
+                    }
+
                     if (ImGui.MenuItem("Convert to compressed binary"))
+                    {
                         ConvertLog(e.Replay.Result, ReplayLogFormat.BinaryCompressed);
+                    }
                 }
             }
 
             ImGui.TableNextColumn();
-            if (ImGui.Button(e.Replay.IsCompleted ? "Unload" : "Cancel", new(50, 0)))
+            if (ImGui.Button(e.Replay.IsCompleted ? "Unload" : "Cancel"))
             {
                 e.Dispose();
                 foreach (var a in _analysisEntries.Where(a => !a.Disposed && a.Replays.Contains(e)))
+                {
                     a.Dispose();
+                }
+
                 SaveHistory();
+                dispose = true;
             }
 
             ImGui.TableNextColumn();
             ImGui.Checkbox($"{e.Path}", ref e.Selected);
+        }
+        if (dispose) //  replays somehow don't get cleaned up correctly without this?
+        {
+            Plugin.GarbageCollection();
         }
     }
 
     private void DrawEntriesOperations()
     {
         if (_replayEntries.Count == 0)
+        {
             return;
+        }
 
+        var dispose = false;
         var numSelected = _replayEntries.Count(e => e.Selected);
         var shouldSelectAll = _replayEntries.Count == 0 || numSelected < _replayEntries.Count;
-        if (ImGui.Button(shouldSelectAll ? "Select all" : "Unselect all", new(80, 0)))
+        if (ImGui.Button(shouldSelectAll ? "Select all" : "Unselect all"))
         {
             foreach (var e in _replayEntries)
+            {
                 e.Selected = shouldSelectAll;
+            }
         }
         using (ImRaii.Disabled(numSelected == 0))
         {
@@ -211,9 +261,15 @@ public sealed class ReplayManager : IDisposable
             if (ImGui.Button("Unload selected"))
             {
                 foreach (var e in _replayEntries.Where(e => e.Selected))
+                {
                     e.Dispose();
+                }
+
                 foreach (var e in _analysisEntries.Where(e => e.Replays.Any(r => r.Selected)))
+                {
                     e.Dispose();
+                }
+
                 SaveHistory();
             }
         }
@@ -221,10 +277,21 @@ public sealed class ReplayManager : IDisposable
         if (ImGui.Button("Unload all"))
         {
             foreach (var e in _replayEntries)
+            {
                 e.Dispose();
+            }
+
             foreach (var e in _analysisEntries)
+            {
                 e.Dispose();
+            }
+
             SaveHistory();
+            dispose = true;
+        }
+        if (dispose) //  replays somehow don't get cleaned up correctly without this?
+        {
+            Plugin.GarbageCollection();
         }
     }
 
@@ -232,36 +299,14 @@ public sealed class ReplayManager : IDisposable
     {
         ImGui.InputText("###path", ref _path, 500);
         ImGui.SameLine();
-        if (UIMisc.IconButton(Dalamud.Interface.FontAwesomeIcon.File))
+        if (ImGui.Button("..."))
         {
-            // FIXME
-            var suffixFilter = Service.IsMock ? "log" : ".log";
-
-            Service.FileDialogManager.OpenFileDialog("Select file", suffixFilter, (c, p) =>
-            {
-                if (c)
-                {
-                    _path = p[0];
-                    _fileDialogStartPath = new FileInfo(_path).Directory!.FullName;
-                }
-            }, 1, _fileDialogStartPath);
+            _fileDialog ??= new FileDialog("select_log", "Select file or directory", "Log files{.log},All files{.*}", _logDirectory, "", ".log", 1, false, ImGuiFileDialogFlags.SelectOnly);
+            // work around an oversight(?) in dalamud
+            // TODO: we should use FileDialogManager instead
+            _fileDialog.SelectionChanged += (e, s) => { };
+            _fileDialog.Show();
         }
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Open file");
-        ImGui.SameLine();
-        if (UIMisc.IconButton(Dalamud.Interface.FontAwesomeIcon.FolderOpen))
-        {
-            Service.FileDialogManager.OpenFolderDialog("Select directory", (c, p) =>
-            {
-                if (c)
-                {
-                    _path = p;
-                    _fileDialogStartPath = p;
-                }
-            }, _fileDialogStartPath);
-        }
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Open folder");
         ImGui.SameLine();
         using (ImRaii.Disabled(_path.Length == 0 || _replayEntries.Any(e => e.Path == _path)))
         {
@@ -280,7 +325,9 @@ public sealed class ReplayManager : IDisposable
                 CleanPath();
                 var replays = LoadAll(_path);
                 if (replays.Count > 0)
+                {
                     _analysisEntries.Add(new(_path, replays));
+                }
             }
         }
         ImGui.SameLine();
@@ -298,7 +345,9 @@ public sealed class ReplayManager : IDisposable
     private void CleanPath()
     {
         if (_path.StartsWith('"') && _path.EndsWith('"'))
+        {
             _path = _path[1..^1];
+        }
     }
 
     private List<ReplayEntry> LoadAll(string path)
@@ -335,26 +384,39 @@ public sealed class ReplayManager : IDisposable
     private void ConvertLog(Replay r, ReplayLogFormat format)
     {
         if (r.Ops.Count == 0)
+        {
             return;
+        }
 
         var player = new ReplayPlayer(r);
         player.WorldState.Frame.Timestamp = r.Ops[0].Timestamp; // so that we get correct name etc.
-        using var relogger = new ReplayRecorder(player.WorldState, format, false, new FileInfo(r.Path).Directory!, format.ToString());
+        using var relogger = new ReplayRecorder(player.WorldState, format, false, new DirectoryInfo(_logDirectory), format.ToString());
         player.AdvanceTo(DateTime.MaxValue, () => { });
     }
 
     private void SaveHistory()
     {
-        _replayHistory.History = [.. _replayEntries.Where(r => !r.Disposing).Select(r => new ReplayMemory(r.Path, r.Window?.IsOpen ?? false, r.Window?.CurrentTime ?? default))];
-        _replayHistory.Save();
+        if (!RememberReplays)
+        {
+            return;
+        }
+
+        _config.ReplayHistory = [.. _replayEntries.Where(r => !r.Disposing).Select(r => new ReplayMemory(r.Path, r.Window?.IsOpen ?? false, r.Window?.CurrentTime ?? default))];
+        _config.Modified.Fire();
     }
 
     private void RestoreHistory()
     {
-        if (!Service.IsMock)
+        if (!RememberReplays)
+        {
             return;
+        }
 
-        foreach (var rp in _replayHistory.History)
-            _replayEntries.Add(new(rp.Path, rp.IsOpen, rp.PlaybackPosition));
+        foreach (var memory in _config.ReplayHistory)
+        {
+            _replayEntries.Add(new(memory.Path, memory.IsOpen, _config.RememberReplayTimes ? memory.PlaybackPosition : null));
+        }
     }
+
+    private bool RememberReplays => Service.SigScanner == null && _config.RememberReplays;
 }

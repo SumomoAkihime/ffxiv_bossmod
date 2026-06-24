@@ -2,18 +2,19 @@
 
 public enum OID : uint
 {
-    BossHM = 0x4681, // R3.300, x1
-    BossEV = 0x4682, // R3.300, x1
-    BossMR = 0x4683, // R3.300, x1
-    BossTT = 0x4684, // R3.300, x1
-    BossGK = 0x4685, // R3.300, x1
-    CloneHM = 0x4686, // R3.300, x0 (spawn during fight)
-    Helper = 0x233C, // R0.500, x40, Helper type
-    TachiGekkoHelper = 0x4649, // R5.250, x1
-    ArkShield = 0x4754, // R2.200, x0 (spawn during fight), Part type
-    TachiGekkoOrigin1 = 0x1EBCC5, // R0.500, x0 (spawn during fight), EventObj type
-    TachiGekkoOrigin2 = 0x1EBCC6, // R0.500, x0 (spawn during fight), EventObj type
-    DominionSlashHelper = 0x1EBCC7, // R0.500, x0 (spawn during fight), EventObj type
+    BossHM = 0x4681, // R3.3
+    BossEV = 0x4682, // R3.3
+    BossMR = 0x4683, // R3.3
+    BossTT = 0x4684, // R3.3
+    BossGK = 0x4685, // R3.3
+    CloneHM = 0x4686, // R3.3
+
+    TachiGekkoHelper = 0x4649, // R5.25
+    ArkShield = 0x4754, // R2.2
+    TachiGekkoOrigin1 = 0x1EBCC5, // R0.5
+    TachiGekkoOrigin2 = 0x1EBCC6, // R0.5
+    DominionSlashHelper = 0x1EBCC7, // R0.5
+    Helper = 0x233C
 }
 
 public enum AID : uint
@@ -21,6 +22,7 @@ public enum AID : uint
     DecisiveBattleMR = 41057, // BossMR->self, 4.0s cast, make invulnerable to everyone except one alliance
     DecisiveBattleTT = 41058, // BossTT->self, 4.0s cast, make invulnerable to everyone except one alliance
     DecisiveBattleGK = 41059, // BossGK->self, 4.0s cast, make invulnerable to everyone except one alliance
+
     AutoAttackBoss = 870, // BossTT/BossMR/BossHM->player, no cast, single-target
     AutoAttackGK = 1461, // BossGK->player, no cast, single-target
     AutoAttackEV = 40623, // BossEV->player, no cast, single-target
@@ -28,6 +30,7 @@ public enum AID : uint
     TeleportMR = 41066, // BossMR->location, no cast, single-target
     TeleportEV = 41814, // BossEV->location, no cast, single-target
     TeleportHM = 40617, // BossHM->location, no cast, single-target
+
     AethersplitTT = 41103, // BossTT->BossEV, no cast, single-target, health transfer?
     AethersplitMR = 41104, // BossMR->BossEV/BossTT, no cast, single-target, health transfer?
     AethersplitGK = 41105, // BossGK->BossTT/BossEV, no cast, single-target, health transfer?
@@ -41,8 +44,8 @@ public enum AID : uint
     TachiGekko = 41082, // Helper->self, 7.0s cast, range 50 circle, gaze
     TachiGekkoVisual = 41366, // TachiGekkoHelper->self, 7.0s cast, range 50 circle, visual (???)
     TachiKasha = 41083, // Helper->self, 12.0s cast, range 4+16 circle, out
-    ConcertedDissolution = 41084, // Helper->self, 6.0s cast, range 40 ?-degree cone
-    LightsChain = 41085, // Helper->self, 8.0s cast, range ?-40 donut
+    ConcertedDissolution = 41084, // Helper->self, 6.0s cast, range 40 40-degree cone
+    LightsChain = 41085, // Helper->self, 8.0s cast, range 4-40 donut
     Meteor = 41098, // BossTT->self, 11.0s cast, single-target, interruptible (heavy raidwide with vuln)
     MeteorAOE = 41099, // Helper->location, no cast, range 100 circle, heavy raidwide with vuln
     HavocSpiral = 41067, // BossMR->self, 5.0+0.5s cast, single-target, visual (rotating cones)
@@ -52,9 +55,9 @@ public enum AID : uint
     SpiralFinishAOE = 41069, // Helper->self, 11.5s cast, range 100 circle, knockback 16
     Dragonfall = 41086, // BossGK->self, 9.0s cast, single-target, visual (party stacks)
     DragonfallAOE = 41087, // BossGK->players, no cast, range 6 circle stack
-    Guillotine = 41063, // BossTT->self, 10.5s cast, range 40 ?-degree cone
-    GuillotineAOE = 41064, // Helper->self, no cast, range 40 ?-degree cone, hits 1-3
-    GuillotineAOELast = 41065, // Helper->self, no cast, range 40 ?-degree cone, hit 4
+    Guillotine = 41063, // BossTT->self, 10.5s cast, range 40 270-degree cone
+    GuillotineAOE = 41064, // Helper->self, no cast, range 40 270-degree cone, hits 1-3
+    GuillotineAOELast = 41065, // Helper->self, no cast, range 40 270-degree cone, hit 4
 
     Utsusemi = 41088, // BossHM->self, 3.0s cast, single-target, visual (create clones to be kited)
     MightyStrikesClones = 41089, // CloneHM/BossHM->self, 5.0s cast, single-target, gain mighty strikes buff
@@ -78,7 +81,7 @@ public enum AID : uint
     MightyStrikesBoss = 41364, // BossHM->self, 5.0s cast, single-target, gain mighty strikes buff
     CriticalReaverRaidwide = 41365, // BossHM->self, no cast, range 100 circle, raidwide
     CriticalReaverEnrage = 41275, // BossHM->self, 10.0s cast, range 100 circle, interruptible enrage
-    Raiton = 41109, // BossHM->self, 5.0s cast, range 100 circle, raidwide
+    Raiton = 41109 // BossHM->self, 5.0s cast, range 100 circle, raidwide
 }
 
 public enum SID : uint
@@ -86,11 +89,7 @@ public enum SID : uint
     EpicHero = 4192, // none->player, extra=0x0
     EpicVillain = 4193, // none->BossMR, extra=0x334
     FatedHero = 4194, // none->player, extra=0x0
-    FatedVillain = 4195, // none->BossGK, extra=0x335
-    VauntedHero = 4196, // none->player, extra=0x0
-    VauntedVillain = 4197, // none->BossTT, extra=0x336
-    Invincibility = 4410, // none->BossHM, extra=0x0
-    Uninterrupted = 4416, // none->BossHM, extra=0x0
+    VauntedHero = 4196 // none->player, extra=0x0
 }
 
 public enum IconID : uint
@@ -98,15 +97,12 @@ public enum IconID : uint
     Cloudsplitter = 464, // player->self
     RotateCW = 167, // BossMR->self
     RotateCCW = 168, // BossMR->self
-    Dragonfall1 = 557, // player->self
-    Dragonfall2 = 566, // player->self
-    Dragonfall3 = 567, // player->self
-    ArroganceIncarnate = 305, // player->self
+    ArroganceIncarnate = 305 // player->self
 }
 
 public enum TetherID : uint
 {
     DecisiveBattle = 299, // player->BossMR/BossGK/BossTT
     Dragonfall = 249, // player->BossGK
-    Utsusemi = 293, // CloneHM->player
+    Utsusemi = 293 // CloneHM->player
 }

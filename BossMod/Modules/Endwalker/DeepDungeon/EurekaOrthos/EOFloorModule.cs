@@ -52,112 +52,112 @@ public enum AID : uint
     GoobSneeze = 32473, // 3E04->self, 1.0s cast, range 7 90-degree cone
 
     GourmInhale = 32748, // 3E5B->self, instant cast, range 40 90-degree cone
-    GourmSneeze = 32749, // 3E5B->self, 1.0s cast, range 6 90-degree cone
+    GourmSneeze = 32749 // 3E5B->self, 1.0s cast, range 6 90-degree cone
 }
 
 public enum SID : uint
 {
     BlazeSpikes = 197,
-    IceSpikes = 198,
+    IceSpikes = 198
 }
 
 public abstract class EOFloorModule(WorldState ws) : AutoClear(ws, 90)
 {
     protected override void OnCastStarted(Actor actor)
     {
-        switch ((AID)actor.CastInfo!.Action.ID)
+        switch (actor.CastInfo!.Action.ID)
         {
             // stunnable actions, either self buffs or large point blank AOEs that prevent going into melee range
-            case AID.BigBurst:
-            case AID.Tailwind:
-            case AID.SprigganHaste:
+            case (uint)AID.BigBurst:
+            case (uint)AID.Tailwind:
+            case (uint)AID.SprigganHaste:
                 Stuns.Add(actor);
                 break;
 
             // interruptible casts
-            case AID.TerrorTouch:
-            case AID.Diamondback:
+            case (uint)AID.TerrorTouch:
+            case (uint)AID.Diamondback:
                 Interrupts.Add(actor);
                 break;
-            case AID.Infatuation:
+            case (uint)AID.Infatuation:
                 Interrupts.Add(actor);
                 if (Palace.Floor < 60)
                     Stuns.Add(actor);
                 break;
 
             // gazes
-            case AID.DoubleHexEye:
-            case AID.EyeOfTheFierce:
-                AddGaze(actor, 40);
+            case (uint)AID.DoubleHexEye:
+            case (uint)AID.EyeOfTheFierce:
+                AddGaze(actor, 40f);
                 break;
-            case AID.AllaganFear:
-                AddGaze(actor, 30);
+            case (uint)AID.AllaganFear:
+                AddGaze(actor, 30f);
                 break;
-            case AID.Hypnotize:
-                AddGaze(actor, 20);
+            case (uint)AID.Hypnotize:
+                AddGaze(actor, 20f);
                 HintDisabled.Add(actor);
                 break;
-            case AID.DemonEye1:
-            case AID.DemonEye2:
-                AddGaze(actor, 33);
+            case (uint)AID.DemonEye1:
+            case (uint)AID.DemonEye2:
+                AddGaze(actor, 33f);
                 break;
-            case AID.HexEye:
-                AddGaze(actor, 5);
+            case (uint)AID.HexEye:
+                AddGaze(actor, 5f);
                 break;
 
             // donut AOEs
-            case AID.TheDragonsVoice:
-            case AID.TheDragonsVoice2:
-                AddDonut(actor, 8, 30);
+            case (uint)AID.TheDragonsVoice:
+            case (uint)AID.TheDragonsVoice2:
+                AddDonut(actor, 8f, 30f);
                 HintDisabled.Add(actor);
                 break;
-            case AID.ElectricCachexia:
-                AddDonut(actor, 8, 44);
+            case (uint)AID.ElectricCachexia:
+                AddDonut(actor, 8f, 44f);
                 HintDisabled.Add(actor);
                 break;
-            case AID.ElectricWhorl:
-                AddDonut(actor, 8, 60);
+            case (uint)AID.ElectricWhorl:
+                AddDonut(actor, 8f, 60f);
                 HintDisabled.Add(actor);
                 break;
 
             // very large circle AOEs that trigger autohints' "this is a raidwide" check but are actually avoidable
-            case AID.Catharsis:
-                Circles.Add((actor, 40));
+            case (uint)AID.Catharsis:
+                Circles.Add((actor, 40f));
                 break;
 
             // LOS attacks
-            case AID.Quake:
-            case AID.HighVoltage:
+            case (uint)AID.Quake:
+            case (uint)AID.HighVoltage:
                 Interrupts.Add(actor);
-                AddLOS(actor, 30);
+                AddLOS(actor, 30f);
                 break;
-            case AID.EclipticMeteor:
-            case AID.AquaSpear:
-                AddLOS(actor, 50);
+            case (uint)AID.EclipticMeteor:
+            case (uint)AID.AquaSpear:
+                AddLOS(actor, 50f);
                 break;
-            case AID.Explosion:
-                AddLOS(actor, 60);
+            case (uint)AID.Explosion:
+                AddLOS(actor, 60f);
                 break;
-            case AID.AbyssalCry:
-                AddLOS(actor, 30);
+            case (uint)AID.AbyssalCry:
+                AddLOS(actor, 30f);
                 break;
-            case AID.SelfDetonate:
-                AddLOS(actor, 40);
+            case (uint)AID.SelfDetonate:
+                AddLOS(actor, 40f);
                 break;
 
             // knockbacks (can be ignored on kb penalty floors or if arms length is up)
-            case AID.Electromagnetism:
-                KnockbackZones.Add((actor, 15));
+            case (uint)AID.Electromagnetism:
+                KnockbackZones.Add((actor, 15f));
                 HintDisabled.Add(actor);
                 break;
-            case AID.Sucker:
-                KnockbackZones.Add((actor, 25));
+            case (uint)AID.Sucker:
+                KnockbackZones.Add((actor, 25f));
                 HintDisabled.Add(actor);
                 break;
 
             // large out of combat AOEs that are fast and generally nonthreatening, we want to ignore these so we don't interfere with pathfinding
-            case AID.Bombination:
-            case AID.Bombination2:
+            case (uint)AID.Bombination:
+            case (uint)AID.Bombination2:
                 HintDisabled.Add(actor);
                 break;
         }
@@ -165,50 +165,59 @@ public abstract class EOFloorModule(WorldState ws) : AutoClear(ws, 90)
 
     protected override void OnCastFinished(Actor actor)
     {
-        switch ((AID)actor.CastInfo!.Action.ID)
+        switch (actor.CastInfo!.Action.ID)
         {
             // setting target to forbidden when it gains the spikes status is too late
-            case AID.GelidCharge:
-            case AID.SmolderingScales:
-                Spikes.Add((actor, World.FutureTime(10)));
+            case (uint)AID.GelidCharge:
+            case (uint)AID.SmolderingScales:
+                Spikes.Add((actor, World.FutureTime(10d)));
                 break;
         }
     }
 
     protected override void OnEventCast(Actor actor, ActorCastEvent ev)
     {
-        switch ((AID)ev.Action.ID)
+        switch (ev.Action.ID)
         {
-            case AID.GoobInhale:
-                AddVoidzone(actor, new AOEShapeCone(7, 45.Degrees()));
+            case (uint)AID.GoobInhale:
+                AddVoidzone(actor, new AOEShapeCone(7f, 45f.Degrees()));
                 break;
-            case AID.GourmInhale:
-                AddVoidzone(actor, new AOEShapeCone(6, 45.Degrees()));
+            case (uint)AID.GourmInhale:
+                AddVoidzone(actor, new AOEShapeCone(6f, 45f.Degrees()));
                 break;
-            case AID.KillingPaw:
-                AddVoidzone(actor, new AOEShapeCone(6, 60.Degrees()));
+            case (uint)AID.KillingPaw:
+                AddVoidzone(actor, new AOEShapeCone(6f, 60f.Degrees()));
                 break;
-            case AID.SewerWaterCastFront:
-                AddVoidzone(actor, new AOEShapeCone(12, 90.Degrees(), 180.Degrees()));
+            case (uint)AID.SewerWaterCastFront:
+                AddVoidzone(actor, new AOEShapeCone(12f, 90f.Degrees(), 180f.Degrees()));
                 break;
-            case AID.SewerWaterCastBack:
-                AddVoidzone(actor, new AOEShapeCone(12, 90.Degrees()));
+            case (uint)AID.SewerWaterCastBack:
+                AddVoidzone(actor, new AOEShapeCone(12f, 90f.Degrees()));
                 break;
-            case AID.Electromagnetism:
-                AddVoidzone(actor, new AOEShapeCircle(6));
+            case (uint)AID.Electromagnetism:
+                AddVoidzone(actor, new AOEShapeCircle(6f));
                 break;
-            case AID.RipeBanana:
-                AddVoidzone(actor, new AOEShapeCircle(52));
+            case (uint)AID.RipeBanana:
+                AddVoidzone(actor, new AOEShapeCircle(52f));
                 break;
 
-            case AID.GoobSneeze:
-            case AID.GourmSneeze:
-            case AID.Headspin:
-            case AID.SavageSwipe:
-            case AID.SewerWaterInstantFront:
-            case AID.SewerWaterInstantBack:
-            case AID.ChestThump:
-                Voidzones.RemoveAll(v => v.Source == actor);
+            case (uint)AID.GoobSneeze:
+            case (uint)AID.GourmSneeze:
+            case (uint)AID.Headspin:
+            case (uint)AID.SavageSwipe:
+            case (uint)AID.SewerWaterInstantFront:
+            case (uint)AID.SewerWaterInstantBack:
+            case (uint)AID.ChestThump:
+                var count = Voidzones.Count;
+                for (var i = 0; i < count; ++i)
+                {
+                    var vz = Voidzones[i];
+                    if (vz.Source == actor)
+                    {
+                        Voidzones.Remove(vz);
+                        break;
+                    }
+                }
                 break;
         }
     }
@@ -219,29 +228,38 @@ public abstract class EOFloorModule(WorldState ws) : AutoClear(ws, 90)
         {
             case (uint)SID.IceSpikes:
             case (uint)SID.BlazeSpikes:
-                Spikes.RemoveAll(t => t.Actor == actor);
+                var count = Spikes.Count;
+                for (var i = 0; i < count; ++i)
+                {
+                    var spike = Spikes[i];
+                    if (spike.Actor == actor)
+                    {
+                        Spikes.Remove(spike);
+                        break;
+                    }
+                }
                 break;
         }
     }
 }
 
-[ZoneModuleInfo(897)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 897)]
 public class EO10(WorldState ws) : EOFloorModule(ws);
-[ZoneModuleInfo(898)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 898)]
 public class EO20(WorldState ws) : EOFloorModule(ws);
-[ZoneModuleInfo(899)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 899)]
 public class EO30(WorldState ws) : EOFloorModule(ws);
-[ZoneModuleInfo(900)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 900)]
 public class EO40(WorldState ws) : EOFloorModule(ws);
-[ZoneModuleInfo(901)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 901)]
 public class EO50(WorldState ws) : EOFloorModule(ws);
-[ZoneModuleInfo(902)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 902)]
 public class EO60(WorldState ws) : EOFloorModule(ws);
-[ZoneModuleInfo(903)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 903)]
 public class EO70(WorldState ws) : EOFloorModule(ws);
-[ZoneModuleInfo(904)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 904)]
 public class EO80(WorldState ws) : EOFloorModule(ws);
-[ZoneModuleInfo(905)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 905)]
 public class EO90(WorldState ws) : EOFloorModule(ws);
-[ZoneModuleInfo(906)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.WIP, 906)]
 public class EO100(WorldState ws) : EOFloorModule(ws);

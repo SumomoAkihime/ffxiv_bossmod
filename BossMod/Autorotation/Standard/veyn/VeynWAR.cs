@@ -195,7 +195,7 @@ public sealed class VeynWAR(RotationModuleManager manager, Actor player) : Rotat
     private bool InMeleeRange(Actor? target) => Player.DistanceToHitbox(target) <= 3;
     private bool IsFirstGCD() => !Player.InCombat || (World.CurrentTime - Manager.CombatStart).TotalSeconds < 0.1f;
 
-    public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         Gauge = World.Client.GetGauge<WarriorGauge>().BeastGauge;
         GCDLength = ActionSpeed.GCDRounded(World.Client.PlayerStats.SkillSpeed, World.Client.PlayerStats.Haste, Player.Level);
@@ -352,13 +352,13 @@ public sealed class VeynWAR(RotationModuleManager manager, Actor player) : Rotat
             Hints.ActionsToExecute.Push(BozjaActionID.GetNormal(BozjaHolsterID.BannerHonoredSacrifice), Player, ActionQueue.Priority.Low + (int)OGCDPriority.LostBanner);
 
         // ai hints for positioning
-        var goalST = primaryTarget != null ? Hints.GoalSingleTarget(primaryTarget, 3) : null;
+        var goalST = primaryTarget != null ? AIHints.GoalSingleTarget(primaryTarget, 3) : null;
         var goalAOE = Hints.GoalAOECircle(3);
         var goal = aoeStrategy switch
         {
             AOEStrategy.SingleTarget => goalST,
             AOEStrategy.ForceAOE => goalAOE,
-            _ => goalST != null ? Hints.GoalCombined(goalST, goalAOE, 3) : goalAOE
+            _ => goalST != null ? AIHints.GoalCombined(goalST, goalAOE, 3) : goalAOE
         };
         if (goal != null)
             Hints.GoalZones.Add(goal);
@@ -924,7 +924,7 @@ public sealed class VeynWAR(RotationModuleManager manager, Actor player) : Rotat
 
     private bool ShouldUseUpheaval(OffensiveStrategy strategy) => strategy switch
     {
-        OffensiveStrategy.Automatic => Player.InCombat && SurgingTempestLeft > MathF.Max(CD(WAR.AID.Upheaval), World.Client.AnimationLock), // TODO: consider delaying until burst window in opener?..
+        OffensiveStrategy.Automatic => Player.InCombat && SurgingTempestLeft > Math.Max(CD(WAR.AID.Upheaval), World.Client.AnimationLock), // TODO: consider delaying until burst window in opener?..
         OffensiveStrategy.Delay => false,
         OffensiveStrategy.Force => true,
         _ => false
@@ -932,7 +932,7 @@ public sealed class VeynWAR(RotationModuleManager manager, Actor player) : Rotat
 
     private bool ShouldUsePrimalWrath(OffensiveStrategy strategy) => strategy switch
     {
-        OffensiveStrategy.Automatic => Player.InCombat && SurgingTempestLeft > MathF.Max(CD(WAR.AID.PrimalWrath), World.Client.AnimationLock),
+        OffensiveStrategy.Automatic => Player.InCombat && SurgingTempestLeft > Math.Max(CD(WAR.AID.PrimalWrath), World.Client.AnimationLock),
         OffensiveStrategy.Delay => false,
         OffensiveStrategy.Force => true,
         _ => false

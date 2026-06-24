@@ -1,6 +1,6 @@
 ﻿namespace BossMod.QuestBattle.Heavensward.ClassJobQuests.PLD;
 
-[ZoneModuleInfo(435)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 435)]
 internal class BigSolleretsToFill(WorldState ws) : QuestBattle(ws)
 {
     public override List<QuestObjective> DefineObjectives(WorldState ws) => [

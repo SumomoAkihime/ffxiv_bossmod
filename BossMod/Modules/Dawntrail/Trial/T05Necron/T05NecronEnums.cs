@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Trial.T05Necron;
+namespace BossMod.Dawntrail.Trial.T05Necron;
 
 public enum OID : uint
 {
@@ -74,4 +74,3 @@ public enum IconID : uint
     AetherblightDonut2 = 622, // Necron->self
     BlueShockwave = 615 // Necron->player
 }
-

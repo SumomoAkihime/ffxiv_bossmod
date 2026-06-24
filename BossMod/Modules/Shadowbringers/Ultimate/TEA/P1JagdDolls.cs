@@ -1,9 +1,10 @@
 ﻿namespace BossMod.Shadowbringers.Ultimate.TEA;
 
-class P1JagdDolls(BossModule module) : BossComponent(module)
+[SkipLocalsInit]
+sealed class P1JagdDolls(BossModule module) : BossComponent(module)
 {
-    public int NumExhausts { get; private set; }
-    private readonly List<Actor> _dolls = [];
+    public int NumExhausts;
+    private readonly List<Actor> _dolls = module.Enemies((uint)OID.JagdDoll);
     private readonly HashSet<ulong> _exhaustsDone = [];
 
     private readonly Actor?[] _dollsByAssignment = new Actor?[8];
@@ -29,7 +30,7 @@ class P1JagdDolls(BossModule module) : BossComponent(module)
     {
         foreach (var t in _dolls)
         {
-            if (hints.FindEnemy(t) is { } enemy)
+            if (hints.FindEnemy(t) is AIHints.Enemy enemy)
             {
                 enemy.ForbidDOTs = true;
                 if (enemy.Actor.PendingHPRatio < 0.25f)
@@ -55,22 +56,22 @@ class P1JagdDolls(BossModule module) : BossComponent(module)
         {
             var isMine = _haveDollAssignments && _dollsByAssignment[pcSlot] == doll;
 
-            Arena.Actor(doll, isMine ? ArenaColor.Enemy : ArenaColor.Object);
+            Arena.Actor(doll, isMine ? Colors.Enemy : Colors.Object);
 
             if (NumExhausts < 2)
-                Arena.AddCircle(doll.Position, _exhaustRadius, ArenaColor.Danger);
+                Arena.AddCircle(doll.Position, _exhaustRadius);
 
             var tether = WorldState.Actors.Find(doll.Tether.Target);
             if (tether != null)
-                Arena.AddLine(doll.Position, tether.Position, ArenaColor.Danger);
+                Arena.AddLine(doll.Position, tether.Position);
             else if (isMine)
-                Arena.AddCircle(doll.Position, 1.5f, ArenaColor.Safe);
+                Arena.AddCircle(doll.Position, 1.5f, Colors.Safe);
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.Exhaust && NumExhausts < 2)
+        if (spell.Action.ID == (uint)AID.Exhaust && NumExhausts < 2)
         {
             if (!_exhaustsDone.Contains(caster.InstanceID))
             {
@@ -84,9 +85,9 @@ class P1JagdDolls(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnTargetable(Actor actor)
+    public override void OnActorTargetable(Actor actor)
     {
-        if ((OID)actor.OID == OID.JagdDoll)
+        if (actor.OID == (uint)OID.JagdDoll)
         {
             _dolls.Add(actor);
             if (_dolls.Count == 4)
@@ -103,7 +104,7 @@ class P1JagdDolls(BossModule module) : BossComponent(module)
         if (pairs.Count == 0)
             return;
 
-        var rages = Module.Enemies(OID.LiquidRage).ToList();
+        var rages = Module.Enemies((uint)OID.LiquidRage).ToList();
         var ragesPos = rages.Select(r => r.Position).Aggregate((a, b) => new WPos(a.X + b.X, a.Z + b.Z));
         var average = new WPos(ragesPos.X / 3f, ragesPos.Z / 3f);
         var south = rages.MinBy(r => r.DistanceToPoint(average));

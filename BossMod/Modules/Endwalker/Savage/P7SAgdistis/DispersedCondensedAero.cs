@@ -15,7 +15,7 @@ class DispersedCondensedAero(BossModule module) : BossComponent(module)
         {
             if (Module.PrimaryActor.TargetID == actor.InstanceID)
             {
-                hints.Add("Stack with other tank or press invuln!", Raid.WithoutSlot().InRadiusExcluding(actor, _radiusCondensed).Any(a => a.Role != Role.Tank));
+                hints.Add("Stack with other tank or press invuln!", Raid.WithoutSlot(false, true, true).InRadiusExcluding(actor, _radiusCondensed).Any(a => a.Role != Role.Tank));
             }
             else
             {
@@ -30,9 +30,9 @@ class DispersedCondensedAero(BossModule module) : BossComponent(module)
         {
             if (actor.Role == Role.Tank)
             {
-                hints.Add("GTFO from raid!", Raid.WithoutSlot().InRadiusExcluding(actor, _radiusDispersed).Any());
+                hints.Add("GTFO from raid!", Raid.WithoutSlot(false, true, true).InRadiusExcluding(actor, _radiusDispersed).Any());
             }
-            else if (Raid.WithoutSlot().Where(a => a.Role == Role.Tank).InRadius(actor.Position, _radiusDispersed).Any())
+            else if (Raid.WithoutSlot(false, true, true).Where(a => a.Role == Role.Tank).InRadius(actor.Position, _radiusDispersed).Any())
             {
                 hints.Add("GTFO from tanks!");
             }
@@ -48,24 +48,24 @@ class DispersedCondensedAero(BossModule module) : BossComponent(module)
         {
             var tank = WorldState.Actors.Find(Module.PrimaryActor.TargetID);
             if (tank != null)
-                Arena.AddCircle(tank.Position, _radiusCondensed, ArenaColor.Danger);
+                Arena.AddCircle(tank.Position, _radiusCondensed, Colors.Danger);
         }
         else
         {
-            foreach (var tank in Raid.WithoutSlot().Where(a => a.Role == Role.Tank))
-                Arena.AddCircle(tank.Position, _radiusDispersed, ArenaColor.Danger);
+            foreach (var tank in Raid.WithoutSlot(false, true, true).Where(a => a.Role == Role.Tank))
+                Arena.AddCircle(tank.Position, _radiusDispersed, Colors.Danger);
         }
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.CondensedAero)
+        if (spell.Action.ID == (uint)AID.CondensedAero)
             _condensed = true;
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.CondensedAeroAOE or AID.DispersedAeroAOE)
+        if (spell.Action.ID is (uint)AID.CondensedAeroAOE or (uint)AID.DispersedAeroAOE)
             Done = true;
     }
 }

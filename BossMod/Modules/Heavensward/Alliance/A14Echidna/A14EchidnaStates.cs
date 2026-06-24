@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Alliance.A14Echidna;
+﻿namespace BossMod.Heavensward.Alliance.A14Echidna;
 
 class A14EchidnaStates : StateMachineBuilder
 {

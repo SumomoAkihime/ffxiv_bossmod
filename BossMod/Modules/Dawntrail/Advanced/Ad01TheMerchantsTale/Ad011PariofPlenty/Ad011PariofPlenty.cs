@@ -1,266 +1,62 @@
-namespace BossMod.Dawntrail.Advanced.Ad01TheMerchantsTale.Ad011PariofPlenty;
+﻿namespace BossMod.Modules.Dawntrail.Advanced.Ad01TheMerchantsTale.Ad011PariofPlenty;
 
-public enum OID : uint
-{
-    PariOfPlenty = 0x4A6D,
-    Helper = 0x233C,
-    FalseFlame = 0x4A6E,
-    FieryBauble = 0x4A6F,
-    FlyingCarpet = 0x4A74,
-    SparkPuddle = 0x1EBF20,
-}
+sealed class HeatBurst(BossModule module) : Components.RaidwideCast(module, (uint)AID.HeatBurst);
 
-public enum AID : uint
-{
-    HeatBurst = 45516,
-    BurningGleam = 45499,
-    BurningGleam1 = 47397,
-    BurningGleam2 = 45043,
-    LeftFireflightFourLongNights = 45462,
-    RightFireflightFourLongNights = 45461,
-    LeftFireflight = 45427,
-    RightFireflight = 45426,
-    LeftFireflightFactAndFiction = 47026,
-    RightFireflightFactAndFiction = 47025,
-    WheelOfFireflight = 45463,
-    WheelOfFireflight1 = 45466,
-    WheelOfFireflight2 = 45465,
-    WheelOfFireflight3 = 45464,
-    CharmdChains = 45199,
-    LeftFableflight = 45429,
-    RightFableflight = 45428,
-    LeftFableflight1 = 46947,
-    RightFableflight1 = 46946,
-    FireOfVictory = 45518,
-    FellSpark = 45475,
-    ParisCurse = 45520,
-    FirePowder = 45521,
-    HighFirePowder = 45522,
-    SpurningFlames = 45481,
-    ImpassionedSparks3 = 45487,
-    BurningPillar = 45526,
-    FireWell = 45528,
-    ScouringScorn = 45490,
-}
-
-public enum TetherID : uint
-{
-    CharmedChain = 9,
-    FellSpark = 84,
-}
-
-public enum SID : uint
-{
-    DarkResistanceDown = 3619,
-    CurseOfSolitude = 4615,
-    CurseOfCompanionship = 4616,
-}
-
-public enum IconID : uint
-{
-    Stack = 318,
-    TurningRight = 624,
-    TurningLeft = 625,
-    TurningRRight = 644,
-    TurningRLeft = 645,
-}
-
-sealed class HeatBurst(BossModule module) : Components.RaidwideCast(module, AID.HeatBurst);
 sealed class BurningGleam(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BurningGleam, (uint)AID.BurningGleam1, (uint)AID.BurningGleam2], new AOEShapeCross(40f, 5f));
-sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)TetherID.CharmedChain, chainLength: 22f, activationDelay: 5f);
-class FireflightLines(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFireflight, (uint)AID.RightFireflight, (uint)AID.LeftFireflightFactAndFiction, (uint)AID.RightFireflightFactAndFiction], new AOEShapeRect(40f, 2f));
-sealed class FireFlight(BossModule module) : FireflightLines(module);
-sealed class FireFlightFactOrFiction(BossModule module) : FireflightLines(module);
-sealed class SimpleFableFlight(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFableflight, (uint)AID.RightFableflight], new AOEShapeCone(60f, 90f.Degrees()));
-class DoubleFableFlightLines(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFableflight1, (uint)AID.RightFableflight1], new AOEShapeRect(40f, 2f));
-sealed class DoubleFableFlight(BossModule module) : DoubleFableFlightLines(module);
-sealed class FireOfVictory(BossModule module) : Components.BaitAwayCast(module, AID.FireOfVictory, new AOEShapeCircle(4f), centerAtTarget: true, endsOnCastEvent: true);
-sealed class FellSpark(BossModule module) : BossComponent(module)
-{
-    DateTime _next;
-    readonly DateTime[] _debuffLeft = new DateTime[PartyState.MaxPartySize];
-    int _target = -1;
 
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.RightFireflightFourLongNights or AID.LeftFireflightFourLongNights)
-            _next = Module.CastFinishAt(spell, 2.2f);
-    }
+sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)TetherID.CharmedChain);
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
-    {
-        if ((SID)status.ID == SID.DarkResistanceDown && Raid.TryFindSlot(actor, out var slot))
-            _debuffLeft[slot] = status.ExpireAt;
-    }
+sealed class SimpleFableFlight(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFableflight,(uint)AID.RightFableflight], new AOEShapeCone(60f, 90f.Degrees()));
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
-    {
-        if ((SID)status.ID == SID.DarkResistanceDown && Raid.TryFindSlot(actor, out var slot))
-            _debuffLeft[slot] = default;
-    }
+sealed class FireOfVictory(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.FireOfVictory, 4f);
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
-    {
-        if ((TetherID)tether.ID != TetherID.FellSpark)
-            return;
+sealed class FellSpark(BossModule module) : Components.InterceptTetherStatus(module, (uint)AID.FellSpark, (uint)TetherID.FellSpark, (uint)SID.DarkResistanceDown);
 
-        if (WorldState.Actors.Find(tether.Target) is { } target && Raid.TryFindSlot(target, out var slot))
-            _target = slot;
-    }
+sealed class CurseOfCompanionshipSolitude(BossModule module) : Components.StatusStackSpread(module, (uint)SID.CurseOfCompanionship, (uint)SID.CurseOfSolitude, 15f, 15f);
 
-    public override void OnUntethered(Actor source, ActorTetherInfo tether)
-    {
-        if ((TetherID)tether.ID == TetherID.FellSpark)
-            _target = -1;
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if ((AID)spell.Action.ID == AID.FellSpark)
-            _next = WorldState.FutureTime(4.5f);
-    }
-
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
-    {
-        if (Raid[_target] is not { } target)
-            return;
-
-        var color = _debuffLeft[pcSlot] > _next ? ArenaColor.Danger : ArenaColor.Safe;
-        Arena.AddLine(Module.PrimaryActor.Position, target.Position, color, 1);
-    }
-
-    public override void AddHints(int slot, Actor actor, TextHints hints)
-    {
-        if (_target < 0 || _target >= _debuffLeft.Length || _debuffLeft[_target] <= _next)
-            return;
-
-        if (_target == slot)
-            hints.Add("Pass tether!");
-        else if (_debuffLeft[slot] <= _next)
-            hints.Add("Take tether!");
-    }
-}
-sealed class ParisCurse(BossModule module) : Components.RaidwideCast(module, AID.ParisCurse);
-sealed class CurseOfCompanionshipSolitude(BossModule module) : Components.UniformStackSpread(module, 15f, 15f, alwaysShowSpreads: true)
-{
-    public override void OnStatusGain(Actor actor, ActorStatus status)
-    {
-        switch ((SID)status.ID)
-        {
-            case SID.CurseOfCompanionship:
-                AddStack(actor, status.ExpireAt);
-                break;
-            case SID.CurseOfSolitude:
-                AddSpread(actor, status.ExpireAt);
-                break;
-        }
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if ((AID)spell.Action.ID is AID.HighFirePowder or AID.FirePowder)
-        {
-            Stacks.Clear();
-            Spreads.Clear();
-        }
-    }
-}
-sealed class FirePowder(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.FirePowder, (uint)AID.HighFirePowder], 15f);
-sealed class SpurningFlames(BossModule module) : Components.RaidwideCast(module, AID.SpurningFlames);
+sealed class SpurningFlames(BossModule module) : Components.RaidwideCast(module, (uint)AID.SpurningFlames);
 sealed class ImpassionedSpark(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ImpassionedSparks3, 8f);
-sealed class BurningPillar(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BurningPillar, 10f);
-sealed class SparkPuddle(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 10f, AID.BurningPillar, m => m.Enemies((uint)OID.SparkPuddle).Where(e => e.EventState != 7), 0.8f);
-sealed class FireWell(BossModule module) : Components.StackWithIcon(module, (uint)IconID.Stack, AID.FireWell, 6f, 3f);
-sealed class ScouringScorn(BossModule module) : Components.RaidwideCast(module, AID.ScouringScorn);
-sealed class FalseFlameDisplay(BossModule module) : Components.AddsPointless(module, (uint)OID.FalseFlame);
-sealed class FieryBaubleDisplay(BossModule module) : Components.AddsPointless(module, (uint)OID.FieryBauble);
-sealed class FlyingCarpetDisplay(BossModule module) : Components.AddsPointless(module, (uint)OID.FlyingCarpet);
-sealed class LeftRightFireflight(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFireflightFourLongNights, (uint)AID.RightFireflightFourLongNights], new AOEShapeRect(40f, 2f));
-sealed class WheelOfFireflight(BossModule module) : Components.GenericAOEs(module)
+sealed class BurningPillar(BossModule module) : Components.SimpleAOEs(module,(uint)AID.BurningPillar, 10f);
+sealed class SparkPuddle(BossModule module) : Components.Voidzone(module, 10f, GetPuddles)
 {
-    readonly List<AOEInstance> _aoes = [];
-    bool _startLeft;
-    Angle _currentRot;
-    uint _prevIcon;
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Take(1);
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    private static Actor[] GetPuddles(BossModule module)
     {
-        if ((AID)spell.Action.ID == AID.LeftFireflightFourLongNights)
-            _startLeft = true;
-        else if ((AID)spell.Action.ID == AID.RightFireflightFourLongNights)
-            _startLeft = false;
-    }
-
-    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
-    {
-        if (iconID is not ((uint)IconID.TurningRight or (uint)IconID.TurningLeft or (uint)IconID.TurningRRight or (uint)IconID.TurningRLeft))
-            return;
-
-        if (_prevIcon == 0)
+        var enemies = module.Enemies((uint)OID.SparkPuddle);
+        var count = enemies.Count;
+        var index = 0;
+        var puddles = new Actor[count];
+        for (var i = 0; i < count; i++)
         {
-            var rightTurn = iconID is (uint)IconID.TurningRight or (uint)IconID.TurningRRight;
-            _currentRot = _startLeft ? (rightTurn ? 180f.Degrees() : default) : (rightTurn ? default : 180f.Degrees());
+            var z = enemies[i];
+            if (z.EventState != 7)
+            {
+                puddles[index++] = z;
+            }
         }
-        else if (_prevIcon == iconID)
-        {
-            _currentRot += 180f.Degrees();
-        }
-
-        _aoes.Add(new(new AOEShapeCone(40f, 90f.Degrees()), Module.PrimaryActor.Position, _currentRot));
-        _prevIcon = iconID;
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if ((AID)spell.Action.ID is not (AID.WheelOfFireflight or AID.WheelOfFireflight1 or AID.WheelOfFireflight2 or AID.WheelOfFireflight3))
-            return;
-
-        if (_aoes.Count == 0)
-            return;
-
-        _aoes.RemoveAt(0);
-        if (_aoes.Count == 0)
-        {
-            _currentRot = default;
-            _prevIcon = 0;
-        }
+        return puddles[..index];
     }
 }
 
-sealed class PariOfPlentyStates : StateMachineBuilder
-{
-    public PariOfPlentyStates(BossModule module) : base(module)
-    {
-        TrivialPhase()
-            .ActivateOnEnter<HeatBurst>()
-            .ActivateOnEnter<BurningGleam>()
-            .ActivateOnEnter<CharmedChains>()
-            .ActivateOnEnter<FireflightLines>()
-            .ActivateOnEnter<FireFlight>()
-            .ActivateOnEnter<FireFlightFactOrFiction>()
-            .ActivateOnEnter<SimpleFableFlight>()
-            .ActivateOnEnter<DoubleFableFlightLines>()
-            .ActivateOnEnter<DoubleFableFlight>()
-            .ActivateOnEnter<FireOfVictory>()
-            .ActivateOnEnter<FellSpark>()
-            .ActivateOnEnter<ParisCurse>()
-            .ActivateOnEnter<CurseOfCompanionshipSolitude>()
-            .ActivateOnEnter<FirePowder>()
-            .ActivateOnEnter<SpurningFlames>()
-            .ActivateOnEnter<ImpassionedSpark>()
-            .ActivateOnEnter<BurningPillar>()
-            .ActivateOnEnter<SparkPuddle>()
-            .ActivateOnEnter<FireWell>()
-            .ActivateOnEnter<ScouringScorn>()
-            .ActivateOnEnter<FalseFlameDisplay>()
-            .ActivateOnEnter<FieryBaubleDisplay>()
-            .ActivateOnEnter<FlyingCarpetDisplay>()
-            .ActivateOnEnter<LeftRightFireflight>()
-            .ActivateOnEnter<WheelOfFireflight>();
-    }
-}
+sealed class FireWell(BossModule module) : Components.StackWithIcon(module, (uint)IconID.Stack, (uint)AID.FireWell, 6f, 3d);
 
-[ModuleInfo(BossModuleInfo.Maturity.Contributed, StatesType = typeof(PariOfPlentyStates), ObjectIDType = typeof(OID), ActionIDType = typeof(AID), TetherIDType = typeof(TetherID), IconIDType = typeof(IconID), PrimaryActorOID = (uint)OID.PariOfPlenty, Contributors = "HerStolenLight", Expansion = BossModuleInfo.Expansion.Dawntrail, Category = BossModuleInfo.Category.Variant, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1084u, NameID = 14274u, SortOrder = 1, PlanLevel = 0)]
+sealed class ScouringScorn(BossModule module) : Components.RaidwideCast(module, (uint)AID.ScouringScorn);
+
+[ModuleInfo(BossModuleInfo.Maturity.Contributed,
+StatesType = typeof(PariOfPlentyStates),
+ConfigType = null, // replace null with typeof(PariOfPlentyConfig) if applicable
+ObjectIDType = typeof(OID),
+ActionIDType = typeof(AID), // replace null with typeof(AID) if applicable
+StatusIDType = typeof(SID), // replace null with typeof(SID) if applicable
+TetherIDType = typeof(TetherID), // replace null with typeof(TetherID) if applicable
+IconIDType = null, // replace null with typeof(IconID) if applicable
+PrimaryActorOID = (uint)OID.PariOfPlenty,
+Contributors = "HerStolenLight",
+Expansion = BossModuleInfo.Expansion.Dawntrail,
+Category = BossModuleInfo.Category.VariantCriterion,
+GroupType = BossModuleInfo.GroupType.CFC,
+GroupID = 1084u,
+NameID = 14274u,
+SortOrder = 1,
+PlanLevel = 0)]
+[SkipLocalsInit]
 public sealed class PariOfPlenty(WorldState ws, Actor primary) : BossModule(ws, primary, new(-760f, -805f), new ArenaBoundsSquare(20f));

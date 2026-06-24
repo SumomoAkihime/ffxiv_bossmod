@@ -1,13 +1,15 @@
 ﻿using BossMod.Network.ServerIPC;
 using Dalamud.Memory;
-using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace BossMod.Network;
 
 public abstract unsafe class PacketDecoder
 {
     protected DateTime Now;
+    private const float Hundredth = 1e-2f;
+    private const float Thousandth = 1e-3f;
+    private const float TwoKD65k = (float)(2000d / 65535);
+    private const float Inv65kDoublePI = (float)(1d / 65535 * 2 * Math.PI);
 
     public class TextNode(string text)
     {
@@ -30,12 +32,19 @@ public abstract unsafe class PacketDecoder
     {
         Now = now;
         var sb = new StringBuilder($"Server IPC {ipc.ID} [0x{ipc.Opcode:X4} / 0x{ipc.Opcode - 101:X4}]: {DecodeActor(ipc.SourceServerActor)}, sent {(now - ipc.SendTimestamp).TotalMilliseconds:f3}ms ago, epoch={ipc.Epoch}, data=");
-        foreach (byte b in ipc.Payload)
-            sb.Append($"{b:X2}");
+        var len = ipc.Payload.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            sb.Append($"{ipc.Payload[i]:X2}");
+        }
+
         var node = new TextNode(sb.ToString());
         var child = DecodePacket(ipc.ID, ipc.Opcode, (byte*)Unsafe.AsPointer(ref ipc.Payload[0]));
         if (child != null)
+        {
             node.AddChild(child);
+        }
+
         return node;
     }
 
@@ -43,10 +52,15 @@ public abstract unsafe class PacketDecoder
     {
         Service.Log($"[Network] {prefix}{n.Text}");
         if (n.Children == null)
+        {
             return;
+        }
+
         var subPrefix = prefix.Length > 0 ? "-" + prefix : "- ";
         foreach (var c in n.Children)
+        {
             LogNode(c, subPrefix);
+        }
     }
 
     protected abstract string DecodeActor(ulong instanceID);
@@ -123,7 +137,7 @@ public abstract unsafe class PacketDecoder
     private TextNode DecodeMarketBoardItemListing(MarketBoardItemListing* p)
     {
         var res = new TextNode($"request {p->RequestId}, page {p->FirstPageIndex}-{p->NextPageIndex}");
-        for (int i = 0; i < 10; ++i)
+        for (var i = 0; i < 10; ++i)
         {
             var item = (MarketBoardItemListingEntry*)p->EntriesRaw + i;
             var s1 = MemoryHelper.ReadString((nint)item + 0x46, 32);
@@ -136,7 +150,7 @@ public abstract unsafe class PacketDecoder
     private TextNode DecodeMarketBoardItemHistory(MarketBoardItemListingHistory* p)
     {
         var res = new TextNode($"item {p->ItemId}");
-        for (int i = 0; i < 20; ++i)
+        for (var i = 0; i < 20; ++i)
         {
             var entry = (MarketBoardItemListingHistoryEntry*)p->RawEntries + i;
             res.AddChild($"{entry->Quantity}x at {entry->UnitPrice} @ {DateTimeOffset.FromUnixTimeSeconds(entry->SaleUnixTimestamp)} from {MemoryHelper.ReadStringNullTerminated((nint)entry->RetainerName)}");
@@ -167,32 +181,37 @@ public abstract unsafe class PacketDecoder
 
     private void AddStatuses(TextNode res, Status* list, int count, int offset = 0)
     {
-        for (int i = 0; i < count; ++i)
+        for (var i = 0; i < count; ++i)
         {
             var s = list + i;
             if (s->ID != 0)
+            {
                 res.AddChild($"[{i + offset}] {Utils.StatusString(s->ID)} {s->Extra:X4} {s->RemainingTime:f3}s left, from {DecodeActor(s->SourceID)}");
+            }
         }
     }
 
     private TextNode DecodeUpdateRecastTimes(ReadOnlySpan<float> elapsed, ReadOnlySpan<float> total)
     {
         var res = new TextNode("");
-        for (int i = 0; i < elapsed.Length; ++i)
+        for (var i = 0; i < elapsed.Length; ++i)
+        {
             res.AddChild($"group {i}: {elapsed[i]:f3}/{total[i]:f3}s");
+        }
+
         return res;
     }
 
     private TextNode DecodeEffectResult(EffectResultEntry* entries, int count)
     {
         var res = new TextNode($"{count} entries, u={*(uint*)(entries + count):X8}");
-        for (int i = 0; i < count; ++i)
+        for (var i = 0; i < count; ++i)
         {
             var e = entries + i;
             var resEntry = res.AddChild($"[{i}] seq={e->RelatedActionSequence}/{e->RelatedTargetIndex}, actor={DecodeActor(e->ActorID)}, class={e->ClassID}, hp={e->CurHP}/{e->MaxHP}, mp={e->CurMP}, shield={e->ShieldValue}, u={e->u16:X4}");
             var cnt = Math.Min(4, (int)e->EffectCount);
             var eff = (EffectResultEffect*)e->Effects;
-            for (int j = 0; j < cnt; ++j)
+            for (var j = 0; j < cnt; ++j)
             {
                 resEntry.AddChild($"#{eff->EffectIndex}: id={Utils.StatusString(eff->StatusID)}, extra={eff->Extra:X2}, dur={eff->Duration:f3}s, src={DecodeActor(eff->SourceID)}, pad={eff->pad1:X2} {eff->pad2:X4}");
                 ++eff;
@@ -204,7 +223,7 @@ public abstract unsafe class PacketDecoder
     private TextNode DecodeEffectResultBasic(EffectResultBasicEntry* entries, int count)
     {
         var res = new TextNode($"{count} entries, u={*(uint*)(entries + count):X8}");
-        for (int i = 0; i < count; ++i)
+        for (var i = 0; i < count; ++i)
         {
             var e = entries + i;
             res.AddChild($"[{i}] seq={e->RelatedActionSequence}/{e->RelatedTargetIndex}, actor={DecodeActor(e->ActorID)}, hp={e->CurHP}, u={e->uD:X2} {e->uE:X4}");
@@ -217,12 +236,12 @@ public abstract unsafe class PacketDecoder
         var details = category switch
         {
             ActorControlCategory.CancelCast => $"{Utils.LogMessageString(p1)}; action={new ActionID((ActionType)p2, p3)}, interrupted={p4 == 1}", // note: some successful boss casts have this message on completion
-            ActorControlCategory.RecastDetails => $"group {p1}: {p2 * 0.01f:f2}/{p3 * 0.01f:f2}s",
-            ActorControlCategory.Cooldown => $"group {p1}: action={new ActionID(ActionType.Spell, p2)}, time={p3 * 0.01f:f2}s",
+            ActorControlCategory.RecastDetails => $"group {p1}: {p2 * Hundredth:f2}/{p3 * Hundredth:f2}s",
+            ActorControlCategory.Cooldown => $"group {p1}: action={new ActionID(ActionType.Spell, p2)}, time={p3 * Hundredth:f2}s",
             ActorControlCategory.GainEffect => $"{Utils.StatusString(p1)}: extra={p2:X4}",
             ActorControlCategory.LoseEffect => $"{Utils.StatusString(p1)}: extra={p2:X4}, source={DecodeActor(p3)}, unk-update={p4 != 0}",
             ActorControlCategory.UpdateEffect => $"#{p1} {Utils.StatusString(p2)}: extra={p3:X4}",
-            ActorControlCategory.TargetIcon => $"{p1 - IDScramble.Delta} ({p1}-{IDScramble.Delta})",
+            ActorControlCategory.TargetIcon => $"{p1} ({p1})",
             ActorControlCategory.Tether => $"#{p1}: {p2} -> {DecodeActor(p3)} progress={p4}%",
             ActorControlCategory.TetherCancel => $"#{p1}: {p2}",
             ActorControlCategory.SetTarget => $"{DecodeActor(targetID)}",
@@ -236,15 +255,14 @@ public abstract unsafe class PacketDecoder
             ActorControlCategory.EObjAnimation => $"{p1:X4} {p2:X4}",
             ActorControlCategory.LimitBreakGauge => $"{p1} bars, {p2}/{p3}, uE={p4}, uF={p5}",
             ActorControlCategory.AchievementProgress => $"{p1} '{Service.LuminaRow<Lumina.Excel.Sheets.Achievement>(p1)?.Name}': {p2}/{p3}",
-            ActorControlCategory.ActionRejected => $"{Utils.LogMessageString(p1)}; action={new ActionID((ActionType)p2, p3)}, recast={p4 * 0.01f:f2}/{p5 * 0.01f:f2}, src-seq={p6}",
+            ActorControlCategory.ActionRejected => $"{Utils.LogMessageString(p1)}; action={new ActionID((ActionType)p2, p3)}, recast={p4 * Hundredth:f2}/{p5 * Hundredth:f2}, src-seq={p6}",
             ActorControlCategory.ServerRequestCallbackResponse => $"listener index={p1}, listener request type={p2}, data={p3} {p4} {p5} {p6}",
             ActorControlCategory.SetDutyActionSet => $"row={p1}",
             ActorControlCategory.SetDutyActionDetails => $"slot0: {new ActionID(ActionType.Spell, p1)} ({p5}/{p2} charges), slot1: {new ActionID(ActionType.Spell, p3)} ({p6}/{p4} charges)",
             ActorControlCategory.SetDutyActionPresent => $"value={p1}",
             ActorControlCategory.SetDutyActionActive => $"slot0={p1}, slot1={p2}",
             ActorControlCategory.SetDutyActionCharges => $"slot0={p1}, slot1={p2}",
-            ActorControlCategory.IncrementRecast => $"group {p1}: dt=dt={p2 * 0.01f:f2}s",
-            ActorControlCategory.Knockback => $"{(p1 / 10000f - 3.14f).Radians().Deg:f2}deg {p2 / 10000f:0.###}y (speed {p3 * 0.01f:0.###}?)",
+            ActorControlCategory.IncrementRecast => $"group {p1}: dt=dt={p2 * Hundredth:f2}s",
             _ => ""
         };
         return new TextNode($"{category} {details} ({p1:X8} {p2:X8} {p3:X8} {p4:X8} {p5:X8} {p6:X8} {DecodeActor(targetID)})");
@@ -256,17 +274,23 @@ public abstract unsafe class PacketDecoder
         var aid = GetScramble().Decode(opcode, data->actionId);
         var res = new TextNode($"#{data->globalEffectCounter} ({data->SourceSequence}) {new ActionID(data->actionType, aid)} ({data->actionId}/{data->actionAnimationId}), animTarget={DecodeActor(data->animationTargetId)}, animLock={data->animationLockTime:f3}, rot={rot}, pos={Utils.Vec3String(targetPos)}, var={data->variation}, ballista={DecodeActor(data->BallistaEntityId)}, flags={data->Flags:X2} pad={data->padding21:X4}");
         var targets = Math.Min(data->NumTargets, maxTargets);
-        for (int i = 0; i < targets; ++i)
+        for (var i = 0; i < targets; ++i)
         {
-            ulong targetId = targetIDs[i];
+            var targetId = targetIDs[i];
             if (targetId == 0)
+            {
                 continue;
+            }
+
             var resTarget = res.AddChild($"target {i} == {DecodeActor(targetId)}");
-            for (int j = 0; j < 8; ++j)
+            for (var j = 0; j < 8; ++j)
             {
                 var eff = effects + i * 8 + j;
                 if (eff->Type == ActionEffectType.Nothing)
+                {
                     continue;
+                }
+
                 resTarget.AddChild($"effect {j} == {eff->Type}, params={eff->Param0:X2} {eff->Param1:X2} {eff->Param2:X2} {eff->Param3:X2} {eff->Param4:X2} {eff->Value:X4}");
             }
         }
@@ -275,7 +299,7 @@ public abstract unsafe class PacketDecoder
 
     private TextNode DecodeActorCast(ushort opcode, ActorCast* p)
     {
-        uint aid = GetScramble().Decode(opcode, p->ActionID);
+        var aid = GetScramble().Decode(opcode, p->ActionID);
         return new($"{new ActionID(p->ActionType, aid)} ({new ActionID(ActionType.Spell, p->SpellID)}) @ {DecodeActor(p->TargetID)}, time={p->CastTime:f3} ({p->BaseCastTime100ms * 0.1f:f1}), rot={IntToFloatAngle(p->Rotation)}, targetpos={Utils.Vec3String(IntToFloatCoords(p->PosX, p->PosY, p->PosZ))}, interruptible={p->Interruptible}, ballista={DecodeActor(p->BallistaEntityId)}, u1={p->u1:X2}, u3={p->u3:X4}");
     }
 
@@ -284,7 +308,10 @@ public abstract unsafe class PacketDecoder
         var res = new TextNode($"{p->NumEntries} entries, pad={p->pad1:X2} {p->pad2:X4} {p->pad3:X8}");
         var e = (UpdateHateEntry*)p->Entries;
         for (int i = 0, cnt = Math.Min((int)p->NumEntries, 8); i < cnt; ++i, ++e)
+        {
             res.AddChild($"{DecodeActor(e->ObjectID)} = {e->Enmity}%");
+        }
+
         return res;
     }
 
@@ -293,7 +320,10 @@ public abstract unsafe class PacketDecoder
         var res = new TextNode($"{p->NumEntries} entries, pad={p->pad1:X2} {p->pad2:X4} {p->pad3:X8}");
         var e = (UpdateHateEntry*)p->Entries;
         for (int i = 0, cnt = Math.Min((int)p->NumEntries, 32); i < cnt; ++i, ++e)
+        {
             res.AddChild($"{DecodeActor(e->ObjectID)} = {e->Enmity}%");
+        }
+
         return res;
     }
 
@@ -312,8 +342,11 @@ public abstract unsafe class PacketDecoder
     private TextNode DecodeEventPlay(EventPlayN* p, int payloadLength)
     {
         var sb = new StringBuilder($"target={DecodeActor(p->TargetID)}, handler={p->EventHandler:X8}, fC={p->uC:X4}, f10={p->u10:X16}, pad={p->pad1:X4} {p->pad2:X2} {p->pad3:X4}, payload=[{payloadLength}]");
-        for (int i = 0; i < payloadLength; ++i)
+        for (var i = 0; i < payloadLength; ++i)
+        {
             sb.Append($" {p->Payload[i]:X8}");
+        }
+
         var res = new TextNode(sb.ToString());
         switch (p->EventHandler)
         {
@@ -328,10 +361,18 @@ public abstract unsafe class PacketDecoder
                         break;
                     case EventPlayN.PayloadCrafting.OperationId.ReturnedReagents:
                         if (cp->OpReturnedReagents.u0 != 0 || cp->OpReturnedReagents.u4 != 0 || cp->OpReturnedReagents.u8 != 0)
+                        {
                             craftingNode.AddChild($"Unks: {cp->OpReturnedReagents.u0} {cp->OpReturnedReagents.u4} {cp->OpReturnedReagents.u8}");
-                        for (int i = 0; i < 8; ++i)
+                        }
+
+                        for (var i = 0; i < 8; ++i)
+                        {
                             if (cp->OpReturnedReagents.ItemIds[i] != 0)
+                            {
                                 craftingNode.AddChild($"{i}: {cp->OpReturnedReagents.ItemIds[i]} '{Service.LuminaRow<Lumina.Excel.Sheets.Item>(cp->OpReturnedReagents.ItemIds[i])?.Name}' {cp->OpReturnedReagents.NumNQ[i]}nq/{cp->OpReturnedReagents.NumHQ[i]}hq");
+                            }
+                        }
+
                         break;
                     case EventPlayN.PayloadCrafting.OperationId.AdvanceCraftAction:
                     case EventPlayN.PayloadCrafting.OperationId.AdvanceNormalAction:
@@ -345,9 +386,14 @@ public abstract unsafe class PacketDecoder
                         craftingNode.AddChild($"Durability: {cp->OpAdvanceStep.CurDurability} (delta={cp->OpAdvanceStep.DeltaDurability})");
                         craftingNode.AddChild($"Flags: {cp->OpAdvanceStep.Flags}");
                         craftingNode.AddChild($"u44: {cp->OpAdvanceStep.u44}");
-                        for (int i = 0; i < 7; ++i)
+                        for (var i = 0; i < 7; ++i)
+                        {
                             if (cp->OpAdvanceStep.RemoveStatusIds[i] != 0)
+                            {
                                 craftingNode.AddChild($"Removed status {i}: {Utils.StatusString((uint)cp->OpAdvanceStep.RemoveStatusIds[i])} param={cp->OpAdvanceStep.RemoveStatusParams[i]}");
+                            }
+                        }
+
                         break;
                     case EventPlayN.PayloadCrafting.OperationId.QuickSynthStart:
                         craftingNode.AddChild($"Recipe #{cp->OpQuickSynthStart.RecipeId}, max={cp->OpQuickSynthStart.MaxCount}");
@@ -361,19 +407,25 @@ public abstract unsafe class PacketDecoder
     private TextNode DecodeServerRequestCallbackResponse(DecodeServerRequestCallbackResponse* p)
     {
         var sb = new StringBuilder($"listener index={p->ListenerIndex}, listener request type={p->ListenerRequestType}, data=[{p->DataCount}]");
-        for (int i = 0; i < p->DataCount; ++i)
+        for (var i = 0; i < p->DataCount; ++i)
+        {
             sb.Append($" {p->Data[i]}");
+        }
+
         return new(sb.ToString());
     }
 
     private TextNode DecodeWaymarkPreset(WaymarkPreset* p)
     {
         var res = new TextNode($"pad={p->pad1:X2} {p->pad2:X4}");
-        for (int i = 0; i < 8; ++i)
-            res.AddChild($"{(Waymark)i}: {(p->Mask & (1 << i)) != 0} at {Utils.Vec3String(new(p->PosX[i] * 0.001f, p->PosY[i] * 0.001f, p->PosZ[i] * 0.001f))}");
+        for (var i = 0; i < 8; ++i)
+        {
+            res.AddChild($"{(Waymark)i}: {(p->Mask & (1 << i)) != 0} at {Utils.Vec3String(new(p->PosX[i] * Thousandth, p->PosY[i] * Thousandth, p->PosZ[i] * Thousandth))}");
+        }
+
         return res;
     }
-    private TextNode DecodeWaymark(ServerIPC.Waymark* p) => new($"{p->ID}: {p->Active != 0} at {Utils.Vec3String(new(p->PosX * 0.001f, p->PosY * 0.001f, p->PosZ * 0.001f))}, pad={p->pad2:X4}");
+    private TextNode DecodeWaymark(ServerIPC.Waymark* p) => new($"{p->ID}: {p->Active != 0} at {Utils.Vec3String(new(p->PosX * Thousandth, p->PosY * Thousandth, p->PosZ * Thousandth))}, pad={p->pad2:X4}");
 
     private TextNode DecodePATSync(PlayActionTimelineSync* p)
     {
@@ -382,7 +434,9 @@ public abstract unsafe class PacketDecoder
         {
             var id = p->EntityIds[i];
             if (id == 0xE0000000)
+            {
                 break;
+            }
 
             var evt = p->TimelineIds[i];
 
@@ -394,28 +448,35 @@ public abstract unsafe class PacketDecoder
     private TextNode DecodeDDMap(DeepDungeonMap* p)
     {
         List<Lumina.Excel.Sheets.DeepDungeonFloorEffectUI> effects = [];
-        if (Service.LuminaRow<Lumina.Excel.Sheets.DeepDungeonStatus>(p->StatusId)?.FloorEffectUI.ValueNullable is { } v && v.RowId > 0)
+        if (Service.LuminaRow<Lumina.Excel.Sheets.DeepDungeonStatus>(p->StatusId)?.FloorEffectUI.ValueNullable is { } v && v.RowId > 0u)
+        {
             effects.Add(v);
-        if (Service.LuminaRow<Lumina.Excel.Sheets.DeepDungeonBan>(p->BanId)?.FloorEffectUI.ValueNullable is { } v2 && v2.RowId > 0)
-            effects.Add(v2);
-        if (Service.LuminaRow<Lumina.Excel.Sheets.DeepDungeonDanger>(p->DangerId)?.FloorEffectUI.ValueNullable is { } v3 && v3.RowId > 0)
-            effects.Add(v3);
+        }
 
-        return new($"Layout={p->LayoutInitType}, effects=[{string.Join(", ", effects.Select(e => e.Name))}]");
+        if (Service.LuminaRow<Lumina.Excel.Sheets.DeepDungeonBan>(p->BanId)?.FloorEffectUI.ValueNullable is { } v2 && v2.RowId > 0u)
+        {
+            effects.Add(v2);
+        }
+
+        if (Service.LuminaRow<Lumina.Excel.Sheets.DeepDungeonDanger>(p->DangerId)?.FloorEffectUI.ValueNullable is { } v3 && v3.RowId > 0u)
+        {
+            effects.Add(v3);
+        }
+
+        var effectSb = new System.Text.StringBuilder();
+        foreach (var e in effects) { if (effectSb.Length > 0) { effectSb.Append(", "); } effectSb.Append(e.Name); }
+        return new($"Layout={p->LayoutInitType}, effects=[{effectSb}]");
     }
 
     public static Vector3 IntToFloatCoords(ushort x, ushort y, ushort z)
     {
-        float fx = x * (2000.0f / 65535) - 1000;
-        float fy = y * (2000.0f / 65535) - 1000;
-        float fz = z * (2000.0f / 65535) - 1000;
+        var fx = x * TwoKD65k - 1000;
+        var fy = y * TwoKD65k - 1000;
+        var fz = z * TwoKD65k - 1000;
         return new(fx, fy, fz);
     }
 
-    public static Angle IntToFloatAngle(ushort rot)
-    {
-        return (rot / 65535.0f * (2 * MathF.PI) - MathF.PI).Radians();
-    }
+    public static Angle IntToFloatAngle(ushort rot) => (rot * Inv65kDoublePI - MathF.PI).Radians();
 }
 
 public sealed class PacketDecoderGame : PacketDecoder

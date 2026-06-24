@@ -18,12 +18,24 @@ public sealed class PartyState
     public const int MaxAllianceSize = 24;
     public const int MaxAllies = 64;
 
-    public record struct Member(ulong ContentId, ulong InstanceId, bool InCutscene, string Name)
+    public struct Member(ulong contentId, ulong instanceId, bool inCutscene, string name)
     {
+        public readonly ulong ContentId = contentId;
+        public readonly ulong InstanceId = instanceId;
+        public bool InCutscene = inCutscene;
+        public readonly string Name = name;
         // note that a valid member can have 0 contentid (eg buddy) or 0 instanceid (eg player in a different zone)
-        public readonly bool IsValid() => ContentId != 0 || InstanceId != 0;
+        public readonly bool IsValid() => ContentId != default || InstanceId != default;
+
+        public static bool operator ==(Member left, Member right) => left.ContentId == right.ContentId && left.InstanceId == right.InstanceId && left.InCutscene == right.InCutscene;
+        public static bool operator !=(Member left, Member right) => left.ContentId != right.ContentId || left.InstanceId != right.InstanceId || left.InCutscene != right.InCutscene;
+
+        public override readonly string ToString() => $"ContentID: {ContentId}, " + $"InstanceID: {InstanceId}, " + $"Name: {Name}";
+        public readonly bool Equals(Member other) => this == other;
+        public override readonly bool Equals(object? obj) => obj is Member other && Equals(other);
+        public override readonly int GetHashCode() => (ContentId, InstanceId, InCutscene).GetHashCode();
     }
-    public static readonly Member EmptySlot = new(0, 0, false, "");
+    public static readonly Member EmptySlot = new(default, default, false, "");
 
     public readonly Member[] Members = Utils.MakeArray(MaxAllies, EmptySlot);
     private readonly Actor?[] _actors = new Actor?[MaxAllies]; // transient
@@ -40,91 +52,174 @@ public sealed class PartyState
     {
         void assign(ulong instanceID, Actor? actor)
         {
-            if (TryFindSlot(instanceID, out var slot))
+            var slot = FindSlot(instanceID);
+            if (slot >= 0)
+            {
                 _actors[slot] = actor;
+            }
         }
         actorState.Added.Subscribe(actor => assign(actor.InstanceID, actor));
         actorState.Removed.Subscribe(actor => assign(actor.InstanceID, null));
     }
 
     // select non-null and optionally alive raid members
-    public IEnumerable<Actor> WithoutSlot(bool includeDead = false, bool excludeAlliance = false, bool excludeNPCs = false)
+    public Actor[] WithoutSlot(bool includeDead = false, bool excludeAlliance = false, bool excludeNPCs = false)
     {
-        for (int i = 0; i < MaxAllies; ++i)
+        var limit = excludeNPCs && excludeAlliance ? MaxPartySize : excludeNPCs ? MaxAllianceSize : MaxAllies;
+        var result = new Actor[limit];
+        var count = 0;
+
+        if (excludeAlliance)
         {
-            if (excludeNPCs && i >= MaxAllianceSize)
-                break;
-            if (excludeAlliance && i is >= MaxPartySize and < MaxAllianceSize)
-                continue;
-            var player = _actors[i];
-            if (player == null)
-                continue;
-            if (player.IsDead && !includeDead)
-                continue;
-            yield return player;
+            for (var i = 0; i < MaxPartySize; ++i)
+            {
+                var player = _actors[i];
+                if (player == null || !includeDead && player.IsDead)
+                {
+                    continue;
+                }
+                result[count++] = player;
+            }
+            if (!excludeNPCs)
+            {
+                for (var i = MaxAllianceSize; i < limit; ++i)
+                {
+                    var player = _actors[i];
+                    if (player == null || !includeDead && player.IsDead)
+                    {
+                        continue;
+                    }
+                    result[count++] = player;
+                }
+            }
         }
+        else
+        {
+            for (var i = 0; i < limit; ++i)
+            {
+                var player = _actors[i];
+                if (player == null || !includeDead && player.IsDead)
+                {
+                    continue;
+                }
+                result[count++] = player;
+            }
+        }
+        return result[..count];
     }
 
-    public IEnumerable<(int, Actor)> WithSlot(bool includeDead = false, bool excludeAlliance = false)
+    public (int, Actor)[] WithSlot(bool includeDead = false, bool excludeAlliance = false, bool excludeNPCs = false)
     {
-        for (int i = 0; i < MaxAllies; ++i)
+        var limit = excludeNPCs && excludeAlliance ? MaxPartySize : excludeNPCs ? MaxAllianceSize : MaxAllies;
+        var result = new (int, Actor)[limit];
+        var count = 0;
+
+        if (excludeAlliance)
         {
-            if (excludeAlliance && i is >= MaxPartySize and < MaxAllianceSize)
-                continue;
-            var player = _actors[i];
-            if (player == null)
-                continue;
-            if (player.IsDead && !includeDead)
-                continue;
-            yield return (i, player);
+            for (var i = 0; i < MaxPartySize; ++i)
+            {
+                var player = _actors[i];
+                if (player == null || !includeDead && player.IsDead)
+                {
+                    continue;
+                }
+                result[count++] = (i, player);
+            }
+            if (!excludeNPCs)
+            {
+                for (var i = MaxAllianceSize; i < limit; ++i)
+                {
+                    var player = _actors[i];
+                    if (player == null || !includeDead && player.IsDead)
+                    {
+                        continue;
+                    }
+                    result[count++] = (i, player);
+                }
+            }
         }
+        else
+        {
+            for (var i = 0; i < limit; ++i)
+            {
+                var player = _actors[i];
+                if (player == null || !includeDead && player.IsDead)
+                {
+                    continue;
+                }
+                result[count++] = (i, player);
+            }
+        }
+        return result[..count];
     }
 
     // find a slot index containing specified player (by instance ID); returns -1 if not found
-    public int FindSlot(ulong instanceID) => instanceID != 0 ? Array.FindIndex(Members, m => m.InstanceId == instanceID) : -1;
+    public int FindSlot(ulong instanceID)
+    {
+        if (instanceID == default)
+        {
+            return -1;
+        }
+        var len = Members.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            ref var m = ref Members[i];
+            if (m.InstanceId == instanceID)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
 
     // find a slot index containing specified player (by name); returns -1 if not found
     public int FindSlot(ReadOnlySpan<char> name, StringComparison cmp = StringComparison.CurrentCultureIgnoreCase)
     {
-        for (int i = 0; i < Members.Length; ++i)
-            if (name.Equals(Members[i].Name, cmp))
+        var length = Members.Length;
+        for (var i = 0; i < length; ++i)
+        {
+            ref var m = ref Members[i];
+            if (name.Equals(m.Name, cmp))
+            {
                 return i;
+            }
+        }
         return -1;
     }
 
-    public bool TryFindSlot(ulong instanceID, out int slot)
+    public List<WorldState.Operation> CompareToInitial()
     {
-        slot = FindSlot(instanceID);
-        return slot >= 0;
-    }
-
-    public bool TryFindSlot(Actor actor, out int slot) => TryFindSlot(actor.InstanceID, out slot);
-
-    public bool TryFindSlot(ReadOnlySpan<char> name, out int slot, StringComparison cmp = StringComparison.CurrentCultureIgnoreCase)
-    {
-        slot = FindSlot(name, cmp);
-        return slot >= 0;
-    }
-
-    public IEnumerable<WorldState.Operation> CompareToInitial()
-    {
-        for (int i = 0; i < Members.Length; ++i)
-            if (Members[i].IsValid())
-                yield return new OpModify(i, Members[i]);
+        var length = Members.Length;
+        List<WorldState.Operation> ops = new(length + 1);
+        for (var i = 0; i < length; ++i)
+        {
+            ref var m = ref Members[i];
+            if (m.IsValid())
+            {
+                ops.Add(new OpModify(i, m));
+            }
+        }
         if (LimitBreakCur != 0 || LimitBreakMax != 10000)
-            yield return new OpLimitBreakChange(LimitBreakCur, LimitBreakMax);
+        {
+            ops.Add(new OpLimitBreakChange(LimitBreakCur, LimitBreakMax));
+        }
+        return ops;
     }
 
     // implementation of operations
     public Event<OpModify> Modified = new();
-    public sealed record class OpModify(int Slot, Member Member) : WorldState.Operation
+    public sealed class OpModify(int slot, Member member) : WorldState.Operation
     {
+        public readonly int Slot = slot;
+        public readonly Member Member = member;
+
         protected override void Exec(WorldState ws)
         {
             if (Slot >= 0 && Slot < ws.Party.Members.Length)
             {
-                ws.Party.Members[Slot] = Member;
-                ws.Party._actors[Slot] = ws.Actors.Find(Member.InstanceId);
+                ref readonly var m = ref Member;
+                ws.Party.Members[Slot] = m;
+                ws.Party._actors[Slot] = ws.Actors.Find(m.InstanceId);
                 ws.Party.Modified.Fire(this);
             }
             else
@@ -132,12 +227,19 @@ public sealed class PartyState
                 Service.Log($"[PartyState] Out-of-bounds slot {Slot}");
             }
         }
-        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("PAR "u8).Emit(Slot).Emit(Member.ContentId, "X").Emit(Member.InstanceId, "X8").Emit(Member.InCutscene).Emit(Member.Name);
+        public override void Write(ReplayRecorder.Output output)
+        {
+            ref readonly var m = ref Member;
+            output.EmitFourCC("PAR "u8).Emit(Slot).Emit(m.ContentId, "X").Emit(m.InstanceId, "X8").Emit(m.InCutscene).Emit(m.Name);
+        }
     }
 
     public Event<OpLimitBreakChange> LimitBreakChanged = new();
-    public sealed record class OpLimitBreakChange(int Cur, int Max) : WorldState.Operation
+    public sealed class OpLimitBreakChange(int cur, int max) : WorldState.Operation
     {
+        public readonly int Cur = cur;
+        public readonly int Max = max;
+
         protected override void Exec(WorldState ws)
         {
             ws.Party.LimitBreakCur = Cur;

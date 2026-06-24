@@ -2,66 +2,77 @@ namespace BossMod.Stormblood.TreasureHunt.ShiftingAltarsOfUznair.AltarAiravata;
 
 public enum OID : uint
 {
-    Boss = 0x2543, //R=4.75
-    BonusAddAltarMatanga = 0x2545, // R3.420
-    BonusAddGoldWhisker = 0x2544, // R0.540
-    BossHelper = 0x233C,
+    Boss = 0x2543, //R4.75
+    AltarMatanga = 0x2545, // R3.42
+    GoldWhisker = 0x2544, // R0.54
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    AutoAttack = 870, // 2544->player, no cast, single-target
-    AutoAttack2 = 872, // Boss,Matanaga->player, no cast, single-target
+    AutoAttack1 = 870, // GoldWhisker->player, no cast, single-target
+    AutoAttack2 = 872, // Boss/AltarMatanga->player, no cast, single-target
+
     Huff = 13371, // Boss->player, 3.0s cast, single-target
     HurlBoss = 13372, // Boss->location, 3.0s cast, range 6 circle
     Buffet = 13374, // Boss->player, 3.0s cast, single-target, knockback 20 forward
     SpinBoss = 13373, // Boss->self, 4.0s cast, range 30 120-degree cone
     BarbarousScream = 13375, // Boss->self, 3.5s cast, range 14 circle
 
-    unknown = 9636, // BonusAddAltarMatanga->self, no cast, single-target
-    Spin = 8599, // BonusAddAltarMatanga->self, no cast, range 6+R 120-degree cone
-    RaucousScritch = 8598, // BonusAddAltarMatanga->self, 2.5s cast, range 5+R 120-degree cone
-    Hurl = 5352, // BonusAddAltarMatanga->location, 3.0s cast, range 6 circle
-    Telega = 9630, // BonusAdds->self, no cast, single-target, bonus adds disappear
+    MatangaActivate = 9636, // AltarMatanga->self, no cast, single-target
+    Spin = 8599, // AltarMatanga->self, no cast, range 6+R 120-degree cone
+    RaucousScritch = 8598, // AltarMatanga->self, 2.5s cast, range 5+R 120-degree cone
+    Hurl = 5352, // AltarMatanga->location, 3.0s cast, range 6 circle
+    Telega = 9630 // BonusAdds->self, no cast, single-target, bonus adds disappear
 }
 
 public enum IconID : uint
 {
-    BuffetTarget = 23, // player
+    BuffetTarget = 23 // player
 }
 
-class HurlBoss(BossModule module) : Components.StandardAOEs(module, AID.HurlBoss, 6);
-class SpinBoss(BossModule module) : Components.StandardAOEs(module, AID.SpinBoss, new AOEShapeCone(30, 60.Degrees()));
-class BarbarousScream(BossModule module) : Components.StandardAOEs(module, AID.BarbarousScream, new AOEShapeCircle(13));
-class Huff(BossModule module) : Components.SingleTargetDelayableCast(module, AID.Huff);
+sealed class HurlBoss(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HurlBoss, 6f);
+sealed class SpinBoss(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpinBoss, new AOEShapeCone(30f, 60f.Degrees()));
+sealed class BarbarousScream(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BarbarousScream, 14f);
+sealed class Huff(BossModule module) : Components.SingleTargetDelayableCast(module, (uint)AID.Huff);
 
-class Buffet(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Buffet, 20, kind: Kind.DirForward, stopAtWall: true)
+sealed class Buffet(BossModule module) : Components.GenericKnockback(module, (uint)AID.Buffet, stopAtWall: true)
 {
-    private bool targeted;
     private Actor? target;
+    private DateTime activation;
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
         if (iconID == (uint)IconID.BuffetTarget)
         {
-            targeted = true;
             target = actor;
+            activation = WorldState.FutureTime(3.1d);
         }
     }
 
-    public override IEnumerable<Source> Sources(int slot, Actor actor) => target == actor ? base.Sources(slot, actor) : [];
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
+    {
+        if (target != actor)
+        {
+            return [];
+        }
+        var pos = target.Position;
+        return new Knockback[] { new(pos, 20f, activation, kind: Kind.DirForward, direction: (pos - Module.PrimaryActor.Position).ToAngle()) };
+    }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
         base.OnCastFinished(caster, spell);
-        if ((AID)spell.Action.ID == AID.Buffet)
-            targeted = false;
+        if (spell.Action.ID == (uint)AID.Buffet)
+        {
+            target = null;
+        }
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
         base.AddHints(slot, actor, hints);
-        if (target == actor && targeted)
+        if (target == actor)
         {
             hints.Add("Bait away!");
         }
@@ -70,44 +81,71 @@ class Buffet(BossModule module) : Components.KnockbackFromCastTarget(module, AID
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         base.AddAIHints(slot, actor, assignment, hints);
-        if (target == actor && targeted)
-            hints.AddForbiddenZone(ShapeContains.Circle(Module.Center, 18));
+        if (target == actor)
+        {
+            hints.AddForbiddenZone(new SDCircle(Arena.Center, 17.5f));
+        }
     }
 }
 
-class Buffet2(BossModule module) : Components.BaitAwayCast(module, AID.Buffet, new AOEShapeCone(30, 60.Degrees()), true) //Boss jumps on player and does a cone attack, this is supposed to predict the position of the cone attack
+sealed class Buffet2(BossModule module) : Components.BaitAwayCast(module, (uint)AID.Buffet, new AOEShapeCone(30f, 60f.Degrees()), true)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var b in CurrentBaits)
-            if (b.Target.InstanceID != actor.InstanceID && CurrentBaits.Count > 0)
-                hints.AddForbiddenZone(b.Shape, b.Target.Position + (b.Target.HitboxRadius + Module.PrimaryActor.HitboxRadius) * (Module.PrimaryActor.Position - b.Target.Position).Normalized(), b.Rotation);
+        if (CurrentBaits.Count != 0 && !IsBaitTarget(actor))
+        {
+            ref var b = ref CurrentBaits.Ref(0);
+            var t = b.Target;
+            var tPos = t.Position;
+            var prim = Module.PrimaryActor;
+            var mPos = prim.Position;
+            var len = (tPos - mPos).Length();
+            var max = t.HitboxRadius + prim.HitboxRadius;
+            var min = len > max ? len : Math.Clamp(len, 0f, max);
+            hints.AddForbiddenZone(b.Shape, tPos - min * prim.DirectionTo(t), b.Rotation);
+        }
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (var bait in ActiveBaitsOn(pc))
+        if (IsBaitTarget(pc))
         {
-            bait.Shape.Outline(Arena, bait.Target.Position + (bait.Target.HitboxRadius + Module.PrimaryActor.HitboxRadius) * (Module.PrimaryActor.Position - bait.Target.Position).Normalized(), bait.Rotation);
+            ref var b = ref CurrentBaits.Ref(0);
+            var t = b.Target;
+            var tPos = t.Position;
+            var prim = Module.PrimaryActor;
+            var mPos = prim.Position;
+            var len = (tPos - mPos).Length();
+            var max = t.HitboxRadius + prim.HitboxRadius;
+            var min = len > max ? len : Math.Clamp(len, 0f, max);
+            b.Shape.Outline(Arena, tPos - min * prim.DirectionTo(t), b.Rotation);
         }
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
-        if (!IgnoreOtherBaits)
-            foreach (var bait in ActiveBaitsNotOn(pc))
-                if (AlwaysDrawOtherBaits || IsClippedBy(pc, bait))
-                    bait.Shape.Draw(Arena, bait.Target.Position + (bait.Target.HitboxRadius + Module.PrimaryActor.HitboxRadius) * (Module.PrimaryActor.Position - bait.Target.Position).Normalized(), bait.Rotation);
+        if (CurrentBaits.Count != 0 && !IsBaitTarget(pc))
+        {
+            ref var b = ref CurrentBaits.Ref(0);
+            var t = b.Target;
+            var tPos = t.Position;
+            var prim = Module.PrimaryActor;
+            var mPos = prim.Position;
+            var len = (tPos - mPos).Length();
+            var max = t.HitboxRadius + prim.HitboxRadius;
+            var min = len > max ? len : Math.Clamp(len, 0f, max);
+            b.Shape.Draw(Arena, tPos - min * prim.DirectionTo(t), b.Rotation);
+        }
     }
 }
 
-class RaucousScritch(BossModule module) : Components.StandardAOEs(module, AID.RaucousScritch, new AOEShapeCone(8.42f, 30.Degrees()));
-class Hurl(BossModule module) : Components.StandardAOEs(module, AID.Hurl, 6);
-class Spin(BossModule module) : Components.Cleave(module, AID.Spin, new AOEShapeCone(9.42f, 60.Degrees()), (uint)OID.BonusAddAltarMatanga);
+sealed class RaucousScritch(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RaucousScritch, new AOEShapeCone(8.42f, 60f.Degrees()));
+sealed class Hurl(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Hurl, 6f);
+sealed class Spin(BossModule module) : Components.Cleave(module, (uint)AID.Spin, new AOEShapeCone(9.42f, 60f.Degrees()), [(uint)OID.AltarMatanga]);
 
-class AiravataStates : StateMachineBuilder
+sealed class AltarAiravataStates : StateMachineBuilder
 {
-    public AiravataStates(BossModule module) : base(module)
+    public AltarAiravataStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<HurlBoss>()
@@ -119,31 +157,32 @@ class AiravataStates : StateMachineBuilder
             .ActivateOnEnter<Hurl>()
             .ActivateOnEnter<RaucousScritch>()
             .ActivateOnEnter<Spin>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.BonusAddGoldWhisker).All(e => e.IsDead) && module.Enemies(OID.BonusAddAltarMatanga).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed(AltarAiravata.All);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 586, NameID = 7601)]
-public class Airavata(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(20))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 586, NameID = 7601)]
+public sealed class AltarAiravata(WorldState ws, Actor primary) : THTemplate(ws, primary)
 {
+    private static readonly uint[] bonusAdds = [(uint)OID.GoldWhisker, (uint)OID.AltarMatanga];
+    public static readonly uint[] All = [(uint)OID.Boss, .. bonusAdds];
+
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.BonusAddGoldWhisker))
-            Arena.Actor(s, ArenaColor.Object);
-        foreach (var s in Enemies(OID.BonusAddAltarMatanga))
-            Arena.Actor(s, ArenaColor.Vulnerable);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(this, bonusAdds, Colors.Vulnerable);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.BonusAddGoldWhisker => 3,
-                OID.BonusAddAltarMatanga => 2,
-                OID.Boss => 1,
+                (uint)OID.GoldWhisker => 2,
+                (uint)OID.AltarMatanga => 1,
                 _ => 0
             };
         }

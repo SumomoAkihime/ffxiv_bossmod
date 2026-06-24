@@ -2,43 +2,63 @@ namespace BossMod.Shadowbringers.TreasureHunt.ShiftingOubliettesOfLyheGhiah.Secr
 
 public enum OID : uint
 {
-    Boss = 0x3023, //R=3.99
-    BossAdd = 0x3019, //R=1.8
-    BossHelper = 0x233C,
+    SecretKeeper = 0x3023, //R=3.99
     ResinVoidzone = 0x1E8FC7,
-    BonusAddKeeperOfKeys = 0x3034, // R3.230
-    BonusAddFuathTrickster = 0x3033, // R0.750
+    KeeperOfKeys = 0x3034, // R3.23
+    FuathTrickster = 0x3033, // R0.75
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    AutoAttack = 872, // Boss/BonusAdd_Keeper->player, no cast, single-target
-    Buffet = 21680, // Boss->self, 3.0s cast, range 11 120-degree cone
-    HeavyScrapline = 21681, // Boss->self, 4.0s cast, range 11 circle
-    MoldyPhlegm = 21679, // Boss->location, 3.0s cast, range 6 circle
-    InhaleBoss = 21677, // Boss->self, 4.0s cast, range 20 120-degree cone
-    MoldySneeze = 21678, // Boss->self, no cast, range 12 120-degree cone, heavy dmg, 20 knockback away from source
+    AutoAttack = 872, // SecretKeeper/KeeperOfKeys->player, no cast, single-target
 
-    Telega = 9630, // BonusAdds->self, no cast, single-target, bonus adds disappear
-    Mash = 21767, // 3034->self, 3.0s cast, range 13 width 4 rect
-    Inhale = 21770, // 3034->self, no cast, range 20 120-degree cone, attract 25 between hitboxes, shortly before Spin
-    Spin = 21769, // 3034->self, 4.0s cast, range 11 circle
-    Scoop = 21768, // 3034->self, 4.0s cast, range 15 120-degree cone
+    Buffet = 21680, // SecretKeeper->self, 3.0s cast, range 11 120-degree cone
+    HeavyScrapline = 21681, // SecretKeeper->self, 4.0s cast, range 11 circle
+    MoldyPhlegm = 21679, // SecretKeeper->location, 3.0s cast, range 6 circle
+    InhaleBoss = 21677, // SecretKeeper->self, 4.0s cast, range 20 120-degree cone
+    MoldySneeze = 21678, // SecretKeeper->self, no cast, range 12 120-degree cone, heavy dmg, 20 knockback away from source
+
+    Telega = 9630, // KeeperOfKeys/FuathTrickster->self, no cast, single-target, bonus adds disappear
+    Mash = 21767, // KeeperOfKeys->self, 3.0s cast, range 13 width 4 rect
+    Inhale = 21770, // KeeperOfKeys->self, no cast, range 20 120-degree cone, attract 25 between hitboxes, shortly before Spin
+    Spin = 21769, // KeeperOfKeys->self, 4.0s cast, range 11 circle
+    Scoop = 21768 // KeeperOfKeys->self, 4.0s cast, range 15 120-degree cone
 }
 
-class Buffet(BossModule module) : Components.StandardAOEs(module, AID.Buffet, new AOEShapeCone(11, 60.Degrees()));
-class Inhale(BossModule module) : Components.StandardAOEs(module, AID.InhaleBoss, new AOEShapeCone(20, 60.Degrees()));
-class InhalePull(BossModule module) : Components.KnockbackFromCastTarget(module, AID.InhaleBoss, 20, false, 1, new AOEShapeCone(20, 60.Degrees()), Kind.TowardsOrigin, default, true);
-class HeavyScrapline(BossModule module) : Components.StandardAOEs(module, AID.HeavyScrapline, new AOEShapeCircle(11));
-class MoldyPhlegm(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 6, AID.MoldyPhlegm, m => m.Enemies(OID.ResinVoidzone).Where(z => z.EventState != 7), 0);
-class MoldySneeze(BossModule module) : Components.Cleave(module, AID.MoldySneeze, new AOEShapeCone(12, 60.Degrees()), (uint)OID.Boss);
-class Spin(BossModule module) : Components.StandardAOEs(module, AID.Spin, new AOEShapeCircle(11));
-class Mash(BossModule module) : Components.StandardAOEs(module, AID.Mash, new AOEShapeRect(13, 2));
-class Scoop(BossModule module) : Components.StandardAOEs(module, AID.Scoop, new AOEShapeCone(15, 60.Degrees()));
-
-class KeeperStates : StateMachineBuilder
+sealed class Buffet(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Buffet, new AOEShapeCone(11f, 60f.Degrees()));
+sealed class Inhale(BossModule module) : Components.SimpleAOEs(module, (uint)AID.InhaleBoss, new AOEShapeCone(20f, 60f.Degrees()));
+sealed class InhalePull(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.InhaleBoss, 20f, false, 1, new AOEShapeCone(20f, 60f.Degrees()), Kind.TowardsOrigin, default, true);
+sealed class HeavyScrapline(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HeavyScrapline, 11f);
+sealed class MoldyPhlegm(BossModule module) : Components.VoidzoneAtCastTarget(module, 6f, (uint)AID.MoldyPhlegm, GetVoidzones, 1.4d)
 {
-    public KeeperStates(BossModule module) : base(module)
+    private static Actor[] GetVoidzones(BossModule module)
+    {
+        var enemies = module.Enemies((uint)OID.ResinVoidzone);
+        var count = enemies.Count;
+        if (count == 0)
+            return [];
+
+        var voidzones = new Actor[count];
+        var index = 0;
+        for (var i = 0; i < count; ++i)
+        {
+            var z = enemies[i];
+            if (z.EventState != 7)
+                voidzones[index++] = z;
+        }
+        return voidzones[..index];
+    }
+}
+sealed class MoldySneeze(BossModule module) : Components.Cleave(module, (uint)AID.MoldySneeze, new AOEShapeCone(12f, 60f.Degrees()));
+
+sealed class Spin(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Spin, 11f);
+sealed class Mash(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Mash, new AOEShapeRect(13f, 2f));
+sealed class Scoop(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Scoop, new AOEShapeCone(15f, 60f.Degrees()));
+
+sealed class SecretKeeperStates : StateMachineBuilder
+{
+    public SecretKeeperStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<Buffet>()
@@ -50,34 +70,48 @@ class KeeperStates : StateMachineBuilder
             .ActivateOnEnter<Spin>()
             .ActivateOnEnter<Mash>()
             .ActivateOnEnter<Scoop>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.BossAdd).All(e => e.IsDead) && module.Enemies(OID.BonusAddKeeperOfKeys).All(e => e.IsDead) && module.Enemies(OID.BonusAddFuathTrickster).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed(SecretKeeper.All);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 745, NameID = 9807)]
-public class Keeper(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(19))
+[ModuleInfo(BossModuleInfo.Maturity.Verified,
+StatesType = typeof(SecretKeeperStates),
+ConfigType = null,
+ObjectIDType = typeof(OID),
+ActionIDType = typeof(AID),
+StatusIDType = null,
+TetherIDType = null,
+IconIDType = null,
+PrimaryActorOID = (uint)OID.SecretKeeper,
+Contributors = "The Combat Reborn Team (Malediktus)",
+Expansion = BossModuleInfo.Expansion.Shadowbringers,
+Category = BossModuleInfo.Category.TreasureHunt,
+GroupType = BossModuleInfo.GroupType.CFC,
+GroupID = 745u,
+NameID = 9807u,
+SortOrder = 6,
+PlanLevel = 0)]
+public sealed class SecretKeeper(WorldState ws, Actor primary) : THTemplate(ws, primary)
 {
+    private static readonly uint[] bonusAdds = [(uint)OID.FuathTrickster, (uint)OID.KeeperOfKeys];
+    public static readonly uint[] All = [(uint)OID.SecretKeeper, .. bonusAdds];
+
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.BossAdd))
-            Arena.Actor(s, ArenaColor.Object);
-        foreach (var s in Enemies(OID.BonusAddKeeperOfKeys))
-            Arena.Actor(s, ArenaColor.Vulnerable);
-        foreach (var s in Enemies(OID.BonusAddFuathTrickster))
-            Arena.Actor(s, ArenaColor.Vulnerable);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(this, bonusAdds, Colors.Vulnerable);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.BonusAddFuathTrickster => 4,
-                OID.BonusAddKeeperOfKeys => 3,
-                OID.BossAdd => 2,
-                OID.Boss => 1,
+                (uint)OID.FuathTrickster => 2,
+                (uint)OID.KeeperOfKeys => 1,
                 _ => 0
             };
         }

@@ -1,13 +1,12 @@
 ﻿using Dalamud.Bindings.ImGui;
 using Lumina.Excel.Sheets;
 using System.Globalization;
-using System.Text;
 
 namespace BossMod.ReplayAnalysis;
 
-class ParticipantInfo : CommonEnumInfo
+sealed class ParticipantInfo : CommonEnumInfo
 {
-    class ParticipantData
+    sealed class ParticipantData
     {
         public List<ActorType> Types = [];
         public List<(uint zoneId, uint cfcId)> Zones = [];
@@ -33,7 +32,7 @@ class ParticipantInfo : CommonEnumInfo
                 foreach (var (commonOID, participants) in enc.ParticipantsByOID)
                 {
                     var data = _data.GetOrAdd(commonOID);
-                    int spawnedPreFight = 0;
+                    var spawnedPreFight = 0;
                     foreach (var p in participants.Where(p => !IsIgnored(p) && p.EffectiveExistence.Start <= minExistence))
                     {
                         data.Types.Add(p.Type);
@@ -41,9 +40,13 @@ class ParticipantInfo : CommonEnumInfo
                         data.Names.AddRange(p.NameHistory.Values);
 
                         if (p.ExistsInWorldAt(enc.Time.Start))
+                        {
                             ++spawnedPreFight;
+                        }
                         else
+                        {
                             data.SpawnedMidFight = true;
+                        }
 
                         data.SeenTargetable |= p.TargetableHistory.Count > 0;
                         data.MinRadius = Math.Min(data.MinRadius, p.MinRadius);
@@ -87,16 +90,25 @@ class ParticipantInfo : CommonEnumInfo
             };
             // for global, highlight by targetable; for encounter, highlight by being defined in enum
             var highlight = _oidType != null ? name == null : !kv.Value.SeenTargetable;
-            return new($"{kv.Key:X} ({_oidType?.GetEnumName(kv.Key)}) '{kv.Value.Names.FirstOrDefault().name}' ({typeName})", false, highlight ? 0xff00ffff : 0xffffffff);
+            return new($"{kv.Key:X} ({_oidType?.GetEnumName(kv.Key)}) '{kv.Value.Names.FirstOrDefault().name}' ({typeName})", false, highlight ? Colors.TextColor2 : Colors.TextColor1);
         }
         foreach (var (oid, data) in tree.Nodes(_data, map, kv => DrawSubContextMenu(kv.Key, kv.Value)))
         {
             foreach (var n in tree.Node($"Types ({data.Types.Count})", data.Types.Count == 0))
+            {
                 tree.LeafNodes(data.Types, t => t.ToString());
+            }
+
             foreach (var n in tree.Node($"Zones ({data.Zones.Count})", data.Zones.Count == 0))
+            {
                 tree.LeafNodes(data.Zones, z => $"{z.zoneId} '{Service.LuminaRow<TerritoryType>(z.zoneId)?.PlaceName.ValueNullable?.Name}' (cfc={z.cfcId})");
+            }
+
             foreach (var n in tree.Node($"Names ({data.Names.Count})", data.Names.Count == 0))
+            {
                 tree.LeafNodes(data.Names, n => $"[{n.id}] {n.name}");
+            }
+
             tree.LeafNode($"Spawned pre fight: {string.Join(", ", data.SpawnedPreFight)}");
             tree.LeafNode($"Spawned mid fight: {data.SpawnedMidFight}");
             tree.LeafNode($"Radius: {RadiusString(data)}");
@@ -140,7 +152,9 @@ class ParticipantInfo : CommonEnumInfo
             }
         }
         foreach (var curOID in toDel)
+        {
             _data.Remove(curOID);
+        }
     }
 
     private void DrawSubContextMenu(uint oid, ParticipantData data)
@@ -155,7 +169,7 @@ class ParticipantInfo : CommonEnumInfo
         }
     }
 
-    private static bool IsIgnored(Replay.Participant p) => p.Type is ActorType.Player or ActorType.Pet or ActorType.Chocobo or ActorType.Area or ActorType.Treasure || p.WasAlly;
+    private static bool IsIgnored(Replay.Participant p) => p.Type is ActorType.Player or ActorType.Pet or ActorType.Chocobo or ActorType.Area or ActorType.Treasure or ActorType.Buddy;
     private string RadiusString(ParticipantData d) => d.MinRadius != d.MaxRadius ? string.Create(CultureInfo.InvariantCulture, $"{d.MinRadius:f3}-{d.MaxRadius:f3}") : string.Create(CultureInfo.InvariantCulture, $"{d.MinRadius:f3}");
     private string GuessName(uint oid, ParticipantData d) => Utils.StringToIdentifier(d.Names.Count > 0 ? d.Names[0].name : $"Actor{oid:X}");
 
@@ -169,7 +183,10 @@ class ParticipantInfo : CommonEnumInfo
             _ => $"{data.SpawnedPreFight[0]}-{data.SpawnedPreFight[^1]}",
         };
         if (data.SpawnedMidFight)
+        {
             spawnStr += " (spawn during fight)";
+        }
+
         var typeStr = data.Types.Count switch
         {
             0 => ", ??? type",
@@ -186,7 +203,10 @@ class ParticipantInfo : CommonEnumInfo
         sb.AppendLine("public enum OID : uint");
         sb.AppendLine("{");
         foreach (var (key, val) in Utils.DedupKeys(members))
+        {
             sb.AppendLine($"    {key} = {val}");
+        }
+
         sb.AppendLine("}");
         return sb;
     }
@@ -196,33 +216,56 @@ class ParticipantInfo : CommonEnumInfo
         var name = GuessName(oid, data);
         sb.AppendLine("public enum OID : uint");
         sb.AppendLine("{");
-        sb.AppendLine($"    Boss = 0x{oid:X},");
+        sb.AppendLine($"    {name} = 0x{oid:X},");
         sb.AppendLine($"    Helper = 0x233C,");
         sb.AppendLine("}");
         sb.AppendLine();
-        sb.AppendLine($"class {name}States : StateMachineBuilder");
+        sb.AppendLine("[SkipLocalsInit]");
+        sb.AppendLine($"sealed class {name}States : StateMachineBuilder");
         sb.AppendLine("{");
         sb.AppendLine($"    public {name}States(BossModule module) : base(module)");
         sb.AppendLine("    {");
         if (withStates)
-            sb.AppendLine($"        DeathPhase(0, SinglePhase);");
+        {
+            sb.AppendLine($"        DeathPhase(default, SinglePhase);");
+        }
         else
+        {
             sb.AppendLine($"        TrivialPhase();");
+        }
+
         sb.AppendLine("    }");
         if (withStates)
         {
             sb.AppendLine();
             sb.AppendLine("    private void SinglePhase(uint id)");
             sb.AppendLine("    {");
-            sb.AppendLine("        SimpleState(id + 0xFF0000, 10000, \"???\");");
+            sb.AppendLine("        SimpleState(id + 0xFF0000u, 10000f, \"???\");");
             sb.AppendLine("    }");
             sb.AppendLine();
             sb.AppendLine("    //private void XXX(uint id, float delay)");
         }
         sb.AppendLine("}");
         sb.AppendLine();
-        sb.AppendLine($"[ModuleInfo(Incomplete = true, GroupType = BossModuleInfo.GroupType.CFC, GroupID = {data.Zones.FirstOrDefault().cfcId}, NameID = {data.Names.FirstOrDefault().id})]");
-        sb.AppendLine($"public class {name}(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(20));");
+        sb.AppendLine("[ModuleInfo(BossModuleInfo.Maturity.WIP,");
+        sb.AppendLine($"StatesType = typeof({name}States),");
+        sb.AppendLine($"ConfigType = null, // replace null with typeof({name}Config) if applicable");
+        sb.AppendLine("ObjectIDType = typeof(OID),");
+        sb.AppendLine("ActionIDType = null, // replace null with typeof(AID) if applicable");
+        sb.AppendLine("StatusIDType = null, // replace null with typeof(SID) if applicable");
+        sb.AppendLine("TetherIDType = null, // replace null with typeof(TetherID) if applicable");
+        sb.AppendLine("IconIDType = null, // replace null with typeof(IconID) if applicable");
+        sb.AppendLine($"PrimaryActorOID = (uint)OID.{name},");
+        sb.AppendLine("Contributors = \"\",");
+        sb.AppendLine("Expansion = BossModuleInfo.Expansion.Placeholder,");
+        sb.AppendLine("Category = BossModuleInfo.Category.Placeholder,");
+        sb.AppendLine("GroupType = BossModuleInfo.GroupType.CFC,");
+        sb.AppendLine($"GroupID = {(data.Zones.Count != 0 ? data.Zones[0].cfcId : default)}u,");
+        sb.AppendLine($"NameID = {(data.Names.Count != 0 ? data.Names[0].id : default)}u,");
+        sb.AppendLine("SortOrder = 1,");
+        sb.AppendLine("PlanLevel = 0)]");
+        sb.AppendLine("[SkipLocalsInit]");
+        sb.AppendLine($"public sealed class {name}(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 100f), new ArenaBoundsCircle(20f));");
         return sb;
     }
 }

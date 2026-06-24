@@ -3,10 +3,11 @@
 public enum OID : uint
 {
     Boss = 0x3875, // x1
-    Helper = 0x233C, // x16
-    PhantomGaiusSide = 0x3876, // x5, untargetable
-    PhantomGaiusAdd = 0x3877, // x4, adds that become targetable on low hp
-    TerminusEst = 0x3878, // spawn during fight
+
+    PhantomGaiusSide = 0x3876, // R1.65, untargetable
+    PhantomGaiusAdd = 0x3877, // R1.65, adds that become targetable on low hp
+    TerminusEst = 0x3878, // R=1.0
+    Helper = 0x233C
 }
 
 public enum AID : uint
@@ -33,16 +34,35 @@ public enum AID : uint
     AddPhaseStart = 28497, // Boss->self, no cast, single-target, visual (enemy 'lb' gauge starts filling over 90 secs)
     Heirsbane = 28498, // PhantomGaiusAdd->player, 5.0s cast, single-target damage
     VeniVidiVici = 28499, // Boss->self, no cast, raidwide on last add death
-    VeniVidiViciEnrage = 28500, // Boss->self, no cast, enrage (if adds aren't killed in 90s)
+    VeniVidiViciEnrage = 28500 // Boss->self, no cast, enrage (if adds aren't killed in 90s)
 }
 
-class TerminusEstTriple(BossModule module) : Components.StandardAOEs(module, AID.TerminusEstTriple, new AOEShapeRect(40, 2));
-class TerminusEstQuintuple(BossModule module) : Components.StandardAOEs(module, AID.TerminusEstQuintuple, new AOEShapeRect(40, 2));
-class HandOfTheEmpire(BossModule module) : Components.SpreadFromCastTargets(module, AID.HandOfTheEmpireAOE, 5, false);
-class FestinaLente(BossModule module) : Components.StackWithCastTargets(module, AID.FestinaLente, 6, 4);
-class Innocence(BossModule module) : Components.SingleTargetCast(module, AID.Innocence);
-class HorridaBella(BossModule module) : Components.RaidwideCast(module, AID.HorridaBella);
-class Ductus(BossModule module) : Components.StandardAOEs(module, AID.DuctusAOE, 8);
+class TerminusEst(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly List<AOEInstance> _aoes = [];
+
+    private static readonly AOEShapeRect rect = new(40f, 2f);
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if (actor.OID == (uint)OID.TerminusEst)
+            _aoes.Add(new(rect, actor.Position.Quantized(), actor.Rotation, WorldState.FutureTime(6d)));
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID is (uint)AID.TerminusEstTriple or (uint)AID.TerminusEstQuintuple)
+            _aoes.Clear();
+    }
+}
+
+class HandOfTheEmpire(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.HandOfTheEmpireAOE, 5f);
+class FestinaLente(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.FestinaLente, 6f, 4, 4);
+class Innocence(BossModule module) : Components.SingleTargetCast(module, (uint)AID.Innocence);
+class HorridaBella(BossModule module) : Components.RaidwideCast(module, (uint)AID.HorridaBella);
+class Ductus(BossModule module) : Components.SimpleAOEs(module, (uint)AID.DuctusAOE, 8f);
 
 class AddEnrage(BossModule module) : BossComponent(module)
 {
@@ -54,22 +74,25 @@ class AddEnrage(BossModule module) : BossComponent(module)
             hints.Add($"Enrage in {(_enrage - WorldState.CurrentTime).TotalSeconds:f1}s");
     }
 
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    public override void Update()
     {
-        if ((AID)spell.Action.ID == AID.AddPhaseStart)
-            _enrage = WorldState.FutureTime(91);
+        var primary = Module.PrimaryActor.IsTargetable;
+        var enrage = _enrage == default;
+        if (enrage && !primary)
+            _enrage = WorldState.FutureTime(92.4d);
+        else if (!enrage && primary)
+            _enrage = default;
     }
 }
 
-class Heirsbane(BossModule module) : Components.SingleTargetCast(module, AID.Innocence, "");
+class Heirsbane(BossModule module) : Components.SingleTargetCast(module, (uint)AID.Innocence, "");
 
 class D143GaiusStates : StateMachineBuilder
 {
     public D143GaiusStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<TerminusEstTriple>()
-            .ActivateOnEnter<TerminusEstQuintuple>()
+            .ActivateOnEnter<TerminusEst>()
             .ActivateOnEnter<HandOfTheEmpire>()
             .ActivateOnEnter<FestinaLente>()
             .ActivateOnEnter<Innocence>()
@@ -80,13 +103,12 @@ class D143GaiusStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 16, NameID = 2136)]
-public class D143Gaius(WorldState ws, Actor primary) : BossModule(ws, primary, new(-562, 220), new ArenaBoundsRect(15, 20))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 16, NameID = 2136)]
+public class D143Gaius(WorldState ws, Actor primary) : BossModule(ws, primary, new(-562f, 220f), new ArenaBoundsRect(14.5f, 19.5f))
 {
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var add in Enemies(OID.PhantomGaiusAdd))
-            Arena.Actor(add, ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.PhantomGaiusAdd));
     }
 }

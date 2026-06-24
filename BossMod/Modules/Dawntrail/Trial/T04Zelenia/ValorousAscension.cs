@@ -1,28 +1,27 @@
 namespace BossMod.Dawntrail.Trial.T04Zelenia;
 
-class ValorousAscension(BossModule module) : Components.RaidwideCast(module, AID.ValorousAscension1);
+sealed class ValorousAscension(BossModule module) : Components.RaidwideCast(module, (uint)AID.ValorousAscension1, "Raidwide x3");
 
-class ValorousAscensionRect(BossModule module) : Components.GenericAOEs(module)
+sealed class ValorousAscensionRect(BossModule module) : Components.GenericAOEs(module)
 {
-    private static readonly AOEShapeRect Rect = new(40, 4);
-    private readonly List<AOEInstance> _aoes = [];
+    private static readonly AOEShapeRect rect = new(40f, 4f);
+    private readonly List<AOEInstance> _aoes = new(4);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        var count = Math.Min(_aoes.Count, 2);
-        for (var i = 0; i < count; ++i)
-            yield return _aoes[i];
-    }
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Count > 1 ? CollectionsMarshal.AsSpan(_aoes)[..2] : [];
 
     public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
     {
         if (id == 0x11DB && actor.OID == (uint)OID.BriarThorn1)
-            _aoes.Add(new(Rect, actor.Position, actor.Rotation, WorldState.FutureTime(11.1f)));
+        {
+            _aoes.Add(new(rect, actor.Position.Quantized(), actor.Rotation, WorldState.FutureTime(11.1d)));
+        }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (_aoes.Count != 0 && (AID)spell.Action.ID == AID.ValorousAscensionRect)
+        if (_aoes.Count != 0 && spell.Action.ID == (uint)AID.ValorousAscensionRect)
+        {
             _aoes.RemoveAt(0);
+        }
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Trial.T03QueenEternal;
+namespace BossMod.Dawntrail.Trial.T03QueenEternal;
 
 sealed class DivideAndConquer(BossModule module) : Components.GenericBaitAway(module)
 {
@@ -13,7 +13,7 @@ sealed class DivideAndConquer(BossModule module) : Components.GenericBaitAway(mo
         if (iconID == (uint)IconID.LineBaits && CurrentBaits.Count == 0)
         {
             foreach (var p in Raid.WithoutSlot(true, true, true))
-                CurrentBaits.Add(new(Module.PrimaryActor, p, rect, WorldState.FutureTime(3f)));
+                CurrentBaits.Add(new(Module.PrimaryActor, p, rect, WorldState.FutureTime(3d)));
             counter = 8;
         }
     }
@@ -34,4 +34,3 @@ sealed class DivideAndConquer(BossModule module) : Components.GenericBaitAway(mo
         }
     }
 }
-

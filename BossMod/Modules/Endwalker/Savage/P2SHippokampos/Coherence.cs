@@ -2,24 +2,24 @@
 
 // state related to coherence mechanic
 // TODO: i'm not 100% sure how exactly it selects target for aoe ray, I assume it is closest player except tether target?..
-class Coherence(BossModule module) : Components.CastCounter(module, AID.CoherenceRay)
+class Coherence(BossModule module) : Components.CastCounter(module, (uint)AID.CoherenceRay)
 {
     private Actor? _tetherTarget;
     private Actor? _rayTarget;
-    private readonly AOEShapeRect _rayShape = new(50, 3);
+    private readonly AOEShapeRect _rayShape = new(50f, 3f);
     private Angle _rayDirection;
     private BitMask _inRay;
 
-    private const float _aoeRadius = 10; // not sure about this - actual range is 60, but it has some sort of falloff? i have very few data points < 15
+    private const float _aoeRadius = 10f; // not sure about this - actual range is 60, but it has some sort of falloff? i have very few data points < 15
 
     public override void Update()
     {
         _inRay.Reset();
-        _rayTarget = Raid.WithoutSlot().Exclude(_tetherTarget).Closest(Module.PrimaryActor.Position);
+        _rayTarget = Raid.WithoutSlot(false, true, true).Exclude(_tetherTarget).Closest(Module.PrimaryActor.Position);
         if (_rayTarget != null)
         {
             _rayDirection = Angle.FromDirection(_rayTarget.Position - Module.PrimaryActor.Position);
-            _inRay = Raid.WithSlot().InShape(_rayShape, Module.PrimaryActor.Position, _rayDirection).Mask();
+            _inRay = Raid.WithSlot(false, true, true).InShape(_rayShape, Module.PrimaryActor.Position, _rayDirection).Mask();
         }
     }
 
@@ -31,7 +31,7 @@ class Coherence(BossModule module) : Components.CastCounter(module, AID.Coherenc
             {
                 hints.Add("Pass tether to tank!");
             }
-            else if (Raid.WithoutSlot().InRadiusExcluding(actor, _aoeRadius).Any())
+            else if (Raid.WithoutSlot(false, true, true).InRadiusExcluding(actor, _aoeRadius).Any())
             {
                 hints.Add("GTFO from raid!");
             }
@@ -69,29 +69,29 @@ class Coherence(BossModule module) : Components.CastCounter(module, AID.Coherenc
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         // TODO: i'm not sure what are the exact mechanics - flare is probably distance-based, and ray is probably shared damage cast at closest target?..
-        var head = Module.Enemies(OID.CataractHead).FirstOrDefault();
-        foreach ((int i, var player) in Raid.WithSlot())
+        var head = Module.Enemies((uint)OID.CataractHead).FirstOrDefault();
+        foreach ((var i, var player) in Raid.WithSlot(false, true, true))
         {
             if (head?.Tether.Target == player.InstanceID)
             {
-                Arena.AddLine(player.Position, Module.PrimaryActor.Position, ArenaColor.Danger);
-                Arena.Actor(player, ArenaColor.Danger);
-                Arena.AddCircle(player.Position, _aoeRadius, ArenaColor.Danger);
+                Arena.AddLine(player.Position, Module.PrimaryActor.Position, Colors.Danger);
+                Arena.Actor(player, Colors.Danger);
+                Arena.AddCircle(player.Position, _aoeRadius, Colors.Danger);
             }
             else if (player == _rayTarget)
             {
-                Arena.Actor(player, ArenaColor.Danger);
+                Arena.Actor(player, Colors.Danger);
             }
             else if (player != _tetherTarget)
             {
-                Arena.Actor(player, _inRay[i] ? ArenaColor.PlayerInteresting : ArenaColor.PlayerGeneric);
+                Arena.Actor(player, _inRay[i] ? Colors.PlayerInteresting : Colors.PlayerGeneric);
             }
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
-        if ((TetherID)tether.ID == TetherID.Coherence)
+        if (tether.ID == (uint)TetherID.Coherence)
             _tetherTarget = WorldState.Actors.Find(tether.Target);
     }
 }

@@ -2,13 +2,13 @@
 
 public enum OID : uint
 {
-    Boss = 0x3D81, // R7.040, x1
-    Helper = 0x233C, // R0.500, x48
-    Tower = 0x3E73, // R1.350, spawn during fight
-    BlueSafeZone = 0x1EB845, // R0.500, EventObj type, spawn during fight
-    GoldSafeZone = 0x1EB846, // R0.500, EventObj type, spawn during fight
-    BlueTower = 0x1EB843, // R0.500, EventObj type, spawn during fight
-    GoldTower = 0x1EB844, // R0.500, EventObj type, spawn during fight
+    Boss = 0x3D81, // R7.04
+    Tower = 0x3E73, // R1.35
+    BlueSafeZone = 0x1EB845, // R0.5
+    GoldSafeZone = 0x1EB846, // R0.5
+    BlueFlowers = 0x1EB843, // R0.5
+    GoldFlowers = 0x1EB844, // R0.5
+    Helper = 0x233C
 }
 
 public enum AID : uint
@@ -40,7 +40,7 @@ public enum AID : uint
     SowingCircleRest = 31765, // Helper->location, 1.0s cast, range 5 circle
     Furrow = 31766, // Boss->players, 6.0s cast, range 6 circle stack
     HeavensEarth = 31778, // Boss->self, 5.0s cast, single-target, visual (tankbusters)
-    HeavensEarthAOE = 31779, // Helper->player, 5.0s cast, range 5 circle tankbuster
+    HeavensEarthAOE = 31779 // Helper->player, 5.0s cast, range 5 circle tankbuster
 }
 
 public enum SID : uint
@@ -51,7 +51,7 @@ public enum SID : uint
     RightFace = 3541, // none->player, extra=0x0
     ForcedMarch = 1257, // none->player, extra=0x1/0x8/0x4/0x2
     BloomingBlue = 3459, // none->player, extra=0x0
-    BloomingGold = 3460, // none->player, extra=0x0
+    BloomingGold = 3460 // none->player, extra=0x0
 }
 
 public enum IconID : uint
@@ -63,5 +63,5 @@ public enum IconID : uint
     Order5 = 402, // Tower
     Order6 = 403, // Tower
     Furrow = 318, // player
-    HeavensEarth = 343, // player
+    HeavensEarth = 343 // player
 }

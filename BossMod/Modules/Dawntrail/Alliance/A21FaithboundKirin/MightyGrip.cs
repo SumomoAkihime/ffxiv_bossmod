@@ -1,83 +1,85 @@
-﻿namespace BossMod.Dawntrail.Alliance.A21FaithboundKirin;
+namespace BossMod.Dawntrail.Alliance.A21FaithboundKirin;
 
-class ChiseledArm(BossModule module) : Components.AddsMulti(module, [OID.ChiseledArm3, OID.ChiseledArm4], 1);
-
-class Shockwave(BossModule module) : Components.RaidwideInstant(module, AID.Shockwave, 9)
+sealed class DeadlyHold(BossModule module) : Components.GenericTowers(module, damageType: AIHints.PredictedDamageType.Tankbuster)
 {
-    public void Predict(float delay) => Activation = WorldState.FutureTime(delay);
-}
-
-class StandingFirm(BossModule module) : Components.GenericTowers(module, AID.Bury)
-{
-    private static readonly WPos[] _towers = [
-        new(-858, 781),
-        new(-858, 789),
-        new(-842, 781)
-    ];
-
     public override void OnMapEffect(byte index, uint state)
     {
-        // ignore tower 0x51, the NPC helper soaks it
-        if (index is >= 0x4E and <= 0x50)
+        if (index == 0x52 && state == 0x00020001u)
         {
-            if (state == 0x00020001)
-                Towers.Add(new(_towers[index - 0x4E], 3, 1, 1, Raid.WithSlot().WhereActor(r => r.Role != Role.Tank).Mask(), WorldState.FutureTime(11)));
+            WPos[] positions = [new(-858f, 781f), new(-858f, 789f), new(-842f, 781f), new(-842f, 789f)];
+
+            BitMask forbidden = default;
+            var party = Raid.WithSlot(true);
+            var len = party.Length;
+            for (var i = 0; i < len; ++i)
+            {
+                ref var p = ref party[i];
+                var actor = p.Item2;
+                if (actor.Role != Role.Tank && actor.OID == default) // Alxaal takes one of the 4 towers, but doesn't have a tank role
+                {
+                    forbidden.Set(p.Item1);
+                }
+            }
+
+            var act = WorldState.FutureTime(11d);
+            for (var i = 0; i < 4; ++i)
+            {
+                Towers.Add(new(positions[i], 3f, 1, 1, forbidden, act));
+            }
+        }
+    }
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        if (status.ID == (uint)SID.StandingFirm)
+        {
+            Towers.Clear();
+        }
+    }
+}
+
+sealed class Bury(BossModule module) : Components.SingleTargetInstant(module, (uint)AID.Bury, 8.5d)
+{
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        if (status.ID == (uint)SID.StandingFirm)
+        {
+            var id = actor.InstanceID;
+            Targets.Add((Raid.FindSlot(id), WorldState.FutureTime(Delay), id, Module.PrimaryActor, actor));
+        }
+    }
+}
+
+sealed class Shockwave(BossModule module) : Components.RaidwideInstant(module, (uint)AID.Shockwave, 6.6d)
+{
+    public override void OnMapEffect(byte index, uint state)
+    {
+        if (index == 0x46)
+        {
+            if (state == 0x00020001u)
+            {
+                Activation = WorldState.FutureTime(Delay);
+            }
+            else if (state == 0x00080004u)
+            {
+                Activation = default;
+            }
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action == WatchedAction)
+        base.OnEventCast(caster, spell);
+        var id = spell.Action.ID;
+        if (id == WatchedAction && NumCasts is 2 or 6)
         {
-            Towers.RemoveAll(t => t.Position.AlmostEqual(spell.TargetXZ, 1));
-            NumCasts++;
+            Activation = WorldState.FutureTime(9d);
+        }
+        else if (id == (uint)AID.Bury)
+        {
+            Activation = WorldState.FutureTime(5.4d);
         }
     }
 }
 
-class MightyGrip : Components.GenericAOEs
-{
-    private DateTime _activation;
-
-    public bool Transformed { get; private set; }
-
-    private readonly AOEShapeCustom _borderShape;
-
-    public MightyGrip(BossModule module) : base(module, AID.MightyGrip)
-    {
-        var blank = new PolygonClipper.Operand(CurveApprox.Rect(new(0, 30), new(30, 0)));
-        var safe = new PolygonClipper.Operand(CurveApprox.Rect(new(12.5f, 0), new(0, 15)).Select(d => d + new WDir(0, 5)));
-        var hole = module.Bounds.Clipper.Difference(blank, safe);
-        _borderShape = new(hole);
-    }
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        if (_activation != default)
-            yield return new(_borderShape, Arena.Center, Activation: _activation);
-    }
-
-    public override void OnMapEffect(byte index, uint state)
-    {
-        if (index == 0x46)
-        {
-            if (state == 0x00200010)
-                _activation = WorldState.FutureTime(11.1f);
-
-            if (state == 0x00020001)
-            {
-                Transformed = true;
-                _activation = default;
-                Arena.Bounds = new ArenaBoundsRect(12.5f, 15);
-                Arena.Center = new(-850, 785);
-            }
-
-            if (state == 0x00080004)
-            {
-                Transformed = false;
-                Arena.Bounds = new ArenaBoundsCircle(29.5f);
-                Arena.Center = new(-850, 780);
-            }
-        }
-    }
-}
+sealed class KirinCaptivator(BossModule module) : Components.CastHints(module, [(uint)AID.KirinCaptivatorEnrage1, (uint)AID.KirinCaptivatorEnrage2], "Enrage!", true);

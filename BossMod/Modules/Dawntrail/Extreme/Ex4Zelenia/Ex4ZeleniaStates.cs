@@ -1,329 +1,318 @@
-﻿namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
+namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
 
-class Ex4ZeleniaStates : StateMachineBuilder
+sealed class Ex4ZeleniaStates : StateMachineBuilder
 {
     public Ex4ZeleniaStates(BossModule module) : base(module)
     {
-        SimplePhase(0, Phase1, "P1")
-            .ActivateOnEnter<ThornedCatharsis>()
-            .Raw.Update = () => !Module.PrimaryActor.IsTargetable || Module.PrimaryActor.IsDeadOrDestroyed;
-
-        SimplePhase(1, AddsPhase, "Adds")
-            .SetHint(StateMachine.PhaseHint.StartWithDowntime)
-            .Raw.Update = () =>
-            {
-                if (Module.PrimaryActor.IsDeadOrDestroyed)
-                    return true;
-
-                var enrage = Module.FindComponent<AddsEnrage>()!;
-                if (enrage.Active)
-                    return false;
-
-                var adds = Module.FindComponent<RosebloodDrop>()!;
-                if (adds.Spawned && !adds.ActiveActors.Any())
-                {
-                    // she likes to stick around until the adds are done
-                    return Module.FindComponent<SpearpointBait>()?.ActiveBaits.Count() == 0 && Module.FindComponent<SpearpointAOE>()?.Casters.Count == 0;
-                }
-                return false;
-            };
-
-        DeathPhase(2, Phase2)
-            .ActivateOnEnter<Tiles>()
-            .SetHint(StateMachine.PhaseHint.StartWithDowntime);
+        // splitting fight into 3 parts since you will likely be able to skip mechs in phase 1 once item lvl goes up
+        SimplePhase(default, Phase1, "P1")
+            .Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed || (Module.PrimaryActor.CastInfo?.IsSpell(AID.BlessedBarricade) ?? false);
+        SimplePhase(1u, BlessedBarricade, "Blessed Barricade")
+            .ActivateOnEnter<RosebloodDrop>()
+            .ActivateOnEnter<Towers2>()
+            .ActivateOnEnter<SpearpointPushAOE>()
+            .ActivateOnEnter<SpearpointPushBait>()
+            .Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed || (Module.PrimaryActor.CastInfo?.IsSpell(AID.PerfumedQuietusVisual) ?? false);
+        DeathPhase(2u, Phase2)
+            .ActivateOnEnter<ArenaChanges>()
+            .ActivateOnEnter<FloorTiles>();
     }
 
     private void Phase1(uint id)
     {
-        ThornedCatharsis(id, 6.1f);
-
-        CastStart(id + 2, AID.ShockVisual, 7.6f)
-            .ActivateOnEnter<P1Explosion>()
-            .ActivateOnEnter<ShockDonutBait>()
-            .ActivateOnEnter<ShockCircleBait>()
-            .ActivateOnEnter<ShockAOEs>();
-
-        ComponentCondition<ShockAOEs>(id + 0x10, 11.8f, e => e.NumCasts > 0, "AOEs 1");
-        ComponentCondition<P1Explosion>(id + 0x12, 1.3f, e => e.NumCasts > 0, "Towers");
-        ComponentCondition<ShockAOEs>(id + 0x14, 4.3f, e => e.NumCasts >= 96, "AOEs 11")
-            .DeactivateOnExit<P1Explosion>()
-            .DeactivateOnExit<ShockDonutBait>()
-            .DeactivateOnExit<ShockCircleBait>()
-            .DeactivateOnExit<ShockAOEs>();
-        SpecterOfTheLost(id + 0x20, 0.9f);
-
-        EscelonsFall1(id + 0x10000, 6.7f);
-        StockBreak(id + 0x20000, 2.2f);
-
-        CastStart(id + 0x20100, AID.BlessedBarricade, 3);
-
-        Targetable(id + 0x20102, false, 3.9f, "Boss disappears");
+        ThornedCatharsis(id, 6.2f);
+        AlexandrianHoly(id + 0x10000u, 11.5f);
+        SpecterOfTheLost(id + 0x20000u, 0.8f);
+        EscelonsFall1(id + 0x30000u, 6.6f);
+        StockBreak(id + 0x40000u, 10.3f);
+        SimpleState(id + 0x50000u, 3f, "Blessed Barricade");
     }
 
-    private void AddsPhase(uint id)
+    private void BlessedBarricade(uint id)
     {
-        ComponentCondition<RosebloodDrop>(id, 0.29f, d => d.ActiveActors.Any(), "Adds spawn")
-            .ActivateOnEnter<RosebloodDrop>()
-            .ActivateOnEnter<AddsExplosion>()
-            .ActivateOnEnter<SpearpointAOE>()
-            .ActivateOnEnter<SpearpointBait>()
-            .ActivateOnEnter<AddsEnrage>()
-            .SetHint(StateMachine.StateHint.DowntimeEnd);
-
-        ComponentCondition<AddsExplosion>(id + 0x10, 10.8f, e => e.NumCasts >= 2, "Towers 1");
-        ComponentCondition<AddsExplosion>(id + 0x12, 12, e => e.NumCasts >= 4, "Towers 2");
-        ComponentCondition<AddsExplosion>(id + 0x14, 12, e => e.NumCasts >= 6, "Towers 3");
-        ComponentCondition<SpearpointAOE>(id + 0x16, 11.9f, e => e.NumCasts >= 8, "Baits 4");
-
-        ComponentCondition<AddsEnrage>(id + 0x20, 8.4f, e => e.Active, "Adds disappear")
-            .SetHint(StateMachine.StateHint.DowntimeStart);
-
-        CastStart(id + 0xFF0000, AID.PerfumedQuietusEnrageVisual, 2.2f);
-        Timeout(id + 0xFF0001, 9.2f, "Enrage");
+        BlessedBarricade(id, 4.3f);
+        SimpleState(id + 0x10000u, 8.2f, "Enrage");
     }
 
     private void Phase2(uint id)
     {
-        Targetable(id, true, 5.1f, "Boss appears")
-            .ActivateOnEnter<PerfumedQuietus>()
-            .ActivateOnEnter<Voidzone>();
-        CastStart(id + 0x10, AID.PerfumedQuietusVisual, 0.1f);
-        ComponentCondition<PerfumedQuietus>(id + 0x12, 9.2f, p => p.NumCasts > 0, "Raidwide")
-            .DeactivateOnExit<PerfumedQuietus>();
-
-        Bloom1(id + 0x10000, 12.3f);
-        Bloom2(id + 0x20000, 7.4f);
-        Bloom3(id + 0x30000, 6.7f);
-        EscelonsFall2(id + 0x40000, 8.4f);
-        Bloom4(id + 0x50000, 5);
-        EscelonsFall3(id + 0x60000, 8.4f);
-        Bloom5(id + 0x70000, 7);
-        Bloom6(id + 0x80000, 8.7f);
-        Bloom1(id + 0x90000, 8.7f);
-
-        // soft enrage sequence
-        SpecterOfTheLost(id + 0xA0000, 3.1f);
-        StockBreak(id + 0xA0100, 6.8f);
-        StockBreak(id + 0xA0200, 1.7f);
-        StockBreak(id + 0xA0300, 1.8f);
-
-        Timeout(id + 0x100000, 9999, "Enrage");
+        AlexandrianThunderIIplusIII(id, 33.3f);
+        ThornedCatharsis(id + 0x10000u, 2.5f);
+        AlexandrianThunderIV(id + 0x20000u, 20.3f);
+        SpecterOfTheLost(id + 0x30000u, 2.4f);
+        RosebloodBloomIII(id + 0x40000u, 22.7f);
+        ThornedCatharsis(id + 0x50000u, 3.3f);
+        EscelonsFall2(id + 0x60000u, 8.5f);
+        StockBreak(id + 0x70000u, 10.4f);
+        RosebloodBloomIV(id + 0x80000u, 15.1f);
+        ThornedCatharsis(id + 0x90000u, 6.3f);
+        EscelonsFall3(id + 0xA0000u, 8.6f);
+        StockBreak(id + 0xB0000u, 8.5f);
+        RosebloodBloomV(id + 0xC0000u, 17f);
+        SpecterOfTheLost(id + 0xD0000u, 2.4f);
+        RosebloodBloomVI(id + 0xE0000u, 24.9f);
+        AlexandrianThunderIIplusIII(id + 0xF0000u, 20.6f);
+        ThornedCatharsis(id + 0x100000u, 2.4f);
+        SpecterOfTheLost(id + 0x110000u, 3f);
+        StockBreak(id + 0x120000u, 14.8f);
+        StockBreak(id + 0x130000u, 10f);
+        StockBreak(id + 0x140000u, 10f);
+        SimpleState(id + 0x150000u, 22f, "Enrage"); // spell ends 4.1s earlier, but damage is delayed a lot for some reason
     }
 
     private void ThornedCatharsis(uint id, float delay)
     {
-        Cast(id, AID.ThornedCatharsis, delay, 5, "Raidwide");
+        Cast(id, (uint)AID.ThornedCatharsis, delay, 5f, "Raidwide")
+            .SetHint(StateMachine.StateHint.Raidwide);
     }
 
-    private void EscelonsFall1(uint id, float delay)
+    private void AlexandrianHoly(uint id, float delay)
     {
-        CastStart(id, AID.EscelonsFallVisual, delay, "EF1 start")
-            .ActivateOnEnter<EscelonsFall>();
-
-        ComponentCondition<EscelonsFall>(id + 2, 13.9f, e => e.NumCasts >= 4, "Baits 1");
-        ComponentCondition<EscelonsFall>(id + 4, 3.1f, e => e.NumCasts >= 8, "Baits 2");
-        ComponentCondition<EscelonsFall>(id + 6, 3.1f, e => e.NumCasts >= 12, "Baits 3");
-        ComponentCondition<EscelonsFall>(id + 8, 3.1f, e => e.NumCasts >= 16, "Baits 4")
-            .DeactivateOnExit<EscelonsFall>();
-    }
-
-    private void StockBreak(uint id, float delay)
-    {
-        CastStart(id, AID.StockBreak, delay)
-            .ActivateOnEnter<StockBreak>();
-
-        ComponentCondition<StockBreak>(id + 0x10, 9.2f, s => s.NumCasts > 0, "Stack start");
-        ComponentCondition<StockBreak>(id + 0x20, 2.2f, s => s.NumCasts >= 3, "Stack end")
-            .DeactivateOnExit<StockBreak>();
-    }
-
-    private void Bloom1(uint id, float delay)
-    {
-        Cast(id, AID.RosebloodBloom, delay, 2.6f, "Bloom 1 start")
-            .ActivateOnEnter<AlexandrianThunderII>()
-            .ActivateOnEnter<Bloom1AlexandrianThunderIII>()
-            .ExecOnEnter<Tiles>(t => t.ShouldDraw = true);
-
-        CastStart(id + 0x10, AID.AlexandrianThunderIIVisual, 3.5f);
-        ComponentCondition<AlexandrianThunderII>(id + 0x11, 5.7f, e => e.NumCasts > 0, "Rotating AOEs start");
-        ComponentCondition<AlexandrianThunderII>(id + 0x12, 14.2f, e => e.NumCasts >= 90, "Rotating AOEs end")
-            .DeactivateOnExit<AlexandrianThunderII>();
-        ComponentCondition<Bloom1AlexandrianThunderIII>(id + 0x13, 5.7f, e => e.NumFinishedSpreads > 0, "Spreads")
-            .DeactivateOnExit<Bloom1AlexandrianThunderIII>();
-
-        ThornedCatharsis(id + 0x20, 2.4f);
-    }
-
-    private void Bloom2(uint id, float delay)
-    {
-        Cast(id, AID.Roseblood2ndBloom, delay, 2.6f, "Bloom 2 start")
-            .ActivateOnEnter<ThunderHints>()
-            .ActivateOnEnter<ThunderSlash>()
-            .ActivateOnEnter<AlexandrianThunderIV>();
-
-        ComponentCondition<AlexandrianThunderIV>(id + 0x10, 10.3f, t => t.NumCasts > 0, "In/out");
-        ComponentCondition<AlexandrianThunderIV>(id + 0x11, 3, t => t.NumCasts > 1, "Out/in").DeactivateOnExit<AlexandrianThunderIV>();
-        ComponentCondition<ThunderSlash>(id + 0x12, 2, t => t.NumCasts >= 6, "Cones end")
-            .DeactivateOnExit<ThunderSlash>()
-            .DeactivateOnExit<ThunderHints>()
-            .ExecOnExit<Tiles>(t => t.ShouldDraw = false);
-
-        SpecterOfTheLost(id + 0x20, 2.4f);
-    }
-
-    private void Bloom3(uint id, float delay)
-    {
-        Cast(id, AID.Roseblood3rdBloom, delay, 2.6f, "Bloom 3 start")
-            .ActivateOnEnter<Bloom3Emblazon>()
-            .ActivateOnEnter<TileExplosion>();
-
-        Cast(id + 0x10, AID.BudOfValor, 3.6f, 3);
-
-        Cast(id + 0x20, AID.EmblazonVisual, 5.2f, 3);
-
-        ComponentCondition<Bloom3Emblazon>(id + 0x22, 0.8f, b => b.Baiters.Any(), "Roses appear");
-        ComponentCondition<Bloom3Emblazon>(id + 0x30, 6.7f, b => b.NumCasts > 0, "Tiles activate")
-            .DeactivateOnExit<Bloom3Emblazon>();
-        ComponentCondition<TileExplosion>(id + 0x40, 4.4f, b => b.NumCasts > 0, "Towers")
-            .DeactivateOnExit<TileExplosion>();
-
-        ThornedCatharsis(id + 0x50, 3.3f);
-    }
-
-    private void EscelonsFall2(uint id, float delay)
-    {
-        Cast(id, AID.BudOfValor, delay, 3)
-            .ActivateOnEnter<ShockDonutBait>()
-            .ActivateOnEnter<ShockAOEs>()
-            .ActivateOnEnter<AlexandrianBanishII>();
-
-        CastStart(id + 0x10, AID.EscelonsFallVisual, 9.2f, "EF2 start")
-            .ActivateOnEnter<EscelonsFall>()
-            // wait for donuts to finish
-            .ExecOnEnter<EscelonsFall>(e => e.EnableHints = false);
-
-        ComponentCondition<ShockDonutBait>(id + 0x12, 6.7f, s => s.NumCasts > 0, "Donuts start")
-            .DeactivateOnExit<ShockDonutBait>();
-
-        ComponentCondition<AlexandrianBanishII>(id + 0x14, 1.1f, b => b.NumFinishedStacks > 0, "Stacks")
-            .DeactivateOnExit<AlexandrianBanishII>();
-
-        ComponentCondition<ShockAOEs>(id + 0x20, 4.5f, s => s.NumCasts >= 36, "Donuts end")
-            .DeactivateOnExit<ShockAOEs>()
-            .ExecOnEnter<EscelonsFall>(e => e.EnableHints = true);
-
-        ComponentCondition<EscelonsFall>(id + 0x22, 1.6f, e => e.NumCasts >= 4, "Baits 1");
-        ComponentCondition<EscelonsFall>(id + 0x24, 3.1f, e => e.NumCasts >= 8, "Baits 2");
-        ComponentCondition<EscelonsFall>(id + 0x26, 3.1f, e => e.NumCasts >= 12, "Baits 3");
-        ComponentCondition<EscelonsFall>(id + 0x28, 3.1f, e => e.NumCasts >= 16, "Baits 4")
-            .DeactivateOnExit<EscelonsFall>();
-
-        StockBreak(id + 0x30, 2.2f);
-    }
-
-    private void Bloom4(uint id, float delay)
-    {
-        Cast(id, AID.Roseblood4thBloom, delay, 2.6f, "Bloom 4 start")
-            .ActivateOnEnter<Bloom4Emblazon>()
-            .ActivateOnEnter<Bloom4AlexandrianThunderIII>()
-            .ActivateOnEnter<Bloom4AlexandrianThunderIIIAOE>();
-
-        ComponentCondition<Bloom4Emblazon>(id + 0x10, 7.5f, b => b.Baiters.Any(), "Roses appear");
-        ComponentCondition<Bloom4Emblazon>(id + 0x20, 6.6f, b => b.NumCasts > 0, "Tiles activate")
-            .DeactivateOnExit<Bloom4Emblazon>();
-        ComponentCondition<Bloom4AlexandrianThunderIII>(id + 0x30, 0.6f, b => b.NumFinishedSpreads > 0, "Spreads")
-            .DeactivateOnExit<Bloom4AlexandrianThunderIII>()
-            .DeactivateOnExit<Bloom4AlexandrianThunderIIIAOE>();
-
-        ComponentCondition<EncirclingThorns>(id + 0x35, 7.9f, t => t.TethersAssigned, "Chains appear")
-            .ActivateOnEnter<EncirclingThorns>()
-            .ExecOnEnter<Tiles>(t => t.ShouldDraw = true);
-
-        ComponentCondition<BanishIII>(id + 0x40, 5, b => b.NumCasts > 0, "Stack")
-            .ActivateOnEnter<BanishIII>()
-            .DeactivateOnExit<BanishIII>()
-            .DeactivateOnExit<EncirclingThorns>()
-            .ExecOnEnter<Tiles>(t => t.ShouldDraw = false);
-
-        ThornedCatharsis(id + 0x50, 6.4f);
-    }
-
-    private void EscelonsFall3(uint id, float delay)
-    {
-        Cast(id, AID.BudOfValor, delay, 3);
-
-        CastStart(id + 0x10, AID.EscelonsFallVisual, 3.1f, "EF3 start")
-            .ActivateOnEnter<PowerBreak>()
-            .ActivateOnEnter<EscelonsFall>()
-            // wait for donuts to finish
-            .ExecOnEnter<EscelonsFall>(e => e.EnableHints = false);
-
-        ComponentCondition<PowerBreak>(id + 0x20, 10, p => p.NumCasts > 0, "Half-room cleave 1")
-            .ExecOnExit<EscelonsFall>(e => e.EnableHints = true);
-
-        ComponentCondition<EscelonsFall>(id + 0x22, 3.9f, e => e.NumCasts >= 4, "Baits 1");
-        ComponentCondition<EscelonsFall>(id + 0x24, 3.1f, e => e.NumCasts >= 8, "Baits 2");
-        ComponentCondition<EscelonsFall>(id + 0x26, 3.1f, e => e.NumCasts >= 12, "Baits 3")
-            .ExecOnEnter<PowerBreak>(p => p.Risky = false);
-        ComponentCondition<EscelonsFall>(id + 0x28, 3.1f, e => e.NumCasts >= 16, "Baits 4")
-            .DeactivateOnExit<EscelonsFall>()
-            .ExecOnExit<PowerBreak>(p => p.Risky = true);
-
-        ComponentCondition<PowerBreak>(id + 0x30, 1.8f, p => p.NumCasts > 1, "Half-room cleave 2");
-
-        StockBreak(id + 0x100, 0.5f);
-    }
-
-    private void Bloom5(uint id, float delay)
-    {
-        Cast(id, AID.Roseblood5thBloom, delay, 2.6f, "Bloom 5 start")
-            .ExecOnEnter<Tiles>(t => t.ShouldDraw = true)
-            .ActivateOnEnter<ValorousAscensionRaidwide>()
-            .ActivateOnEnter<ThunderSlash>()
-            .ActivateOnEnter<AlexandrianThunderIV>();
-
-        CastStart(id + 0x10, AID.ValorousAscensionVisual, 3.6f)
-            .ActivateOnEnter<ValorousAscensionRect>();
-
-        ComponentCondition<AlexandrianThunderIV>(id + 0x20, 14.9f, t => t.NumCasts > 0, "Safe quadrant 1");
-        ComponentCondition<AlexandrianThunderIV>(id + 0x22, 3, t => t.NumCasts > 1, "Safe quadrant 2")
-            .DeactivateOnExit<AlexandrianThunderIV>();
-        ComponentCondition<ThunderSlash>(id + 0x30, 2, t => t.NumCasts >= 6, "Cones end")
-            .DeactivateOnExit<ThunderSlash>()
-            .DeactivateOnExit<ValorousAscensionRect>()
-            .ExecOnExit<Tiles>(t => t.ShouldDraw = false);
-
-        SpecterOfTheLost(id + 0x40, 2.4f);
+        ComponentCondition<ShockSpread>(id, delay, comp => comp.CurrentBaits.Count != 0, "Baits appear")
+            .ActivateOnEnter<Towers1>()
+            .ActivateOnEnter<ShockSpread>();
+        ComponentCondition<Towers1>(id + 0x10u, 2.3f, comp => comp.Towers.Count != 0, "Towers appear");
+        ComponentCondition<ShockSpread>(id + 0x20u, 5.7f, comp => comp.NumCasts != 0, "Baits turn into AOEs")
+            .ActivateOnEnter<ShockAOE>()
+            .DeactivateOnExit<ShockSpread>();
+        ComponentCondition<Towers1>(id + 0x30u, 1.2f, comp => comp.NumCasts != 0, "Towers resolve")
+            .DeactivateOnExit<Towers1>();
+        ComponentCondition<ShockAOE>(id + 0x40u, 4.2f, comp => comp.Done, "AOEs disappear")
+            .DeactivateOnExit<ShockAOE>();
     }
 
     private void SpecterOfTheLost(uint id, float delay)
     {
-        CastStart(id, AID.SpecterOfTheLostVisual, delay)
-            .ActivateOnEnter<SpecterOfTheLost>()
-            .ActivateOnEnter<SpecterOfTheLostAOE>();
-
-        ComponentCondition<SpecterOfTheLostAOE>(id + 2, 7.7f, e => e.NumCasts >= 2, "Tankbusters")
-            .DeactivateOnExit<SpecterOfTheLost>()
-            .DeactivateOnExit<SpecterOfTheLostAOE>();
+        ComponentCondition<SpecterOfTheLost>(id, delay, comp => comp.Active, "Tank tethers appear")
+            .ActivateOnEnter<SpecterOfTheLost>();
+        ComponentCondition<SpecterOfTheLost>(id + 0x10u, 7.7f, comp => comp.NumCasts != 0, "Tankbusters")
+            .SetHint(StateMachine.StateHint.Tankbuster)
+            .DeactivateOnExit<SpecterOfTheLost>();
     }
 
-    private void Bloom6(uint id, float delay)
+    private void EscelonsFall1(uint id, float delay)
     {
-        Cast(id, AID.Roseblood6thBloom, delay, 2.6f, "Bloom 6 start")
-            .ActivateOnEnter<TileExplosion>()
-            .ActivateOnEnter<Bloom6Emblazon>()
-            .ActivateOnEnter<HolyHazard>();
+        Cast(id, (uint)AID.EscelonsFallVisual1, delay, 13f, "Select bait order")
+            .ActivateOnEnter<EscelonsFall>();
+        EscelonsFall(id, 0x30u, 1f);
+    }
 
-        Cast(id + 0x10, AID.BudOfValor, 3.6f, 3);
+    private void StockBreak(uint id, float delay)
+    {
+        ComponentCondition<StockBreak>(id, delay, comp => comp.NumCasts != 0, "Stack hit 1")
+            .ActivateOnEnter<StockBreak>();
+        ComponentCondition<StockBreak>(id + 0x10u, 3.3f, comp => comp.NumCasts == 2, "Stack hit 4")
+            .SetHint(StateMachine.StateHint.Raidwide)
+            .DeactivateOnExit<StockBreak>();
+    }
 
-        ComponentCondition<Bloom6Emblazon>(id + 0x20, 7.1f, b => b.Baiters.Any(), "Roses appear");
-        ComponentCondition<Bloom6Emblazon>(id + 0x22, 6.6f, b => b.NumCasts > 0, "Tiles activate")
-            .DeactivateOnExit<Bloom6Emblazon>();
+    private void BlessedBarricade(uint id, float delay)
+    {
+        ComponentCondition<RosebloodDrop>(id, delay, comp => comp.ActiveActors.Count != 0, "Adds become targetable");
 
-        ComponentCondition<HolyHazard>(id + 0x30, 3.3f, h => h.NumCasts >= 2, "Cones 1");
-        ComponentCondition<HolyHazard>(id + 0x32, 3.1f, h => h.NumCasts >= 4, "Cones 2");
-        ComponentCondition<TileExplosion>(id + 0x34, 0.1f, t => t.NumCasts > 0, "Towers")
-            .DeactivateOnExit<HolyHazard>()
-            .DeactivateOnExit<TileExplosion>();
+        for (var i = 0; i < 4; ++i)
+        {
+            var baseOffset = (uint)(0x50 * i);
+            ComponentCondition<SpearpointPushBait>(id + baseOffset + 0x10u, i == 0 ? 3.8f : 5.2f, comp => comp.CurrentBaits.Count != 0, $"Baits {i + 1} appear");
+            if (i < 3)
+                ComponentCondition<Towers2>(id + baseOffset + 0x20u, 1f, comp => comp.Towers.Count != 0, $"Towers {i + 1} appear");
+            ComponentCondition<SpearpointPushAOE>(id + baseOffset + (i > 2 ? 0x20u : 0x30u), i == 3 ? 5.3f : 4.3f, comp => comp.AOEs.Count != 0, $"Baits {i + 1} end + AOEs {i + 1} appear");
+            ComponentCondition<SpearpointPushAOE>(id + baseOffset + (i > 2 ? 0x30u : 0x40u), 1.5f, comp => comp.AOEs.Count == 0, $"AOEs {i + 1} resolve");
+            if (i < 3)
+                ComponentCondition<Towers2>(id + baseOffset + 0x50u, 0.3f, comp => comp.Towers.Count == 0, $"Towers {i + 1} resolve");
+        }
+    }
+
+    private void AlexandrianThunderIIplusIII(uint id, float delay)
+    {
+        ComponentCondition<AlexandrianThunderII>(id, delay, comp => comp.NumCasts != 0, "Rotation start")
+            .ActivateOnEnter<ActiveTiles>()
+            .ActivateOnEnter<AlexandrianThunderII>();
+        ComponentCondition<AlexandrianThunderII>(id + 0x10u, 14.2f, comp => comp.NumCasts == 45, "Rotation end")
+            .DeactivateOnExit<AlexandrianThunderII>();
+        ComponentCondition<AlexandrianThunderIIISpread>(id + 0x20u, 0.5f, comp => comp.Spreads.Count != 0, "Spreads appear")
+            .ActivateOnEnter<AlexandrianThunderIIISpread>();
+        ComponentCondition<AlexandrianThunderIIISpread>(id + 0x30u, 5f, comp => comp.NumFinishedSpreads > 5, "Spreads resolved")
+            .DeactivateOnExit<ActiveTiles>()
+            .DeactivateOnExit<AlexandrianThunderIIISpread>();
+    }
+
+    private void AlexandrianThunderIV(uint id, float delay)
+    {
+        ComponentCondition<AlexandrianThunderIV>(id, delay, comp => comp.NumCasts != 0, "In OR Out AOE 1 + Cone AOE 1")
+            .ActivateOnEnter<ActiveTiles>()
+            .ActivateOnEnter<ThunderSlash>()
+            .ActivateOnEnter<AlexandrianThunderIV>();
+        for (var i = 2; i <= 3; ++i)
+        {
+            var offset = id + (uint)((i - 1) * 0x10u);
+            var time = 1f;
+            var desc = $"Cone AOE {i}";
+            var casts = i;
+            ComponentCondition<ThunderSlash>(offset, time, comp => comp.NumCasts == casts, desc);
+        }
+        ComponentCondition<AlexandrianThunderIV>(id + 0x30u, 1f, comp => comp.NumCasts == 2, "In OR Out AOE 2 + Cone AOE 4")
+            .DeactivateOnExit<ActiveTiles>()
+            .DeactivateOnExit<AlexandrianThunderIV>();
+        for (var i = 5; i <= 6; ++i)
+        {
+            var offset = id + (uint)((i - 1) * 0x10u);
+            var time = 1f;
+            var desc = $"Cone AOE {i}";
+            var casts = i;
+            var cond = ComponentCondition<ThunderSlash>(offset, time, comp => comp.NumCasts == casts, desc);
+            if (i == 6)
+            {
+                cond
+                .DeactivateOnExit<ThunderSlash>();
+            }
+        }
+    }
+
+    private void RosebloodBloomIII(uint id, float delay)
+    {
+        ComponentCondition<DonutSectorTowers>(id, delay, comp => comp.Towers.Count != 0, "Towers appear")
+            .ActivateOnEnter<DonutSectorTowers>()
+            .ActivateOnEnter<Emblazon>();
+        ComponentCondition<Emblazon>(id + 0x10u, 1.9f, comp => comp.Towers.Count != 0, "Rose markers appear");
+        ComponentCondition<Emblazon>(id + 0x20u, 6.8f, comp => comp.NumCasts != 0, "Rose markers resolve")
+            .DeactivateOnExit<Emblazon>();
+        ComponentCondition<DonutSectorTowers>(id + 0x30u, 4.3f, comp => comp.NumCasts != 0, "Towers resolve")
+            .DeactivateOnExit<DonutSectorTowers>();
+    }
+
+    private void EscelonsFall2(uint id, float delay)
+    {
+        Cast(id, (uint)AID.BudOfValor, delay, 3f, "");
+        ComponentCondition<ShockSpread>(id + 0x10u, 7.9f, comp => comp.CurrentBaits.Count != 0, "Baits appear")
+            .ActivateOnEnter<ShockSpread>();
+        CastStart(id + 0x20u, (uint)AID.EscelonsFallVisual1, 1.3f, "Select bait order")
+            .ActivateOnEnter<EscelonsFall>();
+        ComponentCondition<AlexandrianBanishII>(id + 0x30u, 2f, comp => comp.Stacks.Count != 0, "Stacks appear")
+            .ActivateOnEnter<AlexandrianBanishII>();
+        ComponentCondition<ShockSpread>(id + 0x40u, 4.7f, comp => comp.NumCasts != 0, "Baits turn into AOEs")
+            .ActivateOnEnter<ShockAOE>()
+            .DeactivateOnExit<ShockSpread>();
+        ComponentCondition<AlexandrianBanishII>(id + 0x50u, 1.1f, comp => comp.Stacks.Count == 0, "Stacks resolve")
+            .DeactivateOnExit<AlexandrianBanishII>();
+        ComponentCondition<ShockAOE>(id + 0x60u, 4.4f, comp => comp.Done, "AOEs disappear")
+            .DeactivateOnExit<ShockAOE>();
+        EscelonsFall(id, 0x70u, 1.7f);
+    }
+
+    private void RosebloodBloomIV(uint id, float delay)
+    {
+        ComponentCondition<Emblazon>(id, delay, comp => comp.Towers.Count != 0, "Rose markers appear")
+            .ActivateOnEnter<Emblazon>()
+            .ActivateOnEnter<ActiveTiles>()
+            .ActivateOnEnter<AlexandrianThunderIIIAOE>()
+            .ExecOnEnter<Emblazon>(comp => comp.Mechanic = false);
+        ComponentCondition<AlexandrianThunderIIISpread>(id + 0x10u, 2.3f, comp => comp.Spreads.Count != 0, "Spreads appear")
+            .ActivateOnEnter<AlexandrianThunderIIISpread>();
+        ComponentCondition<Emblazon>(id + 0x20u, 4.5f, comp => comp.NumCasts != 0, "Rose markers resolve")
+            .ExecOnExit<Emblazon>(comp => comp.Towers.Clear());
+        ComponentCondition<AlexandrianThunderIIISpread>(id + 0x30u, 0.5f, comp => comp.Spreads.Count == 0, "Spreads resolve")
+            .DeactivateOnExit<AlexandrianThunderIIISpread>();
+        ComponentCondition<AlexandrianThunderIIIAOE>(id + 0x40u, 0.1f, comp => comp.NumCasts != 0, "Circle AOEs")
+            .DeactivateOnExit<ActiveTiles>()
+            .DeactivateOnExit<AlexandrianThunderIIIAOE>();
+        ComponentCondition<ThornyVine>(id + 0x50u, 7.8f, comp => comp.TethersAssigned, "Chains appear")
+            .DeactivateOnExit<Emblazon>()
+            .ActivateOnEnter<ThornyVine>();
+        ComponentCondition<AlexandrianBanishIII>(id + 0x60u, 0.3f, comp => comp.CurrentBaits.Count != 0, "Stack appears")
+            .ActivateOnEnter<AlexandrianBanishIIITargetHint>()
+            .ActivateOnEnter<AlexandrianBanishIII>();
+        ComponentCondition<ThornyVine>(id + 0x70u, 3.4f, comp => comp.NumCasts > 1, "Chains resolve", 15f)
+            .DeactivateOnExit<ThornyVine>();
+        ComponentCondition<AlexandrianBanishIII>(id + 0x80u, 1.5f, comp => comp.NumCasts != 0, "Stack resolves")
+            .DeactivateOnExit<AlexandrianBanishIII>()
+            .DeactivateOnExit<AlexandrianBanishIIITargetHint>();
+    }
+
+    private void EscelonsFall3(uint id, float delay)
+    {
+        Cast(id, (uint)AID.BudOfValor, delay, 3f, "");
+        CastStart(id + 0x10u, (uint)AID.EscelonsFallVisual1, 3.1f, "Select bait order")
+            .ActivateOnEnter<EscelonsFall>();
+        ComponentCondition<PowerBreak>(id + 0x20u, 9.9f, comp => comp.NumCasts != 0, "Half room cleave 1")
+            .ActivateOnEnter<PowerBreak>();
+        EscelonsFall(id, 0x30u, 4f);
+        ComponentCondition<PowerBreak>(id + 0x70u, 1.9f, comp => comp.NumCasts == 2, "Half room cleave 2")
+            .DeactivateOnExit<PowerBreak>();
+    }
+
+    private bool EscelonsFall(uint id, uint extra, float delay1)
+    {
+        for (var i = 1; i <= 4; ++i)
+        {
+            var offset = id + extra + (uint)((i - 1) * 0x10u);
+            var time = i == 1 ? delay1 : 3.1f;
+            var desc = $"Baits {i}";
+            var casts = i * 4;
+            var cond = ComponentCondition<EscelonsFall>(offset, time, comp => comp.NumCasts == casts, desc);
+            if (i == 4)
+            {
+                cond.DeactivateOnExit<EscelonsFall>();
+            }
+        }
+        return true;
+    }
+
+    private void RosebloodBloomV(uint id, float delay)
+    {
+        ComponentCondition<ValorousAscension>(id, delay, comp => comp.NumCasts != 0, "Raidwide 1")
+            .SetHint(StateMachine.StateHint.Raidwide)
+            .ActivateOnEnter<ValorousAscension>()
+            .ActivateOnEnter<ValorousAscensionRect>();
+        ComponentCondition<ValorousAscension>(id + 0x10u, 1.8f, comp => comp.NumCasts == 3, "Raidwide 3")
+            .DeactivateOnExit<ValorousAscension>()
+            .ActivateOnExit<ActiveTiles>()
+            .ActivateOnExit<ThunderSlash>()
+            .ActivateOnExit<AlexandrianThunderIV>();
+        ComponentCondition<ValorousAscensionRect>(id + 0x20u, 9.2f, comp => comp.NumCasts != 0, "Line AOEs 1");
+        ComponentCondition<AlexandrianThunderIV>(id + 0x30u, 0.1f, comp => comp.NumCasts != 0, "In OR Out AOE 1 + Cone AOE 1");
+        for (var i = 2; i <= 3; ++i)
+        {
+            var offset = id + 0x30u + (uint)((i - 1) * 0x10u);
+            var time = 1f;
+            var desc = $"Cone AOE {i}";
+            var casts = i;
+            ComponentCondition<ThunderSlash>(offset, time, comp => comp.NumCasts == casts, desc);
+        }
+        ComponentCondition<ValorousAscensionRect>(id + 0x60u, 0.8f, comp => comp.NumCasts == 4, "Line AOEs 2")
+            .DeactivateOnExit<ValorousAscensionRect>();
+        ComponentCondition<AlexandrianThunderIV>(id + 0x70u, 0.1f, comp => comp.NumCasts == 2, "In OR Out AOE 2 + Cone AOE 4")
+            .DeactivateOnExit<ActiveTiles>()
+            .DeactivateOnExit<AlexandrianThunderIV>();
+        for (var i = 5; i <= 6; ++i)
+        {
+            var offset = id + 0x40u + (uint)((i - 1) * 0x10u);
+            var time = 1f;
+            var desc = $"Cone AOE {i}";
+            var casts = i;
+            var cond = ComponentCondition<ThunderSlash>(offset, time, comp => comp.NumCasts == casts, desc);
+            if (i == 6)
+            {
+                cond
+                .DeactivateOnExit<ThunderSlash>();
+            }
+        }
+    }
+
+    private void RosebloodBloomVI(uint id, float delay)
+    {
+        ComponentCondition<Emblazon>(id, delay, comp => comp.Allowed != default, "Rose markers appear")
+            .ActivateOnEnter<Emblazon>()
+            .ExecOnEnter<Emblazon>(comp => comp.Mechanic = true)
+            .ActivateOnEnter<DonutSectorTowers>();
+        ComponentCondition<DonutSectorTowers>(id + 0x10u, 0.1f, comp => comp.Towers.Count != 0, "Towers appear");
+        ComponentCondition<Emblazon>(id + 0x20u, 6.8f, comp => comp.NumCasts != 0, "Rose markers resolve")
+            .ActivateOnEnter<HolyHazard>()
+            .DeactivateOnExit<Emblazon>();
+        ComponentCondition<HolyHazard>(id + 0x30u, 3.3f, comp => comp.NumCasts != 0, "Cone AOEs 1");
+        ComponentCondition<HolyHazard>(id + 0x40u, 3f, comp => comp.NumCasts == 4, "Cone AOEs 2")
+            .DeactivateOnExit<HolyHazard>();
+        ComponentCondition<DonutSectorTowers>(id + 0x50u, 0.1f, comp => comp.NumCasts != 0, "Towers resolve")
+            .DeactivateOnExit<DonutSectorTowers>();
     }
 }

@@ -3,90 +3,107 @@ namespace BossMod.Stormblood.TreasureHunt.ShiftingAltarsOfUznair.AltarTotem;
 public enum OID : uint
 {
     Boss = 0x2534, //R=5.06
-    BossAdd = 0x2566, //R=2.2
-    BossHelper = 0x233C,
+    TotemsHead = 0x2566, //R=2.2
     FireVoidzone = 0x1EA8BB,
-    BonusAddAltarMatanga = 0x2545, // R3.420
+    AltarMatanga = 0x2545, // R3.42
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    AutoAttack = 870, // Boss->player, no cast, single-target
-    AutoAttack2 = 872, // Boss->player, no cast, single-target
-    AutoAttack3 = 6499, // BossAdd->player, no cast, single-target
+    AutoAttack1 = 870, // Boss->player, no cast, single-target
+    AutoAttack2 = 872, // AltarMatanga->player, no cast, single-target
+    AutoAttack3 = 6499, // TotemsHead->player, no cast, single-target
+
     FlurryOfRage = 13451, // Boss->self, 3.0s cast, range 8+R 120-degree cone
     WhorlOfFrenzy = 13453, // Boss->self, 3.0s cast, range 6+R circle
     WaveOfMalice = 13454, // Boss->location, 2.5s cast, range 5 circle
-    TheWardensVerdict = 13739, // BossAdd->self, 3.0s cast, range 40+R width 4 rect
+    TheWardensVerdict = 13739, // TotemsHead->self, 3.0s cast, range 40+R width 4 rect
     FlamesOfFury = 13452, // Boss->location, 4.0s cast, range 10 circle
 
-    unknown = 9636, // BonusAddAltarMatanga->self, no cast, single-target
-    Spin = 8599, // BonusAddAltarMatanga->self, no cast, range 6+R 120-degree cone
-    RaucousScritch = 8598, // BonusAddAltarMatanga->self, 2.5s cast, range 5+R 120-degree cone
-    Hurl = 5352, // BonusAddAltarMatanga->location, 3.0s cast, range 6 circle
-    Telega = 9630, // BonusAdds->self, no cast, single-target, bonus adds disappear
+    MatangaActivate = 9636, // AltarMatanga->self, no cast, single-target
+    Spin = 8599, // AltarMatanga->self, no cast, range 6+R 120-degree cone
+    RaucousScritch = 8598, // AltarMatanga->self, 2.5s cast, range 5+R 120-degree cone
+    Hurl = 5352, // AltarMatanga->location, 3.0s cast, range 6 circle
+    Telega = 9630 // AltarMatanga->self, no cast, single-target, bonus adds disappear
 }
 
 public enum IconID : uint
 {
-    Baitaway = 23, // player
+    Baitaway = 23 // player
 }
 
-class FlurryOfRage(BossModule module) : Components.StandardAOEs(module, AID.FlurryOfRage, new AOEShapeCone(13.06f, 60.Degrees()));
-class WaveOfMalice(BossModule module) : Components.StandardAOEs(module, AID.WaveOfMalice, 5);
-class WhorlOfFrenzy(BossModule module) : Components.StandardAOEs(module, AID.WhorlOfFrenzy, new AOEShapeCircle(11.06f));
-class TheWardensVerdict(BossModule module) : Components.StandardAOEs(module, AID.TheWardensVerdict, new AOEShapeRect(45.06f, 2));
-class FlamesOfFury(BossModule module) : Components.StandardAOEs(module, AID.FlamesOfFury, 10);
-
-class FlamesOfFuryBait(BossModule module) : Components.GenericBaitAway(module)
+class FlurryOfRage(BossModule module) : Components.SimpleAOEs(module, (uint)AID.FlurryOfRage, new AOEShapeCone(13.06f, 60f.Degrees()));
+class WaveOfMalice(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WaveOfMalice, 5f);
+class WhorlOfFrenzy(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WhorlOfFrenzy, 11.06f);
+class TheWardensVerdict(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TheWardensVerdict, new AOEShapeRect(45.06f, 2f));
+class FlamesOfFury(BossModule module) : Components.VoidzoneAtCastTarget(module, 10f, (uint)AID.FlamesOfFury, GetVoidzones, 1.2f)
 {
-    private bool targeted;
-    private Actor? target;
+    private static Actor[] GetVoidzones(BossModule module)
+    {
+        var enemies = module.Enemies((uint)OID.FireVoidzone);
+        var count = enemies.Count;
+        if (count == 0)
+            return [];
+
+        var voidzones = new Actor[count];
+        var index = 0;
+        for (var i = 0; i < count; ++i)
+        {
+            var z = enemies[i];
+            if (z.EventState != 7)
+                voidzones[index++] = z;
+        }
+        return voidzones[..index];
+    }
+}
+
+class FlamesOfFuryBait(BossModule module) : Components.GenericBaitAway(module, centerAtTarget: true)
+{
+    private static readonly AOEShapeCircle circle = new(10f);
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
         if (iconID == (uint)IconID.Baitaway)
-        {
-            CurrentBaits.Add(new(actor, actor, new AOEShapeCircle(10)));
-            targeted = true;
-            target = actor;
-        }
+            CurrentBaits.Add(new(Module.PrimaryActor, actor, circle));
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.FlamesOfFury)
+        if (spell.Action.ID == (uint)AID.FlamesOfFury)
             ++NumCasts;
         if (NumCasts == 3)
         {
             CurrentBaits.Clear();
             NumCasts = 0;
-            targeted = false;
         }
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         base.AddAIHints(slot, actor, assignment, hints);
-        if (target == actor && targeted)
-            hints.AddForbiddenZone(ShapeContains.Circle(Module.Center, 18));
+        if (CurrentBaits.Count != 0 && CurrentBaits[0].Target == actor)
+            hints.AddForbiddenZone(new SDCircle(Arena.Center, 17.5f));
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        if (target == actor && targeted)
-            hints.Add("Bait voidzone away! (3 times)");
+        if (CurrentBaits.Count == 0)
+            return;
+        if (CurrentBaits[0].Target != actor)
+            base.AddHints(slot, actor, hints);
+        else
+            hints.Add("Bait away! (3 times)");
     }
 }
 
-class FlamesOfFuryVoidzone(BossModule module) : Components.PersistentVoidzone(module, 10, m => m.Enemies(OID.FireVoidzone).Where(z => z.EventState != 7));
-class RaucousScritch(BossModule module) : Components.StandardAOEs(module, AID.RaucousScritch, new AOEShapeCone(8.42f, 30.Degrees()));
-class Hurl(BossModule module) : Components.StandardAOEs(module, AID.Hurl, 6);
-class Spin(BossModule module) : Components.Cleave(module, AID.Spin, new AOEShapeCone(9.42f, 60.Degrees()), (uint)OID.BonusAddAltarMatanga);
+class RaucousScritch(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RaucousScritch, new AOEShapeCone(8.42f, 60f.Degrees()));
+class Hurl(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Hurl, 6f);
+class Spin(BossModule module) : Components.Cleave(module, (uint)AID.Spin, new AOEShapeCone(9.42f, 60f.Degrees()), [(uint)OID.AltarMatanga]);
 
-class TotemStates : StateMachineBuilder
+class AltarTotemStates : StateMachineBuilder
 {
-    public TotemStates(BossModule module) : base(module)
+    public AltarTotemStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<FlurryOfRage>()
@@ -95,35 +112,35 @@ class TotemStates : StateMachineBuilder
             .ActivateOnEnter<TheWardensVerdict>()
             .ActivateOnEnter<FlamesOfFury>()
             .ActivateOnEnter<FlamesOfFuryBait>()
-            .ActivateOnEnter<FlamesOfFuryVoidzone>()
             .ActivateOnEnter<Hurl>()
             .ActivateOnEnter<RaucousScritch>()
             .ActivateOnEnter<Spin>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.BossAdd).All(e => e.IsDead) && module.Enemies(OID.BonusAddAltarMatanga).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed(AltarTotem.All);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 586, NameID = 7586)]
-public class Totem(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(20))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 586, NameID = 7586)]
+public class AltarTotem(WorldState ws, Actor primary) : THTemplate(ws, primary)
 {
+    public static readonly uint[] All = [(uint)OID.Boss, (uint)OID.TotemsHead, (uint)OID.AltarMatanga];
+
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.BossAdd))
-            Arena.Actor(s, ArenaColor.Object);
-        foreach (var s in Enemies(OID.BonusAddAltarMatanga))
-            Arena.Actor(s, ArenaColor.Vulnerable);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.TotemsHead));
+        Arena.Actors(Enemies((uint)OID.AltarMatanga), Colors.Vulnerable);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.BonusAddAltarMatanga => 3,
-                OID.BossAdd => 2,
-                OID.Boss => 1,
+                (uint)OID.AltarMatanga => 2,
+                (uint)OID.TotemsHead => 1,
                 _ => 0
             };
         }

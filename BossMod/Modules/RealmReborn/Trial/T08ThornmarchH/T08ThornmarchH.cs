@@ -10,8 +10,9 @@ public enum OID : uint
     PuklaPukiThePomburner = 0x3920, // R0.900, x1 (fourth set)
     PuknaPakoTheTailturner = 0x3922, // R0.900, x1 (fourth set)
     GoodKingMoggleMogXII = 0x3923, // R3.000, spawn during fight (main boss)
-    Helper = 0x233C, // R0.500, x12
     PomBog = 0x1E8F67, // R0.500, EventObj type, spawn during fight
+    Helper = 0x233C
+
 }
 
 public enum AID : uint
@@ -57,23 +58,42 @@ public enum AID : uint
     PomStoneIn = 29201, // Helper->self, 5.0s cast, range 10 circle
     PomStoneMid = 29202, // Helper->self, 5.0s cast, range 10-20 donut
     PomStoneOut = 29619, // Helper->self, 5.0s cast, range 20-30 donut
-    MogCreation = 29208, // GoodKingMoggleMogXII->self, 3.0s cast, range 50 width 10 rect aoe
+    MogCreation = 29208 // GoodKingMoggleMogXII->self, 3.0s cast, range 50 width 10 rect aoe
 }
 
-class SpinningMogshield(BossModule module) : Components.StandardAOEs(module, AID.SpinningMogshield, new AOEShapeCircle(6));
-class ThousandKuponzeSwipe(BossModule module) : Components.StandardAOEs(module, AID.ThousandKuponzeSwipe, new AOEShapeCone(20, 45.Degrees()));
-class MograinOfDeath(BossModule module) : Components.SpreadFromCastTargets(module, AID.MograinOfDeathAOE, 6);
-class PomHoly(BossModule module) : Components.RaidwideCast(module, AID.PomHoly);
-class MoggledayNightFever(BossModule module) : Components.StandardAOEs(module, AID.MoggledayNightFever, new AOEShapeCone(30, 60.Degrees()));
-class MoogleThrust(BossModule module) : Components.SingleTargetCast(module, AID.MoogleThrust);
-class MementoMoogle(BossModule module) : Components.RaidwideCast(module, AID.MementoMoogle);
-class PomHolyBoss(BossModule module) : Components.RaidwideCast(module, AID.PomHolyBoss);
-class ThousandKuponzeCharge(BossModule module) : Components.SingleTargetCast(module, AID.ThousandKuponzeCharge);
-class PomBog(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 8, AID.PomBog, m => m.Enemies(OID.PomBog).Where(a => a.EventState != 7), 0.8f);
-class MogStone(BossModule module) : Components.StackWithCastTargets(module, AID.MogStoneAOE, 6, 8);
-class TwinPomMeteor(BossModule module) : Components.CastSharedTankbuster(module, AID.TwinPomMeteorAOE, 6);
-class MogComet(BossModule module) : Components.StandardAOEs(module, AID.MogCometAOE, 6);
-class MogCreation(BossModule module) : Components.StandardAOEs(module, AID.MogCreation, new AOEShapeRect(50, 5));
+class SpinningMogshield(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpinningMogshield, 6f);
+class ThousandKuponzeSwipe(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ThousandKuponzeSwipe, new AOEShapeCone(20f, 45f.Degrees()));
+class MograinOfDeath(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.MograinOfDeathAOE, 6f);
+class PomHoly(BossModule module) : Components.RaidwideCast(module, (uint)AID.PomHoly);
+class MoggledayNightFever(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MoggledayNightFever, new AOEShapeCone(30f, 60f.Degrees()));
+class MoogleThrust(BossModule module) : Components.SingleTargetCast(module, (uint)AID.MoogleThrust);
+class MementoMoogle(BossModule module) : Components.RaidwideCast(module, (uint)AID.MementoMoogle);
+class PomHolyBoss(BossModule module) : Components.RaidwideCast(module, (uint)AID.PomHolyBoss);
+class ThousandKuponzeCharge(BossModule module) : Components.SingleTargetCast(module, (uint)AID.ThousandKuponzeCharge);
+class PomBog(BossModule module) : Components.VoidzoneAtCastTarget(module, 8f, (uint)AID.PomBog, GetVoidzones, 0.8f)
+{
+    private static Actor[] GetVoidzones(BossModule module)
+    {
+        var enemies = module.Enemies((uint)OID.PomBog);
+        var count = enemies.Count;
+        if (count == 0)
+            return [];
+
+        var voidzones = new Actor[count];
+        var index = 0;
+        for (var i = 0; i < count; ++i)
+        {
+            var z = enemies[i];
+            if (z.EventState != 7)
+                voidzones[index++] = z;
+        }
+        return voidzones[..index];
+    }
+}
+class MogStone(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.MogStoneAOE, 6f, 8, 8);
+class TwinPomMeteor(BossModule module) : Components.CastSharedTankbuster(module, (uint)AID.TwinPomMeteorAOE, 6f);
+class MogComet(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MogCometAOE, 6);
+class MogCreation(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MogCreation, new AOEShapeRect(50f, 5f));
 
 // note: this fight has well-timed state machine for all phases, but it's just too simple to bother...
 class T08ThornmarchHStates : StateMachineBuilder
@@ -102,18 +122,18 @@ class T08ThornmarchHStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(PrimaryActorOID = (uint)OID.WhiskerwallKupdiKoop, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 66, NameID = 725)]
-public class T08ThornmarchH(WorldState ws, Actor primary) : BossModule(ws, primary, new(0, 0), new ArenaBoundsCircle(21))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.WhiskerwallKupdiKoop, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 66, NameID = 725)]
+public class T08ThornmarchH(WorldState ws, Actor primary) : BossModule(ws, primary, default, new ArenaBoundsCircle(21))
 {
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        Arena.Actors(Enemies(OID.RuffletuftKuptaKapa), ArenaColor.Enemy);
-        Arena.Actors(Enemies(OID.WoolywartKupquKogi), ArenaColor.Enemy);
-        Arena.Actors(Enemies(OID.FurryfootKupliKipp), ArenaColor.Enemy);
-        Arena.Actors(Enemies(OID.PuksiPikoTheShaggysong), ArenaColor.Enemy);
-        Arena.Actors(Enemies(OID.PuklaPukiThePomburner), ArenaColor.Enemy);
-        Arena.Actors(Enemies(OID.PuknaPakoTheTailturner), ArenaColor.Enemy);
-        Arena.Actors(Enemies(OID.GoodKingMoggleMogXII), ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.RuffletuftKuptaKapa));
+        Arena.Actors(Enemies((uint)OID.WoolywartKupquKogi));
+        Arena.Actors(Enemies((uint)OID.FurryfootKupliKipp));
+        Arena.Actors(Enemies((uint)OID.PuksiPikoTheShaggysong));
+        Arena.Actors(Enemies((uint)OID.PuklaPukiThePomburner));
+        Arena.Actors(Enemies((uint)OID.PuknaPakoTheTailturner));
+        Arena.Actors(Enemies((uint)OID.GoodKingMoggleMogXII));
     }
 }

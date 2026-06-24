@@ -1,81 +1,96 @@
 ﻿namespace BossMod.Endwalker.Ultimate.DSW2;
 
-class P2AscalonsMercyConcealed(BossModule module) : Components.StandardAOEs(module, AID.AscalonsMercyConcealedAOE, new AOEShapeCone(50, 15.Degrees()));
-class P2AscalonMight(BossModule module) : Components.Cleave(module, AID.AscalonsMight, new AOEShapeCone(50, 30.Degrees()), (uint)OID.BossP2);
-class P2UltimateEnd(BossModule module) : Components.CastCounter(module, AID.UltimateEndAOE);
-class P3Drachenlance(BossModule module) : Components.StandardAOEs(module, AID.DrachenlanceAOE, new AOEShapeCone(13, 45.Degrees()));
-class P3SoulTether(BossModule module) : Components.TankbusterTether(module, AID.SoulTether, (uint)TetherID.HolyShieldBash, 5);
-class P4Resentment(BossModule module) : Components.CastCounter(module, AID.Resentment);
-class P5TwistingDive(BossModule module) : Components.StandardAOEs(module, AID.TwistingDive, new AOEShapeRect(60, 5));
-class P5Cauterize1(BossModule module) : Components.StandardAOEs(module, AID.Cauterize1, new AOEShapeRect(48, 10));
-class P5Cauterize2(BossModule module) : Components.StandardAOEs(module, AID.Cauterize2, new AOEShapeRect(48, 10));
-class P5SpearOfTheFury(BossModule module) : Components.StandardAOEs(module, AID.SpearOfTheFuryP5, new AOEShapeRect(50, 5));
-class P5AscalonMight(BossModule module) : Components.Cleave(module, AID.AscalonsMight, new AOEShapeCone(50, 30.Degrees()), (uint)OID.BossP5);
-class P5Surrender(BossModule module) : Components.CastCounter(module, AID.Surrender);
-class P6SwirlingBlizzard(BossModule module) : Components.StandardAOEs(module, AID.SwirlingBlizzard, new AOEShapeDonut(20, 35));
-class P7Shockwave(BossModule module) : Components.CastCounter(module, AID.ShockwaveP7);
-class P7AlternativeEnd(BossModule module) : Components.CastCounter(module, AID.AlternativeEnd);
+sealed class P2AscalonsMercyConcealed(BossModule module) : Components.SimpleAOEs(module, (uint)AID.AscalonsMercyConcealedAOE, new AOEShapeCone(50f, 15f.Degrees()));
 
-[ModuleInfo(PrimaryActorOID = (uint)OID.BossP2, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 788, PlanLevel = 90)]
-public class DSW2(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), BoundsCircle)
+sealed class AscalonMight(BossModule module) : Components.Cleave(module, (uint)AID.AscalonsMight, new AOEShapeCone(50f, 30f.Degrees()), [(uint)OID.BossP2, (uint)OID.BossP5]);
+
+sealed class P2UltimateEnd(BossModule module) : Components.CastCounter(module, (uint)AID.UltimateEndAOE);
+sealed class P3Drachenlance(BossModule module) : Components.SimpleAOEs(module, (uint)AID.DrachenlanceAOE, new AOEShapeCone(13f, 45f.Degrees()));
+sealed class P3SoulTether(BossModule module) : Components.TankbusterTether(module, (uint)AID.SoulTether, (uint)TetherID.HolyShieldBash, 5f);
+sealed class P4Resentment(BossModule module) : Components.CastCounter(module, (uint)AID.Resentment);
+sealed class P5TwistingDive(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TwistingDive, new AOEShapeRect(60f, 5f));
+
+sealed class P5Cauterize(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.Cauterize1, (uint)AID.Cauterize2], new AOEShapeRect(48f, 10f));
+
+sealed class P5SpearOfTheFury(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpearOfTheFuryP5, new AOEShapeRect(50f, 5f));
+sealed class P5Surrender(BossModule module) : Components.CastCounter(module, (uint)AID.Surrender);
+sealed class P6SwirlingBlizzard(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SwirlingBlizzard, new AOEShapeDonut(20f, 35f));
+sealed class P7Shockwave(BossModule module) : Components.CastCounter(module, (uint)AID.ShockwaveP7);
+sealed class P7AlternativeEnd(BossModule module) : Components.CastCounter(module, (uint)AID.AlternativeEnd);
+
+[ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.BossP2, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 788u, NameID = 11319u, PlanLevel = 90)]
+public sealed class DSW2(WorldState ws, Actor primary) : BossModule(ws, primary, BoundsCircle.Center, BoundsCircle)
 {
-    public static readonly ArenaBoundsCircle BoundsCircle = new(21); // p2, intermission
-    public static readonly ArenaBoundsSquare BoundsSquare = new(21); // p3, p4
+    public static readonly ArenaBoundsCustom BoundsCircle = new([new Polygon(new(100f, 100f), 21f, 48)]) { IsCircle = true };
 
     private Actor? _bossP3;
     private Actor? _leftEyeP4;
     private Actor? _rightEyeP4;
     private Actor? _nidhoggP4;
-    private Actor? _serCharibert;
+    public Actor? _SerCharibert;
     private Actor? _spear;
     private Actor? _bossP5;
-    private Actor? _nidhoggP6;
-    private Actor? _hraesvelgrP6;
+    public Actor? _NidhoggP6;
+    public Actor? _HraesvelgrP6;
     private Actor? _bossP7;
-    public Actor? ArenaFeatures { get; private set; }
-    public Actor? BossP2() => PrimaryActor;
+    public Actor? ArenaFeatures;
     public Actor? BossP3() => _bossP3;
     public Actor? LeftEyeP4() => _leftEyeP4;
     public Actor? RightEyeP4() => _rightEyeP4;
     public Actor? NidhoggP4() => _nidhoggP4;
-    public Actor? SerCharibert() => _serCharibert;
+    public Actor? SerCharibert() => _SerCharibert;
     public Actor? Spear() => _spear;
     public Actor? BossP5() => _bossP5;
-    public Actor? NidhoggP6() => _nidhoggP6;
-    public Actor? HraesvelgrP6() => _hraesvelgrP6;
+    public Actor? NidhoggP6() => _NidhoggP6;
+    public Actor? HraesvelgrP6() => _HraesvelgrP6;
     public Actor? BossP7() => _bossP7;
 
     public override bool ShouldPrioritizeAllEnemies => true;
 
     protected override void UpdateModule()
     {
-        // TODO: this is an ugly hack, think how multi-actor fights can be implemented without it...
-        // the problem is that on wipe, any actor can be deleted and recreated in the same frame
-        ArenaFeatures ??= StateMachine.ActivePhaseIndex == 0 ? Enemies(OID.ArenaFeatures).FirstOrDefault() : null;
-        _bossP3 ??= StateMachine.ActivePhaseIndex == 1 ? Enemies(OID.BossP3).FirstOrDefault() : null;
-        _leftEyeP4 ??= StateMachine.ActivePhaseIndex == 2 ? Enemies(OID.LeftEye).FirstOrDefault() : null;
-        _rightEyeP4 ??= StateMachine.ActivePhaseIndex == 2 ? Enemies(OID.RightEye).FirstOrDefault() : null;
-        _nidhoggP4 ??= StateMachine.ActivePhaseIndex == 2 ? Enemies(OID.NidhoggP4).FirstOrDefault() : null;
-        _serCharibert ??= StateMachine.ActivePhaseIndex == 3 ? Enemies(OID.SerCharibert).FirstOrDefault() : null;
-        _spear ??= StateMachine.ActivePhaseIndex == 3 ? Enemies(OID.SpearOfTheFury).FirstOrDefault() : null;
-        _bossP5 ??= StateMachine.ActivePhaseIndex == 4 ? Enemies(OID.BossP5).FirstOrDefault() : null;
-        _nidhoggP6 ??= StateMachine.ActivePhaseIndex == 5 ? Enemies(OID.NidhoggP6).FirstOrDefault() : null;
-        _hraesvelgrP6 ??= StateMachine.ActivePhaseIndex == 5 ? Enemies(OID.HraesvelgrP6).FirstOrDefault() : null;
-        _bossP7 ??= StateMachine.ActivePhaseIndex == 6 ? Enemies(OID.DragonKingThordan).FirstOrDefault() : null;
+        switch (StateMachine.ActivePhaseIndex)
+        {
+            case 0:
+                ArenaFeatures ??= GetActor((uint)OID.ArenaFeatures);
+                break;
+            case 1:
+                _bossP3 ??= GetActor((uint)OID.BossP3);
+                break;
+            case 2:
+                _leftEyeP4 ??= GetActor((uint)OID.LeftEye);
+                _rightEyeP4 ??= GetActor((uint)OID.RightEye);
+                _nidhoggP4 ??= GetActor((uint)OID.NidhoggP4);
+                break;
+            case 3:
+                _SerCharibert ??= GetActor((uint)OID.SerCharibert);
+                _spear ??= GetActor((uint)OID.SpearOfTheFury);
+                break;
+            case 4:
+                _bossP5 ??= GetActor((uint)OID.BossP5);
+                break;
+            case 5:
+                _NidhoggP6 ??= GetActor((uint)OID.NidhoggP6);
+                _HraesvelgrP6 ??= GetActor((uint)OID.HraesvelgrP6);
+                break;
+            case 6:
+                _bossP7 ??= GetActor((uint)OID.DragonKingThordan);
+                break;
+        }
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy, true);
-        Arena.Actor(_bossP3, ArenaColor.Enemy);
-        Arena.Actor(_leftEyeP4, ArenaColor.Enemy);
-        Arena.Actor(_rightEyeP4, ArenaColor.Enemy);
-        Arena.Actor(_nidhoggP4, ArenaColor.Enemy);
-        Arena.Actor(_serCharibert, ArenaColor.Enemy);
-        Arena.Actor(_spear, ArenaColor.Enemy);
-        Arena.Actor(_bossP5, ArenaColor.Enemy);
-        Arena.Actor(_nidhoggP6, ArenaColor.Enemy);
-        Arena.Actor(_hraesvelgrP6, ArenaColor.Enemy);
-        Arena.Actor(_bossP7, ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor, allowDeadAndUntargetable: true);
+        Arena.Actor(_bossP3);
+        Arena.Actor(_leftEyeP4);
+        Arena.Actor(_rightEyeP4);
+        Arena.Actor(_nidhoggP4);
+        Arena.Actor(_SerCharibert);
+        Arena.Actor(_spear);
+        Arena.Actor(_bossP5);
+        Arena.Actor(_NidhoggP6);
+        Arena.Actor(_HraesvelgrP6);
+        Arena.Actor(_bossP7);
     }
 }

@@ -1,15 +1,13 @@
 ﻿namespace BossMod.QuestBattle.Heavensward.ClassJobQuests.DRK;
 
-[ZoneModuleInfo(436)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 436)]
 internal class IshgardianJustice(WorldState ws) : QuestBattle(ws)
 {
     public override List<QuestObjective> DefineObjectives(WorldState ws) => [
         new QuestObjective(ws).CompleteOnCreated(0x1223),
         new QuestObjective(ws)
             .Hints((player, hints) => {
-                if (World.Actors.FirstOrDefault(x => x.OID == 0x1223 && x.EventState == 1) is Actor d)
-                    hints.ForcedMovement = player.DirectionTo(d).ToVec3();
-            })
+                if (World.Actors.FirstOrDefault(x => x.OID == 0x1223 && x.EventState == 1) is Actor d) { hints.ForcedMovement = player.DirectionTo(d).ToVec3(); } })
             .With(obj => {
                 obj.OnStatusLose += (act, status) => obj.CompleteIf(status.ID == 625);
             }),

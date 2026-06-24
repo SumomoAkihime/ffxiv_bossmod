@@ -2,9 +2,9 @@
 
 namespace BossMod.ReplayAnalysis;
 
-class StateTransitionTimings
+sealed class StateTransitionTimings
 {
-    class TransitionMetric(double duration, Replay replay, Replay.Encounter encounter, DateTime time)
+    sealed class TransitionMetric(double duration, Replay replay, Replay.Encounter encounter, DateTime time)
     {
         public double Duration = duration;
         public Replay Replay = replay;
@@ -12,7 +12,7 @@ class StateTransitionTimings
         public DateTime Time = time;
     }
 
-    class TransitionMetrics
+    sealed class TransitionMetrics
     {
         public bool Expected;
         public double MinTime = double.MaxValue;
@@ -22,7 +22,7 @@ class StateTransitionTimings
         public List<TransitionMetric> Instances = [];
     }
 
-    class StateMetrics(string name, double expectedTime)
+    sealed class StateMetrics(string name, double expectedTime)
     {
         public string Name = name;
         public double ExpectedTime = expectedTime;
@@ -57,7 +57,7 @@ class StateTransitionTimings
                 }
 
                 var enter = enc.Time.Start;
-                for (int i = 0; i < enc.States.Count; ++i)
+                for (var i = 0; i < enc.States.Count; ++i)
                 {
                     var from = enc.States[i];
                     var to = i < enc.States.Count - 1 ? enc.States[i + 1].ID : uint.MaxValue;
@@ -79,8 +79,7 @@ class StateTransitionTimings
                 RecalculateMetrics(trans);
             }
         }
-
-        _encounters.SortByReverse(e => e.Item2.Time.Duration);
+        _encounters.Sort(static (b, a) => a.Item2.Time.Duration.CompareTo(b.Item2.Time.Duration));
     }
 
     public void Draw(UITree tree)
@@ -107,9 +106,9 @@ class StateTransitionTimings
                 var value = kv.Value.Instances.Count > 0
                     ? $"avg={kv.Value.AvgTime:f2}-{from.ExpectedTime:f2}={kv.Value.AvgTime - from.ExpectedTime:f2} +- {kv.Value.StdDev:f2}, [{kv.Value.MinTime:f2}, {kv.Value.MaxTime:f2}] range, {kv.Value.Instances.Count} seen"
                     : $"never seen ({from.ExpectedTime:f2} expected)";
-                var color = !kv.Value.Expected ? 0xff0080ff
-                    : kv.Value.Instances.Count > 0 && Math.Abs(from.ExpectedTime - kv.Value.AvgTime) > Math.Ceiling(kv.Value.StdDev * 10) / 10 ? 0xff00ffff
-                    : 0xffffffff;
+                var color = !kv.Value.Expected ? Colors.TextColor5
+                    : kv.Value.Instances.Count > 0 && Math.Abs(from.ExpectedTime - kv.Value.AvgTime) > Math.Ceiling(kv.Value.StdDev * 10) / 10 ? Colors.TextColor2
+                    : Colors.TextColor1;
                 //bool warn = from.ExpectedTime < Math.Round(m.MinTime, 1) || from.ExpectedTime > Math.Round(m.MaxTime, 1);
                 return new($"{name}: {value}###{name}", kv.Value.Instances.Count == 0, color);
             }
@@ -118,8 +117,8 @@ class StateTransitionTimings
             {
                 foreach (var inst in m.Instances)
                 {
-                    bool warn = Math.Abs(inst.Duration - m.AvgTime) > m.StdDev;
-                    tree.LeafNode($"{inst.Duration:f2}: {LocationString(inst.Replay, inst.Encounter, inst.Time)}", warn ? 0xff00ffff : 0xffffffff, () => TransitionInstanceContextMenu(from, toID, m, inst, ref actions), select: () => _selected = inst);
+                    var warn = Math.Abs(inst.Duration - m.AvgTime) > m.StdDev;
+                    tree.LeafNode($"{inst.Duration:f2}: {LocationString(inst.Replay, inst.Encounter, inst.Time)}", warn ? Colors.TextColor2 : Colors.TextColor1, () => TransitionInstanceContextMenu(from, toID, m, inst, ref actions), select: () => _selected = inst);
                 }
             }
         }
@@ -132,7 +131,7 @@ class StateTransitionTimings
     {
         if (trans.Instances.Count > 0)
         {
-            trans.Instances.SortBy(e => e.Duration);
+            trans.Instances.Sort(static (a, b) => a.Duration.CompareTo(b.Duration));
             trans.MinTime = trans.Instances[0].Duration;
             trans.MaxTime = trans.Instances[^1].Duration;
             double sum = 0, sumSq = 0;
@@ -179,7 +178,10 @@ class StateTransitionTimings
             actions += () =>
             {
                 if (_selected == trans)
+                {
                     _selected = null;
+                }
+
                 state.Transitions.Remove(to);
             };
         }
@@ -189,6 +191,8 @@ class StateTransitionTimings
             RecalculateMetrics(dest);
             state.Transitions.Remove(to);
         }
+
+        ArgumentNullException.ThrowIfNull(tree);
     }
 
     private void TransitionInstanceContextMenu(StateMetrics state, uint to, TransitionMetrics trans, TransitionMetric metric, ref Action? actions)
@@ -198,12 +202,19 @@ class StateTransitionTimings
             actions += () =>
             {
                 if (_selected == metric)
+                {
                     _selected = null;
+                }
+
                 trans.Instances.Remove(metric);
                 if (trans.Instances.Count > 0)
+                {
                     RecalculateMetrics(trans);
+                }
                 else
+                {
                     state.Transitions.Remove(to);
+                }
             };
         }
     }

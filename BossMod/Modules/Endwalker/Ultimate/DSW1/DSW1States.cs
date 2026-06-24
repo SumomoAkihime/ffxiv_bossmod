@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Ultimate.DSW1;
 
-class DSW1States : StateMachineBuilder
+sealed class DSW1States : StateMachineBuilder
 {
     private readonly DSW1 _module;
 
@@ -11,11 +11,8 @@ class DSW1States : StateMachineBuilder
             .Raw.Update = () => ActorKilled(_module.SerAdelphel()) && ActorKilled(_module.SerGrinnaux());
         SimplePhase(1, PureHeartPhase, "Pure Heart")
             .Raw.Update = () => ActorKilled(_module.SerCharibert());
-    }
 
-    private bool ActorKilled(Actor? actor)
-    {
-        return actor == null || actor.IsDestroyed || actor.HPMP.CurHP < actor.HPMP.MaxHP && !actor.IsTargetable;
+        static bool ActorKilled(Actor? actor) => actor == null || actor.IsDestroyed || actor.HPMP.CurHP < actor.HPMP.MaxHP && !actor.IsTargetable;
     }
 
     private void MainPhase(uint id)
@@ -29,37 +26,37 @@ class DSW1States : StateMachineBuilder
         HoliestHallowing(id + 0x60000, 1.6f, true);
         EmptyFullDimension(id + 0x70000, 4.1f);
         HoliestHallowing(id + 0x80000, 5.1f, false);
-        HoliestOfHoly(id + 0x90000, 5);
+        HoliestOfHoly(id + 0x90000, 5f);
         AdelphelGrinnauxEnrage(id + 0xA0000, 2.2f);
     }
 
     private void PureHeartPhase(uint id)
     {
         // TODO: do we care about shockwaves?..
-        ActorTargetable(id, _module.SerCharibert, false, 0);
-        ActorTargetable(id + 1, _module.SerCharibert, true, 4, "Appear");
-        ActorCastStart(id + 2, _module.SerCharibert, AID.PureOfHeart, 0.1f, true)
+        ActorTargetable(id, _module.SerCharibert, false, default);
+        ActorTargetable(id + 1, _module.SerCharibert, true, 4f, "Appear");
+        ActorCastStart(id + 2, _module.SerCharibert, (uint)AID.PureOfHeart, 0.1f, true)
             .ActivateOnEnter<PureOfHeartBrightwing>()
             .ActivateOnEnter<PureOfHeartSkyblindBait>()
             .ActivateOnEnter<PureOfHeartSkyblind>();
         ComponentCondition<PureOfHeartBrightwing>(id + 0x10, 15.4f, comp => comp.NumCasts > 0, "Cone 1");
-        ComponentCondition<PureOfHeartBrightwing>(id + 0x20, 5, comp => comp.NumCasts > 2, "Cone 2");
-        ComponentCondition<PureOfHeartBrightwing>(id + 0x30, 5, comp => comp.NumCasts > 4, "Cone 3");
-        ComponentCondition<PureOfHeartBrightwing>(id + 0x40, 5, comp => comp.NumCasts > 6, "Cone 4")
+        ComponentCondition<PureOfHeartBrightwing>(id + 0x20, 5f, comp => comp.NumCasts > 2, "Cone 2");
+        ComponentCondition<PureOfHeartBrightwing>(id + 0x30, 5f, comp => comp.NumCasts > 4, "Cone 3");
+        ComponentCondition<PureOfHeartBrightwing>(id + 0x40, 5f, comp => comp.NumCasts > 6, "Cone 4")
             .DeactivateOnExit<PureOfHeartBrightwing>();
-        ActorCastEnd(id + 0x50, _module.SerCharibert, 5, true, "Raidwide");
+        ActorCastEnd(id + 0x50, _module.SerCharibert, 5f, true, "Raidwide");
         ActorTargetable(id + 0x60, _module.SerCharibert, false, 2.1f, "Disappear");
     }
 
     private State HoliestOfHoly(uint id, float delay)
     {
-        return ActorCast(id, _module.SerAdelphel, AID.HoliestOfHoly, delay, 4, false, "Raidwide")
+        return ActorCast(id, _module.SerAdelphel, (uint)AID.HoliestOfHoly, delay, 4f, false, "Raidwide")
             .SetHint(StateMachine.StateHint.Raidwide);
     }
 
     private void Heavensblaze(uint id, float delay)
     {
-        ActorCast(id, _module.SerGrinnaux, AID.EmptyDimension, delay, 5, false, "Donut + Tankbuster")
+        ActorCast(id, _module.SerGrinnaux, (uint)AID.EmptyDimension, delay, 5f, false, "Donut + Tankbuster")
             .ActivateOnEnter<EmptyDimension>()
             .ActivateOnEnter<HolyShieldBash>()
             .ActivateOnEnter<HolyBladedance>()
@@ -67,7 +64,7 @@ class DSW1States : StateMachineBuilder
             .DeactivateOnExit<EmptyDimension>()
             .DeactivateOnExit<HolyShieldBash>()
             .SetHint(StateMachine.StateHint.Tankbuster);
-        ActorCast(id + 0x10, _module.SerCharibert, AID.Heavensblaze, 0.1f, 5, false, "Stack")
+        ActorCast(id + 0x10, _module.SerCharibert, (uint)AID.Heavensblaze, 0.1f, 5, false, "Stack")
             .DeactivateOnExit<HolyBladedance>()
             .DeactivateOnExit<Heavensblaze>()
             .SetHint(StateMachine.StateHint.Raidwide);
@@ -75,7 +72,7 @@ class DSW1States : StateMachineBuilder
 
     private void HyperdimensionalSlash(uint id, float delay)
     {
-        ActorCastStart(id, _module.SerGrinnaux, AID.HyperdimensionalSlash, delay, false, "Adelphel disappear")
+        ActorCastStart(id, _module.SerGrinnaux, (uint)AID.HyperdimensionalSlash, delay, false, "Adelphel disappear")
             .ActivateOnEnter<HyperdimensionalSlash>() // icons appear just before cast start
             .SetHint(StateMachine.StateHint.PositioningStart);
         ActorCastEnd(id + 1, _module.SerGrinnaux, 5);
@@ -88,7 +85,7 @@ class DSW1States : StateMachineBuilder
     // leaves positioning hint at the end, since tanks need to move bosses after this stage
     private void ShiningBlade(uint id, float delay)
     {
-        ActorCastStart(id, _module.SerGrinnaux, AID.FaithUnmoving, delay)
+        ActorCastStart(id, _module.SerGrinnaux, (uint)AID.FaithUnmoving, delay)
             .ActivateOnEnter<ShiningBladeKnockback>()
             .ActivateOnEnter<ShiningBladeFlares>()
             .SetHint(StateMachine.StateHint.PositioningStart);
@@ -107,7 +104,7 @@ class DSW1States : StateMachineBuilder
     // this often happens when pos flag is set
     private void HoliestHallowing(uint id, float delay, bool clearPosFlag)
     {
-        ActorCastStart(id, _module.SerAdelphel, AID.HoliestHallowing, delay);
+        ActorCastStart(id, _module.SerAdelphel, (uint)AID.HoliestHallowing, delay);
 
         var castEnd = SimpleState(id + 1, 4, "Heal") // note: we use custom state instead of cast-end, since cast-end happens whenever anyone presses interrupt - and if not interrupted, spell finish can be slightly delayed
             .ActivateOnEnter<HoliestHallowing>()
@@ -120,10 +117,10 @@ class DSW1States : StateMachineBuilder
     // leaves positioning hint at the end, since tanks need to move bosses after this stage
     private void Heavensflame(uint id, float delay)
     {
-        ActorCastStart(id, _module.SerCharibert, AID.Heavensflame, delay)
+        ActorCastStart(id, _module.SerCharibert, (uint)AID.Heavensflame, delay)
             .ActivateOnEnter<HeavensflameKnockback>() // icons appear just before cast start
             .SetHint(StateMachine.StateHint.PositioningStart);
-        ActorCast(id + 0x10, _module.SerGrinnaux, AID.FaithUnmoving, 1.1f, 4, false, "Knockback");
+        ActorCast(id + 0x10, _module.SerGrinnaux, (uint)AID.FaithUnmoving, 1.1f, 4, false, "Knockback");
         ActorCastEnd(id + 0x20, _module.SerCharibert, 1.9f);
         ComponentCondition<HeavensflameAOE>(id + 0x30, 0.6f, comp => comp.NumCasts > 0, "Heavensflame")
             .ActivateOnEnter<HeavensflameAOE>()
@@ -138,7 +135,7 @@ class DSW1States : StateMachineBuilder
             .ActivateOnEnter<EmptyDimension>()
             .ActivateOnEnter<FullDimension>()
             .SetHint(StateMachine.StateHint.PositioningStart);
-        ActorCastEnd(id + 0x10, _module.SerGrinnaux, 2, false, "Donut/circle") // holiest-of-holy overlap
+        ActorCastEnd(id + 0x10, _module.SerGrinnaux, 2f, false, "Donut/circle") // holiest-of-holy overlap
             .DeactivateOnExit<EmptyDimension>()
             .DeactivateOnExit<FullDimension>()
             .SetHint(StateMachine.StateHint.PositioningEnd);
@@ -151,8 +148,8 @@ class DSW1States : StateMachineBuilder
         castStart.Raw.Comment = $"Adelphel/Grinnaux enrage start";
         castStart.Raw.Update = _ =>
         {
-            bool adelphelCast = _module.SerAdelphel()?.CastInfo?.IsSpell(AID.BrightbladesSteel) ?? false;
-            bool grinnauxCast = _module.SerGrinnaux()?.CastInfo?.IsSpell(AID.TheBullsSteel) ?? false;
+            var adelphelCast = _module.SerAdelphel()?.CastInfo?.IsSpell(AID.BrightbladesSteel) ?? false;
+            var grinnauxCast = _module.SerGrinnaux()?.CastInfo?.IsSpell(AID.TheBullsSteel) ?? false;
             return adelphelCast || grinnauxCast ? 0 : -1;
         };
 
@@ -160,8 +157,8 @@ class DSW1States : StateMachineBuilder
         castEnd.Raw.Comment = "Adelphel/Grinnaux enrage end";
         castEnd.Raw.Update = _ =>
         {
-            bool adelphelDone = _module.SerAdelphel()?.CastInfo == null;
-            bool grinnauxDone = _module.SerGrinnaux()?.CastInfo == null;
+            var adelphelDone = _module.SerAdelphel()?.CastInfo == null;
+            var grinnauxDone = _module.SerGrinnaux()?.CastInfo == null;
             return adelphelDone && grinnauxDone ? 0 : -1;
         };
     }

@@ -1,6 +1,5 @@
-﻿using BossMod.Autorotation;
+using BossMod.Autorotation;
 using Dalamud.Bindings.ImGui;
-using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 using System.IO;
 using System.Reflection;
@@ -40,14 +39,17 @@ public sealed class ConfigUI : IDisposable
         _mv = new(rotationDB?.Plans, ws);
         _presets = rotationDB != null ? new(rotationDB) : null;
 
-        _tabs.Add("关于", _about.Draw);
-        _tabs.Add("设置", DrawSettings);
-        _tabs.Add("支持的 Boss", () => _mv.Draw(_tree, _ws));
-        _tabs.Add("自动循环预设", () => _presets?.Draw());
+        _tabs.Add("Settings", DrawSettings);
+        _tabs.Add("Supported fights", () => _mv.Draw(_tree, _ws));
+        _tabs.Add("Autorotation presets", () => _presets?.Draw());
+        _tabs.Add("Slash commands", DrawAvailableCommands);
+        _tabs.Add("About", _about.Draw);
 
         Dictionary<Type, UINode> nodes = [];
-        foreach (var n in config.Nodes)
+        var nodes2 = _root.Nodes;
+        for (var i = 0; i < nodes2.Count; ++i)
         {
+            var n = nodes2[i];
             nodes[n.GetType()] = new(n);
         }
 
@@ -76,35 +78,117 @@ public sealed class ConfigUI : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        _mv.Dispose();
-    }
+    public void Dispose() => _mv.Dispose();
 
     public void ShowTab(string name) => _tabs.Select(name);
 
-    public void Draw()
-    {
-        _tabs.Draw();
-    }
+    public void Draw() => _tabs.Draw();
 
     private string _searchText = "";
 
     private void DrawSettings()
     {
         ImGui.SetNextItemWidth(300);
-        if (ImGui.InputTextEx("", "搜索设置项...", ref _searchText))
+        if (ImGui.InputTextEx("", "Search for a setting...", ref _searchText))
+        {
             FilterNodes();
+        }
 
         ImGui.SameLine();
         using (ImRaii.Disabled(_searchText.Length == 0))
-            if (ImGui.Button("清空"))
+        {
+            if (ImGui.Button("Clear"))
             {
                 _searchText = "";
                 FilterNodes();
             }
+        }
 
         DrawNodes(_roots);
+    }
+
+    private static readonly (string, string)[] _availableAICommands =
+    [
+        ( "on", "Enables the AI." ),
+        ( "off", "Disables the AI." ),
+        ( "toggle", "Toggles the AI on/off." ),
+        ( "targetmaster", "Toggles the focus on target leader." ),
+        ( "follow slotX", "Follows the specified slot, eg. Slot1." ),
+        ( "follow name", "Follows the specified party member by name." ),
+        ( "ui", "Toggles the AI menu." ),
+        ( "forbidactions", "Toggles the forbidding of actions. (only for autorotation)" ),
+        ( "forbidactions on/off", "Sets forbid actions to on or off. (only for autorotation)" ),
+        ( "forbidmovement", "Toggles the forbidding of movement." ),
+        ( "forbidmovement on/off", "Sets forbid movement to on or off." ),
+        ( "idlewhilemounted", "Toggles the idling while mounted." ),
+        ( "idlewhilemounted on/off", "Sets idle while mounted to on or off." ),
+        ( "followcombat", "Toggles following during combat." ),
+        ( "followcombat on/off", "Sets following following during combat to on or off." ),
+        ( "followmodule", "Toggles following during active boss module." ),
+        ( "followmodule on/off", "Sets following following during active boss module to on or off." ),
+        ( "followoutofcombat", "Toggles following during out of combat." ),
+        ( "followoutofcombat on/off", "Sets following target out of combat to on or off." ),
+        ( "followtarget", "Toggles following targets during combat." ),
+        ( "followtarget on/off", "Sets following target during combat to on or off." ),
+        ( "positional X", "Switch to positional when following targets. (any, rear, flank, front)" ),
+        ( "maxdistancetarget X", "Sets max distance to target. (default = 2.6)" ),
+        ( "maxdistanceslot X", "Sets max distance to slot. (default = 1)" ),
+        ( "mindistance X", "Sets min distance to hitbox. (default = 0)" ),
+        ( "prefdistance X", "Sets preferred distance to forbidden zones. (default = 0)" ),
+        ( "movedelay X", "Sets AI movement decision delay. (default = 0)" ),
+        ( "obstaclemaps", "Toggles loading obstacle maps." ),
+        ( "obstaclemaps on/off", "Sets the loading of obstacle maps to on or off." ),
+        ( "setpresetname X", "Sets an autorotation preset for the AI, eg. setpresetname vbm default." )
+    ];
+
+    private static readonly (string, string)[] _autorotationCommands =
+    [
+        ( "ar clear", "Clear current preset; autorotation will do nothing unless plan is active" ),
+        ( "ar disable", "Force disable autorotation; no actions will be executed automatically even if plan is active." ),
+        ( "ar set Preset", "Start executing specified preset." ),
+        ( "ar toggle", "Force disable autorotation if not already; otherwise clear overrides." ),
+        ( "ar toggle Preset", "Start executing specified preset unless it's already active; clear otherwise" ),
+        ( "ar ui", "Toggle autorotation ui." ),
+    ];
+
+    private static readonly (string, string)[] _availableOtherCommands =
+    [
+        ( "restorerotation", "Toggle restore character orientation after action use setting." ),
+        ( "resetcolors", "Resets all colors to their default values." ),
+        ( "d", "Opens the debug menu." ),
+        ( "r", "Opens the replay menu." ),
+        ( "r on/off", "Starts/stops recording a replay." ),
+        ( "gc", "Triggers the garbage collection." ),
+        ( "cfg", "Lists all configs." )
+    ];
+
+    private static void DrawAvailableCommands()
+    {
+        ImGui.Text("Available Commands:");
+        ImGui.Separator();
+        ImGui.Text("AI:");
+        ImGui.Separator();
+        for (var i = 0; i < 30; ++i)
+        {
+            ref readonly var text = ref _availableAICommands[i];
+            ImGui.Text($"/bmrai {text.Item1}: {text.Item2}");
+        }
+        ImGui.Separator();
+        ImGui.Text("Autorotation commands:");
+        ImGui.Separator();
+        for (var i = 0; i < 6; ++i)
+        {
+            ref readonly var text = ref _autorotationCommands[i];
+            ImGui.Text($"/bmr {text.Item1}: {text.Item2}");
+        }
+        ImGui.Separator();
+        ImGui.Text("Other commands:");
+        ImGui.Separator();
+        for (var i = 0; i < 7; ++i)
+        {
+            ref readonly var text = ref _availableOtherCommands[i];
+            ImGui.Text($"/bmr {text.Item1}: {text.Item2}");
+        }
     }
 
     private void FilterNodes()
@@ -112,37 +196,85 @@ public sealed class ConfigUI : IDisposable
         _filterNodes.Clear();
 
         if (_searchText.Length == 0)
+        {
             return;
+        }
 
         foreach (var r in _roots)
+        {
             foreach (var path in WalkNodes(r))
+            {
                 _filterNodes.Add(path);
+            }
+        }
     }
 
-    private IEnumerable<List<string>> WalkNodes(UINode node)
+    private static readonly Dictionary<Type, List<(FieldInfo Field, PropertyDisplayAttribute Attr)>> _fieldCache = [];
+
+    private List<List<string>> WalkNodes(UINode node)
     {
-        // if node matches, show all children
-        if (Utils.TextMatch(node.Name, _searchText) || node.Tags.Any(t => Utils.TextMatch(t, _searchText)))
+        var results = new List<List<string>>();
+        WalkNodesInternal(node, [], results);
+        return results;
+    }
+
+    private void WalkNodesInternal(UINode node, List<string> path, List<List<string>> results)
+    {
+        if (Utils.TextMatch(node.Name, _searchText) || TagsMatch(node.Tags))
         {
-            yield return [node.Name, "*"];
-            yield break;
+            var matchPath = new List<string>(path) { node.Name, "*" };
+            results.Add(matchPath);
+            return;
         }
 
-        // check for matching fields
-        foreach (var field in node.Node.GetType().GetFields())
+        foreach (var (_, props) in GetFieldAttributes(node.Node.GetType()))
         {
-            var props = field.GetCustomAttribute<PropertyDisplayAttribute>();
-            if (props == null)
-                continue;
-
-            if (Utils.TextMatch(props.Label, _searchText) || props.Tags.Any(t => Utils.TextMatch(t, _searchText)))
-                yield return [node.Name, props.Label];
+            if (Utils.TextMatch(props.Label, _searchText) || TagsMatch(props.Tags))
+            {
+                var matchPath = new List<string>(path) { node.Name, props.Label };
+                results.Add(matchPath);
+            }
         }
 
-        // check for matching subnodes
-        foreach (var p in node.Children)
-            foreach (var path in WalkNodes(p))
-                yield return [node.Name, .. path];
+        path.Add(node.Name);
+        foreach (var child in node.Children)
+        {
+            WalkNodesInternal(child, path, results);
+        }
+        path.RemoveAt(path.Count - 1);
+    }
+
+    private static List<(FieldInfo, PropertyDisplayAttribute)> GetFieldAttributes(Type type)
+    {
+        if (_fieldCache.TryGetValue(type, out var cached))
+        {
+            return cached;
+        }
+
+        var list = new List<(FieldInfo, PropertyDisplayAttribute)>();
+        foreach (var field in type.GetFields())
+        {
+            var attr = field.GetCustomAttribute<PropertyDisplayAttribute>();
+            if (attr != null)
+            {
+                list.Add((field, attr));
+            }
+        }
+
+        _fieldCache[type] = list;
+        return list;
+    }
+
+    private bool TagsMatch(string[] tags)
+    {
+        foreach (var tag in tags)
+        {
+            if (Utils.TextMatch(tag, _searchText))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static void DrawNode(ConfigNode node, ConfigRoot root, UITree tree, WorldState ws, Func<PropertyDisplayAttribute, bool>? filter = null)
@@ -152,46 +284,24 @@ public sealed class ConfigUI : IDisposable
         {
             var props = field.GetCustomAttribute<PropertyDisplayAttribute>();
             if (props == null)
-                continue;
-
-            if (filter?.Invoke(props) == false)
-                continue;
-
-            var newSection = field.GetCustomAttribute<SectionStartAttribute>();
-
-            var disabled = false;
-            var nested = false;
-
-            if (props.Depends is { } prop)
             {
-                if (newSection != null)
-                    throw new InvalidOperationException($"A field with a dependency cannot start a new config section");
-
-                nested = true;
-                var dependsEnabled = node.GetType().GetField(prop)?.GetValue(node) switch
-                {
-                    bool v => v,
-                    _ => throw new InvalidDataException($"Internal error: cannot use dependsOn with a non-bool field")
-                };
-                disabled = !dependsEnabled;
+                continue;
             }
 
-            if (newSection != null)
+            if (filter?.Invoke(props) == false)
             {
-                if (newSection.Separator)
-                    ImGui.Separator();
-
-                if (newSection.Label.Length > 0)
-                    ImGui.TextDisabled(newSection.Label);
+                continue;
             }
 
             var value = field.GetValue(node);
-            using (ImRaii.Disabled(disabled))
+            if (DrawProperty(props.Label, props.Tooltip, node, field, value, root, tree, ws))
             {
-                if (DrawProperty(props.Label, props.Tooltip, nested, node, field, value, root, tree, ws))
-                {
-                    node.Modified.Fire();
-                }
+                node.Modified.Fire();
+            }
+
+            if (props.Separator)
+            {
+                ImGui.Separator();
             }
         }
 
@@ -201,16 +311,27 @@ public sealed class ConfigUI : IDisposable
 
     private static string GenerateNodeName(Type t) => t.Name.EndsWith("Config", StringComparison.Ordinal) ? t.Name[..^"Config".Length] : t.Name;
 
-    private void SortByOrder(List<UINode> nodes)
+    private static void SortByOrder(List<UINode> nodes)
     {
-        nodes.SortBy(e => e.Order);
+        nodes.Sort(static (a, b) => a.Order.CompareTo(b.Order));
         foreach (var n in nodes)
+        {
             SortByOrder(n.Children);
+        }
     }
 
     private void DrawNodes(List<UINode> nodes)
     {
-        foreach (var n in _tree.Nodes(nodes.Where(n => MatchesFilter(n.Path)), n => new(n.Name)))
+        var filteredNodes = new List<UINode>();
+        foreach (var n in nodes)
+        {
+            if (MatchesFilter(n.Path))
+            {
+                filteredNodes.Add(n);
+            }
+        }
+
+        foreach (var n in _tree.Nodes(filteredNodes, n => new(n.Name)))
         {
             DrawNode(n.Node, _root, _tree, _ws, props => MatchesFilter([.. n.Path, props.Label]));
             DrawNodes(n.Children);
@@ -220,7 +341,9 @@ public sealed class ConfigUI : IDisposable
     private bool MatchesFilter(List<string> path)
     {
         if (_filterNodes.Count == 0)
+        {
             return true;
+        }
 
         bool matchesOneFilter(List<string> filter)
         {
@@ -228,21 +351,33 @@ public sealed class ConfigUI : IDisposable
             foreach (var f in filter)
             {
                 if (f == "*" || i >= path.Count)
+                {
                     return true;
+                }
 
                 if (f != path[i])
+                {
                     return false;
+                }
 
-                i++;
+                ++i;
             }
 
             return true;
         }
 
-        return _filterNodes.Any(matchesOneFilter);
+        foreach (var filter in _filterNodes)
+        {
+            if (matchesOneFilter(filter))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    public static void DrawHelp(string tooltip, bool nested = false)
+    private static void DrawHelp(string tooltip)
     {
         // draw tooltip marker with proper alignment
         ImGui.AlignTextToFramePadding();
@@ -253,43 +388,27 @@ public sealed class ConfigUI : IDisposable
         else
         {
             using var invisible = ImRaii.PushColor(ImGuiCol.Text, 0x00000000);
-            UIMisc.IconText(FontAwesomeIcon.InfoCircle);
+            UIMisc.IconText(Dalamud.Interface.FontAwesomeIcon.InfoCircle);
         }
         ImGui.SameLine();
-        if (nested)
-            DrawNesting();
     }
 
-    private static void DrawNesting()
+    private static bool DrawProperty(string label, string tooltip, ConfigNode node, FieldInfo member, object? value, ConfigRoot root, UITree tree, WorldState ws) => value switch
     {
-        var sHeight = ImGui.GetFrameHeight();
-        var sBox = new Vector2(sHeight, sHeight);
-
-        var bar = "└";
-        var pos = ImGui.GetCursorScreenPos();
-        var size = ImGui.CalcTextSize(bar);
-
-        ImGui.Dummy(new(sHeight - ImGui.GetStyle().ItemInnerSpacing.X, 0));
-        ImGui.SameLine();
-        ImGui.GetWindowDrawList().AddText(pos + (sBox - size) * 0.5f, ImGui.GetColorU32(ImGuiCol.Text), bar);
-    }
-
-    private static bool DrawProperty(string label, string tooltip, bool nested, ConfigNode node, FieldInfo member, object? value, ConfigRoot root, UITree tree, WorldState ws) => value switch
-    {
-        bool v => DrawProperty(label, tooltip, nested, node, member, v),
-        Enum v => DrawProperty(label, tooltip, nested, node, member, v),
-        float v => DrawProperty(label, tooltip, nested, node, member, v),
-        int v => DrawProperty(label, tooltip, nested, node, member, v),
-        string v => DrawProperty(label, tooltip, nested, node, member, v),
-        Color v => DrawProperty(label, tooltip, nested, node, member, v),
-        Color[] v => DrawProperty(label, tooltip, nested, node, member, v),
-        GroupAssignment v => DrawProperty(label, tooltip, nested, node, member, v, root, tree, ws),
+        bool v => DrawProperty(label, tooltip, node, member, v),
+        Enum v => DrawProperty(label, tooltip, node, member, v),
+        float v => DrawProperty(label, tooltip, node, member, v),
+        int v => DrawProperty(label, tooltip, node, member, v),
+        string v => DrawProperty(label, tooltip, node, member, v),
+        Color v => DrawProperty(label, tooltip, node, member, v),
+        Color[] v => DrawProperty(label, tooltip, node, member, v),
+        GroupAssignment v => DrawProperty(label, tooltip, node, member, v, root, tree, ws),
         _ => false
     };
 
-    private static bool DrawProperty(string label, string tooltip, bool nested, ConfigNode node, FieldInfo member, bool v)
+    private static bool DrawProperty(string label, string tooltip, ConfigNode node, FieldInfo member, bool v)
     {
-        DrawHelp(tooltip, nested);
+        DrawHelp(tooltip);
         var combo = member.GetCustomAttribute<PropertyComboAttribute>();
         if (combo != null)
         {
@@ -310,9 +429,9 @@ public sealed class ConfigUI : IDisposable
         return false;
     }
 
-    private static bool DrawProperty(string label, string tooltip, bool nested, ConfigNode node, FieldInfo member, Enum v)
+    private static bool DrawProperty(string label, string tooltip, ConfigNode node, FieldInfo member, Enum v)
     {
-        DrawHelp(tooltip, nested);
+        DrawHelp(tooltip);
         if (UICombo.Enum(label, ref v))
         {
             member.SetValue(node, v);
@@ -321,16 +440,19 @@ public sealed class ConfigUI : IDisposable
         return false;
     }
 
-    private static bool DrawProperty(string label, string tooltip, bool nested, ConfigNode node, FieldInfo member, float v)
+    private static bool DrawProperty(string label, string tooltip, ConfigNode node, FieldInfo member, float v)
     {
-        DrawHelp(tooltip, nested);
+        DrawHelp(tooltip);
         var slider = member.GetCustomAttribute<PropertySliderAttribute>();
         if (slider != null)
         {
             var flags = ImGuiSliderFlags.None;
             if (slider.Logarithmic)
+            {
                 flags |= ImGuiSliderFlags.Logarithmic;
-            ImGui.SetNextItemWidth(MathF.Min(ImGui.GetWindowWidth() * 0.30f, 175));
+            }
+
+            ImGui.SetNextItemWidth(Math.Min(ImGui.GetWindowWidth() * 0.30f, 175));
             if (ImGui.DragFloat(label, ref v, slider.Speed, slider.Min, slider.Max, "%.3f", flags))
             {
                 member.SetValue(node, v);
@@ -348,16 +470,19 @@ public sealed class ConfigUI : IDisposable
         return false;
     }
 
-    private static bool DrawProperty(string label, string tooltip, bool nested, ConfigNode node, FieldInfo member, int v)
+    private static bool DrawProperty(string label, string tooltip, ConfigNode node, FieldInfo member, int v)
     {
-        DrawHelp(tooltip, nested);
+        DrawHelp(tooltip);
         var slider = member.GetCustomAttribute<PropertySliderAttribute>();
         if (slider != null)
         {
             var flags = ImGuiSliderFlags.None;
             if (slider.Logarithmic)
+            {
                 flags |= ImGuiSliderFlags.Logarithmic;
-            ImGui.SetNextItemWidth(MathF.Min(ImGui.GetWindowWidth() * 0.30f, 175));
+            }
+
+            ImGui.SetNextItemWidth(Math.Min(ImGui.GetWindowWidth() * 0.30f, 175));
             if (ImGui.DragInt(label, ref v, slider.Speed, (int)slider.Min, (int)slider.Max, "%d", flags))
             {
                 member.SetValue(node, v);
@@ -375,9 +500,9 @@ public sealed class ConfigUI : IDisposable
         return false;
     }
 
-    private static bool DrawProperty(string label, string tooltip, bool nested, ConfigNode node, FieldInfo member, string v)
+    private static bool DrawProperty(string label, string tooltip, ConfigNode node, FieldInfo member, string v)
     {
-        DrawHelp(tooltip, nested);
+        DrawHelp(tooltip);
         if (ImGui.InputText(label, ref v, 256))
         {
             member.SetValue(node, v);
@@ -386,9 +511,9 @@ public sealed class ConfigUI : IDisposable
         return false;
     }
 
-    private static bool DrawProperty(string label, string tooltip, bool nested, ConfigNode node, FieldInfo member, Color v)
+    private static bool DrawProperty(string label, string tooltip, ConfigNode node, FieldInfo member, Color v)
     {
-        DrawHelp(tooltip, nested);
+        DrawHelp(tooltip);
         var col = v.ToFloat4();
         if (ImGui.ColorEdit4(label, ref col, ImGuiColorEditFlags.PickerHueWheel))
         {
@@ -398,12 +523,12 @@ public sealed class ConfigUI : IDisposable
         return false;
     }
 
-    private static bool DrawProperty(string label, string tooltip, bool nested, ConfigNode node, FieldInfo member, Color[] v)
+    private static bool DrawProperty(string label, string tooltip, ConfigNode node, FieldInfo member, Color[] v)
     {
         var modified = false;
-        for (int i = 0; i < v.Length; ++i)
+        for (var i = 0; i < v.Length; ++i)
         {
-            DrawHelp(tooltip, nested);
+            DrawHelp(tooltip);
             var col = v[i].ToFloat4();
             if (ImGui.ColorEdit4($"{label} {i}", ref col, ImGuiColorEditFlags.PickerHueWheel))
             {
@@ -415,17 +540,11 @@ public sealed class ConfigUI : IDisposable
         return modified;
     }
 
-    public static void DrawGroupPresetIndicator(string text, string help, Action contextMenu)
+    public static void DrawGroupPresetIndicator(string text, Action contextMenu)
     {
-        using var _ = ImRaii.PushId(text);
         ImGui.AlignTextToFramePadding();
-        var paddingX = ImGui.GetStyle().FramePadding.X;
-        ImGui.SetCursorPosX(ImGui.GetCursorPosX() - paddingX);
-        if (UIMisc.IconButton(help.Length == 0 ? FontAwesomeIcon.ListUl : FontAwesomeIcon.InfoCircle))
-        {
-            Service.Log($"Opening popup {text}popup");
+        if (UIMisc.IconButton(Dalamud.Interface.FontAwesomeIcon.ListUl, $"###{text}open"))
             ImGui.OpenPopup($"{text}popup");
-        }
 
         if (ImGui.BeginPopup($"{text}popup"))
         {
@@ -434,72 +553,75 @@ public sealed class ConfigUI : IDisposable
         }
         if (ImGui.IsItemHovered())
         {
-            ImGui.BeginTooltip();
-            if (help.Length > 0)
-            {
-                ImGui.TextUnformatted(help);
-                ImGui.Separator();
-            }
-            ImGui.TextUnformatted("Click to select a preset");
-            ImGui.EndTooltip();
+            ImGui.SetTooltip("Select a preset");
         }
+
         ImGui.SameLine();
-        ImGui.SetCursorPosX(ImGui.GetCursorPosX() - paddingX);
     }
 
-    private static bool DrawProperty(string label, string tooltip, bool nested, ConfigNode node, FieldInfo member, GroupAssignment v, ConfigRoot root, UITree tree, WorldState ws)
+    private static bool DrawProperty(string label, string tooltip, ConfigNode node, FieldInfo member, GroupAssignment v, ConfigRoot root, UITree tree, WorldState ws)
     {
         var group = member.GetCustomAttribute<GroupDetailsAttribute>();
         if (group == null)
+        {
             return false;
+        }
 
-        var haveTooltip = tooltip.Length > 0;
-        var havePresetButton = member.GetCustomAttributes<GroupPresetAttribute>().Any();
-
-        var spaced = haveTooltip || havePresetButton;
+        var spaced = false;
 
         ImGui.AlignTextToFramePadding();
-        if (havePresetButton)
+        if (tooltip.Length > 0)
         {
-            DrawGroupPresetIndicator(label, tooltip, () => DrawPropertyContextMenu(node, member, v));
-        }
-        else if (haveTooltip)
-        {
+            spaced = true;
             UIMisc.HelpMarker(tooltip);
             ImGui.SameLine();
         }
-        else
+
+        var hasPreset = false;
+        foreach (var _ in member.GetCustomAttributes<GroupPresetAttribute>())
+        {
+            hasPreset = true;
+            break;
+        }
+        if (hasPreset)
+        {
+            spaced = true;
+            DrawGroupPresetIndicator(label, () => DrawPropertyContextMenu(node, member, v));
+        }
+
+        if (!spaced)
         {
             using (ImRaii.PushColor(ImGuiCol.Text, 0))
             {
-                UIMisc.IconText(FontAwesomeIcon.InfoCircle);
-                ImGui.SameLine();
+                UIMisc.IconText(Dalamud.Interface.FontAwesomeIcon.InfoCircle);
             }
         }
 
-        if (nested)
-            DrawNesting();
-
         var modified = false;
-        foreach (var tn in tree.Node(label, false, v.Validate() ? 0xffffffff : 0xff00ffff))
+        foreach (var tn in tree.Node(label, false, v.Validate() ? Colors.TextColor1 : Colors.TextColor2))
         {
             using var indent = ImRaii.PushIndent();
             using var table = ImRaii.Table("table", group.Names.Length + 2, ImGuiTableFlags.SizingFixedFit);
             if (!table)
+            {
                 continue;
+            }
 
             foreach (var n in group.Names)
+            {
                 ImGui.TableSetupColumn(n);
+            }
+
             ImGui.TableSetupColumn("----");
             ImGui.TableSetupColumn("Name");
             ImGui.TableHeadersRow();
 
             var assignments = root.Get<PartyRolesConfig>().SlotsPerAssignment(ws.Party);
-            for (int i = 0; i < (int)PartyRolesConfig.Assignment.Unassigned; ++i)
+            for (var i = 0; i < (int)PartyRolesConfig.Assignment.Unassigned; ++i)
             {
                 var r = (PartyRolesConfig.Assignment)i;
                 ImGui.TableNextRow();
-                for (int c = 0; c < group.Names.Length; ++c)
+                for (var c = 0; c < group.Names.Length; ++c)
                 {
                     ImGui.TableNextColumn();
                     if (ImGui.RadioButton($"###{r}:{c}", v[r] == c))
@@ -515,9 +637,12 @@ public sealed class ConfigUI : IDisposable
                     modified = true;
                 }
 
-                string name = r.ToString();
+                var name = r.ToString();
                 if (assignments.Length > 0)
+                {
                     name += $" ({ws.Party[assignments[i]]?.Name})";
+                }
+
                 ImGui.TableNextColumn();
                 ImGui.TextUnformatted(name);
             }
@@ -531,8 +656,11 @@ public sealed class ConfigUI : IDisposable
         {
             if (ImGui.MenuItem(preset.Name))
             {
-                for (int i = 0; i < preset.Preset.Length; ++i)
+                for (var i = 0; i < preset.Preset.Length; ++i)
+                {
                     v.Assignments[i] = preset.Preset[i];
+                }
+
                 node.Modified.Fire();
             }
         }

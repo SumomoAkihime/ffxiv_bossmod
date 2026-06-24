@@ -1,10 +1,9 @@
 ﻿using Dalamud.Bindings.ImGui;
 using Lumina.Excel.Sheets;
-using System.Text;
 
 namespace BossMod.ReplayAnalysis;
 
-class TetherInfo : CommonEnumInfo
+sealed class TetherInfo : CommonEnumInfo
 {
     public readonly record struct Instance(Replay Replay, Replay.Encounter Enc, Replay.Tether Tether)
     {
@@ -43,7 +42,10 @@ class TetherInfo : CommonEnumInfo
         {
             _plot.Begin();
             foreach (var i in _points)
+            {
                 _plot.Point(i.startEnd, 0xff808080, i.inst.TimestampString);
+            }
+
             _plot.End();
         }
     }
@@ -72,8 +74,8 @@ class TetherInfo : CommonEnumInfo
                 {
                     var data = _data.GetOrAdd(tether.ID);
                     data.Instances.Add(new(replay, enc, tether));
-                    data.SourceOIDs.Add(tether.Source.Type != ActorType.DutySupport ? tether.Source.OID : 0);
-                    data.TargetOIDs.Add(tether.Target.Type != ActorType.DutySupport ? tether.Target.OID : 0);
+                    data.SourceOIDs.Add(tether.Source.OID);
+                    data.TargetOIDs.Add(tether.Target.OID);
                 }
             }
         }
@@ -84,7 +86,7 @@ class TetherInfo : CommonEnumInfo
         UITree.NodeProperties map(KeyValuePair<uint, TetherData> kv)
         {
             var name = _tidType?.GetEnumName(kv.Key);
-            return new($"{kv.Key} ({name})", false, name == null ? 0xff00ffff : 0xffffffff);
+            return new($"{kv.Key} ({name})", false, name == null ? Colors.TextColor2 : Colors.TextColor1);
         }
         foreach (var (tid, data) in tree.Nodes(_data, map))
         {
@@ -109,7 +111,10 @@ class TetherInfo : CommonEnumInfo
         {
             var sb = new StringBuilder("public enum TetherID : uint\n{\n");
             foreach (var (tid, data) in _data)
+            {
                 sb.Append($"    {EnumMemberString(tid, data)}\n");
+            }
+
             sb.Append("}\n");
             ImGui.SetClipboardText(sb.ToString());
         }
@@ -118,7 +123,10 @@ class TetherInfo : CommonEnumInfo
         {
             var sb = new StringBuilder();
             foreach (var (tid, data) in _data.Where(kv => _tidType?.GetEnumName(kv.Key) == null))
+            {
                 sb.AppendLine(EnumMemberString(tid, data));
+            }
+
             ImGui.SetClipboardText(sb.ToString());
         }
     }

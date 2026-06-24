@@ -2,187 +2,228 @@
 
 public enum OID : uint
 {
-    Boss = 0x41CE, // R6.001, x1
-    Helper = 0x233C, // R0.500, x20, Helper type
-    EliminationClaw = 0x41CF, // R2.000, x1, add that casts line
-    Elimbit = 0x41D0, // R2.000, x1, add that casts donut
-    LightningGenerator = 0x41D1, // R3.000, x6, add that needs to be killed in intermission
+    Boss = 0x41CE, // R6.001
+    Elimbit = 0x41D0, // R2.0
+    EliminationClaw = 0x41CF, // R2.0
+    LightningGenerator = 0x41D1, // R3.0
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
     AutoAttack = 36764, // Boss->player, no cast, single-target
     Teleport = 36763, // Boss->location, no cast, single-target
+
     Disruption = 36765, // Boss->self, 5.0s cast, range 60 circle, raidwide
-    PartitionInstantR = 36766, // Boss->self, no cast, single-target, visual (instant cleave right after reconfigured)
-    PartitionInstantL = 36767, // Boss->self, no cast, single-target, visual (instant cleave left after reconfigured)
-    PartitionShortR = 36768, // Boss->self, 4.3+0.7s cast, single-target, visual (cleave right)
-    PartitionShortL = 36769, // Boss->self, 4.3+0.7s cast, single-target, visual (cleave left)
-    ReconfiguredPartitionR = 39247, // Boss->self, 1.2+5.6s cast, single-target, visual (right sword -> left cleave)
-    ReconfiguredPartitionL = 39248, // Boss->self, 1.2+5.6s cast, single-target, visual (left sword -> right cleave)
-    PartitionLongR = 39599, // Boss->self, 6.2+0.6s cast, single-target, visual (cleave right)
-    PartitionLongL = 39600, // Boss->self, 6.2+0.6s cast, single-target, visual (cleave left)
-    PartitionShortAOER = 39007, // Helper->self, 5.0s cast, range 40 180-degree cone (cleave right)
-    PartitionShortAOEL = 39008, // Helper->self, 5.0s cast, range 40 180-degree cone (cleave left)
-    PartitionLongAOER = 39238, // Helper->self, 7.0s cast, range 40 180-degree cone (cleave right)
-    PartitionLongAOEL = 39249, // Helper->self, 7.0s cast, range 40 180-degree cone (cleave left)
-    Electray = 39243, // Helper->player, 5.0s cast, range 6 circle spread
-    OverexposureTargetSelect = 36778, // Helper->none, no cast, single-target, visual (target select for line stack)
-    Overexposure = 36779, // Boss->self, 4.3+0.7s cast, single-target, visual (line stack)
-    OverexposureAOE = 36780, // Helper->self, no cast, range 40 width 6 rect
 
-    Subroutine1 = 36772, // Boss->self, 3.0s cast, single-target, visual (line add spawn)
-    Terminate = 36773, // EliminationClaw->self, 6.2+0.6s cast, single-target
-    TerminateAOE = 39615, // Helper->self, 7.0s cast, range 40 width 10 rect
-    Subroutine1End = 36774, // Boss->self, no cast, single-target, visual (mechanic end)
+    PartitionVisual1 = 39599, // Boss->self, 6.2+0.6s cast, single-target
+    PartitionVisual2 = 39600, // Boss->self, 6.2+0.6s cast, single-target
+    PartitionVisual3 = 36768, // Boss->self, 4.3+0.7s cast, single-target
+    PartitionVisual4 = 36766, // Boss->self, no cast, single-target
+    PartitionVisual5 = 36767, // Boss->self, no cast, single-target
+    Partition1 = 39007, // Helper->self, 5.0s cast, range 40 180-degree cone
+    Partition2 = 39238, // Helper->self, 7.0s cast, range 40 180-degree cone
+    Partition3 = 39249, // Helper->self, 7.0s cast, range 40 180-degree cone
 
-    Subroutine2 = 36775, // Boss->self, 3.0s cast, single-target, visual (donut add spawn)
-    HaloOfDestruction = 36776, // Elimbit->self, 6.4+0.4s cast, single-target, visual (donut)
-    HaloOfDestructionAOE = 39616, // Helper->self, 7.0s cast, range 6-40 donut
-    Subroutine2End = 36777, // Boss->self, no cast, single-target, visual (mechanic end)
+    Subroutine1 = 36781, // Boss->self, 3.0s cast, single-target, summons adds
+    Subroutine2 = 36775, // Boss->self, 3.0s cast, single-target
+    Subroutine3 = 36772, // Boss->self, 3.0s cast, single-target
+    SpawnClaw = 36774, // Boss->self, no cast, single-target
+    SpawnElimbit = 36777, // Boss->self, no cast, single-target
+    SpawnClawAndElimbit = 36788, // Boss->self, no cast, single-target
 
-    Subroutine3 = 36781, // Boss->self, 3.0s cast, single-target, visual (generators spawn or later mechanic start)
-    LightningGeneratorCharge = 36791, // LightningGenerator->Boss, no cast, single-target, visual (add charges boss gauge)
-    LightOfSalvation = 36782, // Elimbit->self, 6.0s cast, single-target, visual (proteans)
-    LightOfSalvationVisual = 36783, // Helper->player, 5.9s cast, single-target, visual (proteans vfx at target)
-    LightOfSalvationAOE = 36784, // Helper->self, no cast, range 40 width 6 rect, protean
-    LightOfDevotion = 36785, // EliminationClaw->self, 5.0s cast, single-target, visual (line stack)
-    LightOfDevotionTargetSelect = 36786, // Helper->none, no cast, single-target
-    LightOfDevotionAOE = 36787, // Helper->self, no cast, range 40 width 6 rect, line stack
-    Subroutine3End = 36788, // Boss->self, no cast, single-target, visual (mechanic end)
+    ReconfiguredPartition1 = 39248, // Boss->self, 1.2+5.6s cast, single-target
+    ReconfiguredPartition2 = 39247, // Boss->self, 1.2+5.6s cast, single-target
 
-    HoloArk = 36789, // Boss->self, no cast, single-target, visual (raidwide/wipe depending on gauge)
-    HoloArkAOE = 36790, // Helper->self, no cast, range 60 circle, raidwide
-    Compression = 36792, // EliminationClaw->location, 5.3s cast, single-target, visual (knockback + aoe)
-    CompressionAOE = 36793, // Helper->self, 6.0s cast, range 6 circle
-    CompressionImpact = 36794, // Helper->self, 6.0s cast, range 60 circle, knockback 15
-    Elimination = 36795, // Boss->self, 4.0s cast, single-target, visual (a series of raidwides followed by staggered lines)
-    EliminationAOE = 36796, // Helper->self, no cast, range 60 circle, raidwide
-    EliminationExplosion = 39239, // Helper->self, 8.5s cast, range 50 width 8 rect, staggered lines
+    TerminateVisual = 36773, // EliminationClaw->self, 6.2+0.6s cast, single-target
+    Terminate = 39615, // Helper->self, 7.0s cast, range 40 width 10 rect
+
+    HaloOfDestructionVisual = 36776, // Elimbit->self, 6.4+0.4s cast, single-target
+    HaloOfDestruction = 39616, // Helper->self, 7.0s cast, range 6-40 donut
+
+    OverexposureMarker = 36778, // Helper->player, no cast, single-target
+    OverexposureVisual = 36779, // Boss->self, 4.3+0.7s cast, single-target
+    Overexposure = 36780, // Helper->self, no cast, range 40 width 6 rect, line stack
+
+    Electray = 39243, // Helper->player, 5.0s cast, range 6 circle
+
+    HoloArk1 = 36789, // Boss->self, no cast, single-target
+    HoloArk2 = 36790, // Helper->self, no cast, range 60 circle
+    ChargeLimitBreakBar = 36791, // LightningGenerator->Boss, no cast, single-target
+
+    CompressionVisual = 36792, // EliminationClaw->location, 5.3s cast, single-target
+    Compression = 36793, // Helper->self, 6.0s cast, range 6 circle
+
+    Impact = 36794, // Helper->self, 6.0s cast, range 60 circle, knockback 15, away from source
+
+    LightOfSalvationVisual = 36782, // Elimbit->self, 6.0s cast, single-target
+    LightOfSalvationMarker = 36783, // Helper->player, 5.9s cast, single-target
+    LightOfSalvation = 36784, // Helper->self, no cast, range 40 width 6 rect
+
+    LightOfDevotionVisual = 36785, // EliminationClaw->self, 5.0s cast, single-target
+    LightOfDevotionMarker = 36786, // Helper->player, no cast, single-target
+    LightOfDevotion = 36787, // Helper->self, no cast, range 40 width 6 rect
+
+    Elimination1 = 36795, // Boss->self, 4.0s cast, single-target
+    Elimination2 = 36796, // Helper->self, no cast, range 60 circle
+
+    Explosion = 39239 // Helper->self, 8.5s cast, range 50 width 8 rect
 }
 
-public enum IconID : uint
+sealed class DisruptionArenaChange(BossModule module) : Components.GenericAOEs(module)
 {
-    Electray = 139, // player
-    LightOfSalvation = 534, // Helper
+    private static readonly AOEShapeCustom square = new([new Square(D063Eliminator.ArenaCenter, 16f)], [new Square(D063Eliminator.ArenaCenter, 15f)]);
+    private AOEInstance[] _aoe = [];
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.Disruption && Arena.Bounds.Radius > 15f)
+        {
+            _aoe = [new(square, Arena.Center, default, Module.CastFinishAt(spell, 0.7d))];
+        }
+    }
+
+    public override void OnMapEffect(byte index, uint state)
+    {
+        if (index == 0x28 && state == 0x00020001u)
+        {
+            Arena.Bounds = new ArenaBoundsSquare(15f);
+            _aoe = [];
+        }
+    }
 }
 
-class Disruption(BossModule module) : Components.RaidwideCast(module, AID.Disruption);
-class PartitionShortR(BossModule module) : Components.StandardAOEs(module, AID.PartitionShortAOER, new AOEShapeCone(40, 90.Degrees()));
-class PartitionShortL(BossModule module) : Components.StandardAOEs(module, AID.PartitionShortAOEL, new AOEShapeCone(40, 90.Degrees()));
-class PartitionLongR(BossModule module) : Components.StandardAOEs(module, AID.PartitionLongAOER, new AOEShapeCone(40, 90.Degrees()));
-class PartitionLongL(BossModule module) : Components.StandardAOEs(module, AID.PartitionLongAOEL, new AOEShapeCone(40, 90.Degrees()));
-class HaloOfDestruction(BossModule module) : Components.StandardAOEs(module, AID.HaloOfDestructionAOE, new AOEShapeDonut(6, 40));
+sealed class Disruption(BossModule module) : Components.RaidwideCast(module, (uint)AID.Disruption);
 
-class Terminate(BossModule module) : Components.StandardAOEs(module, AID.TerminateAOE, new AOEShapeRect(40, 5))
+sealed class Partition(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.Partition1, (uint)AID.Partition2, (uint)AID.Partition3], new AOEShapeCone(40f, 90f.Degrees()));
+sealed class Terminate(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Terminate, new AOEShapeRect(40f, 5f));
+sealed class HaloOfDestruction(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HaloOfDestruction, new AOEShapeDonut(6f, 40f));
+
+sealed class Electray(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.Electray, 6f)
 {
-    private readonly HaloOfDestruction? _halo = module.FindComponent<HaloOfDestruction>();
-    private static readonly AOEShapeRect _shapeOverlap = new(40, 4);
+    private readonly HaloOfDestruction _aoe1 = module.FindComponent<HaloOfDestruction>()!;
+    private readonly Partition _aoe2 = module.FindComponent<Partition>()!;
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        // when overlapping with halo, halo always resolves first - but we still wanna stay closer to the edge
-        foreach (var aoe in ActiveAOEs(slot, actor))
+        if (_aoe1.Casters.Count != 0 || _aoe2.Casters.Count != 0)
+        { }
+        else
         {
-            var shape = aoe.Shape;
-            var origin = aoe.Origin;
-            if (_halo?.Casters.Count > 0)
+            base.AddAIHints(slot, actor, assignment, hints);
+            if (Spreads.Count != 0)
             {
-                shape = _shapeOverlap;
-                origin.Z += (origin.Z - Module.Center.Z) switch
-                {
-                    <= -10 => -1,
-                    >= +10 => +1,
-                    _ => 0
-                };
+                hints.AddForbiddenZone(new SDCircle(Arena.Center - new WDir(default, 15f), 15f), Spreads.Ref(0).Activation);
             }
-            hints.AddForbiddenZone(shape, origin, aoe.Rotation, aoe.Activation);
         }
     }
 }
 
-class Electray(BossModule module) : Components.SpreadFromCastTargets(module, AID.Electray, 6)
+sealed class Explosion : Components.SimpleAOEs
 {
-    private readonly HaloOfDestruction? _halo = module.FindComponent<HaloOfDestruction>();
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    public Explosion(BossModule module) : base(module, (uint)AID.Explosion, new AOEShapeRect(50f, 4f))
     {
-        // only spread after aoes are done
-        if (_halo == null || _halo.Casters.Count == 0)
-            base.AddAIHints(slot, actor, assignment, hints);
+        MaxDangerColor = 2;
+        MaxRisky = 4;
     }
 }
 
-class Overexposure(BossModule module) : Components.SimpleLineStack(module, 3, 40, AID.OverexposureTargetSelect, AID.OverexposureAOE, 5.1f);
-
-class CompressionAOE(BossModule module) : Components.StandardAOEs(module, AID.CompressionAOE, new AOEShapeCircle(6));
-class CompressionImpact(BossModule module) : Components.KnockbackFromCastTarget(module, AID.CompressionImpact, 15)
+sealed class Impact(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.Impact, 15f)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var c in Casters)
-            hints.AddForbiddenZone(ShapeContains.InvertedCone(c.Position, 8, Angle.FromDirection(Module.Center - c.Position), 30.Degrees()), Module.CastFinishAt(c.CastInfo)); // just a hack...
-    }
-}
-
-class LightningGenerator(BossModule module) : Components.Adds(module, (uint)OID.LightningGenerator);
-
-class LightOfSalvation(BossModule module) : Components.BaitAwayCast(module, AID.LightOfSalvationVisual, new AOEShapeRect(40, 3), false, true)
-{
-    private readonly CompressionImpact? _impact = module.FindComponent<CompressionImpact>();
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        // only show proteans after knockback is done
-        if (_impact == null || _impact.Casters.Count == 0)
-            base.AddAIHints(slot, actor, assignment, hints);
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        // note: actual aoe happens slightly after visual cast; but if adds are killed quickly enough, it might not happen at all
-        if ((AID)spell.Action.ID is AID.LightOfSalvationAOE or AID.Subroutine3End or AID.LightOfDevotionAOE)
-            CurrentBaits.Clear();
-    }
-}
-
-class LightOfDevotion(BossModule module) : Components.SimpleLineStack(module, 3, 40, AID.LightOfDevotionTargetSelect, AID.LightOfDevotionAOE, 5.6f)
-{
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        base.OnEventCast(caster, spell);
-        // note: actual aoe happens slightly after visual cast; but if adds are killed quickly enough, it might not happen at all
-        if ((AID)spell.Action.ID is AID.Subroutine3End)
+        if (Casters.Count != 0)
         {
-            Source = null;
+            ref readonly var c = ref Casters.Ref(0);
+            hints.AddForbiddenZone(new SDKnockbackInAABBSquareAwayFromOrigin(Arena.Center, c.Origin, 15f, 14f), c.Activation);
         }
     }
 }
 
-class EliminationExplosion(BossModule module) : Components.StandardAOEs(module, AID.EliminationExplosion, new AOEShapeRect(50, 4), 4);
+sealed class Compression(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Compression, 6f);
 
-class D063EliminatorStates : StateMachineBuilder
+sealed class Overexposure(BossModule module) : Components.LineStack(module, aidMarker: (uint)AID.OverexposureMarker, (uint)AID.Overexposure, 5d, 40f, 3f);
+sealed class LightOfDevotion(BossModule module) : Components.LineStack(module, aidMarker: (uint)AID.LightOfDevotionMarker, (uint)AID.LightOfDevotion, 5.5d, 40f, 3f)
+{
+    public override void OnMapEffect(byte index, uint state)
+    {
+        if (index == 0x2F && state == 0x00080004u) // as soon as limit break phase ends the line stack gets cancelled
+        {
+            CurrentBaits.Clear();
+        }
+    }
+}
+
+sealed class LightOfSalvation(BossModule module) : Components.GenericBaitAway(module)
+{
+    private readonly Impact _kb = module.FindComponent<Impact>()!;
+    private static readonly AOEShapeRect rect = new(40f, 3f);
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.LightOfSalvationMarker)
+        {
+            CurrentBaits.Add(new(caster, WorldState.Actors.Find(spell.TargetID)!, rect, Module.CastFinishAt(spell, 0.2d)));
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == (uint)AID.LightOfSalvation)
+        {
+            CurrentBaits.Clear();
+        }
+    }
+
+    public override void OnMapEffect(byte index, uint state)
+    {
+        if (index == 0x2F && state == 0x00080004u) // as soon as limit break phase ends the line stack gets cancelled
+        {
+            CurrentBaits.Clear();
+        }
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (_kb.Casters.Count != 0)
+        { }
+        else
+        {
+            base.AddAIHints(slot, actor, assignment, hints);
+        }
+    }
+}
+
+sealed class D063EliminatorStates : StateMachineBuilder
 {
     public D063EliminatorStates(BossModule module) : base(module)
     {
         TrivialPhase()
+            .ActivateOnEnter<DisruptionArenaChange>()
             .ActivateOnEnter<Disruption>()
-            .ActivateOnEnter<PartitionShortR>()
-            .ActivateOnEnter<PartitionShortL>()
-            .ActivateOnEnter<PartitionLongR>()
-            .ActivateOnEnter<PartitionLongL>()
-            .ActivateOnEnter<HaloOfDestruction>()
+            .ActivateOnEnter<Partition>()
             .ActivateOnEnter<Terminate>()
+            .ActivateOnEnter<HaloOfDestruction>()
             .ActivateOnEnter<Electray>()
-            .ActivateOnEnter<Overexposure>()
-            .ActivateOnEnter<CompressionAOE>()
-            .ActivateOnEnter<CompressionImpact>()
-            .ActivateOnEnter<LightningGenerator>()
-            .ActivateOnEnter<LightOfSalvation>()
+            .ActivateOnEnter<Explosion>()
+            .ActivateOnEnter<Impact>()
+            .ActivateOnEnter<Compression>()
             .ActivateOnEnter<LightOfDevotion>()
-            .ActivateOnEnter<EliminationExplosion>();
+            .ActivateOnEnter<LightOfSalvation>()
+            .ActivateOnEnter<Overexposure>();
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 827, NameID = 12729)]
-public class D063Eliminator(WorldState ws, Actor primary) : BossModule(ws, primary, new(-759, -648), new ArenaBoundsSquare(15));
+[ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus, LTS), erdelf", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 827, NameID = 12729)]
+public sealed class D063Eliminator(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, new ArenaBoundsSquare(15.5f))
+{
+    public static readonly WPos ArenaCenter = new(-759f, -648f);
+
+    protected override void DrawEnemies(int pcSlot, Actor pc)
+    {
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.LightningGenerator), Colors.Object);
+    }
+}

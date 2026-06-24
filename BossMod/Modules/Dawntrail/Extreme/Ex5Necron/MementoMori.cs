@@ -1,77 +1,107 @@
-﻿namespace BossMod.Dawntrail.Extreme.Ex5Necron;
+namespace BossMod.Dawntrail.Extreme.Ex5Necron;
 
-class MementoMoriLine(BossModule module) : Components.GroupedAOEs(module, [AID.MementoMoriDarkRight, AID.MementoMoriDarkLeft], new AOEShapeRect(100, 6))
+sealed class MementoMori(BossModule module) : Components.GenericAOEs(module)
 {
-    public bool HighlightSafe = true;
+    private AOEInstance[] _aoe = [];
+    private readonly AOEShapeRect rect = new(100f, 6f);
 
-    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        base.DrawArenaBackground(pcSlot, pc);
-
-        if (Casters.Count > 0 && HighlightSafe)
+        if (spell.Action.ID is (uint)AID.MementoMori1 or (uint)AID.MementoMori2)
         {
-            var isTank = pc.Role == Role.Tank;
-
-            var tanksLeft = (AID)Casters[0].CastInfo!.Action.ID == AID.MementoMoriDarkLeft;
-
-            WPos safeOrig = (isTank == tanksLeft) ? new(88, 85) : new(112, 85);
-
-            Arena.ZoneRect(safeOrig, safeOrig + new WDir(0, 30), 6, ArenaColor.SafeFromAOE);
+            _aoe = [new(rect, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell))];
         }
     }
-}
 
-class MementoMoriVoidzone(BossModule module) : Components.GenericAOEs(module)
-{
-    public bool Active { get; private set; }
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (Active)
-            yield return new AOEInstance(new AOEShapeRect(30, 6), new(100, 85));
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if ((AID)spell.Action.ID is AID.MementoMoriDarkLeft or AID.MementoMoriDarkRight)
-            Active = true;
+        if (spell.Action.ID is (uint)AID.MementoMori1 or (uint)AID.MementoMori2)
+        {
+            ++NumCasts;
+        }
     }
 
     public override void OnMapEffect(byte index, uint state)
     {
-        if (index == 0x18 && state == 0x00080004)
-            Active = false;
+        if (index == 0x18)
+        {
+            if (state == 0x00020001u)
+            {
+                Arena.Bounds = Trial.T05Necron.Necron.SplitArena;
+                _aoe = [];
+            }
+            else if (state == 0x00080004u)
+            {
+                Arena.Bounds = new ArenaBoundsRect(18f, 15f);
+            }
+        }
     }
 }
 
-class SmiteOfGloom(BossModule module) : Components.SpreadFromCastTargets(module, AID.SmiteOfGloom, 10);
-
-class CenterChokingGrasp(BossModule module) : Components.GenericAOEs(module, AID.ChokingGraspCast1)
+sealed class SmiteOfGloom(BossModule module) : Components.GenericStackSpread(module, true, true)
 {
-    private readonly List<(Actor, DateTime)> _casters = [];
+    public int NumCasts;
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        foreach (var (c, predicted) in _casters)
+        if (spell.Action.ID is (uint)AID.MementoMori1 or (uint)AID.MementoMori2)
         {
-            var activation = c.CastInfo == null ? predicted : Module.CastFinishAt(c.CastInfo);
-
-            yield return new AOEInstance(new AOEShapeRect(24, 3), c.Position, c.Rotation, activation);
+            var party = Raid.WithoutSlot(true, false, false);
+            var len = party.Length;
+            Spreads.Capacity = 8;
+            var act = WorldState.FutureTime(7.1d);
+            for (var i = 0; i < len; ++i)
+            {
+                Spreads.Add(new(party[i], 10f, act));
+            }
         }
-    }
-
-    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
-    {
-        if ((OID)actor.OID == OID.IcyHandsP1 && id == 0x11D2)
-            _casters.Add((actor, WorldState.FutureTime(5.7f)));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == (uint)AID.SmiteOfGloom)
         {
-            NumCasts++;
-            _casters.RemoveAll(c => c.Item1 == caster);
+            ++NumCasts;
+        }
+    }
+}
+
+sealed class ChokingGraspMM(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly List<AOEInstance> _aoes = new(5);
+    public bool isRisky = true;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if (actor.OID == (uint)OID.IcyHands1)
+        {
+            _aoes.Add(new(ChokingGrasp.Rect, actor.Position.Quantized(), actor.Rotation, WorldState.FutureTime(11.1d), risky: isRisky));
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.ChokingGraspAOE1)
+        {
+            ++NumCasts;
+        }
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (!isRisky && spell.Action.ID == (uint)AID.ChokingGraspAOE1)
+        {
+            var count = _aoes.Count;
+            var aoes = CollectionsMarshal.AsSpan(_aoes);
+
+            for (var i = 0; i < count; ++i)
+            {
+                aoes[i].Risky = true;
+            }
         }
     }
 }

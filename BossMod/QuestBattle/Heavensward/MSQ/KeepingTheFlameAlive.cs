@@ -1,6 +1,6 @@
 ﻿namespace BossMod.QuestBattle.Heavensward.MSQ;
 
-[ZoneModuleInfo(400)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 400)]
 public class KeepingTheFlameAlive(WorldState ws) : QuestBattle(ws)
 {
     enum OID : uint
@@ -25,7 +25,7 @@ public class KeepingTheFlameAlive(WorldState ws) : QuestBattle(ws)
 
         new QuestObjective(ws)
             .Named("Open cell")
-            .Hints((act, hints) => hints.PrioritizeTargetsByOID(OID.IronCell))
+            .Hints((act, hints) => hints.PrioritizeTargetsByOID((uint)OID.IronCell))
             .CompleteOnKilled((uint)OID.IronCell),
 
         new QuestObjective(ws)
@@ -33,9 +33,7 @@ public class KeepingTheFlameAlive(WorldState ws) : QuestBattle(ws)
             .WithConnection(V3(163.35f, 6.26f, -65.16f))
             .Hints((player, hints) =>
             {
-                if (player.PosRot.Y >= 6)
-                    hints.PrioritizeTargetsByOID(OID.HummingAtomizer);
-            })
+                if (player.PosRot.Y >= 6) { hints.PrioritizeTargetsByOID((uint)OID.HummingAtomizer); } })
             .CompleteOnKilled((uint)OID.HummingAtomizer),
 
         new QuestObjective(ws)
@@ -67,6 +65,8 @@ public class KeepingTheFlameAlive(WorldState ws) : QuestBattle(ws)
         }
 
         if (!inCombat)
+        {
             hints.InteractWithOID(World, OID.IdentificationKey);
+        }
     }
 }

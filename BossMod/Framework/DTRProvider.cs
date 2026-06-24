@@ -1,4 +1,4 @@
-﻿using BossMod.AI;
+using BossMod.AI;
 using BossMod.Autorotation;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Gui.Dtr;
@@ -11,30 +11,38 @@ namespace BossMod;
 internal sealed class DTRProvider : IDisposable
 {
     private readonly RotationModuleManager _mgr;
+    private readonly AIManager _ai;
     private readonly IDtrBarEntry? _autorotationEntry;
     private readonly IDtrBarEntry? _aiEntry;
-    private readonly IDtrBarEntry? _statsEntry;
     private readonly AIConfig _aiConfig = Service.Config.Get<AIConfig>();
     private bool _wantOpenPopup;
 
-    public DTRProvider(RotationModuleManager manager)
+    public DTRProvider(RotationModuleManager manager, AIManager ai)
     {
         _mgr = manager;
+        _ai = ai;
         _autorotationEntry = SafeGetEntry("vbm-autorotation");
         _aiEntry = SafeGetEntry("vbm-ai");
-        _statsEntry = SafeGetEntry("vbm-stats");
 
         _autorotationEntry?.OnClick = _ => _wantOpenPopup = true;
         if (_aiEntry == null)
             return;
-        _aiEntry.Tooltip = "Left Click => Toggle Enabled, Right Click => Toggle DrawUI";
 
+        _aiEntry.Tooltip = "Left Click => Toggle Enabled, Right Click => Toggle DrawUI";
         _aiEntry.OnClick = ev =>
         {
             if (ev.ClickType == MouseClickType.Right)
+            {
                 _aiConfig.DrawUI ^= true;
+            }
+            else if (_ai.Beh == null)
+            {
+                _ai.SwitchToFollow(_aiConfig.FollowSlot);
+            }
             else
-                _aiConfig.Enabled ^= true;
+            {
+                _ai.SwitchToIdle();
+            }
             _aiConfig.Modified.Fire();
         };
     }
@@ -67,28 +75,31 @@ internal sealed class DTRProvider : IDisposable
     {
         _autorotationEntry?.Remove();
         _aiEntry?.Remove();
-        _statsEntry?.Remove();
     }
 
     public void Update()
     {
-        _autorotationEntry?.Shown = _mgr.Config.ShowDTR != AutorotationConfig.DtrStatus.None;
-        var (icon, name) = _mgr.Presets.Count == 0 ? (BitmapFontIcon.SwordSheathed, "Idle") : _mgr.IsForceDisabled ? (BitmapFontIcon.SwordSheathed, "Disabled") : (BitmapFontIcon.SwordUnsheathed, string.Join(", ", _mgr.PresetNames));
-        Payload prefix = _mgr.Config.ShowDTR == AutorotationConfig.DtrStatus.TextOnly ? new TextPayload("vbm: ") : new IconPayload(icon);
-        _autorotationEntry?.Text = new SeString(prefix, new TextPayload(name));
+        var show = RotationModuleManager.Config.ShowDTR != AutorotationConfig.DtrStatus.None;
+        if (_autorotationEntry != null)
+        {
+            _autorotationEntry.Shown = show;
+            if (show)
+            {
+                var (icon, name) = _mgr.Preset == null
+                    ? (BitmapFontIcon.SwordSheathed, "Idle")
+                    : _mgr.Preset == RotationModuleManager.ForceDisable
+                        ? (BitmapFontIcon.SwordSheathed, "Disabled")
+                        : (BitmapFontIcon.SwordUnsheathed, _mgr.Preset.Name);
+                Payload prefix = RotationModuleManager.Config.ShowDTR == AutorotationConfig.DtrStatus.TextOnly ? new TextPayload("vbm: ") : new IconPayload(icon);
+                _autorotationEntry.Text = new SeString(prefix, new TextPayload(name));
+            }
+        }
 
         if (_aiEntry != null)
         {
             _aiEntry.Shown = _aiConfig.ShowDTR;
-            _aiEntry.Text = "AI: " + (_aiConfig.Enabled ? "On" : "Off");
-        }
-
-        if (_statsEntry != null)
-        {
-            _statsEntry.Shown = _mgr.Config.ShowStatsDTR;
-            _statsEntry.Text = _mgr.LastPathfindMs > 0
-                ? $"Pathfind: {_mgr.LastRasterizeMs:f1}ms (r) {_mgr.LastPathfindMs:f1}ms (p)"
-                : $"Pathfind: -";
+            if (_aiConfig.ShowDTR)
+                _aiEntry.Text = "AI: " + (_ai.Beh == null ? "Off" : "On");
         }
 
         if (_wantOpenPopup && _mgr.Player != null)
@@ -99,7 +110,9 @@ internal sealed class DTRProvider : IDisposable
 
         using var popup = ImRaii.Popup("vbm_dtr_menu");
         if (popup)
+        {
             if (UIRotationWindow.DrawRotationSelector(_mgr))
                 ImGui.CloseCurrentPopup();
+        }
     }
 }

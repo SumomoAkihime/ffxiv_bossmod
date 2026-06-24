@@ -1,11 +1,12 @@
 ﻿namespace BossMod.QuestBattle.Stormblood.ClassJobQuests.BLM;
 
-[ZoneModuleInfo(445)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 445)]
 internal class OneGolemToRuleThemAll(WorldState ws) : QuestBattle(ws)
 {
     public override void AddQuestAIHints(Actor player, AIHints hints)
     {
         foreach (var h in hints.PotentialTargets)
+        {
             h.Priority = h.Actor.OID switch
             {
                 // meteor shards (boss eats them)
@@ -15,6 +16,7 @@ internal class OneGolemToRuleThemAll(WorldState ws) : QuestBattle(ws)
                 // boss or whatever
                 _ => 1
             };
+        }
     }
 }
 

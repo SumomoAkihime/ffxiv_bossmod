@@ -15,7 +15,7 @@ class Shift(BossModule module) : BossComponent(module)
         {
             hints.Add("GTFO from sword!");
         }
-        else if (_cloakCaster != null && !Module.InBounds(Components.Knockback.AwayFromSource(actor.Position, _cloakCaster, _knockbackRange)))
+        else if (_cloakCaster != null && !Arena.InBounds(Components.GenericKnockback.AwayFromSource(actor.Position, _cloakCaster, _knockbackRange)))
         {
             hints.Add("About to be knocked into wall!");
         }
@@ -30,13 +30,13 @@ class Shift(BossModule module) : BossComponent(module)
     {
         if (_cloakCaster != null)
         {
-            Arena.AddCircle(_cloakCaster.Position, 5, ArenaColor.Safe);
+            Arena.AddCircle(_cloakCaster.Position, 5, Colors.Safe);
 
-            var adjPos = Components.Knockback.AwayFromSource(pc.Position, _cloakCaster, _knockbackRange);
+            var adjPos = Components.GenericKnockback.AwayFromSource(pc.Position, _cloakCaster, _knockbackRange);
             if (adjPos != pc.Position)
             {
-                Arena.AddLine(pc.Position, adjPos, ArenaColor.Danger);
-                Arena.Actor(adjPos, pc.Rotation, ArenaColor.Danger);
+                Arena.AddLine(pc.Position, adjPos, Colors.Danger);
+                Arena.Actor(adjPos, pc.Rotation, Colors.Danger);
             }
         }
     }

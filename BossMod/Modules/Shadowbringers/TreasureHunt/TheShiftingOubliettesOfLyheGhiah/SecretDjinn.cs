@@ -2,82 +2,106 @@ namespace BossMod.Shadowbringers.TreasureHunt.ShiftingOubliettesOfLyheGhiah.Secr
 
 public enum OID : uint
 {
-    Boss = 0x300F, //R=3.48
-    BossAdd = 0x3010, //R=1.32
-    BossHelper = 0x233C,
-    BonusAddKeeperOfKeys = 0x3034, // R3.230
+    SecretDjinn = 0x300F, //R=3.48
+    SecretRabbitsTail = 0x3010, //R=1.32
+    KeeperOfKeys = 0x3034, // R3.23
+    FuathTrickster = 0x3033, // R0.75
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    AutoAttack = 23185, // Boss->player, no cast, single-target
-    AutoAttack2 = 872, // BossAdd/BonusAddKeeperOfKeys->player, no cast, single-target
-    Gust = 21655, // Boss->location, 3.0s cast, range 6 circle
-    ChangelessWinds = 21657, // Boss->self, 3.0s cast, range 40 width 8 rect, knockback 10, source forward
-    WhirlingGaol = 21654, // Boss->self, 4.0s cast, range 40 circle, knockback 25 away from source
-    Whipwind = 21656, // Boss->self, 5.0s cast, range 55 width 40 rect, knockback 25, source forward
-    GentleBreeze = 21653, // BossAdd->self, 3.0s cast, range 15 width 4 rect
+    AutoAttack1 = 23185, // SecretDjinn->player, no cast, single-target
+    AutoAttack2 = 872, // SecretRabbitsTail/KeeperOfKeys->player, no cast, single-target
 
-    Telega = 9630, // BonusAdds->self, no cast, single-target, bonus adds disappear
-    Mash = 21767, // 3034->self, 3.0s cast, range 13 width 4 rect
-    Inhale = 21770, // 3034->self, no cast, range 20 120-degree cone, attract 25 between hitboxes, shortly before Spin
-    Spin = 21769, // 3034->self, 4.0s cast, range 11 circle
-    Scoop = 21768, // 3034->self, 4.0s cast, range 15 120-degree cone
+    Gust = 21655, // SecretDjinn->location, 3.0s cast, range 6 circle
+    ChangelessWinds = 21657, // SecretDjinn->self, 3.0s cast, range 40 width 8 rect, knockback 10, source forward
+    WhirlingGaol = 21654, // SecretDjinn->self, 4.0s cast, range 40 circle, knockback 25 away from source
+    Whipwind = 21656, // SecretDjinn->self, 5.0s cast, range 55 width 40 rect, knockback 25, source forward
+    GentleBreeze = 21653, // SecretRabbitsTail->self, 3.0s cast, range 15 width 4 rect
+
+    Telega = 9630, // KeeperOfKeys/FuathTrickster->self, no cast, single-target, bonus adds disappear
+    Mash = 21767, // KeeperOfKeys->self, 3.0s cast, range 13 width 4 rect
+    Inhale = 21770, // KeeperOfKeys->self, no cast, range 20 120-degree cone, attract 25 between hitboxes, shortly before Spin
+    Spin = 21769, // KeeperOfKeys->self, 4.0s cast, range 11 circle
+    Scoop = 21768 // KeeperOfKeys->self, 4.0s cast, range 15 120-degree cone
 }
 
-class Gust(BossModule module) : Components.StandardAOEs(module, AID.Gust, 6);
-class ChangelessWinds(BossModule module) : Components.StandardAOEs(module, AID.ChangelessWinds, new AOEShapeRect(40, 4));
-class ChangelessWindsKB(BossModule module) : Components.KnockbackFromCastTarget(module, AID.ChangelessWinds, 10, shape: new AOEShapeRect(40, 4), kind: Kind.DirForward, stopAtWall: true);
-class Whipwind(BossModule module) : Components.StandardAOEs(module, AID.Whipwind, new AOEShapeRect(55, 20));
-class WhipwindKB(BossModule module) : Components.KnockbackFromCastTarget(module, AID.Whipwind, 25, shape: new AOEShapeRect(55, 20), kind: Kind.DirForward, stopAtWall: true);
-class GentleBreeze(BossModule module) : Components.StandardAOEs(module, AID.GentleBreeze, new AOEShapeRect(15, 2));
-class WhirlingGaol(BossModule module) : Components.RaidwideCast(module, AID.WhirlingGaol, "Raidwide + Knockback");
-class WhirlingGaolKB(BossModule module) : Components.KnockbackFromCastTarget(module, AID.WhirlingGaol, 25, stopAtWall: true);
-class Spin(BossModule module) : Components.StandardAOEs(module, AID.Spin, new AOEShapeCircle(11));
-class Mash(BossModule module) : Components.StandardAOEs(module, AID.Mash, new AOEShapeRect(13, 2));
-class Scoop(BossModule module) : Components.StandardAOEs(module, AID.Scoop, new AOEShapeCone(15, 60.Degrees()));
+sealed class Gust(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Gust, 6f);
+sealed class ChangelessWinds(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ChangelessWinds, new AOEShapeRect(40f, 4f));
+sealed class Whipwind(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Whipwind, new AOEShapeRect(55f, 20f));
+sealed class GentleBreeze(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GentleBreeze, new AOEShapeRect(15f, 2f));
+sealed class WhirlingGaol(BossModule module) : Components.RaidwideCast(module, (uint)AID.WhirlingGaol, "Raidwide + Knockback");
+sealed class WhirlingGaolKB(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.WhirlingGaol, 25f, stopAtWall: true);
 
-class DjinnStates : StateMachineBuilder
+sealed class Spin(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Spin, 11f);
+sealed class Mash(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Mash, new AOEShapeRect(13f, 2f));
+sealed class Scoop(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Scoop, new AOEShapeCone(15f, 60f.Degrees()));
+
+sealed class SecretDjinnStates : StateMachineBuilder
 {
-    public DjinnStates(BossModule module) : base(module)
+    public SecretDjinnStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<Gust>()
             .ActivateOnEnter<ChangelessWinds>()
-            .ActivateOnEnter<ChangelessWindsKB>()
             .ActivateOnEnter<Whipwind>()
-            .ActivateOnEnter<WhipwindKB>()
             .ActivateOnEnter<GentleBreeze>()
             .ActivateOnEnter<WhirlingGaol>()
             .ActivateOnEnter<WhirlingGaolKB>()
             .ActivateOnEnter<Spin>()
             .ActivateOnEnter<Mash>()
             .ActivateOnEnter<Scoop>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.BossAdd).All(e => e.IsDead) && module.Enemies(OID.BonusAddKeeperOfKeys).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed(SecretDjinn.All);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 745, NameID = 9788)]
-public class Djinn(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(19))
+[ModuleInfo(BossModuleInfo.Maturity.Verified,
+StatesType = typeof(SecretDjinnStates),
+ConfigType = null,
+ObjectIDType = typeof(OID),
+ActionIDType = typeof(AID),
+StatusIDType = null,
+TetherIDType = null,
+IconIDType = null,
+PrimaryActorOID = (uint)OID.SecretDjinn,
+Contributors = "The Combat Reborn Team (Malediktus)",
+Expansion = BossModuleInfo.Expansion.Shadowbringers,
+Category = BossModuleInfo.Category.TreasureHunt,
+GroupType = BossModuleInfo.GroupType.CFC,
+GroupID = 745u,
+NameID = 9788u,
+SortOrder = 5,
+PlanLevel = 0)]
+public sealed class SecretDjinn : THTemplate
 {
+    public SecretDjinn(WorldState ws, Actor primary) : base(ws, primary)
+    {
+        rabbittails = Enemies((uint)OID.SecretRabbitsTail);
+    }
+    private readonly List<Actor> rabbittails;
+
+    private static readonly uint[] bonusAdds = [(uint)OID.FuathTrickster, (uint)OID.KeeperOfKeys];
+    public static readonly uint[] All = [(uint)OID.SecretDjinn, (uint)OID.SecretRabbitsTail, .. bonusAdds];
+
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.BossAdd))
-            Arena.Actor(s, ArenaColor.Object);
-        foreach (var s in Enemies(OID.BonusAddKeeperOfKeys))
-            Arena.Actor(s, ArenaColor.Vulnerable);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(rabbittails);
+        Arena.Actors(this, bonusAdds, Colors.Vulnerable);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.BonusAddKeeperOfKeys => 3,
-                OID.BossAdd => 2,
-                OID.Boss => 1,
+                (uint)OID.FuathTrickster => 3,
+                (uint)OID.KeeperOfKeys => 2,
+                (uint)OID.SecretRabbitsTail => 1,
                 _ => 0
             };
         }

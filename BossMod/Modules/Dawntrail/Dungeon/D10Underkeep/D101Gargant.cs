@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Dungeon.D10Underkeep.D101Gargant;
+namespace BossMod.Dawntrail.Dungeon.D10Underkeep.D101Gargant;
 
 public enum OID : uint
 {
@@ -23,40 +23,60 @@ public enum AID : uint
     TrapJaws = 42548 // Boss->player, 5.0s cast, single-target
 }
 
-class AerialAmbush(BossModule module) : Components.StandardAOEs(module, AID.AerialAmbush, new AOEShapeRect(30, 7.5f));
-class AlmightyRacket(BossModule module) : Components.StandardAOEs(module, AID.AlmightyRacket, new AOEShapeRect(30, 15));
-class FoundationalDebris(BossModule module) : Components.StandardAOEs(module, AID.FoundationalDebris, 10);
-class SedimentaryDebris(BossModule module) : Components.SpreadFromCastTargets(module, AID.SedimentaryDebris, 5);
-class Earthsong(BossModule module) : Components.RaidwideCast(module, AID.Earthsong);
-class ChillingChirp(BossModule module) : Components.RaidwideCast(module, AID.ChillingChirp);
-class TrapJaws(BossModule module) : Components.SingleTargetDelayableCast(module, AID.TrapJaws);
-class SphereShatter(BossModule module) : Components.GenericAOEs(module)
+sealed class AerialAmbush(BossModule module) : Components.SimpleAOEs(module, (uint)AID.AerialAmbush, new AOEShapeRect(30f, 7.5f));
+sealed class AlmightyRacket(BossModule module) : Components.SimpleAOEs(module, (uint)AID.AlmightyRacket, new AOEShapeRect(30f, 15f));
+sealed class FoundationalDebris(BossModule module) : Components.SimpleAOEs(module, (uint)AID.FoundationalDebris, 10f);
+sealed class SedimentaryDebris(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.SedimentaryDebris, 5f);
+sealed class EarthsongChillingChirp(BossModule module) : Components.RaidwideCasts(module, [(uint)AID.Earthsong, (uint)AID.ChillingChirp]);
+sealed class TrapJaws(BossModule module) : Components.SingleTargetDelayableCast(module, (uint)AID.TrapJaws);
+
+sealed class SphereShatter(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<(Actor Caster, DateTime Activation)> _spheres = [];
+    private static readonly AOEShapeCircle circle = new(6f);
+    private readonly List<AOEInstance> _aoes = new(13);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if (_spheres.Count == 0)
+        var count = _aoes.Count;
+        if (count == 0)
+        {
             return [];
+        }
+        var aoes = CollectionsMarshal.AsSpan(_aoes);
+        var deadline = aoes[0].Activation.AddSeconds(1d);
 
-        var act1 = _spheres[0].Activation;
-        return _spheres.TakeWhile(s => s.Activation < act1.AddSeconds(1)).Select(s => new AOEInstance(new AOEShapeCircle(6), s.Caster.Position, Activation: act1));
+        var index = 0;
+        while (index < count)
+        {
+            ref var aoe = ref aoes[index];
+            if (aoe.Activation >= deadline)
+            {
+                break;
+            }
+            ++index;
+        }
+
+        return aoes[..index];
     }
 
     public override void OnActorCreated(Actor actor)
     {
-        if ((OID)actor.OID == OID.SandSphere)
-            _spheres.Add((actor, WorldState.FutureTime(7.6f)));
+        if (actor.OID == (uint)OID.SandSphere)
+        {
+            _aoes.Add(new(circle, actor.Position.Quantized(), default, WorldState.FutureTime(7.9d)));
+        }
     }
 
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.SphereShatter1 or AID.SphereShatter2)
-            _spheres.RemoveAll(s => s.Caster == caster);
+        if (_aoes.Count != 0 && spell.Action.ID is (uint)AID.SphereShatter1 or (uint)AID.SphereShatter2)
+        {
+            _aoes.RemoveAt(0);
+        }
     }
 }
 
-class D101GargantStates : StateMachineBuilder
+sealed class D101GargantStates : StateMachineBuilder
 {
     public D101GargantStates(BossModule module) : base(module)
     {
@@ -65,13 +85,14 @@ class D101GargantStates : StateMachineBuilder
             .ActivateOnEnter<AlmightyRacket>()
             .ActivateOnEnter<FoundationalDebris>()
             .ActivateOnEnter<SedimentaryDebris>()
-            .ActivateOnEnter<Earthsong>()
-            .ActivateOnEnter<ChillingChirp>()
+            .ActivateOnEnter<EarthsongChillingChirp>()
             .ActivateOnEnter<TrapJaws>()
             .ActivateOnEnter<SphereShatter>();
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1027, NameID = 13753)]
-public class D101Gargant(WorldState ws, Actor primary) : BossModule(ws, primary, new(-248, 122), new ArenaBoundsCircle(14.5f));
-
+[ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1027, NameID = 13753)]
+public sealed class D101Gargant(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
+{
+    private static readonly ArenaBoundsCustom arena = new([new Polygon(new(-248f, 122f), 14.5f, 72)]);
+}

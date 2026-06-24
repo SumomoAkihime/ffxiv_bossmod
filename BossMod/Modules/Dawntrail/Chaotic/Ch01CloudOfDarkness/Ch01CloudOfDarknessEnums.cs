@@ -3,7 +3,6 @@
 public enum OID : uint
 {
     Boss = 0x461E, // R23.000, x1
-    Helper = 0x233C, // R0.500, x24, Helper type
     StygianShadow = 0x461F, // R4.000, x0 (spawn during fight), big add
     Atomos = 0x4620, // R2.800, x0 (spawn during fight), small add
     DeathsHand = 0x4621, // R2.000, x6, grim embrace hand
@@ -14,6 +13,7 @@ public enum OID : uint
     SinisterEye = 0x4626, // R2.800, x2, break gaze source
     AtomosSpawnPoint = 0x1EBD7B, // R0.500, x0 (spawn during fight), EventObj type
     EvilSeed = 0x1E9B3B, // R0.500, x0 (spawn during fight), EventObj type
+    Helper = 0x233C
 }
 
 public enum AID : uint
@@ -132,7 +132,7 @@ public enum AID : uint
     Evaporation = 40454, // StygianShadow->Boss, 2.0s cast, single-target, destroy add and transfer damage done to boss
     FloodOfDarkness2 = 40455, // Boss->location, 7.0s cast, range 60 circle, raidwide + arena transition to normal
 
-    Enrage = 40533, // Boss->location, 12.0s cast, range 100 circle, enrage
+    Enrage = 40533 // Boss->location, 12.0s cast, range 100 circle, enrage
 }
 
 public enum SID : uint

@@ -5,141 +5,68 @@ public enum OID : uint
     Boss = 0x26F9, // R=2.3
     Shabti = 0x26FA, //R=1.1
     Serpent = 0x26FB, //R=1.2
-    Helper = 0x233C, //R=0.5
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    HighVoltage = 14890, // 26F9->self, 7.0s cast, range 50+R circle, paralysis + summon add
-    Summon = 14897, // 26F9->self, no cast, range 50 circle
-    Ballast0 = 14893, // 26F9->self, 1.0s cast, single-target
-    Ballast1 = 14955, // 26F9->self, no cast, single-target
-    Ballast2 = 14894, // 233C->self, 3.0s cast, range 5+R 270-degree cone, knockback dist 15
-    Ballast3 = 14895, // 233C->self, 3.0s cast, range 10+R 270-degree cone, knockback dist 15
-    Ballast4 = 14896, // 233C->self, 3.0s cast, range 15+R 270-degree cone, knockback dist 15
-    PiercingLaser = 14891, // 26F9->self, 3.0s cast, range 30+R width 8 rect
-    AutoAttack = 6497, // 26FA/26FB->player, no cast, single-target
-    RepellingCannons = 14892, // 26F9->self, 3.0s cast, range 10+R circle
-    Spellsword = 14968, // 26FA->self, 3.5s cast, range 6+R 120-degree cone
-    Superstorm = 14971, // 26F9->self, 3.5s cast, single-target
-    Superstorm2 = 14970, // 233C->self, 3.5s cast, range 8-20 donut
-    Disseminate = 14899, // 26FB->self, 2.0s cast, range 6+R circle, casts on death of serpents
+    AutoAttack = 6497, // Shabti/Serpent->player, no cast, single-target
+
+    HighVoltage = 14890, // Boss->self, 7.0s cast, range 50+R circle, paralysis + summon add
+    Summon = 14897, // Boss->self, no cast, range 50 circle
+
+    BallastVisual1 = 14893, // Boss->self, 1.0s cast, single-target
+    BallastVisual2 = 14955, // Boss->self, no cast, single-target
+    Ballast1 = 14894, // Helper->self, 3.0s cast, range 5+R 270-degree cone, knockback dist 15
+    Ballast2 = 14895, // Helper->self, 3.0s cast, range 10+R 270-degree cone, knockback dist 15
+    Ballast3 = 14896, // Helper->self, 3.0s cast, range 15+R 270-degree cone, knockback dist 15
+
+    PiercingLaser = 14891, // Boss->self, 3.0s cast, range 30+R width 8 rect
+    RepellingCannons = 14892, // Boss->self, 3.0s cast, range 10+R circle
+    Spellsword = 14968, // Shabti->self, 3.5s cast, range 6+R 120-degree cone
+    Superstorm = 14971, // Boss->self, 3.5s cast, single-target
+    Superstorm2 = 14970, // Helper->self, 3.5s cast, range 8-20 donut
+    Disseminate = 14899 // Serpent->self, 2.0s cast, range 6+R circle, casts on death of serpents
 }
 
-class HighVoltage(BossModule module) : Components.CastHint(module, AID.HighVoltage, "Interrupt!");
+sealed class HighVoltage(BossModule module) : Components.CastInterruptHint(module, (uint)AID.HighVoltage);
 
-class Ballast(BossModule module) : Components.GenericAOEs(module)
+sealed class Ballast(BossModule module) : Components.ConcentricAOEs(module, _shapes, true)
 {
-    private bool casting2;
-    private bool casting3;
-    private bool casting4;
-    private Angle _rotation;
-    private DateTime _activation1;
-    private DateTime _activation2;
-    private DateTime _activation3;
-
-    private static readonly AOEShapeCone cone1 = new(5.5f, 135.Degrees());
-    private static readonly AOEShapeDonutSector cone2 = new(5.5f, 10.5f, 135.Degrees());
-    private static readonly AOEShapeDonutSector cone3 = new(10.5f, 15.5f, 135.Degrees());
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        if (casting2)
-        {
-            yield return new(cone1, Module.PrimaryActor.Position, _rotation, _activation1, ArenaColor.Danger);
-            yield return new(cone2, Module.PrimaryActor.Position, _rotation, _activation2);
-            yield return new(cone3, Module.PrimaryActor.Position, _rotation, _activation3);
-        }
-        if (casting3 && !casting2)
-        {
-            yield return new(cone2, Module.PrimaryActor.Position, _rotation, _activation2, ArenaColor.Danger);
-            yield return new(cone3, Module.PrimaryActor.Position, _rotation, _activation3);
-        }
-        if (casting4 && !casting3)
-            yield return new(cone3, Module.PrimaryActor.Position, _rotation, _activation3, ArenaColor.Danger);
-    }
+    private static readonly Angle a135 = 135f.Degrees();
+    private static readonly AOEShape[] _shapes = [new AOEShapeCone(5.5f, a135), new AOEShapeDonutSector(5.5f, 10.5f, a135), new AOEShapeDonutSector(10.5f, 15.5f, a135)];
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.Ballast0)
+        if (spell.Action.ID == (uint)AID.BallastVisual1)
         {
-            casting2 = true;
-            casting3 = true;
-            casting4 = true;
-            _rotation = Module.PrimaryActor.Rotation;
-            _activation1 = WorldState.FutureTime(4.6f);
-            _activation2 = WorldState.FutureTime(5.2f);
-            _activation3 = WorldState.FutureTime(5.8f);
+            AddSequence(spell.LocXZ, Module.CastFinishAt(spell, 3.6d), spell.Rotation);
         }
     }
 
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.Ballast2)
-            casting2 = false;
-        if ((AID)spell.Action.ID == AID.Ballast3)
-            casting3 = false;
-        if ((AID)spell.Action.ID == AID.Ballast4)
-            casting4 = false;
-    }
-}
-
-class PiercingLaser(BossModule module) : Components.StandardAOEs(module, AID.PiercingLaser, new AOEShapeRect(32.3f, 4));
-class RepellingCannons(BossModule module) : Components.StandardAOEs(module, AID.RepellingCannons, new AOEShapeCircle(12.3f));
-class Superstorm(BossModule module) : Components.StandardAOEs(module, AID.Superstorm2, new AOEShapeDonut(8, 20));
-class Spellsword(BossModule module) : Components.StandardAOEs(module, AID.Spellsword, new AOEShapeCone(7.1f, 60.Degrees()));
-class Disseminate(BossModule module) : Components.StandardAOEs(module, AID.Disseminate, new AOEShapeCircle(7.2f));
-
-class BallastKB(BossModule module) : Components.Knockback(module) //actual knockbacks are 0.274s after snapshot
-{
-    private bool casting2;
-    private bool casting3;
-    private bool casting4;
-    private DateTime _activation1;
-    private DateTime _activation2;
-    private DateTime _activation3;
-    private Angle _rotation;
-
-    private static readonly AOEShapeCone cone1 = new(5.5f, 135.Degrees());
-    private static readonly AOEShapeDonutSector cone2 = new(5.5f, 10.5f, 135.Degrees());
-    private static readonly AOEShapeDonutSector cone3 = new(10.5f, 15.5f, 135.Degrees());
-
-    public override IEnumerable<Source> Sources(int slot, Actor actor)
-    {
-        if (casting2)
-            yield return new(Module.PrimaryActor.Position, 20, _activation1, cone1, _rotation);
-        if (casting3)
-            yield return new(Module.PrimaryActor.Position, 20, _activation2, cone2, _rotation);
-        if (casting4)
-            yield return new(Module.PrimaryActor.Position, 20, _activation3, cone3, _rotation);
-    }
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID == AID.Ballast0)
+        if (Sequences.Count != 0)
         {
-            casting2 = true;
-            casting3 = true;
-            casting4 = true;
-            _rotation = Module.PrimaryActor.Rotation;
-            _activation1 = WorldState.FutureTime(4.6f);
-            _activation2 = WorldState.FutureTime(5.2f);
-            _activation3 = WorldState.FutureTime(5.8f);
+            var order = spell.Action.ID switch
+            {
+                (uint)AID.Ballast1 => 0,
+                (uint)AID.Ballast2 => 1,
+                (uint)AID.Ballast3 => 2,
+                _ => -1
+            };
+            AdvanceSequence(order, spell.LocXZ, WorldState.FutureTime(0.6d), spell.Rotation);
         }
     }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if ((AID)spell.Action.ID == AID.Ballast2)
-            casting2 = false;
-        if ((AID)spell.Action.ID == AID.Ballast3)
-            casting3 = false;
-        if ((AID)spell.Action.ID == AID.Ballast4)
-            casting4 = false;
-    }
 }
 
-class Hints(BossModule module) : BossComponent(module)
+sealed class PiercingLaser(BossModule module) : Components.SimpleAOEs(module, (uint)AID.PiercingLaser, new AOEShapeRect(32.3f, 4f));
+sealed class RepellingCannons(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RepellingCannons, 12.3f);
+sealed class Superstorm(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Superstorm2, new AOEShapeDonut(8f, 20f));
+sealed class Spellsword(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Spellsword, new AOEShapeCone(7.1f, 60f.Degrees()));
+sealed class Disseminate(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Disseminate, 7.2f);
+
+sealed class Hints(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
     {
@@ -147,14 +74,13 @@ class Hints(BossModule module) : BossComponent(module)
     }
 }
 
-class Stage15States : StateMachineBuilder
+sealed class Stage15States : StateMachineBuilder
 {
     public Stage15States(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<HighVoltage>()
             .ActivateOnEnter<Ballast>()
-            .ActivateOnEnter<BallastKB>()
             .ActivateOnEnter<PiercingLaser>()
             .ActivateOnEnter<RepellingCannons>()
             .ActivateOnEnter<Superstorm>()
@@ -164,32 +90,31 @@ class Stage15States : StateMachineBuilder
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 625, NameID = 8109)]
-public class Stage15 : BossModule
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 625, NameID = 8109)]
+public sealed class Stage15 : BossModule
 {
-    public Stage15(WorldState ws, Actor primary) : base(ws, primary, new(100, 100), new ArenaBoundsCircle(16))
+    public Stage15(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
     {
         ActivateComponent<Hints>();
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.Shabti))
-            Arena.Actor(s, ArenaColor.Object);
-        foreach (var s in Enemies(OID.Serpent))
-            Arena.Actor(s, ArenaColor.Object);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.Shabti), Colors.Object);
+        Arena.Actors(Enemies((uint)OID.Serpent), Colors.Object);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.Shabti => 2, //TODO: ideally AI would use Acorn Bomb to put it to sleep until buff runs out instead of attacking them directly
-                OID.Serpent => 1,
-                OID.Boss => 0,
+                (uint)OID.Shabti => 2, // TODO: ideally AI would use Acorn Bomb to put it to sleep until buff runs out instead of attacking them directly
+                (uint)OID.Serpent => 1,
                 _ => 0
             };
         }

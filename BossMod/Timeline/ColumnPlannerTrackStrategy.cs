@@ -4,17 +4,19 @@ using Dalamud.Interface.Utility.Raii;
 
 namespace BossMod;
 
-public class ColumnPlannerTrackStrategy(Timeline timeline, StateMachineTree tree, List<int> phaseBranches, StrategyConfigTrack config, int level, BossModuleRegistry.Info? moduleInfo, StrategyValueTrack defaultOverride)
-    : ColumnPlannerTrack(timeline, tree, phaseBranches, config.InternalName)
+public sealed class ColumnPlannerTrackStrategy(Timeline timeline, StateMachineTree tree, List<int> phaseBranches, StrategyConfigTrack config, int level, BossModuleRegistry.Info? moduleInfo, StrategyValueTrack defaultOverride)
+    : ColumnPlannerTrack(timeline, tree, phaseBranches, config.UIName)
 {
-    public StrategyValueTrack DefaultOverride { get; private set; } = defaultOverride;
+    public StrategyValueTrack DefaultOverride = defaultOverride;
 
     protected override StrategyValueTrack GetDefaultValue()
     {
         var res = new StrategyValueTrack();
-        for (int i = 1; i < config.Options.Count; ++i)
+        var count = config.Options.Count;
+        for (var i = 1; i < count; ++i)
         {
-            if (level >= config.Options[i].MinLevel && level <= config.Options[i].MaxLevel)
+            var o = config.Options[i];
+            if (level >= o.MinLevel && level <= o.MaxLevel)
             {
                 res.Option = i;
                 break;
@@ -29,10 +31,20 @@ public class ColumnPlannerTrackStrategy(Timeline timeline, StateMachineTree tree
 
         var mousePos = ImGui.GetMousePos();
         if (!ScreenPosInTrack(mousePos))
+        {
             return;
+        }
 
-        if (Entries.Any(e => e.EntryType == Entry.Type.Range && ScreenPosInEntry(mousePos, e)))
+        var hasRangeAtMouse = false;
+        for (var ei = 0; ei < Entries.Count; ++ei)
+        {
+            var e = Entries[ei];
+            if (e.EntryType == Entry.Type.Range && ScreenPosInEntry(mousePos, e)) { hasRangeAtMouse = true; break; }
+        }
+        if (hasRangeAtMouse)
+        {
             return;
+        }
 
         if (DefaultOverride != default)
         {
@@ -49,7 +61,6 @@ public class ColumnPlannerTrackStrategy(Timeline timeline, StateMachineTree tree
         using var _ = ImRaii.PushId($"{config.OptionEnum}_{config.InternalName}");
         var paddingY = ImGui.GetStyle().ItemSpacing.Y;
         var cursor = ImGui.GetCursorPos();
-        var isHovered = false;
         using (ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, new Vector2(0, paddingY)))
         {
             var textSize = ImGui.CalcTextSize(Name);
@@ -58,14 +69,10 @@ public class ColumnPlannerTrackStrategy(Timeline timeline, StateMachineTree tree
             {
                 ImGui.SetCursorPos(originAdj);
                 ImGui.Selectable("", DefaultOverride.Option > 0, ImGuiSelectableFlags.None, textSize with { X = Width });
-                isHovered = ImGui.IsItemHovered();
                 ImGui.SetCursorPos(originAdj + new Vector2((Width - textSize.X) * 0.5f, 0));
                 ImGui.Text(Name);
             }
         }
-
-        if (isHovered && config.InternalName != config.DisplayName && config.DisplayName.Length > 0)
-            ImGui.SetTooltip(config.DisplayName);
 
         using (var popup = ImRaii.Popup("settings"))
         {
@@ -80,12 +87,16 @@ public class ColumnPlannerTrackStrategy(Timeline timeline, StateMachineTree tree
                 }
                 ImGui.Separator();
                 if (ImGui.Selectable("Hide column"))
+                {
                     Width = 0;
+                }
             }
         }
 
         if (ImGui.IsItemClicked())
+        {
             ImGui.OpenPopup("settings");
+        }
 
         ImGui.SetCursorPos(cursor);
     }

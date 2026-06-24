@@ -16,7 +16,7 @@ class BlackHole(BossModule module) : BossComponent(module)
     {
         if (Baiter == actor)
         {
-            if (Raid.WithoutSlot().InRadiusExcluding(actor, _startingRadius).Any())
+            if (Raid.WithoutSlot(false, true, true).InRadiusExcluding(actor, _startingRadius).Any())
                 hints.Add("GTFO from raid!");
         }
         else if (Baiter != null)
@@ -34,13 +34,13 @@ class BlackHole(BossModule module) : BossComponent(module)
     public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
         if (Voidzone != null)
-            Arena.ZoneCircle(Voidzone.Position, _growthStart == default ? _startingRadius : Math.Min(_maxRadius, _startingRadius + _growthPerSecond * (float)(WorldState.CurrentTime - _growthStart).TotalSeconds), ArenaColor.AOE);
+            Arena.ZoneCircle(Voidzone.Position, _growthStart == default ? _startingRadius : Math.Min(_maxRadius, _startingRadius + _growthPerSecond * (float)(WorldState.CurrentTime - _growthStart).TotalSeconds), Colors.AOE);
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         if (Baiter != null)
-            Arena.AddCircle(Baiter.Position, _startingRadius, ArenaColor.Danger);
+            Arena.AddCircle(Baiter.Position, _startingRadius, Colors.Danger);
     }
 
     public override void OnActorCreated(Actor actor)
@@ -83,34 +83,43 @@ class FracturedEventide(BossModule module) : Components.GenericAOEs(module)
     private Angle _increment;
     private DateTime _startingActivation;
 
-    private static readonly AOEShapeRect _shape = new(60, 4);
+    private static readonly AOEShapeRect _shape = new(60f, 4f);
     private const int _maxCasts = 21;
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         if (_source == null)
-            yield break;
+            return [];
 
-        for (int i = NumCasts + 1; i < _maxCasts; ++i)
-            yield return new(_shape, _source.Position, _startingRotation + i * _increment, _startingActivation.AddSeconds(0.5f * i));
+        var count = _maxCasts - (NumCasts + 1) + (NumCasts < _maxCasts ? 1 : 0);
+        if (count <= 0)
+            return [];
+
+        var aoes = new AOEInstance[count];
+        var index = 0;
+
+        for (var i = NumCasts + 1; i < _maxCasts; ++i)
+            aoes[index++] = new(_shape, _source.Position, _startingRotation + i * _increment, _startingActivation.AddSeconds(0.5d * i));
+
         if (NumCasts < _maxCasts)
-            yield return new(_shape, _source.Position, _startingRotation + NumCasts * _increment, _startingActivation.AddSeconds(0.5f * NumCasts), ArenaColor.Danger);
+            aoes[index++] = new(_shape, _source.Position, _startingRotation + NumCasts * _increment, _startingActivation.AddSeconds(0.5d * NumCasts), Colors.Danger);
+        return aoes;
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.FracturedEventideAOEFirst)
+        if (spell.Action.ID == (uint)AID.FracturedEventideAOEFirst)
         {
             _source = caster;
             _startingRotation = spell.Rotation;
-            _increment = _startingRotation.Rad > 0 ? -7.Degrees() : 7.Degrees();
+            _increment = _startingRotation.Rad > 0f ? -7f.Degrees() : 7f.Degrees();
             _startingActivation = Module.CastFinishAt(spell);
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.FracturedEventideAOEFirst or AID.FracturedEventideAOERest)
+        if (spell.Action.ID is (uint)AID.FracturedEventideAOEFirst or (uint)AID.FracturedEventideAOERest)
             ++NumCasts;
     }
 }

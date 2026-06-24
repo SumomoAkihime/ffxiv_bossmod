@@ -1,12 +1,12 @@
 ﻿namespace BossMod.Endwalker.Alliance.A33Oschon;
 
-class P1FlintedFoehn(BossModule module) : Components.UniformStackSpread(module, 6, 0, 8)
+class P1FlintedFoehn(BossModule module) : Components.UniformStackSpread(module, 6f, default, 8)
 {
-    public int NumCasts { get; private set; }
+    public int NumCasts;
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.FlintedFoehnP1AOE)
+        if (spell.Action.ID == (uint)AID.FlintedFoehnP1AOE)
             ++NumCasts;
     }
 
@@ -17,19 +17,19 @@ class P1FlintedFoehn(BossModule module) : Components.UniformStackSpread(module, 
     }
 }
 
-class P2FlintedFoehn(BossModule module) : Components.UniformStackSpread(module, 8, 0, 8)
+class P2FlintedFoehn(BossModule module) : Components.UniformStackSpread(module, 8f, default, 8)
 {
-    public int NumCasts { get; private set; }
+    public int NumCasts;
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.FlintedFoehnP2AOE)
+        if (spell.Action.ID == (uint)AID.FlintedFoehnP2AOE)
             ++NumCasts;
     }
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
         if (iconID == (uint)IconID.FlintedFoehn)
-            AddStack(actor, WorldState.FutureTime(5.1f));
+            AddStack(actor, WorldState.FutureTime(5.1d));
     }
 }

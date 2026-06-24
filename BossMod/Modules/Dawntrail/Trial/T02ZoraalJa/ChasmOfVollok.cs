@@ -1,33 +1,32 @@
 namespace BossMod.Dawntrail.Trial.T02ZoraalJaP2;
 
-class ChasmOfVollok(BossModule module) : Components.GenericAOEs(module)
+sealed class ChasmOfVollok(BossModule module) : Components.GenericAOEs(module)
 {
-    public readonly List<AOEInstance> AOEs = [];
-    private const float PlatformOffset = 21.2132f;
-    private static readonly AOEShapeRect Rect = new(5, 2.5f);
+    public readonly List<AOEInstance> AOEs = new(16);
+    private const float platformOffset = 21.2132f;
+    private static readonly AOEShapeRect rect = new(5f, 2.5f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => AOEs;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(AOEs);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID != AID.ChasmOfVollok1)
-            return;
-
-        if (Arena.InBounds(caster.Position))
+        if (spell.Action.ID == (uint)AID.ChasmOfVollok1)
         {
-            AOEs.Add(new(Rect, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
-        }
-        else
-        {
-            var pos = spell.LocXZ;
-            var offset = new WDir(pos.X > Arena.Center.X ? -PlatformOffset : PlatformOffset, pos.Z > Arena.Center.Z ? -PlatformOffset : PlatformOffset);
-            AOEs.Add(new(Rect, pos + offset, spell.Rotation, Module.CastFinishAt(spell)));
+            if (Arena.InBounds(caster.Position))
+                AOEs.Add(new(rect, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
+            else
+            {
+                var pos = spell.LocXZ;
+                // the visual cast happens on one of the side platforms at intercardinals, offset by 30
+                var offset = new WDir(pos.X > Arena.Center.X ? -platformOffset : +platformOffset, pos.Z > Arena.Center.Z ? -platformOffset : +platformOffset);
+                AOEs.Add(new(rect, (pos + offset).Quantized(), spell.Rotation, Module.CastFinishAt(spell)));
+            }
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.ChasmOfVollok1 or AID.ChasmOfVollok2)
+        if (spell.Action.ID is (uint)AID.ChasmOfVollok1 or (uint)AID.ChasmOfVollok2)
             AOEs.Clear();
     }
 }

@@ -2,7 +2,7 @@
 
 class LunarKiss(BossModule module) : Components.GenericBaitAway(module)
 {
-    private static readonly AOEShapeRect _shape = new(60, 3);
+    private static readonly AOEShapeRect _shape = new(60f, 3f);
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
@@ -12,7 +12,7 @@ class LunarKiss(BossModule module) : Components.GenericBaitAway(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.LunarKissAOE)
+        if (spell.Action.ID == (uint)AID.LunarKissAOE)
         {
             ++NumCasts;
             CurrentBaits.Clear();

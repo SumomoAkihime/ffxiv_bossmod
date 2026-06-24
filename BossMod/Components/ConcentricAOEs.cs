@@ -1,7 +1,8 @@
 ﻿namespace BossMod.Components;
 
 // generic 'concentric aoes' component - a sequence of aoes (typically cone then donuts) with same origin and increasing size
-public class ConcentricAOEs(BossModule module, AOEShape[] shapes) : GenericAOEs(module)
+[SkipLocalsInit]
+public class ConcentricAOEs(BossModule module, AOEShape[] shapes, bool showall = false, double riskyWithSecondsLeft = default) : GenericAOEs(module)
 {
     public struct Sequence
     {
@@ -11,10 +12,66 @@ public class ConcentricAOEs(BossModule module, AOEShape[] shapes) : GenericAOEs(
         public int NumCastsDone;
     }
 
-    public AOEShape[] Shapes = shapes;
-    public List<Sequence> Sequences = [];
+    public readonly double RiskyWithSecondsLeft = riskyWithSecondsLeft; // can be used to delay risky status of AOEs, so AI waits longer to dodge, if 0 it will just use the bool Risky
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Sequences.Where(s => s.NumCastsDone < Shapes.Length).Select(s => new AOEInstance(Shapes[s.NumCastsDone], s.Origin, s.Rotation, s.NextActivation));
+    public readonly AOEShape[] Shapes = shapes;
+    public readonly List<Sequence> Sequences = [];
+    protected readonly List<AOEInstance> _aoes = [];
+    protected int lastVersion, lastCount;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void Update()
+    {
+        var count = Sequences.Count;
+        if (lastCount != count || lastVersion != NumCasts)
+        {
+            lastCount = count;
+            lastVersion = NumCasts;
+            _aoes.Clear();
+            if (count == 0)
+            {
+                return;
+            }
+
+            var sequences = CollectionsMarshal.AsSpan(Sequences);
+
+            for (var i = 0; i < count; ++i)
+            {
+                ref var s = ref sequences[i];
+                var risky = true;
+                var act = s.NextActivation;
+                if (!showall)
+                {
+                    var shape = Shapes[s.NumCastsDone];
+                    var origin = s.Origin;
+                    var rotation = s.Rotation;
+                    _aoes.Add(new(shape, origin, rotation, act, risky: risky, shapeDistance: shape.Distance(origin, rotation)));
+                }
+                else
+                {
+                    var len = Shapes.Length;
+                    for (var j = s.NumCastsDone; j < len; ++j)
+                    {
+                        var shape = Shapes[j];
+                        var origin = s.Origin;
+                        var rotation = s.Rotation;
+                        _aoes.Add(new(Shapes[j], s.Origin, s.Rotation, act, risky: risky, shapeDistance: shape.Distance(origin, rotation)));
+                    }
+                }
+            }
+        }
+        if (count != 0 && RiskyWithSecondsLeft != default)
+        {
+            var aoes = CollectionsMarshal.AsSpan(_aoes);
+            var time = WorldState.CurrentTime;
+            for (var i = 0; i < count; ++i)
+            {
+                ref var s = ref aoes[i];
+                s.Risky = s.Activation.AddSeconds(-RiskyWithSecondsLeft) <= time;
+            }
+        }
+    }
 
     public void AddSequence(WPos origin, DateTime activation = default, Angle rotation = default) => Sequences.Add(new() { Origin = origin, Rotation = rotation, NextActivation = activation });
 
@@ -22,17 +79,29 @@ public class ConcentricAOEs(BossModule module, AOEShape[] shapes) : GenericAOEs(
     public bool AdvanceSequence(int order, WPos origin, DateTime activation = default, Angle rotation = default)
     {
         if (order < 0)
+        {
             return true; // allow passing negative as a no-op
+        }
 
         ++NumCasts;
 
-        var index = Sequences.FindIndex(s => s.NumCastsDone == order && s.Origin.AlmostEqual(origin, 1) && s.Rotation.AlmostEqual(rotation, 0.05f));
-        if (index < 0)
-            return false;
+        var sequences = CollectionsMarshal.AsSpan(Sequences);
+        var len = sequences.Length;
 
-        ref var s = ref Sequences.AsSpan()[index];
-        ++s.NumCastsDone;
-        s.NextActivation = activation;
-        return true;
+        for (var i = 0; i < len; ++i)
+        {
+            ref var s = ref sequences[i];
+            if (s.NumCastsDone == order && s.Origin.AlmostEqual(origin, 1f) && s.Rotation.AlmostEqual(rotation, 0.05f))
+            {
+                ++s.NumCastsDone;
+                s.NextActivation = activation;
+                if (s.NumCastsDone == Shapes.Length)
+                {
+                    Sequences.RemoveAt(i);
+                }
+                return true;
+            }
+        }
+        return false;
     }
 }

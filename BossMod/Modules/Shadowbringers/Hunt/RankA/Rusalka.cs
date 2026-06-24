@@ -2,7 +2,7 @@ namespace BossMod.Shadowbringers.Hunt.RankA.Rusalka;
 
 public enum OID : uint
 {
-    Boss = 0x2853, // R=3.6
+    Boss = 0x2853 // R=3.6
 }
 
 public enum AID : uint
@@ -11,33 +11,48 @@ public enum AID : uint
     Hydrocannon = 17363, // Boss->location, 3.5s cast, range 8 circle
     AetherialSpark = 17368, // Boss->self, 2.5s cast, range 12 width 4 rect
     AetherialPull = 17366, // Boss->self, 4.0s cast, range 30 circle, pull 30 between centers
-    Flood = 17369, // Boss->self, no cast, range 8 circle
+    Flood = 17369 // Boss->self, no cast, range 8 circle
 }
 
-class Hydrocannon(BossModule module) : Components.StandardAOEs(module, AID.Hydrocannon, 8);
-class AetherialSpark(BossModule module) : Components.StandardAOEs(module, AID.AetherialSpark, new AOEShapeRect(12, 2));
+class Hydrocannon(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Hydrocannon, 8f);
+class AetherialSpark(BossModule module) : Components.SimpleAOEs(module, (uint)AID.AetherialSpark, new AOEShapeRect(12f, 2f));
 
-class AetherialPull(BossModule module) : Components.KnockbackFromCastTarget(module, AID.AetherialPull, 30, shape: new AOEShapeCircle(30), kind: Kind.TowardsOrigin)
+class AetherialPull(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.AetherialPull, 30f, shape: new AOEShapeCircle(30f), kind: Kind.TowardsOrigin)
 {
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => Module.FindComponent<Flood>()?.ActiveAOEs(slot, actor).Any(z => z.Shape.Check(pos, z.Origin, z.Rotation)) ?? false;
+    private readonly Flood _aoe = module.FindComponent<Flood>()!;
+
+    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos)
+    {
+        if (_aoe.AOE.Length != 0)
+        {
+            ref var aoe = ref _aoe.AOE[0];
+            return aoe.Check(pos);
+        }
+        return false;
+    }
 }
 
 class Flood(BossModule module) : Components.GenericAOEs(module)
 {
-    private AOEInstance? _aoe;
+    public AOEInstance[] AOE = [];
+    private static readonly AOEShapeCircle circle = new(8f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.ZeroOrOne(_aoe);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => AOE;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.AetherialPull)
-            _aoe = new(new AOEShapeCircle(8), Module.PrimaryActor.Position, default, Module.CastFinishAt(spell, 3.6f));
+        if (spell.Action.ID == (uint)AID.AetherialPull)
+        {
+            AOE = [new(circle, spell.LocXZ, default, Module.CastFinishAt(spell, 3.6d))];
+        }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.Flood)
-            _aoe = null;
+        if (spell.Action.ID == (uint)AID.Flood)
+        {
+            AOE = [];
+        }
     }
 }
 
@@ -48,10 +63,10 @@ class RusalkaStates : StateMachineBuilder
         TrivialPhase()
             .ActivateOnEnter<Hydrocannon>()
             .ActivateOnEnter<AetherialSpark>()
-            .ActivateOnEnter<AetherialPull>()
-            .ActivateOnEnter<Flood>();
+            .ActivateOnEnter<Flood>()
+            .ActivateOnEnter<AetherialPull>();
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.A, NameID = 8896)]
-public class Rusalka(WorldState ws, Actor primary) : SimpleBossModule(ws, primary) { }
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.A, NameID = 8896)]
+public class Rusalka(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);

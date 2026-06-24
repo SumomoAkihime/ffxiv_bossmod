@@ -1,42 +1,43 @@
-﻿namespace BossMod.Dawntrail.Alliance.A12Fafnir;
+namespace BossMod.Dawntrail.Alliance.A12Fafnir;
 
-class SpikeFlail(BossModule module) : Components.StandardAOEs(module, AID.SpikeFlail, new AOEShapeCone(80, 135.Degrees()));
-class Touchdown(BossModule module) : Components.StandardAOEs(module, AID.Touchdown, new AOEShapeCircle(24));
-
-class DragonBreath(BossModule module) : Components.GenericAOEs(module, AID.DragonBreath)
+sealed class SpikeFlail(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpikeFlail, new AOEShapeCone(80f, 135f.Degrees()))
 {
-    private readonly List<AOEInstance> _aoes = [];
-    private DateTime _removeNextAOE = DateTime.MaxValue;
+    public override bool KeepOnPhaseChange => true;
+}
 
-    private static readonly AOEShapeDonutSector _shape = new(16, 30, 30.Degrees());
+sealed class Touchdown(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Touchdown, 24f)
+{
+    public override bool KeepOnPhaseChange => true;
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
-
-    public override void Update()
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if (WorldState.CurrentTime >= _removeNextAOE && _aoes.Count > 0)
-        {
-            _aoes.RemoveAt(0);
-            _removeNextAOE = WorldState.FutureTime(2); // TODO: find out the real disappearance speed...
-        }
+        return Casters.Count != 0 && (Module.FindComponent<DragonBreath>()?.AOE.Length == 0 || Arena.Bounds != A12Fafnir.FireArena) ? CollectionsMarshal.AsSpan(Casters) : [];
     }
+}
+
+sealed class DragonBreath(BossModule module) : Components.GenericAOEs(module, (uint)AID.DragonBreath)
+{
+    public override bool KeepOnPhaseChange => true;
+    public AOEInstance[] AOE = [];
+
+    private static readonly AOEShapeDonut donut = new(16f, 30f);
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => AOE;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.OffensivePostureDragonBreath)
+        if (spell.Action.ID == (uint)AID.OffensivePostureDragonBreath)
         {
             NumCasts = 0;
-            _removeNextAOE = DateTime.MaxValue;
-            for (int i = 0; i < 6; ++i)
-                _aoes.Add(new(_shape, caster.Position, spell.Rotation - i * 60.Degrees(), Module.CastFinishAt(spell, 1.2f)));
+            AOE = [new(donut, Arena.Center, default, Module.CastFinishAt(spell, 1.2d))];
         }
     }
 
     public override void OnActorEAnim(Actor actor, uint state)
     {
-        if ((OID)actor.OID == OID.DragonBreath && state == 0x00040008)
+        if (state == 0x00040008u && actor.OID == (uint)OID.FireVoidzone)
         {
-            _removeNextAOE = WorldState.CurrentTime;
+            AOE = [];
         }
     }
 }

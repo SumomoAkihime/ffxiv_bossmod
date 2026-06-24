@@ -6,11 +6,10 @@ using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Group;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.Interop;
-using System.Text;
 
 namespace BossMod;
 
-public class DebugObjects
+public sealed class DebugObjects
 {
     private readonly UITree _tree = new();
     private bool _showCrap;
@@ -22,13 +21,18 @@ public class DebugObjects
 
         Span<nint> handlers = stackalloc nint[32];
         IGameObject? selected = null;
-        for (int i = 0; i < Service.ObjectTable.Length; ++i)
+        for (var i = 0; i < Service.ObjectTable.Length; ++i)
         {
             var obj = Service.ObjectTable[i];
             if (obj == null)
+            {
                 continue;
+            }
+
             if (!_showCrap && obj.ObjectKind is Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Pc or Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Companion or Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Mount)
+            {
                 continue;
+            }
 
             var internalObj = Utils.GameObjectInternal(obj);
             var localID = internalObj->LayoutId;
@@ -41,21 +45,28 @@ public class DebugObjects
                 var internalChara = Utils.CharacterInternal(character);
 
                 _tree.LeafNode($"Unique ID: {uniqueID:X}");
-                _tree.LeafNode($"Gimmick ID: {Utils.ReadField<uint>(internalObj, 0x7C):X}");
+                _tree.LeafNode($"Layout ID: {Utils.GameObjectInternal(obj)->LayoutId:X}");
+                _tree.LeafNode($"Gimmick ID: {Utils.ReadField<uint>(internalObj, 0x80):X}");
                 _tree.LeafNode($"Radius: {obj.HitboxRadius:f3}");
                 _tree.LeafNode($"Owner: {Utils.ObjectString(obj.OwnerId)}");
                 _tree.LeafNode($"BNpcBase/Name: {obj.BaseId:X}/{Utils.GameObjectInternal(obj)->GetNameId()}");
                 _tree.LeafNode($"Targetable: {obj.IsTargetable}");
                 _tree.LeafNode($"Is character: {internalObj->IsCharacter()}");
                 _tree.LeafNode($"Event state: {Utils.GameObjectInternal(obj)->EventState}");
+                _tree.LeafNode($"Renderflags: {Utils.GameObjectInternal(obj)->RenderFlags}");
                 foreach (var n1 in _tree.Node("Event IDs"))
                 {
                     _tree.LeafNode($"Primary: {internalObj->EventId.Id:X}");
                     if (internalObj->EventHandler != null)
+                    {
                         _tree.LeafNode($"EH: {internalObj->EventHandler->Info.EventId.Id:X}");
+                    }
+
                     var numHandlers = internalObj->GetEventHandlersImpl((FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandler**)handlers.GetPointer(0));
-                    for (int iH = 0; iH < numHandlers; iH++)
+                    for (var iH = 0; iH < numHandlers; iH++)
+                    {
                         _tree.LeafNode($"[{iH}]: {((FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandler*)handlers[iH])->Info.EventId.Id:X}");
+                    }
                 }
                 if (character != null)
                 {
@@ -69,11 +80,14 @@ public class DebugObjects
                     _tree.LeafNode($"Cast: {Utils.CastTimeString(battleChara.CurrentCastTime, battleChara.TotalCastTime)} {new ActionID((ActionType)battleChara.CastActionType, battleChara.CastActionId)}");
                     foreach (var nn in _tree.Node("Statuses"))
                     {
-                        for (int j = 0; j < battleChara.StatusList.Length; ++j)
+                        for (var j = 0; j < battleChara.StatusList.Length; ++j)
                         {
                             var s = battleChara.StatusList[j];
                             if (s == null || s.StatusId == 0)
+                            {
                                 continue;
+                            }
+
                             _tree.LeafNode($"#{j}: {Utils.StatusString(s.StatusId)} ({s.Param:X}) from {Utils.ObjectString(s.SourceId)}, {s.RemainingTime:f3}s left");
                         }
                     }
@@ -87,21 +101,23 @@ public class DebugObjects
             }
 
             if (uniqueID == _selectedID)
+            {
                 selected = obj;
+            }
         }
 
         if (selected != null)
         {
             var h = new Vector3(0, Utils.GameObjectInternal(selected)->Height, 0);
-            Camera.Instance?.DrawWorldLine(Service.ObjectTable.LocalPlayer?.Position ?? default, selected.Position, 0xff0000ff);
-            Camera.Instance?.DrawWorldCircle(selected.Position, selected.HitboxRadius, 0xff00ff00);
-            Camera.Instance?.DrawWorldCircle(selected.Position + h, selected.HitboxRadius, 0xff00ff00);
-            Camera.Instance?.DrawWorldCircle(selected.Position - h, selected.HitboxRadius, 0xff00ff00);
-            int numSegments = CurveApprox.CalculateCircleSegments(selected.HitboxRadius, 360.Degrees(), 1);
-            for (int i = 0; i < numSegments; ++i)
+            Camera.Instance?.DrawWorldLine(Service.ObjectTable.LocalPlayer?.Position ?? default, selected.Position, Colors.TextColor3);
+            Camera.Instance?.DrawWorldCircle(selected.Position, selected.HitboxRadius, Colors.TextColor4);
+            Camera.Instance?.DrawWorldCircle(selected.Position + h, selected.HitboxRadius, Colors.TextColor4);
+            Camera.Instance?.DrawWorldCircle(selected.Position - h, selected.HitboxRadius, Colors.TextColor4);
+            var numSegments = CurveApprox.CalculateCircleSegments(selected.HitboxRadius, 360f.Degrees(), 1f);
+            for (var i = 0; i < numSegments; ++i)
             {
                 var p = selected.Position + selected.HitboxRadius * (i * 360.0f / numSegments).Degrees().ToDirection().ToVec3();
-                Camera.Instance?.DrawWorldLine(p - h, p + h, 0xff00ff00);
+                Camera.Instance?.DrawWorldLine(p - h, p + h, Colors.TextColor4);
             }
         }
     }
@@ -114,7 +130,7 @@ public class DebugObjects
         ImGui.TableSetupColumn("GameObj");
         ImGui.TableSetupColumn("NamePlateKind");
         ImGui.TableHeadersRow();
-        for (int i = 0; i < 426; ++i)
+        for (var i = 0; i < 426; ++i)
         {
             var o = module->ObjectInfos[i].GameObject;
             ImGui.TableNextRow();
@@ -122,7 +138,10 @@ public class DebugObjects
             ImGui.TextUnformatted($"{i}: {(ulong)o:X}");
             ImGui.TableNextColumn();
             if (o != null)
+            {
                 ImGui.TextUnformatted($"{o->BaseId:X} '{o->NameString}' <{o->EntityId:X}>");
+            }
+
             ImGui.TableNextColumn();
             ImGui.TextUnformatted($"{module->ObjectInfos[i].NamePlateObjectKind}");
         }
@@ -159,7 +178,7 @@ public class DebugObjects
         }
         res.Append("\n--- cid/acid (C) ---");
         var gom = GameObjectManager.Instance();
-        for (int i = 0; i < 100; ++i)
+        for (var i = 0; i < 100; ++i)
         {
             var obj = gom->Objects.IndexSorted[i * 2].Value;
             if (obj != null && obj->IsCharacter())
@@ -170,7 +189,7 @@ public class DebugObjects
         }
         res.Append("\n--- cid/acid (P) ---");
         var gp = GroupManager.Instance()->GetGroup();
-        for (int i = 0; i < gp->MemberCount; ++i)
+        for (var i = 0; i < gp->MemberCount; ++i)
         {
             ref var member = ref gp->PartyMembers[i];
             res.Append($"\n{i}: {member.AccountId:X}.{member.ContentId:X} = {member.NameString} / {(member.NameOverride != null ? member.NameOverride->ToString() : "<null>")}");

@@ -2,29 +2,21 @@
 
 public enum OID : uint
 {
-    Boss = 0x5B5, // x1
+    Boss = 0x5B5 // R4.24
 }
 
 public enum AID : uint
 {
-    AutoAttack = 870, // Boss->player, no cast
+    AutoAttack = 870, // Boss->player, no cast, single-target
+
     Rake = 901, // Boss->player, no cast, extra attack on tank
-    LionsBreath = 902, // Boss->self, 1.0s cast, range 10.25 ?-degree cone aoe
-    Swinge = 903, // Boss->self, 4.0s cast, range 40 ?-degree cone aoe
+    LionsBreath = 902, // Boss->self, 1.0s cast, range 6+R 120-degree cone
+    Swinge = 903 // Boss->self, 4.0s cast, range 40+R 60-degree cone
 }
 
-class LionsBreath(BossModule module) : Components.StandardAOEs(module, AID.LionsBreath, new AOEShapeCone(10.25f, 60.Degrees())); // TODO: verify angle
-class Swinge(BossModule module) : Components.StandardAOEs(module, AID.Swinge, new AOEShapeCone(40, 30.Degrees())); // TODO: verify angle
-
-// due to relatively short casts and the fact that boss likes moving across arena to cast swinge, we always want non-tanks to be positioned slightly behind
-class Positioning(BossModule module) : BossComponent(module)
-{
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        if (actor.Role != Role.Tank)
-            hints.AddForbiddenZone(ShapeContains.Cone(Module.PrimaryActor.Position, 100, Module.PrimaryActor.Rotation, 45.Degrees()), DateTime.MaxValue);
-    }
-}
+class LionsBreathCleave(BossModule module) : Components.Cleave(module, (uint)AID.LionsBreath, new AOEShapeCone(10.24f, 60.Degrees()), activeWhileCasting: false);
+class LionsBreath(BossModule module) : Components.SimpleAOEs(module, (uint)AID.LionsBreath, new AOEShapeCone(10.24f, 60.Degrees()));
+class Swinge(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Swinge, new AOEShapeCone(44.24f, 30.Degrees()));
 
 class D101ChudoYudoStates : StateMachineBuilder
 {
@@ -32,10 +24,20 @@ class D101ChudoYudoStates : StateMachineBuilder
     {
         TrivialPhase()
             .ActivateOnEnter<LionsBreath>()
-            .ActivateOnEnter<Swinge>()
-            .ActivateOnEnter<Positioning>();
+            .ActivateOnEnter<LionsBreathCleave>()
+            .ActivateOnEnter<Swinge>();
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 11, NameID = 1677)]
-public class D101ChudoYudo(WorldState ws, Actor primary) : BossModule(ws, primary, new(0, 115), new ArenaBoundsSquare(20));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 11, NameID = 1677)]
+public class D101ChudoYudo(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
+{
+    private static readonly Angle a45 = 45.Degrees();
+    private static readonly Shape[] difference = [new Square(new(-20, 136), 3, a45), new Square(new(20, 136), 3, a45), new Square(new(-20, 96), 3, a45),
+    new Square(new(20, 96), 3, a45), new Rectangle(new(-4.1f, 99), 0.5f, 4), new Circle(new(-4.5f, 96), 0.9f), new Rectangle(new(4.1f, 99), 0.5f, 4),
+    new Circle(new(4.5f, 96), 0.9f), new Square(new(7.7f, 95.9f), 0.5f), new Square(new(16.3f, 96.2f), 0.45f, a45), new Square(new(20, 99.8f), 0.5f, a45), new Square(new(20.1f, 108), 0.5f),
+    new Square(new(20.1f, 116), 0.5f), new Square(new(20.1f, 124), 0.5f), new Square(new(20, 132.2f), 0.5f, a45), new Square(new(16.2f, 136), 0.5f, a45), new Square(new(7.6f, 136.2f), 0.5f),
+    new Square(new(-8, 136.2f), 0.5f), new Square(new(-16.2f, 136), 0.5f, a45), new Square(new(-20, 132.2f), 0.5f, a45), new Square(new(-20.1f, 124), 0.5f), new Square(new(-20.1f, 116), 0.5f),
+    new Square(new(-20.1f, 108), 0.5f), new Square(new(-16.3f, 96.2f), 0.45f, a45), new Square(new(-20, 99.8f), 0.5f, a45), new Square(new(-7.7f, 95.9f), 0.5f)];
+    public static readonly ArenaBoundsCustom arena = new([new Square(new(0, 116), 19.7f)], difference);
+}

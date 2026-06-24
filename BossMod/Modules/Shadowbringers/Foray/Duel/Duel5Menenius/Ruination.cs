@@ -1,64 +1,34 @@
 ﻿namespace BossMod.Shadowbringers.Foray.Duel.Duel5Menenius;
 
-class RuinationCross(BossModule module) : Components.GenericAOEs(module)
+sealed class RuinationCross(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Ruination, new AOEShapeCross(40f, 4f));
+
+sealed class RuinationExaflare(BossModule module) : Components.Exaflare(module, 4f)
 {
-    private static readonly AOEShapeRect _aoeShape = new(20, 4, 20);
-    private readonly List<AOEInstance> _aoes = [];
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
-
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.Ruination)
+        if (spell.Action.ID == (uint)AID.RuinationExaStart)
         {
-            _aoes.Add(new(_aoeShape, caster.Position));
-            _aoes.Add(new(_aoeShape, caster.Position, 90.Degrees()));
+            Lines.Add(new(caster.Position, 4f * spell.Rotation.ToDirection(), Module.CastFinishAt(spell), 1.1d, 6, 6));
         }
-    }
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.Ruination)
-        {
-            _aoes.Clear();
-        }
-    }
-}
-
-class RuinationExaflare(BossModule module) : Components.Exaflare(module, 4)
-{
-    class LineWithActor : Line
-    {
-        public Actor Caster;
-
-        public LineWithActor(BossModule module, Actor caster)
-        {
-            Next = caster.Position;
-            Advance = 4 * caster.Rotation.ToDirection();
-            NextExplosion = module.CastFinishAt(caster.CastInfo!);
-            TimeToMove = 1.1f;
-            ExplosionsLeft = 6;
-            MaxShownExplosions = 7;
-            Caster = caster;
-        }
-    }
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.RuinationExaStart)
-            Lines.Add(new LineWithActor(Module, caster));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (Lines.Count > 0 && (AID)spell.Action.ID is AID.RuinationExaStart or AID.RuinationExaMove)
+        if (spell.Action.ID is (uint)AID.RuinationExaStart or (uint)AID.RuinationExaMove)
         {
-            int index = Lines.FindIndex(item => ((LineWithActor)item).Caster == caster);
-            if (index < 0)
-                return;
-            AdvanceLine(Lines[index], caster.Position);
-            if (Lines[index].ExplosionsLeft == 0)
-                Lines.RemoveAt(index);
+            var count = Lines.Count;
+            var pos = caster.Position;
+            for (var i = 0; i < count; ++i)
+            {
+                var line = Lines[i];
+                if (line.Next.AlmostEqual(pos, 1f))
+                {
+                    AdvanceLine(line, pos);
+                    if (line.ExplosionsLeft == 0)
+                        Lines.RemoveAt(i);
+                    return;
+                }
+            }
         }
     }
 }

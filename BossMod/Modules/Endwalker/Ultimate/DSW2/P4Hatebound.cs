@@ -1,11 +1,11 @@
 ﻿namespace BossMod.Endwalker.Ultimate.DSW2;
 
 // TODO: hints?..
-class P4Hatebound(BossModule module) : BossComponent(module)
+sealed class P4Hatebound(BossModule module) : BossComponent(module)
 {
     public enum Color { None, Red, Blue }
 
-    public bool ColorsAssigned { get; private set; }
+    public bool ColorsAssigned;
     private readonly List<(Actor orb, Color color, bool exploded)> _orbs = []; // 'red' is actually 'yellow orb'
     private readonly Color[] _playerColors = new Color[PartyState.MaxPartySize];
 
@@ -25,33 +25,33 @@ class P4Hatebound(BossModule module) : BossComponent(module)
     {
         foreach (var o in _orbs.Where(o => !o.exploded))
         {
-            Arena.Actor(o.orb, ArenaColor.Object, true);
+            Arena.Actor(o.orb, Colors.Object, true);
             if (OrbReady(o.orb))
-                Arena.AddCircle(o.orb.Position, 6, _playerColors[pcSlot] == Color.Red ? ArenaColor.Safe : ArenaColor.Danger);
+                Arena.AddCircle(o.orb.Position, 6, _playerColors[pcSlot] == Color.Red ? Colors.Safe : default);
         }
     }
 
     public override void OnActorCreated(Actor actor)
     {
-        Color color = (OID)actor.OID switch
+        var color = actor.OID switch
         {
-            OID.AzurePrice => Color.Blue,
-            OID.GildedPrice => Color.Red,
+            (uint)OID.AzurePrice => Color.Blue,
+            (uint)OID.GildedPrice => Color.Red,
             _ => Color.None
         };
         if (color != Color.None)
             _orbs.Add((actor, color, false));
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        var color = (SID)status.ID switch
+        var color = status.ID switch
         {
-            SID.Clawbound => Color.Red,
-            SID.Fangbound => Color.Blue,
+            (uint)SID.Clawbound => Color.Red,
+            (uint)SID.Fangbound => Color.Blue,
             _ => Color.None
         };
-        if (color != Color.None && Raid.TryFindSlot(actor.InstanceID, out var slot))
+        if (color != Color.None && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
         {
             ColorsAssigned = true;
             _playerColors[slot] = color;
@@ -60,20 +60,20 @@ class P4Hatebound(BossModule module) : BossComponent(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.FlareStar or AID.FlareNova or AID.FlareNovaFail && _orbs.FindIndex(o => o.orb == caster) is var index && index >= 0)
+        if (spell.Action.ID is (uint)AID.FlareStar or (uint)AID.FlareNova or (uint)AID.FlareNovaFail && _orbs.FindIndex(o => o.orb == caster) is var index && index >= 0)
             _orbs.AsSpan()[index].exploded = true;
     }
 
     private bool OrbReady(Actor orb) => orb.HitboxRadius > 1.501f; // TODO: verify...
 }
 
-class P4MirageDive(BossModule module) : Components.CastCounter(module, AID.MirageDiveAOE)
+sealed class P4MirageDive(BossModule module) : Components.CastCounter(module, (uint)AID.MirageDiveAOE)
 {
     private readonly List<int> _targets = [];
     private BitMask _forbidden;
     private BitMask _baiters;
 
-    private const float _radius = 4;
+    private const float _radius = 4f;
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
@@ -82,10 +82,10 @@ class P4MirageDive(BossModule module) : Components.CastCounter(module, AID.Mirag
             // note: not showing this hint, since typically pc will wait until someone swaps the color
             //if (_forbidden[slot])
             //    hints.Add("Pass the tether!");
-            if (!_forbidden[slot] && Raid.WithoutSlot().InRadiusExcluding(actor, _radius).Any())
+            if (!_forbidden[slot] && Raid.WithoutSlot(false, true, true).InRadiusExcluding(actor, _radius).Any())
                 hints.Add("GTFO from raid!");
         }
-        else if (Raid.WithSlot(true).IncludedInMask(_baiters).ExcludedFromMask(_forbidden).InRadius(actor.Position, _radius).Any())
+        else if (Raid.WithSlot(true, true, true).IncludedInMask(_baiters).ExcludedFromMask(_forbidden).InRadius(actor.Position, _radius).Any())
         {
             hints.Add("GTFO from baiters!");
         }
@@ -95,35 +95,40 @@ class P4MirageDive(BossModule module) : Components.CastCounter(module, AID.Mirag
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        bool pcCanSwap = !_forbidden[pcSlot] && !_baiters[pcSlot];
-        foreach (var (slot, player) in Raid.WithSlot(true).IncludedInMask(_baiters))
+        var pcCanSwap = !_forbidden[pcSlot] && !_baiters[pcSlot];
+        foreach (var (slot, player) in Raid.WithSlot(true, true, true).IncludedInMask(_baiters))
         {
-            bool canSwap = pcCanSwap && _forbidden[slot];
-            Arena.AddCircle(player.Position, _radius, canSwap ? ArenaColor.Safe : ArenaColor.Danger);
+            var canSwap = pcCanSwap && _forbidden[slot];
+            Arena.AddCircle(player.Position, _radius, canSwap ? Colors.Safe : Colors.Danger);
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Clawbound)
-            _baiters.Set(Raid.FindSlot(actor.InstanceID));
+        if (status.ID == (uint)SID.Clawbound)
+            _baiters[Raid.FindSlot(actor.InstanceID)] = true;
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Clawbound)
-            _baiters.Clear(Raid.FindSlot(actor.InstanceID));
+        if (status.ID == (uint)SID.Clawbound)
+            _baiters[Raid.FindSlot(actor.InstanceID)] = false;
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         base.OnEventCast(caster, spell);
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
         {
             _targets.Add(Raid.FindSlot(spell.MainTargetID));
-            _forbidden.Reset();
-            foreach (int i in _targets.TakeLast(4))
-                _forbidden.Set(i);
+            _forbidden = default;
+            var count = _targets.Count;
+            var startIndex = Math.Max(0, count - 4);
+
+            for (var i = startIndex; i < count; ++i)
+            {
+                _forbidden[_targets[i]] = true;
+            }
         }
     }
 }

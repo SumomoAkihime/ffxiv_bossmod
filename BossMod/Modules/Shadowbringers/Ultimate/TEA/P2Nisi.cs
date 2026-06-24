@@ -1,20 +1,22 @@
 ﻿namespace BossMod.Shadowbringers.Ultimate.TEA;
 
-class P2Nisi : BossComponent
+[SkipLocalsInit]
+sealed class P2Nisi : BossComponent
 {
     public enum Nisi { None, Alpha, Beta, Gamma, Delta }
 
     public int ShowPassHint; // show hints for Nth pass
-    public int NumActiveNisi { get; private set; }
+    public int NumActiveNisi;
     private int _numNisiApplications;
     private readonly int[] _partners = Utils.MakeArray(PartyState.MaxPartySize, -1);
     private readonly Nisi[] _current = new Nisi[PartyState.MaxPartySize];
     private readonly Nisi[] _judgments = new Nisi[PartyState.MaxPartySize];
+    private readonly TEAConfig _config = Service.Config.Get<TEAConfig>();
 
     public P2Nisi(BossModule module) : base(module)
     {
         int[] firstMembersOfGroup = [-1, -1, -1, -1];
-        foreach (var p in Service.Config.Get<TEAConfig>().P2NisiPairs.Resolve(Raid))
+        foreach (var p in _config.P2NisiPairs.Resolve(Raid))
         {
             ref var partner = ref firstMembersOfGroup[p.group];
             if (partner < 0)
@@ -42,14 +44,14 @@ class P2Nisi : BossComponent
         var partner = Raid[PassPartnerSlot(pcSlot)];
         if (partner != null)
         {
-            Arena.AddLine(pc.Position, partner.Position, ArenaColor.Danger);
+            Arena.AddLine(pc.Position, partner.Position);
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        var nisi = NisiForSID((SID)status.ID);
-        if (nisi != Nisi.None && Raid.TryFindSlot(actor.InstanceID, out var slot))
+        var nisi = NisiForSID(status.ID);
+        if (nisi != Nisi.None && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
         {
             if (_current[slot] != nisi) // sometimes same nisi is reapplied, which is weird...
                 ++_numNisiApplications;
@@ -58,36 +60,36 @@ class P2Nisi : BossComponent
             _current[slot] = nisi;
         }
 
-        var judgment = (SID)status.ID switch
+        var judgment = status.ID switch
         {
-            SID.FinalJudgmentNisiAlpha => Nisi.Alpha,
-            SID.FinalJudgmentNisiBeta => Nisi.Beta,
-            SID.FinalJudgmentNisiGamma => Nisi.Gamma,
-            SID.FinalJudgmentNisiDelta => Nisi.Delta,
+            (uint)SID.FinalJudgmentNisiAlpha => Nisi.Alpha,
+            (uint)SID.FinalJudgmentNisiBeta => Nisi.Beta,
+            (uint)SID.FinalJudgmentNisiGamma => Nisi.Gamma,
+            (uint)SID.FinalJudgmentNisiDelta => Nisi.Delta,
             _ => Nisi.None
         };
-        if (judgment != Nisi.None && Raid.TryFindSlot(actor.InstanceID, out var judgmentSlot))
+        if (judgment != Nisi.None && Raid.FindSlot(actor.InstanceID) is var judgmentSlot && judgmentSlot >= 0)
         {
             _judgments[judgmentSlot] = judgment;
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        var nisi = NisiForSID((SID)status.ID);
-        if (nisi != Nisi.None && Raid.TryFindSlot(actor.InstanceID, out var slot) && nisi == _current[slot])
+        var nisi = NisiForSID(status.ID);
+        if (nisi != Nisi.None && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0 && nisi == _current[slot])
         {
             _current[slot] = Nisi.None;
             --NumActiveNisi;
         }
     }
 
-    private Nisi NisiForSID(SID sid) => sid switch
+    private static Nisi NisiForSID(uint sid) => sid switch
     {
-        SID.FinalDecreeNisiAlpha => Nisi.Alpha,
-        SID.FinalDecreeNisiBeta => Nisi.Beta,
-        SID.FinalDecreeNisiGamma => Nisi.Gamma,
-        SID.FinalDecreeNisiDelta => Nisi.Delta,
+        (uint)SID.FinalDecreeNisiAlpha => Nisi.Alpha,
+        (uint)SID.FinalDecreeNisiBeta => Nisi.Beta,
+        (uint)SID.FinalDecreeNisiGamma => Nisi.Gamma,
+        (uint)SID.FinalDecreeNisiDelta => Nisi.Delta,
         _ => Nisi.None
     };
 

@@ -1,14 +1,22 @@
 ﻿namespace BossMod.Endwalker.Ultimate.DSW2;
 
-class P6Touchdown(BossModule module) : Components.GenericAOEs(module, AID.TouchdownAOE)
+sealed class P6Touchdown(BossModule module) : Components.GenericAOEs(module, (uint)AID.TouchdownAOE)
 {
-    private static readonly AOEShapeCircle _shape = new(20); // TODO: verify falloff
+    private static readonly AOEShapeCircle _shape = new(20f); // TODO: verify falloff
+    private AOEInstance[] _aoes = [];
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         // TODO: activation
-        yield return new(_shape, Module.Center);
-        yield return new(_shape, Module.Center + new WDir(0, 25));
+        if (_aoes.Length == 0)
+        {
+            _aoes = new AOEInstance[2];
+            var center = Arena.Center;
+            var act = WorldState.FutureTime(7d);
+            _aoes[0] = new(_shape, center.Quantized(), activation: act);
+            _aoes[1] = new(_shape, (center + new WDir(default, 25f)).Quantized(), activation: act);
+        }
+        return _aoes;
     }
 }
 
@@ -19,18 +27,18 @@ class P6TouchdownCauterize(BossModule module) : BossComponent(module)
     private BitMask _boiling;
     private BitMask _freezing;
 
-    private static readonly AOEShapeRect _shape = new(80, 11);
+    private static readonly AOEShapeRect _shape = new(80f, 11f);
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
         // note: dragons can be in either configuration, LR or RL
-        bool nidhoggSide = NidhoggSide(actor);
+        var nidhoggSide = NidhoggSide(actor);
         var forbiddenMask = nidhoggSide ? _boiling : _freezing;
         if (forbiddenMask[slot])
             hints.Add("GTFO from wrong side!");
 
         // note: assume both dragons are always at north side
-        bool isClosest = Raid.WithoutSlot().Where(p => NidhoggSide(p) == nidhoggSide).MinBy(p => p.PosRot.Z) == actor;
+        bool isClosest = Raid.WithoutSlot(false, true, true).Where(p => NidhoggSide(p) == nidhoggSide).MinBy(p => p.PosRot.Z) == actor;
         bool shouldBeClosest = actor.Role == Role.Tank;
         if (isClosest != shouldBeClosest)
             hints.Add(shouldBeClosest ? "Move closer to dragons!" : "Move away from dragons!");
@@ -46,44 +54,82 @@ class P6TouchdownCauterize(BossModule module) : BossComponent(module)
             _shape.Draw(Arena, _hraesvelgr);
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.Boiling:
-                _boiling.Set(Raid.FindSlot(actor.InstanceID));
+            case (uint)SID.Boiling:
+                _boiling[Raid.FindSlot(actor.InstanceID)] = true;
                 break;
-            case SID.Freezing:
-                _freezing.Set(Raid.FindSlot(actor.InstanceID));
+            case (uint)SID.Freezing:
+                _freezing[Raid.FindSlot(actor.InstanceID)] = true;
                 break;
         }
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.CauterizeN:
+            case (uint)AID.CauterizeN:
                 _nidhogg = caster;
                 break;
-            case AID.CauterizeH:
+            case (uint)AID.CauterizeH:
                 _hraesvelgr = caster;
                 break;
         }
     }
 }
 
-class P6TouchdownPyretic(BossModule module) : Components.StayMove(module)
+sealed class P6TouchdownPyretic(BossModule module) : Components.StayMove(module)
 {
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Boiling)
-            SetState(Raid.FindSlot(actor.InstanceID), new(Requirement.Stay, status.ExpireAt));
+        if (status.ID == (uint)SID.Boiling)
+        {
+            PlayerState state = new(Requirement.Stay, status.ExpireAt);
+            SetState(Raid.FindSlot(actor.InstanceID), ref state);
+        }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Pyretic)
+        if (status.ID == (uint)SID.Pyretic)
+        {
             ClearState(Raid.FindSlot(actor.InstanceID));
+        }
+    }
+}
+
+sealed class P7PhaseChange(BossModule module) : BossComponent(module)
+{
+    public bool PhaseChanged;
+
+    public override void OnEventDirectorUpdate(uint updateID, uint param1, uint param2, uint param3, uint param4)
+    {
+        if (updateID == 0x80000016 && param1 == 0x01u && param2 == 0x46u)
+        {
+            PhaseChanged = true;
+        }
+    }
+}
+sealed class P6Enrage(BossModule module) : BossComponent(module)
+{
+    public bool Enrage;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.RevengeOfTheHordeP6)
+        {
+            Enrage = true;
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.RevengeOfTheHordeP6)
+        {
+            Enrage = false;
+        }
     }
 }

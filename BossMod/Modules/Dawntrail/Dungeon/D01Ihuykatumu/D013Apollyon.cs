@@ -2,122 +2,165 @@
 
 public enum OID : uint
 {
-    Boss = 0x4165, // R7.000, x1
-    Helper = 0x233C, // R0.500, x20 (spawn during fight), Helper type
-    IhuykatumuOcelot = 0x4166, // R3.570, x0 (spawn during fight) - add to be eaten by boss
-    IhuykatumuPuma = 0x4167, // R2.520, x0 (spawn during fight) - add to be eaten by boss
-    IhuykatumuSandworm1 = 0x4168, // R3.300, x0 (spawn during fight) - add to be eaten by boss
-    IhuykatumuSandworm2 = 0x4169, // R3.300, x0 (spawn during fight) - add to be eaten by boss
-    Whirlwind = 0x416C, // R1.000, x0 (spawn during fight)
-    LevinsickleVoidzone = 0x1EBA21, // R0.500, x0 (spawn during fight), EventObj type
+    Boss = 0x4165, // R7.0
+    IhuykatumuOcelot = 0x4166, // R3.57
+    IhuykatumuPuma = 0x4167, // R2.52
+    IhuykatumuSandworm1 = 0x4169, // R3.3
+    IhuykatumuSandworm2 = 0x4168, // R3.3
+    Whirlwind = 0x416C, // R1.0
+    LightningVoidzone = 0x1EBA21, // R0.5
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    AutoAttack = 870, // Boss->player, no cast, single-target
-    AutoAttackAdd = 872, // IhuykatumuOcelot/IhuykatumuPuma/IhuykatumuSandworm1/IhuykatumuSandworm2->player/Boss, no cast, single-target
-    SandwormAppear = 36354, // IhuykatumuSandworm1/IhuykatumuSandworm2->self, no cast, single-target, visual (spawn)
-    Teleport = 36344, // Boss->location, no cast, single-target
+    AutoAttack1 = 870, // Boss->player, no cast, single-target
+    AutoAttack2 = 872, // IhuykatumuOcelot/IhuykatumuPuma/IhuykatumuSandworm2/IhuykatumuSandworm1->Boss, no cast, single-target
+
     RazorZephyr = 36340, // Boss->self, 4.0s cast, range 50 width 12 rect
-    BladeSingle = 36347, // Boss->player, 4.5s cast, single-target, tankbuster
-    BladeMulti = 36356, // Boss->player, 4.5s cast, single-target, visual (aoe tankbuster)
-    BladeMultiAOE = 36357, // Helper->player, 5.0s cast, range 6 circle tankbuster
-    HighWind = 36341, // Boss->self, 5.0s cast, range 60 circle, raidwide that kills adds
-    Devour = 36342, // Boss->self, no cast, single-target, visual (eat dead adds)
-    SwarmingLocust = 36343, // Boss->self, 3.0s cast, single-target, visual (jumps + aoes)
-    BladesOfFamine = 36345, // Boss->self, 2.2+0.8s cast, single-target, visual (aoes after jumps)
-    BladesOfFamineAOE = 36346, // Helper->self, 3.0s cast, range 50 width 12 rect
-    Levinsickle = 36348, // Boss->self, 4.5+0.5s cast, single-target, visual (puddles + cones)
-    LevinsickleAOESpark = 36349, // Helper->location, 5.0s cast, range 4 circle, puddle that is followed by cones
-    LevinsickleAOENormal = 36350, // Helper->location, 5.0s cast, range 4 circle, puddle
+
+    Blade = 36347, // Boss->player, 4.5s cast, single-target
+
+    Teleport = 36344, // Boss->location, no cast, single-target
+    HighWind = 36341, // Boss->self, 5.0s cast, range 60 circle
+    Devour = 36342, // Boss->self, no cast, single-target
+    SwarmingLocust = 36343, // Boss->self, 3.0s cast, single-target
+
+    BladesOfFamineVisual = 36345, // Boss->self, 2.2+0.8s cast, single-target
+    BladesOfFamine = 36346, // Helper->self, 3.0s cast, range 50 width 12 rect
+
+    LevinsickleVisual = 36348, // Boss->self, 4.5+0.5s cast, single-target
+    Levinsickle = 36350, // Helper->location, 5.0s cast, range 4 circle
+
+    LevinsickleSpark = 36349, // Helper->location, 5.0s cast, range 4 circle
+
     WingOfLightning = 36351, // Helper->self, 8.0s cast, range 40 45-degree cone
-    ThunderIII = 36352, // Boss->self, 4.0+1.0s cast, single-target, visual (spread)
-    ThunderIIIAOE = 36353, // Helper->player, 5.0s cast, range 6 circle spread
+
+    ThunderIIIVisual = 36352, // Boss->self, 4.0+1.0s cast, single-target
+    ThunderIII = 36353, // Helper->player, 5.0s cast, range 6 circle, spread
+
+    SandwormVisual = 36354, // IhuykatumuSandworm1/IhuykatumuSandworm2->self, no cast, single-target
+
+    BladeVisual = 36356, // Boss->player, 4.5s cast, single-target
+    BladeTB = 36357, // Helper->player, 5.0s cast, range 6 circle
+
     WindSickle = 36358, // Helper->self, 4.0s cast, range 5-60 donut
     RazorStorm = 36355, // Boss->self, 5.0s cast, range 40 width 40 rect
-    Windwhistle = 36359, // Boss->self, 4.0s cast, single-target, visual (spawn whirlwind)
+    Windwhistle = 36359, // Boss->self, 4.0s cast, single-target
     CuttingWind = 36360, // Helper->self, no cast, range 72 width 8 rect
+    BitingWind = 36761 // Helper->player, no cast, single-target
 }
 
-public enum IconID : uint
+sealed class Whirlwind(BossModule module) : Components.Voidzone(module, 4.5f, GetWhirlwind, 5f)
 {
-    BladeSingle = 218, // player
-    ThunderIII = 108, // player
-    BladeMulti = 344, // player
-    CuttingWind = 506, // Whirlwind
+    private static List<Actor> GetWhirlwind(BossModule module) => module.Enemies((uint)OID.Whirlwind);
 }
+sealed class Blade(BossModule module) : Components.SingleTargetCast(module, (uint)AID.Blade);
+sealed class HighWind(BossModule module) : Components.RaidwideCast(module, (uint)AID.HighWind);
+sealed class RazorZephyrBladesOfFamine(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.RazorZephyr, (uint)AID.BladesOfFamine], new AOEShapeRect(50f, 6f));
 
-class RazorZephyr(BossModule module) : Components.StandardAOEs(module, AID.RazorZephyr, new AOEShapeRect(50, 6));
-class BladeSingle(BossModule module) : Components.SingleTargetCast(module, AID.BladeSingle);
-class BladeMulti(BossModule module) : Components.BaitAwayCast(module, AID.BladeMultiAOE, new AOEShapeCircle(6), true);
-class HighWind(BossModule module) : Components.RaidwideCast(module, AID.HighWind);
-class BladesOfFamine(BossModule module) : Components.StandardAOEs(module, AID.BladesOfFamineAOE, new AOEShapeRect(50, 6));
-class LevinsickleSpark(BossModule module) : Components.StandardAOEs(module, AID.LevinsickleAOESpark, 4);
-class LevinsickleNormal(BossModule module) : Components.StandardAOEs(module, AID.LevinsickleAOENormal, 4);
-class LevinsickleVoidzone(BossModule module) : Components.PersistentVoidzoneAtCastTarget(module, 4, AID.LevinsickleAOESpark, m => m.Enemies(OID.LevinsickleVoidzone).Where(x => x.EventState != 7), 0.8f);
-class WingOfLightning(BossModule module) : Components.StandardAOEs(module, AID.WingOfLightning, new AOEShapeCone(40, 22.5f.Degrees()), 8);
-class ThunderIII(BossModule module) : Components.SpreadFromCastTargets(module, AID.ThunderIIIAOE, 6);
-class WindSickle(BossModule module) : Components.StandardAOEs(module, AID.WindSickle, new AOEShapeDonut(5, 60));
-class RazorStorm(BossModule module) : Components.StandardAOEs(module, AID.RazorStorm, new AOEShapeRect(40, 20));
-
-class CuttingWind(BossModule module) : Components.GenericAOEs(module)
+sealed class Levinsickle(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Levinsickle, 4f);
+sealed class LevinsickleSpark(BossModule module) : Components.VoidzoneAtCastTarget(module, 4f, (uint)AID.LevinsickleSpark, GetVoidzones, 0.7d)
 {
-    private readonly List<AOEInstance> _aoes = [];
-
-    private static readonly AOEShapeRect _shape = new(36, 4, 36);
-    private static readonly List<WPos> _northPositions = [new(-111.69f, 253.94f), new(-102.28f, 264.31f), new(-108.92f, 276.53f)];
-    private static readonly List<WPos> _southPositions = [new(-102.93f, 274.36f), new(-108.68f, 262.22f), new(-105.73f, 252.34f)];
-    private static readonly float[] _castTimers = [8.9f, 16.9f, 24.9f];
-    private static readonly List<Angle> _rotations = [0.Degrees(), 45.Degrees(), 90.Degrees(), 135.Degrees()];
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Take(4);
-
-    private void AddAOEs(WPos pos, float delay)
+    private static Actor[] GetVoidzones(BossModule module)
     {
-        foreach (var angle in _rotations)
-            _aoes.Add(new(_shape, pos, angle, Module.WorldState.FutureTime(delay)));
+        var enemies = module.Enemies((uint)OID.LightningVoidzone);
+        var count = enemies.Count;
+        if (count == 0)
+            return [];
+
+        var voidzones = new Actor[count];
+        var index = 0;
+        for (var i = 0; i < count; ++i)
+        {
+            var z = enemies[i];
+            if (z.EventState != 7)
+                voidzones[index++] = z;
+        }
+        return voidzones[..index];
     }
+}
+sealed class WingOfLightning(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WingOfLightning, new AOEShapeCone(40f, 22.5f.Degrees()), 8);
+
+sealed class ThunderIII2(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.ThunderIII, 6f);
+sealed class BladeTB(BossModule module) : Components.BaitAwayCast(module, (uint)AID.BladeTB, 6f, tankbuster: true, damageType: AIHints.PredictedDamageType.Tankbuster);
+
+sealed class WindSickle(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WindSickle, new AOEShapeDonut(5f, 60f));
+sealed class RazorStorm(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RazorStorm, new AOEShapeRect(40f, 20f));
+
+sealed class CuttingWind(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly List<AOEInstance> _aoes = new(12);
+    private static readonly AOEShapeRect rect = new(36f, 4f, 36f);
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var count = _aoes.Count;
+        if (count == 0)
+            return [];
+        var max = count > 4 ? 4 : count;
+        return CollectionsMarshal.AsSpan(_aoes)[..max];
+    }
+
+    private static readonly double[] delays = [8.6d, 16.7d, 24.7d];
+    private static readonly Angle[] angles = [Angle.AnglesCardinals[3], Angle.AnglesIntercardinals[1], Angle.AnglesIntercardinals[2], Angle.AnglesCardinals[1]];
 
     public override void OnActorCreated(Actor actor)
     {
-        if ((OID)actor.OID == OID.Whirlwind)
+        void AddWhirlwind(WPos[] pos)
         {
-            var coords = actor.Position.Z < Module.Center.Z ? _northPositions : _southPositions;
-            foreach (var (c, d) in coords.Zip(_castTimers))
-                AddAOEs(c, d);
+            for (var i = 0; i < 3; ++i)
+            {
+                var delay = WorldState.FutureTime(delays[i]);
+                var posi = pos[i].Quantized();
+                for (var j = 0; j < 4; ++j)
+                {
+                    _aoes.Add(new(rect, posi, angles[j], delay));
+                }
+            }
         }
+        if (actor.OID == (uint)OID.Whirlwind)
+            if (actor.Position.AlmostEqual(new WPos(-121f, 279f), 1f))
+            {
+                AddWhirlwind([new(-102.935f, 274.357f), new(-108.935f, 262.224f), new(-105.733f, 252.340f)]); // SW whirlwind
+            }
+            else
+            {
+                AddWhirlwind([new(-111.688f, 253.942f), new(-102.276f, 264.313f), new(-108.922f, 276.528f)]); // NW whirlwind
+            }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (_aoes.Count > 0 && (AID)spell.Action.ID == AID.CuttingWind)
+        if (_aoes.Count != 0 && spell.Action.ID == (uint)AID.CuttingWind)
+        {
             _aoes.RemoveAt(0);
+        }
     }
 }
 
-class Whirlwind(BossModule module) : Components.PersistentVoidzone(module, 4, m => m.Enemies(OID.Whirlwind), 30);
-
-class D013ApollyonStates : StateMachineBuilder
+sealed class D013ApollyonStates : StateMachineBuilder
 {
     public D013ApollyonStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<RazorZephyr>()
-            .ActivateOnEnter<BladeSingle>()
-            .ActivateOnEnter<BladeMulti>()
+            .ActivateOnEnter<RazorZephyrBladesOfFamine>()
+            .ActivateOnEnter<Blade>()
             .ActivateOnEnter<HighWind>()
-            .ActivateOnEnter<BladesOfFamine>()
+            .ActivateOnEnter<Levinsickle>()
             .ActivateOnEnter<LevinsickleSpark>()
-            .ActivateOnEnter<LevinsickleNormal>()
-            .ActivateOnEnter<LevinsickleVoidzone>()
             .ActivateOnEnter<WingOfLightning>()
-            .ActivateOnEnter<ThunderIII>()
+            .ActivateOnEnter<ThunderIII2>()
+            .ActivateOnEnter<BladeTB>()
             .ActivateOnEnter<WindSickle>()
             .ActivateOnEnter<RazorStorm>()
-            .ActivateOnEnter<CuttingWind>()
-            .ActivateOnEnter<Whirlwind>();
+            .ActivateOnEnter<Whirlwind>()
+            .ActivateOnEnter<CuttingWind>();
     }
 }
 
-[ModuleInfo(Contributors = "xan", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 826, NameID = 12711)]
-public class D013Apollyon(WorldState ws, Actor primary) : BossModule(ws, primary, new(-107, 265), new ArenaBoundsCircle(20));
+[ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus, LTS)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 826, NameID = 12711)]
+public sealed class D013Apollyon(WorldState ws, Actor primary) : BossModule(ws, primary, DefaultBounds.Center, DefaultBounds)
+{
+    public static readonly ArenaBoundsCustom DefaultBounds = new([new Polygon(new(-107f, 265f), 19.5f, 32)], [new Rectangle(new(-107f, 285.75f), 20f, 2f)]);
+}

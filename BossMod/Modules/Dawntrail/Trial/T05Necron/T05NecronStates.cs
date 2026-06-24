@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Trial.T05Necron;
+namespace BossMod.Dawntrail.Trial.T05Necron;
 
 sealed class T05NecronStates : StateMachineBuilder
 {
@@ -34,4 +34,3 @@ sealed class T05NecronStates : StateMachineBuilder
             .Raw.Update = () => module.PrimaryActor.IsDead || IsWipedOrLeftRaid();
     }
 }
-

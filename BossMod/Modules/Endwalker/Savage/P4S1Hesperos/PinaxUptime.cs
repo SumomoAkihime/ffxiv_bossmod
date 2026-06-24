@@ -14,6 +14,6 @@ class PinaxUptime(BossModule module) : BossComponent(module)
         if (doubleOffset == default)
             return;
 
-        Arena.AddCircle(Module.Center + 9 * doubleOffset, 2, ArenaColor.Safe);
+        Arena.AddCircle(Arena.Center + 9 * doubleOffset, 2, Colors.Safe);
     }
 }

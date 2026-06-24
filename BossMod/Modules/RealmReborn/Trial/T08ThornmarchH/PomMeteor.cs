@@ -6,18 +6,17 @@ class PomMeteor(BossModule module) : BossComponent(module)
     private BitMask _soakedTowers;
     private DateTime _towerActivation;
     private int _cometsLeft;
-    private float _activationDelay = 8; // 8s for first set of towers, then 16s for others
+    private float _activationDelay = 8f; // 8s for first set of towers, then 16s for others
 
-    private const float _towerRadius = 5;
-    private const float _cometAvoidRadius = 6;
+    private const float _towerRadius = 5f;
+    private const float _cometAvoidRadius = 6f;
     private static readonly WDir[] _towerOffsets = GetTowerOffsets();
-
     private static WDir[] GetTowerOffsets()
     {
-        var offsets = new WDir[8];
-        for (var i = 0; i < offsets.Length; ++i)
-            offsets[i] = 10f * (45f * i).Degrees().ToDirection();
-        return offsets;
+        var towerOffsets = new WDir[8];
+        for (var i = 0; i < 8; ++i)
+            towerOffsets[i] = 10f * (45f * i).Degrees().ToDirection();
+        return towerOffsets;
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -27,13 +26,13 @@ class PomMeteor(BossModule module) : BossComponent(module)
 
         if (_cometsLeft > 0)
         {
-            foreach (int i in _activeTowers.SetBits())
-                hints.AddForbiddenZone(ShapeContains.Circle(Module.Center + _towerOffsets[i], _cometAvoidRadius));
+            foreach (var i in _activeTowers.SetBits())
+                hints.AddForbiddenZone(new SDCircle(Arena.Center + _towerOffsets[i], _cometAvoidRadius));
         }
         else
         {
             // assume H1/H2/R1/R2 soak towers
-            int soakedTower = assignment switch
+            var soakedTower = assignment switch
             {
                 PartyRolesConfig.Assignment.H1 => 0,
                 PartyRolesConfig.Assignment.H2 => 1,
@@ -45,31 +44,31 @@ class PomMeteor(BossModule module) : BossComponent(module)
             {
                 if (!_activeTowers[soakedTower])
                     soakedTower += 4;
-                hints.AddForbiddenZone(ShapeContains.InvertedCircle(Module.Center + _towerOffsets[soakedTower], _towerRadius), _towerActivation);
+                hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center + _towerOffsets[soakedTower], _towerRadius), _towerActivation);
             }
             else
             {
-                foreach (int i in _activeTowers.SetBits())
-                    hints.AddForbiddenZone(ShapeContains.Circle(Module.Center + _towerOffsets[i], _towerRadius), _towerActivation);
+                foreach (var i in _activeTowers.SetBits())
+                    hints.AddForbiddenZone(new SDCircle(Arena.Center + _towerOffsets[i], _towerRadius), _towerActivation);
             }
         }
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (int i in _activeTowers.SetBits())
-            Arena.AddCircle(Module.Center + _towerOffsets[i], _towerRadius, _soakedTowers[i] ? ArenaColor.Safe : ArenaColor.Danger);
+        foreach (var i in _activeTowers.SetBits())
+            Arena.AddCircle(Arena.Center + _towerOffsets[i], _towerRadius, _soakedTowers[i] ? Colors.Safe : 0);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.GoodKingsDecree3:
+            case (uint)AID.GoodKingsDecree3:
                 _activationDelay = 16;
                 _cometsLeft = 3;
                 break;
-            case AID.MogCometAOE:
+            case (uint)AID.MogCometAOE:
                 --_cometsLeft;
                 break;
         }

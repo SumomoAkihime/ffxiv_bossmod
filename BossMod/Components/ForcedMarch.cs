@@ -3,9 +3,11 @@
 // generic component dealing with 'forced march' mechanics
 // these mechanics typically feature 'march left/right/forward/backward' debuffs, which rotate player and apply 'forced march' on expiration
 // if there are several active march debuffs, we assume they are chained together
-public class GenericForcedMarch(BossModule module, float activationLimit = float.MaxValue, bool stopAtWall = false) : BossComponent(module)
+
+[SkipLocalsInit]
+public class GenericForcedMarch(BossModule module, float activationLimit = float.MaxValue, bool stopAfterWall = false, bool stopAtWall = false) : BossComponent(module)
 {
-    public class PlayerState
+    public sealed class PlayerState
     {
         public List<(Angle dir, float duration, DateTime activation)> PendingMoves = [];
         public DateTime ForcedEnd; // zero if forced march not active
@@ -13,29 +15,44 @@ public class GenericForcedMarch(BossModule module, float activationLimit = float
         public bool Active(BossModule module) => ForcedEnd > module.WorldState.CurrentTime || PendingMoves.Count > 0;
     }
 
-    public int NumActiveForcedMarches { get; private set; }
-    public Dictionary<ulong, PlayerState> State = []; // key = instance ID
-    public float MovementSpeed = 6; // default movement speed, can be overridden if necessary
-    public float ActivationLimit = activationLimit; // do not show pending moves that activate later than this limit
+    public readonly bool StopAfterWall = stopAfterWall;
+    public readonly bool StopAtWall = stopAtWall;
+    public bool OverrideDirection;
+    public int NumActiveForcedMarches;
+    public readonly Dictionary<ulong, PlayerState> State = []; // key = instance ID
+    public float MovementSpeed = 6f; // default movement speed, can be overridden if necessary
+    public readonly float ActivationLimit = activationLimit; // do not show pending moves that activate later than this limit
+    private const float approxHitBoxRadius = 0.499f; // calculated because due to floating point errors this does not result in 0.001
+    private const float maxIntersectionError = 0.5f - approxHitBoxRadius; // calculated because due to floating point errors this does not result in 0.001
 
     // called to determine whether we need to show hint
-    public virtual bool DestinationUnsafe(int slot, Actor actor, WPos pos) => !Module.InBounds(pos);
+    public virtual bool DestinationUnsafe(int slot, Actor actor, WPos pos) => !Arena.InBounds(pos);
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        var last = ForcedMovements(actor).LastOrDefault();
+        var movements = ForcedMovements(actor);
+        var count = movements.Count;
+        if (count == 0)
+        {
+            return;
+        }
+
+        var last = movements[count - 1];
         if (last.from != last.to && DestinationUnsafe(slot, actor, last.to))
+        {
             hints.Add("Aim for safe spot!");
+        }
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (var m in ForcedMovements(pc))
+        var movements = ForcedMovements(pc);
+        var count = movements.Count;
+        for (var i = 0; i < count; ++i)
         {
-            Arena.ActorProjected(m.from, m.to, m.dir, ArenaColor.Danger);
-            if (Arena.Config.ShowOutlinesAndShadows)
-                Arena.AddLine(m.from, m.to, 0xFF000000, 2);
-            Arena.AddLine(m.from, m.to, ArenaColor.Danger);
+            var m = movements[i];
+            Arena.ActorProjected(m.from, m.to, m.dir, Colors.Danger);
+            Arena.AddLine(m.from, m.to);
         }
     }
 
@@ -43,7 +60,7 @@ public class GenericForcedMarch(BossModule module, float activationLimit = float
     {
         var moves = State.GetOrAdd(player.InstanceID).PendingMoves;
         moves.Add((direction, duration, activation));
-        moves.SortBy(e => e.activation);
+        moves.Sort(static (a, b) => a.activation.CompareTo(b.activation));
     }
 
     public bool HasForcedMovements(Actor player) => State.GetValueOrDefault(player.InstanceID)?.Active(Module) ?? false;
@@ -60,70 +77,163 @@ public class GenericForcedMarch(BossModule module, float activationLimit = float
         --NumActiveForcedMarches;
     }
 
-    public IEnumerable<(WPos from, WPos to, Angle dir)> ForcedMovements(Actor player)
+    public List<(WPos from, WPos to, Angle dir)> ForcedMovements(Actor player)
     {
         var state = State.GetValueOrDefault(player.InstanceID);
         if (state == null)
-            yield break;
+        {
+            return [];
+        }
 
         var from = player.Position;
-        var dir = player.Rotation;
+        var dir = !OverrideDirection ? player.Rotation : default;
+        var movements = new List<(WPos, WPos, Angle)>();
+
         if (state.ForcedEnd > WorldState.CurrentTime)
         {
-            var dist = MovementSpeed * (float)(state.ForcedEnd - WorldState.CurrentTime).TotalSeconds;
-
-            if (stopAtWall)
-                dist = Math.Min(dist, Arena.IntersectRayBounds(from, dir.ToDirection()) - 0.1f);
-
             // note: as soon as player starts marching, he turns to desired direction
             // TODO: would be nice to use non-interpolated rotation here...
-            var to = from + dist * dir.ToDirection();
+            dir = player.Rotation;
+            var movementDistance = MovementSpeed * (float)(state.ForcedEnd - WorldState.CurrentTime).TotalSeconds;
+            var wdir = dir.ToDirection();
 
-            yield return (from, to, dir);
+            if (StopAfterWall)
+            {
+                movementDistance = Math.Min(movementDistance, Arena.IntersectRayBounds(from, wdir) + maxIntersectionError);
+            }
+            else if (StopAtWall)
+            {
+                movementDistance = Math.Min(movementDistance, Arena.IntersectRayBounds(from, wdir) - maxIntersectionError);
+            }
+
+            var to = from + movementDistance * wdir;
+            movements.Add((from, to, dir));
             from = to;
         }
 
         var limit = ActivationLimit < float.MaxValue ? WorldState.FutureTime(ActivationLimit) : DateTime.MaxValue;
-        foreach (var move in state.PendingMoves.TakeWhile(move => move.activation <= limit))
+        var count = state.PendingMoves.Count;
+
+        for (var i = 0; i < count; ++i)
         {
+            var move = state.PendingMoves[i];
+            if (move.activation > limit)
+            {
+                break;
+            }
+
             dir += move.dir;
-            var to = from + MovementSpeed * move.duration * dir.ToDirection();
-            yield return (from, to, dir);
+            var movementDistance = MovementSpeed * move.duration;
+            var wdir = dir.ToDirection();
+
+            if (StopAfterWall)
+            {
+                movementDistance = Math.Min(movementDistance, Arena.IntersectRayBounds(from, wdir) + maxIntersectionError);
+            }
+            else if (StopAtWall)
+            {
+                movementDistance = Math.Min(movementDistance, Arena.IntersectRayBounds(from, wdir) - maxIntersectionError);
+            }
+
+            var to = from + movementDistance * wdir;
+            movements.Add((from, to, dir));
             from = to;
         }
+        return movements;
     }
 }
 
 // typical forced march is driven by statuses
-public class StatusDrivenForcedMarch(BossModule module, float duration, uint statusForward, uint statusBackward, uint statusLeft, uint statusRight, uint statusForced = 1257, float activationLimit = float.MaxValue, bool stopAtWall = false) : GenericForcedMarch(module, activationLimit, stopAtWall)
+[SkipLocalsInit]
+public class StatusDrivenForcedMarch(BossModule module, float duration, uint statusForward, uint statusBackward, uint statusLeft, uint statusRight, uint statusForced = 1257u, uint statusForcedNPCs = 3629u, float activationLimit = float.MaxValue, bool stopAfterWall = false, bool stopAtWall = false) : GenericForcedMarch(module, activationLimit, stopAfterWall, stopAtWall)
 {
     public float Duration = duration;
-    public readonly uint[] Statuses = [statusForward, statusLeft, statusBackward, statusRight, statusForced]; // 5 elements: fwd, left, back, right, forced
+    public readonly uint[] Statuses = [statusForward, statusLeft, statusBackward, statusRight, statusForced, statusForcedNPCs]; // 5 elements: fwd, left, back, right, forced, forcedNPCs
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         var statusKind = Array.IndexOf(Statuses, status.ID);
-        if (statusKind == 4)
+        if (statusKind >= 4)
         {
             ActivateForcedMovement(actor, status.ExpireAt);
         }
         else if (statusKind >= 0)
         {
-            AddForcedMovement(actor, statusKind * 90.Degrees(), Duration, status.ExpireAt);
+            AddForcedMovement(actor, statusKind * 90f.Degrees(), Duration, status.ExpireAt);
         }
     }
 
-    public override void OnStatusLose(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
         var statusKind = Array.IndexOf(Statuses, status.ID);
-        if (statusKind == 4)
+        if (statusKind >= 4)
         {
             DeactivateForcedMovement(actor);
         }
         else if (statusKind >= 0)
         {
-            var dir = statusKind * 90.Degrees();
-            State.GetOrAdd(actor.InstanceID).PendingMoves.RemoveAll(e => e.dir == dir);
+            var dir = statusKind * 90f.Degrees();
+            var pendingMoves = State.GetOrAdd(actor.InstanceID).PendingMoves;
+            var count = pendingMoves.Count;
+            for (var i = 0; i < count; ++i)
+            {
+                if (pendingMoves[i].dir == dir)
+                {
+                    pendingMoves.RemoveAt(i);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+// action driven forced march
+[SkipLocalsInit]
+public class ActionDrivenForcedMarch(BossModule module, uint aid, float duration, Angle rotation, float actioneffectdelay, uint statusForced = 5174u, uint statusForcedNPCs = 3629u, float activationLimit = float.MaxValue) : GenericForcedMarch(module, activationLimit)
+{
+    public readonly float Duration = duration;
+    public readonly float Actioneffectdelay = actioneffectdelay;
+    public readonly Angle Rotation = rotation;
+    public readonly uint StatusForced = statusForced;
+    public readonly uint StatusForcedNPCs = statusForcedNPCs;
+    public readonly uint Aid = aid;
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        if (status.ID == StatusForced || status.ID == StatusForcedNPCs)
+        {
+            var pendingMoves = State.GetOrAdd(actor.InstanceID).PendingMoves;
+            var count = pendingMoves.Count;
+            for (var i = 0; i < count; ++i)
+            {
+                if (pendingMoves[i].dir == Rotation)
+                {
+                    pendingMoves.RemoveAt(i);
+                    break;
+                }
+            }
+            ActivateForcedMovement(actor, status.ExpireAt);
+        }
+    }
+
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
+    {
+        if (status.ID == StatusForced || status.ID == StatusForcedNPCs)
+        {
+            DeactivateForcedMovement(actor);
+        }
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == Aid)
+        {
+            var party = Module.Raid.WithoutSlot();
+            var len = party.Length;
+            for (var i = 0; i < len; ++i)
+            {
+                AddForcedMovement(party[i], Rotation, Duration, Module.CastFinishAt(spell, Actioneffectdelay));
+            }
         }
     }
 }

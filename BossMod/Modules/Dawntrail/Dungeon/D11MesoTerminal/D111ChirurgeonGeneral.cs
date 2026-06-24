@@ -1,62 +1,168 @@
-﻿namespace BossMod.Dawntrail.Dungeon.D11MesoTerminal.D111ChirurgeonGeneral;
+namespace BossMod.Dawntrail.Dungeon.D11MesoTerminal.D111ChirurgeonGeneral;
 
 public enum OID : uint
 {
-    Boss = 0x488F, // R2.720, x1
-    Helper = 0x233C, // R0.500, x10, Helper type
+    ChirurgeonGeneral = 0x488F, // R2.72
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    AutoAttack = 44246, // Boss->player, no cast, single-target
-    MedicineField = 43798, // Boss->self, 5.0s cast, range 60 circle
-    NoMansLand = 43804, // Boss->self, no cast, single-target
-    PungentAerosol = 43807, // Helper->location, 5.5s cast, range 60 circle
+    AutoAttack = 44246, // ChirurgeonGeneral->player, no cast, single-target
+
+    MedicineField = 43798, // ChirurgeonGeneral->self, 5.0s cast, range 60 circle
+    NoMansLand = 43804, // ChirurgeonGeneral->self, no cast, single-target
+    PungentAerosol = 43807, // Helper->location, 5.5s cast, range 60 circle, knockback 24, away from source
     SterileSphereSmall = 43806, // Helper->self, 5.5s cast, range 8 circle
-    SterileSphereLarge = 43805, // Helper->self, 5.5s cast, range 15 circle
-    BiochemicalFront = 43802, // Boss->self, 5.0s cast, range 40 width 65 rect
-    SensoryDeprivation = 43797, // Boss->self, 3.0s cast, range 60 circle
-    ConcentratedDose = 43799, // Boss->player, 5.0s cast, single-target
+    SterileSphereBig = 43805, // Helper->self, 5.5s cast, range 15 circle
+    BiochemicalFront = 43802, // ChirurgeonGeneral->self, 5.0s cast, range 40 width 65 rect
+    SensoryDeprivation = 43797, // ChirurgeonGeneral->self, 3.0s cast, range 60 circle
+    ConcentratedDose = 43799 // ChirurgeonGeneral->player, 5.0s cast, single-target
 }
 
-class MedicineField(BossModule module) : Components.RaidwideCast(module, AID.MedicineField);
-class PungentAerosol(BossModule module) : Components.KnockbackFromCastTarget(module, AID.PungentAerosol, 24)
+public enum SID : uint
 {
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    Poison = 2104 // ChirurgeonGeneral->player, extra=0x0
+}
+
+sealed class ArenaChange(BossModule module) : Components.GenericAOEs(module)
+{
+    private AOEInstance[] _aoe = [];
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        // TODO: add hints to avoid big circle AOEs, not sure if 5.5s is enough time to get from risky corner to safety
-        foreach (var c in Sources(slot, actor))
-            if (!IsImmune(slot, c.Activation))
-            {
-                var center = Arena.Center;
-                hints.AddForbiddenZone(p =>
-                {
-                    var dir = (p - c.Origin).Normalized() * 24;
-                    var proj = p + dir;
-                    return !proj.AlmostEqual(center, 20);
-                }, c.Activation);
-            }
+        if (spell.Action.ID == (uint)AID.MedicineField && Arena.Bounds.Radius > 20f)
+        {
+            _aoe = [new(D111ChirurgeonGeneral.Square, Arena.Center, default, Module.CastFinishAt(spell, 0.8d))];
+        }
+    }
+
+    public override void OnMapEffect(byte index, uint state)
+    {
+        if (index == 0x04 && state == 0x00020001u)
+        {
+            Arena.Bounds = new ArenaBoundsSquare(20f);
+            _aoe = [];
+        }
     }
 }
-class SterileSphereSmall(BossModule module) : Components.StandardAOEs(module, AID.SterileSphereSmall, 8);
-class SterileSphereLarge(BossModule module) : Components.StandardAOEs(module, AID.SterileSphereLarge, 15);
-class BiochemicalFront(BossModule module) : Components.StandardAOEs(module, AID.BiochemicalFront, new AOEShapeRect(40, 32.5f));
-class ConcentratedDose(BossModule module) : Components.SingleTargetCast(module, AID.ConcentratedDose);
 
-class D111ChirurgeonGeneralStates : StateMachineBuilder
+sealed class MedicineFieldPungentAerosol(BossModule module) : Components.RaidwideCasts(module, [(uint)AID.MedicineField, (uint)AID.PungentAerosol]);
+sealed class ConcentratedDose(BossModule module) : Components.SingleTargetCast(module, (uint)AID.ConcentratedDose);
+sealed class Poison(BossModule module) : Components.CleansableDebuff(module, (uint)SID.Poison, "Poison", "poisoned");
+sealed class BiochemicalFront(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BiochemicalFront, new AOEShapeRect(40f, 32.5f));
+
+sealed class SterileSphere(BossModule module) : Components.GenericAOEs(module)
+{
+    public readonly List<AOEInstance> AOEs = new(4);
+    private static readonly AOEShapeCircle circleSmall = new(8f), circleBig = new(15f);
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(AOEs);
+
+    public override void OnMapEffect(byte index, uint state)
+    {
+        if (state != 0x00020001u)
+        {
+            return;
+        }
+        var shape = index switch
+        {
+            0x0B or 0x0C or 0x0D or 0x0E => circleBig,
+            0x0F or 0x10 or 0x11 or 0x12 => circleSmall,
+            _ => null
+        };
+        if (shape == null)
+        {
+            return;
+        }
+        WPos pos = index switch
+        {
+            0x0B or 0x0F => new(260f, 2f),
+            0x0C or 0x10 => new(280f, 2f),
+            0x0D or 0x11 => new(260f, 22f),
+            _ => new(280f, 22f), // 0x0E or 0x12
+        };
+        AOEs.Add(new(shape, pos.Quantized(), risky: false));
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.SterileSphereSmall)
+        {
+            var aoes = CollectionsMarshal.AsSpan(AOEs);
+            var act = Module.CastFinishAt(spell);
+            for (var i = 0; i < 4; ++i)
+            {
+                ref var aoe = ref aoes[i];
+                aoe.Activation = act;
+                aoe.Risky = true;
+            }
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.SterileSphereSmall)
+        {
+            AOEs.Clear();
+        }
+    }
+}
+
+sealed class PungentAerosol(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.PungentAerosol, 24f)
+{
+    private readonly SterileSphere _aoe = module.FindComponent<SterileSphere>()!;
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Casters.Count == 0)
+        {
+            return;
+        }
+        ref readonly var c = ref Casters.Ref(0);
+        var act = c.Activation;
+        if (!IsImmune(slot, act))
+        {
+            // square intentionally slightly smaller to prevent sus knockback
+            hints.AddForbiddenZone(new SDKnockbackInAABBSquareAwayFromOrigin(Arena.Center, c.Origin, 24f, 19f), act);
+        }
+    }
+
+    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos)
+    {
+        var aoes = _aoe.ActiveAOEs(slot, actor);
+        var len = aoes.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            if (aoes[i].Check(pos))
+            {
+                return true;
+            }
+        }
+        return !Arena.InBounds(pos);
+    }
+}
+
+sealed class D111ChirurgeonGeneralStates : StateMachineBuilder
 {
     public D111ChirurgeonGeneralStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<MedicineField>()
-            .ActivateOnEnter<PungentAerosol>()
-            .ActivateOnEnter<SterileSphereSmall>()
-            .ActivateOnEnter<SterileSphereLarge>()
+            .ActivateOnEnter<ArenaChange>()
+            .ActivateOnEnter<MedicineFieldPungentAerosol>()
+            .ActivateOnEnter<ConcentratedDose>()
+            .ActivateOnEnter<Poison>()
             .ActivateOnEnter<BiochemicalFront>()
-            .ActivateOnEnter<ConcentratedDose>();
+            .ActivateOnEnter<SterileSphere>()
+            .ActivateOnEnter<PungentAerosol>();
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1028, NameID = 13970)]
-public class D111ChirurgeonGeneral(WorldState ws, Actor primary) : BossModule(ws, primary, new(270, 12), new ArenaBoundsSquare(20));
-
+[ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus)", PrimaryActorOID = (uint)OID.ChirurgeonGeneral, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1028u, NameID = 13970u, Category = BossModuleInfo.Category.Dungeon, Expansion = BossModuleInfo.Expansion.Dawntrail, SortOrder = 1)]
+public sealed class D111ChirurgeonGeneral(WorldState ws, Actor primary) : BossModule(ws, primary, arenaCenter, new ArenaBoundsSquare(21.5f))
+{
+    private static readonly WPos arenaCenter = new(270f, 12f);
+    public static readonly AOEShapeCustom Square = new([new Square(arenaCenter, 22f)], [new Square(arenaCenter, 20f)]);
+}

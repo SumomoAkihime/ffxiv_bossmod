@@ -1,39 +1,36 @@
-﻿namespace BossMod.Endwalker.Criterion.C01ASS.C013Shadowcaster;
+﻿namespace BossMod.Endwalker.VariantCriterion.C01ASS.C013Shadowcaster;
 
 static class Portals
 {
-    private const float _portalLength = 10;
+    private const float _portalLength = 10f;
 
     // returns null if this is not arrow appear eanim
     public static WPos? DestinationForEAnim(Actor actor, uint state)
     {
-        if ((OID)actor.OID != OID.Portal)
+        if (actor.OID != (uint)OID.Portal)
             return null;
 
-        int rotation = state switch
+        var rotation = state switch
         {
-            0x00400080 => -90, // CW arrows appear
-            0x01000200 => +90, // CCW arrows appear
-            _ => 0, // other known: 0x04000800 = CW arrows end, 0x10002000 = CCW arrows end, 0x00100020 = arrows disappear, 0x00040008 = disappear
+            0x00400080u => -90f, // CW arrows appear
+            0x01000200u => 90f, // CCW arrows appear
+            _ => default, // other known: 0x04000800 = CW arrows end, 0x10002000 = CCW arrows end, 0x00100020 = arrows disappear, 0x00040008 = disappear
         };
-        if (rotation == 0)
+        if (rotation == default)
             return null;
 
         return actor.Position + _portalLength * (actor.Rotation + rotation.Degrees()).ToDirection();
     }
 }
 
-class PortalsAOE(BossModule module, AID aid, OID movedOID, float activationDelay, AOEShape shape) : Components.GenericAOEs(module, aid)
+class PortalsAOE(BossModule module, uint aid, uint movedOID, double activationDelay, AOEShape shape) : Components.GenericAOEs(module, aid)
 {
-    private readonly IReadOnlyList<Actor> _movedActors = module.Enemies(movedOID);
-    private readonly float _activationDelay = activationDelay;
+    private readonly List<Actor> _movedActors = module.Enemies(movedOID);
+    private readonly double _activationDelay = activationDelay;
     private readonly AOEShape _shape = shape;
-    private readonly List<(WPos pos, Angle rot, DateTime activation)> _origins = [];
+    private readonly List<AOEInstance> _aoes = [];
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        return _origins.Select(o => new AOEInstance(_shape, o.pos, o.rot, o.activation));
-    }
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
     public override void OnActorEAnim(Actor actor, uint state)
     {
@@ -41,21 +38,23 @@ class PortalsAOE(BossModule module, AID aid, OID movedOID, float activationDelay
         if (dest == null)
             return;
 
-        var movedActor = _movedActors.FirstOrDefault(a => a.Position.AlmostEqual(actor.Position, 1));
+        var movedActor = _movedActors.FirstOrDefault(a => a.Position.AlmostEqual(actor.Position, 1f));
         if (movedActor != null)
-            _origins.Add((dest.Value, movedActor.Rotation, WorldState.FutureTime(_activationDelay)));
+            _aoes.Add(new(_shape, dest.Value, movedActor.Rotation, WorldState.FutureTime(_activationDelay)));
     }
 }
 
-class NPortalsBurn(BossModule module) : PortalsAOE(module, AID.NBurn, OID.NBallOfFire, 11.6f, new AOEShapeCircle(12));
-class SPortalsBurn(BossModule module) : PortalsAOE(module, AID.SBurn, OID.SBallOfFire, 11.6f, new AOEShapeCircle(12));
+abstract class PortalsBurn(BossModule module, uint aid, uint oid) : PortalsAOE(module, aid, oid, 11.6d, new AOEShapeCircle(12f));
+sealed class NPortalsBurn(BossModule module) : PortalsBurn(module, (uint)AID.NBurn, (uint)OID.NBallOfFire);
+sealed class SPortalsBurn(BossModule module) : PortalsBurn(module, (uint)AID.SBurn, (uint)OID.SBallOfFire);
 
-class NPortalsMirror(BossModule module) : PortalsAOE(module, AID.NBlazingBenifice, OID.NArcaneFont, 11.7f, new AOEShapeRect(100, 5, 100));
-class SPortalsMirror(BossModule module) : PortalsAOE(module, AID.SBlazingBenifice, OID.SArcaneFont, 11.7f, new AOEShapeRect(100, 5, 100));
+abstract class PortalsMirror(BossModule module, uint aid, uint oid) : PortalsAOE(module, aid, oid, 11.7d, new AOEShapeRect(60f, 5f, 60f));
+sealed class NPortalsMirror(BossModule module) : PortalsMirror(module, (uint)AID.NBlazingBenifice, (uint)OID.NArcaneFont);
+sealed class SPortalsMirror(BossModule module) : PortalsMirror(module, (uint)AID.SBlazingBenifice, (uint)OID.SArcaneFont);
 
-class PortalsWave(BossModule module) : BossComponent(module)
+sealed class PortalsWave(BossModule module) : BossComponent(module)
 {
-    public bool Done { get; private set; }
+    public bool Done;
     private readonly List<(WPos n, WPos s)> _portals = [];
     private readonly int[] _playerPortals = new int[PartyState.MaxPartySize]; // 0 = unassigned, otherwise 'z direction sign' (-1 if own portal points N, +1 for S)
 
@@ -64,18 +63,20 @@ class PortalsWave(BossModule module) : BossComponent(module)
         var dir = _playerPortals[pcSlot];
         if (dir != 0)
         {
-            foreach (var p in _portals)
+            for (var i = 0; i < _portals.Count; ++i)
             {
-                Arena.AddCircle(dir > 0 ? p.s : p.n, 1, ArenaColor.Safe, 2);
+                var p = _portals[i];
+                Arena.AddCircle(dir > 0 ? p.s : p.n, 1, Colors.Safe, 2f);
             }
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.PlayerPortal)
+        if (status.ID == (uint)SID.PlayerPortal)
         {
-            if (Raid.TryFindSlot(actor, out var slot))
+            var slot = Raid.FindSlot(actor.InstanceID);
+            if (slot >= 0)
             {
                 _playerPortals[slot] = status.Extra switch
                 {
@@ -89,14 +90,14 @@ class PortalsWave(BossModule module) : BossComponent(module)
 
     public override void OnActorEAnim(Actor actor, uint state)
     {
-        if ((OID)actor.OID == OID.Portal && state == 0x00100020)
+        if (actor.OID == (uint)OID.Portal && state == 0x00100020u)
         {
             Done = true;
             return;
         }
 
         var dest = Portals.DestinationForEAnim(actor, state);
-        if (dest == null || !Module.InBounds(dest.Value))
+        if (dest == null || !Arena.InBounds(dest.Value))
             return;
 
         var n = actor.Position;

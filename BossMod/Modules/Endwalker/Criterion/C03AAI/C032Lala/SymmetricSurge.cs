@@ -1,8 +1,8 @@
-﻿namespace BossMod.Endwalker.Criterion.C03AAI.C032Lala;
+﻿namespace BossMod.Endwalker.VariantCriterion.C03AAI.C032Lala;
 
 class SymmetricSurge(BossModule module) : Components.UniformStackSpread(module, 6, 0)
 {
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         if ((SID)status.ID == SID.SurgeVector)
             AddStack(actor, status.ExpireAt);

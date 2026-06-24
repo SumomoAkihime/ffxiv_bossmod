@@ -1,22 +1,15 @@
-﻿namespace BossMod.Endwalker.Criterion.C01ASS.C013Shadowcaster;
+﻿namespace BossMod.Endwalker.VariantCriterion.C01ASS.C013Shadowcaster;
 
-class FiresteelFracture(BossModule module, AID aid) : Components.Cleave(module, aid, new AOEShapeCone(40, 30.Degrees()));
-class NFiresteelFracture(BossModule module) : FiresteelFracture(module, AID.NFiresteelFracture);
-class SFiresteelFracture(BossModule module) : FiresteelFracture(module, AID.SFiresteelFracture);
+abstract class FiresteelFracture(BossModule module, uint aid) : Components.Cleave(module, aid, new AOEShapeCone(40f, 30f.Degrees()));
+sealed class NFiresteelFracture(BossModule module) : FiresteelFracture(module, (uint)AID.NFiresteelFracture);
+sealed class SFiresteelFracture(BossModule module) : FiresteelFracture(module, (uint)AID.SFiresteelFracture);
 
-// TODO: show AOEs
-class BlazingBenifice(BossModule module, AID aid) : Components.CastCounter(module, aid);
-class NBlazingBenifice(BossModule module) : BlazingBenifice(module, AID.NBlazingBenifice);
-class SBlazingBenifice(BossModule module) : BlazingBenifice(module, AID.SBlazingBenifice);
+abstract class PureFire(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, 6f);
+sealed class NPureFire(BossModule module) : PureFire(module, (uint)AID.NPureFireAOE);
+sealed class SPureFire(BossModule module) : PureFire(module, (uint)AID.SPureFireAOE);
 
-class PureFire(BossModule module, AID aid) : Components.StandardAOEs(module, aid, 6);
-class NPureFire(BossModule module) : PureFire(module, AID.NPureFireAOE);
-class SPureFire(BossModule module) : PureFire(module, AID.SPureFireAOE);
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", PrimaryActorOID = (uint)OID.NBoss, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 878, NameID = 11393, SortOrder = 5, PlanLevel = 90)]
+public sealed class C013NShadowcaster(WorldState ws, Actor primary) : V1SildihnSubterrane.V14ZelessGah.VCZelessGah(ws, primary);
 
-public abstract class C013Shadowcaster(WorldState ws, Actor primary) : BossModule(ws, primary, new(289, -105), new ArenaBoundsRect(15, 20));
-
-[ModuleInfo(PrimaryActorOID = (uint)OID.NBoss, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 878, NameID = 11393, SortOrder = 9, PlanLevel = 90)]
-public class C013NShadowcaster(WorldState ws, Actor primary) : C013Shadowcaster(ws, primary);
-
-[ModuleInfo(PrimaryActorOID = (uint)OID.SBoss, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 879, NameID = 11393, SortOrder = 9, PlanLevel = 90)]
-public class C013SShadowcaster(WorldState ws, Actor primary) : C013Shadowcaster(ws, primary);
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", PrimaryActorOID = (uint)OID.SBoss, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 879, NameID = 11393, SortOrder = 5, PlanLevel = 90)]
+public sealed class C013SShadowcaster(WorldState ws, Actor primary) : V1SildihnSubterrane.V14ZelessGah.VCZelessGah(ws, primary);

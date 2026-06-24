@@ -1,6 +1,6 @@
 ﻿namespace BossMod.QuestBattle.Heavensward.ClassJobQuests.MCH;
 
-[ZoneModuleInfo(426)]
+[ZoneModuleInfo(BossModuleInfo.Maturity.Contributed, 426)]
 internal class RiseOfTheMachinists(WorldState ws) : QuestBattle(ws)
 {
     private static readonly Vector3 Center = new(-650.33f, 97.38f, -452.71f);
@@ -10,15 +10,10 @@ internal class RiseOfTheMachinists(WorldState ws) : QuestBattle(ws)
             .With(obj => {
                 Actor? tedal = null;
                 obj.OnActorCreated += (act) => {
-                    if (act.OID == 0x1158)
-                        tedal ??= act;
-                };
+                    if (act.OID == 0x1158) { tedal ??= act; } };
 
                 obj.AddAIHints += (player, hints) => {
-                    foreach(var h in hints.PotentialTargets)
-                        if (h.Actor.TargetID == tedal?.InstanceID)
-                            h.Priority = 5;
-                };
+                    foreach(var h in hints.PotentialTargets) { if (h.Actor.TargetID == tedal?.InstanceID) { h.Priority = 5; } } };
             })
         ];
 

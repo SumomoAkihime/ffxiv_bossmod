@@ -2,61 +2,60 @@ namespace BossMod.Shadowbringers.TreasureHunt.ShiftingOubliettesOfLyheGhiah.Gree
 
 public enum OID : uint
 {
-    Boss = 0x3018, //R=1.6
-    BossAdd = 0x3019, //R=1.8
-    PixieDouble = 0x304C, //R=1.6
+    GreedyPixie = 0x3018, //R=1.6
+    SecretMorpho = 0x3019, //R=1.8
+    PixieDouble1 = 0x304C, //R=1.6
     PixieDouble2 = 0x304D, //R=1.6
-    BossHelper = 0x233C,
-    SecretQueen = 0x3021, // R0.840, icon 5, needs to be killed in order from 1 to 5 for maximum rewards
-    SecretGarlic = 0x301F, // R0.840, icon 3, needs to be killed in order from 1 to 5 for maximum rewards
-    SecretTomato = 0x3020, // R0.840, icon 4, needs to be killed in order from 1 to 5 for maximum rewards
-    SecretOnion = 0x301D, // R0.840, icon 1, needs to be killed in order from 1 to 5 for maximum rewards
-    SecretEgg = 0x301E, // R0.840, icon 2, needs to be killed in order from 1 to 5 for maximum rewards
-    BonusAddKeeperOfKeys = 0x3034, // R3.230
-    BonusAddFuathTrickster = 0x3033, // R0.750
+    SecretQueen = 0x3021, // R0.84, icon 5, needs to be killed in order from 1 to 5 for maximum rewards
+    SecretGarlic = 0x301F, // R0.84, icon 3, needs to be killed in order from 1 to 5 for maximum rewards
+    SecretTomato = 0x3020, // R0.84, icon 4, needs to be killed in order from 1 to 5 for maximum rewards
+    SecretOnion = 0x301D, // R0.84, icon 1, needs to be killed in order from 1 to 5 for maximum rewards
+    SecretEgg = 0x301E, // R0.84, icon 2, needs to be killed in order from 1 to 5 for maximum rewards
+    KeeperOfKeys = 0x3034, // R3.23
+    FuathTrickster = 0x3033, // R0.75
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
-    AutoAttack = 23185, // Boss->player, no cast, single-target
-    AutoAttack2 = 872, // Adds->player, no cast, single-target
-    WindRune = 21686, // Boss->self, 3.0s cast, range 40 width 8 rect
-    SongRune = 21684, // Boss->location, 3.0s cast, range 6 circle
-    StormRune = 21682, // Boss->self, 4.0s cast, range 40 circle
-    BushBash = 22779, // PixieDouble2->self, 7.0s cast, range 12 circle
-    BushBash2 = 21683, // Boss->self, 5.0s cast, range 12 circle
-    NatureCall = 22780, // PixieDouble->self, 7.0s cast, range 30 120-degree cone, turns player into a plant
-    NatureCall2 = 21685, // Boss->self, 5.0s cast, range 30 120-degree cone, turns player into a plant
+    AutoAttack1 = 23185, // GreedyPixie/Mandragoras->player, no cast, single-target
+    AutoAttack2 = 872, // KeeperOfKeys/SecretMorpho->player, no cast, single-target
 
-    Pollen = 6452, // 2A0A->self, 3.5s cast, range 6+R circle
-    TearyTwirl = 6448, // 2A06->self, 3.5s cast, range 6+R circle
-    HeirloomScream = 6451, // 2A09->self, 3.5s cast, range 6+R circle
-    PluckAndPrune = 6449, // 2A07->self, 3.5s cast, range 6+R circle
-    PungentPirouette = 6450, // 2A08->self, 3.5s cast, range 6+R circle
-    Telega = 9630, // BonusAdds->self, no cast, single-target, bonus adds disappear
-    Mash = 21767, // 3034->self, 3.0s cast, range 13 width 4 rect
-    Inhale = 21770, // 3034->self, no cast, range 20 120-degree cone, attract 25 between hitboxes, shortly before Spin
-    Spin = 21769, // 3034->self, 4.0s cast, range 11 circle
-    Scoop = 21768, // 3034->self, 4.0s cast, range 15 120-degree cone
+    WindRune = 21686, // GreedyPixie->self, 3.0s cast, range 40 width 8 rect
+    SongRune = 21684, // GreedyPixie->location, 3.0s cast, range 6 circle
+    StormRune = 21682, // GreedyPixie->self, 4.0s cast, range 40 circle
+    BushBash1 = 22779, // PixieDouble2->self, 7.0s cast, range 12 circle
+    BushBash2 = 21683, // GreedyPixie->self, 5.0s cast, range 12 circle
+    NatureCall1 = 22780, // PixieDouble1->self, 7.0s cast, range 30 120-degree cone, turns player into a plant
+    NatureCall2 = 21685, // GreedyPixie->self, 5.0s cast, range 30 120-degree cone, turns player into a plant
+
+    Pollen = 6452, // SecretQueen->self, 3.5s cast, range 6+R circle
+    TearyTwirl = 6448, // SecretOnion->self, 3.5s cast, range 6+R circle
+    HeirloomScream = 6451, // SecretTomato->self, 3.5s cast, range 6+R circle
+    PluckAndPrune = 6449, // SecretEgg->self, 3.5s cast, range 6+R circle
+    PungentPirouette = 6450, // SecretGarlic->self, 3.5s cast, range 6+R circle
+    Mash = 21767, // KeeperOfKeys->self, 3.0s cast, range 13 width 4 rect
+    Inhale = 21770, // KeeperOfKeys->self, no cast, range 20 120-degree cone, attract 25 between hitboxes, shortly before Spin
+    Spin = 21769, // KeeperOfKeys->self, 4.0s cast, range 11 circle
+    Scoop = 21768, // KeeperOfKeys->self, 4.0s cast, range 15 120-degree cone
+    Telega = 9630 // BonusAdds->self, no cast, single-target, bonus adds disappear
 }
 
-class Windrune(BossModule module) : Components.StandardAOEs(module, AID.WindRune, new AOEShapeRect(40, 4));
-class SongRune(BossModule module) : Components.StandardAOEs(module, AID.SongRune, 6);
-class StormRune(BossModule module) : Components.RaidwideCast(module, AID.StormRune);
-class BushBash(BossModule module) : Components.StandardAOEs(module, AID.BushBash, new AOEShapeCircle(12));
-class BushBash2(BossModule module) : Components.StandardAOEs(module, AID.BushBash2, new AOEShapeCircle(12));
-class NatureCall(BossModule module) : Components.StandardAOEs(module, AID.NatureCall, new AOEShapeCone(30, 60.Degrees()));
-class NatureCall2(BossModule module) : Components.StandardAOEs(module, AID.NatureCall2, new AOEShapeCone(30, 60.Degrees()));
-class PluckAndPrune(BossModule module) : Components.StandardAOEs(module, AID.PluckAndPrune, new AOEShapeCircle(6.84f));
-class TearyTwirl(BossModule module) : Components.StandardAOEs(module, AID.TearyTwirl, new AOEShapeCircle(6.84f));
-class HeirloomScream(BossModule module) : Components.StandardAOEs(module, AID.HeirloomScream, new AOEShapeCircle(6.84f));
-class PungentPirouette(BossModule module) : Components.StandardAOEs(module, AID.PungentPirouette, new AOEShapeCircle(6.84f));
-class Pollen(BossModule module) : Components.StandardAOEs(module, AID.Pollen, new AOEShapeCircle(6.84f));
-class Spin(BossModule module) : Components.StandardAOEs(module, AID.Spin, new AOEShapeCircle(11));
-class Mash(BossModule module) : Components.StandardAOEs(module, AID.Mash, new AOEShapeRect(13, 2));
-class Scoop(BossModule module) : Components.StandardAOEs(module, AID.Scoop, new AOEShapeCone(15, 60.Degrees()));
+sealed class Windrune(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WindRune, new AOEShapeRect(40f, 4f));
+sealed class SongRune(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SongRune, 6f);
+sealed class StormRune(BossModule module) : Components.RaidwideCast(module, (uint)AID.StormRune);
 
-class GreedyPixieStates : StateMachineBuilder
+sealed class BushBash(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BushBash1, (uint)AID.BushBash2], 12f);
+sealed class NatureCall(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.NatureCall1, (uint)AID.NatureCall2], new AOEShapeCone(30f, 60f.Degrees()));
+
+sealed class MandragoraAOEs(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.PluckAndPrune, (uint)AID.TearyTwirl,
+(uint)AID.HeirloomScream, (uint)AID.PungentPirouette, (uint)AID.Pollen], 6.84f);
+
+sealed class Spin(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Spin, 11f);
+sealed class Mash(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Mash, new AOEShapeRect(13f, 2f));
+sealed class Scoop(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Scoop, new AOEShapeCone(15f, 60f.Degrees()));
+
+sealed class GreedyPixieStates : StateMachineBuilder
 {
     public GreedyPixieStates(BossModule module) : base(module)
     {
@@ -65,58 +64,64 @@ class GreedyPixieStates : StateMachineBuilder
             .ActivateOnEnter<StormRune>()
             .ActivateOnEnter<SongRune>()
             .ActivateOnEnter<BushBash>()
-            .ActivateOnEnter<BushBash2>()
             .ActivateOnEnter<NatureCall>()
-            .ActivateOnEnter<NatureCall2>()
-            .ActivateOnEnter<PluckAndPrune>()
-            .ActivateOnEnter<TearyTwirl>()
-            .ActivateOnEnter<HeirloomScream>()
-            .ActivateOnEnter<PungentPirouette>()
-            .ActivateOnEnter<Pollen>()
+            .ActivateOnEnter<MandragoraAOEs>()
             .ActivateOnEnter<Spin>()
             .ActivateOnEnter<Mash>()
             .ActivateOnEnter<Scoop>()
-            .Raw.Update = () => module.Enemies(OID.Boss).All(e => e.IsDead) && module.Enemies(OID.BossAdd).All(e => e.IsDead) && module.Enemies(OID.SecretEgg).All(e => e.IsDead) && module.Enemies(OID.SecretQueen).All(e => e.IsDead) && module.Enemies(OID.SecretOnion).All(e => e.IsDead) && module.Enemies(OID.SecretGarlic).All(e => e.IsDead) && module.Enemies(OID.SecretTomato).All(e => e.IsDead) && module.Enemies(OID.BonusAddKeeperOfKeys).All(e => e.IsDead) && module.Enemies(OID.BonusAddFuathTrickster).All(e => e.IsDead);
+            .Raw.Update = () => AllDeadOrDestroyed(GreedyPixie.All);
     }
 }
 
-[ModuleInfo(Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 745, NameID = 9797)]
-public class GreedyPixie(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(19))
+[ModuleInfo(BossModuleInfo.Maturity.Verified,
+StatesType = typeof(GreedyPixieStates),
+ConfigType = null,
+ObjectIDType = typeof(OID),
+ActionIDType = typeof(AID),
+StatusIDType = null,
+TetherIDType = null,
+IconIDType = null,
+PrimaryActorOID = (uint)OID.GreedyPixie,
+Contributors = "The Combat Reborn Team (Malediktus)",
+Expansion = BossModuleInfo.Expansion.Shadowbringers,
+Category = BossModuleInfo.Category.TreasureHunt,
+GroupType = BossModuleInfo.GroupType.CFC,
+GroupID = 745u,
+NameID = 9797u,
+SortOrder = 2,
+PlanLevel = 0)]
+public sealed class GreedyPixie : THTemplate
 {
+    public GreedyPixie(WorldState ws, Actor primary) : base(ws, primary)
+    {
+        morphos = Enemies((uint)OID.SecretMorpho);
+    }
+    private readonly List<Actor> morphos;
+    private static readonly uint[] bonusAdds = [(uint)OID.SecretEgg, (uint)OID.SecretGarlic, (uint)OID.SecretOnion, (uint)OID.SecretTomato,
+    (uint)OID.SecretQueen, (uint)OID.FuathTrickster, (uint)OID.KeeperOfKeys];
+    public static readonly uint[] All = [(uint)OID.GreedyPixie, (uint)OID.SecretMorpho, .. bonusAdds];
+
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var s in Enemies(OID.BossAdd))
-            Arena.Actor(s, ArenaColor.Object);
-        foreach (var s in Enemies(OID.SecretEgg))
-            Arena.Actor(s, ArenaColor.Vulnerable);
-        foreach (var s in Enemies(OID.SecretTomato))
-            Arena.Actor(s, ArenaColor.Vulnerable);
-        foreach (var s in Enemies(OID.SecretQueen))
-            Arena.Actor(s, ArenaColor.Vulnerable);
-        foreach (var s in Enemies(OID.SecretGarlic))
-            Arena.Actor(s, ArenaColor.Vulnerable);
-        foreach (var s in Enemies(OID.SecretOnion))
-            Arena.Actor(s, ArenaColor.Vulnerable);
-        foreach (var s in Enemies(OID.BonusAddKeeperOfKeys))
-            Arena.Actor(s, ArenaColor.Vulnerable);
-        foreach (var s in Enemies(OID.BonusAddFuathTrickster))
-            Arena.Actor(s, ArenaColor.Vulnerable);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(morphos);
+        Arena.Actors(this, bonusAdds, Colors.Vulnerable);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.SecretOnion => 7,
-                OID.SecretEgg => 6,
-                OID.SecretGarlic => 5,
-                OID.SecretTomato or OID.BonusAddFuathTrickster => 4,
-                OID.SecretQueen or OID.BonusAddKeeperOfKeys => 3,
-                OID.BossAdd => 2,
-                OID.Boss => 1,
+                (uint)OID.SecretOnion => 6,
+                (uint)OID.SecretEgg => 5,
+                (uint)OID.SecretGarlic => 4,
+                (uint)OID.SecretTomato or (uint)OID.FuathTrickster => 3,
+                (uint)OID.SecretQueen or (uint)OID.KeeperOfKeys => 2,
+                (uint)OID.SecretMorpho => 1,
                 _ => 0
             };
         }

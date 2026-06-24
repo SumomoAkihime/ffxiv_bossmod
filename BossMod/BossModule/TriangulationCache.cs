@@ -2,57 +2,101 @@
 
 // clipping shapes to bounds and triangulating them is a serious time sink, so we want to cache that
 // to avoid requiring tracking cache lifetime by users, we use a heuristic - we assume that if something isn't drawn for a frame, it's no longer relevant
-// for that, we keep two lists (prev/curr frame cache), every frame discard old entries, every time we retrieve entry from prev frame cache we move it to curr
+[SkipLocalsInit]
 public sealed class TriangulationCache
 {
-    private List<(object key, List<RelTriangle>? triangulation)> _prev = [];
-    private List<(object key, List<RelTriangle>? triangulation)> _curr = [];
-    private int _numRequests;
-    private int _numReuse;
-
-    // the typical usage is: var triangulation = cache[hash] ??= BuildTriangulation(...)
-    public ref List<RelTriangle>? this[object key]
+    private struct CacheEntry
     {
-        get
-        {
-            ++_numRequests;
-            var iCurr = _curr.FindIndex(kv => kv.key.Equals(key));
-            if (iCurr < 0)
-            {
-                List<RelTriangle>? entry = null;
-
-                // see if there is entry in prev
-                var iPrev = _prev.FindIndex(kv => kv.key.Equals(key));
-                if (iPrev >= 0)
-                {
-                    ++_numReuse;
-                    entry = _prev[iPrev].triangulation;
-                    // swap-remove
-                    if (iPrev + 1 < _prev.Count)
-                        _prev[iPrev] = _prev[^1];
-                    _prev.RemoveAt(_prev.Count - 1);
-                }
-
-                iCurr = _curr.Count;
-                _curr.Add((key, entry));
-            }
-            return ref _curr.Ref(iCurr).triangulation;
-        }
+        public List<RelTriangle>? Triangulation;
+        public int LastSeenFrame;
     }
+
+    private readonly Dictionary<int, CacheEntry> _cache = [];
+    private int _frame;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ref List<RelTriangle>? GetByHash(int keyHash)
+    {
+        ref var entry = ref CollectionsMarshal.GetValueRefOrAddDefault(_cache, keyHash, out var exists);
+        if (!exists)
+        {
+            entry.LastSeenFrame = _frame;
+            return ref entry.Triangulation;
+        }
+
+        entry.LastSeenFrame = _frame;
+        return ref entry.Triangulation;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int GetKeyHash<T1>(int keyType, T1 p1)
+        where T1 : notnull
+        => HashCode.Combine(keyType, p1);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int GetKeyHash<T1, T2>(int keyType, T1 p1, T2 p2)
+        where T1 : notnull where T2 : notnull
+        => HashCode.Combine(keyType, p1, p2);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int GetKeyHash<T1, T2, T3>(int keyType, T1 p1, T2 p2, T3 p3)
+        where T1 : notnull where T2 : notnull where T3 : notnull
+        => HashCode.Combine(keyType, p1, p2, p3);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int GetKeyHash<T1, T2, T3, T4>(int keyType, T1 p1, T2 p2, T3 p3, T4 p4)
+        where T1 : notnull where T2 : notnull where T3 : notnull where T4 : notnull
+        => HashCode.Combine(keyType, p1, p2, p3, p4);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int GetKeyHash<T1, T2, T3, T4, T5>(int keyType, T1 p1, T2 p2, T3 p3, T4 p4, T5 p5)
+        where T1 : notnull where T2 : notnull where T3 : notnull where T4 : notnull where T5 : notnull
+        => HashCode.Combine(keyType, p1, p2, p3, p4, p5);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ref List<RelTriangle>? Get<T1>(int keyType, T1 p1)
+        where T1 : notnull
+        => ref GetByHash(GetKeyHash(keyType, p1));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ref List<RelTriangle>? Get<T1, T2>(int keyType, T1 p1, T2 p2)
+        where T1 : notnull where T2 : notnull
+        => ref GetByHash(GetKeyHash(keyType, p1, p2));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ref List<RelTriangle>? Get<T1, T2, T3>(int keyType, T1 p1, T2 p2, T3 p3)
+        where T1 : notnull where T2 : notnull where T3 : notnull
+        => ref GetByHash(GetKeyHash(keyType, p1, p2, p3));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ref List<RelTriangle>? Get<T1, T2, T3, T4>(int keyType, T1 p1, T2 p2, T3 p3, T4 p4)
+        where T1 : notnull where T2 : notnull where T3 : notnull where T4 : notnull
+        => ref GetByHash(GetKeyHash(keyType, p1, p2, p3, p4));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ref List<RelTriangle>? Get<T1, T2, T3, T4, T5>(int keyType, T1 p1, T2 p2, T3 p3, T4 p4, T5 p5)
+        where T1 : notnull where T2 : notnull where T3 : notnull where T4 : notnull where T5 : notnull
+        => ref GetByHash(GetKeyHash(keyType, p1, p2, p3, p4, p5));
 
     public void NextFrame()
     {
-        (_prev, _curr) = (_curr, _prev);
-        _curr.Clear();
-        _numRequests = _numReuse = 0;
+        var frameJustRendered = _frame;
+        ++_frame;
+
+        List<int> toRemove = new(_cache.Count);
+        foreach (var kvp in _cache)
+        {
+            if (kvp.Value.LastSeenFrame != frameJustRendered)
+            {
+                toRemove.Add(kvp.Key);
+            }
+        }
+        var count = toRemove.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            _cache.Remove(toRemove[i]);
+        }
     }
 
-    public void Invalidate()
-    {
-        _prev.Clear();
-        _curr.Clear();
-        _numRequests = _numReuse = 0;
-    }
-
-    public string Stats() => $"Evict={_prev.Count}, Reuse={_numReuse}, Reqs={_numRequests} ({_curr.Count} unique)";
+    public void Invalidate() => _cache.Clear();
 }

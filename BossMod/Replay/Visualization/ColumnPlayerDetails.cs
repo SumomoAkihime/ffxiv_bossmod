@@ -1,11 +1,11 @@
 ﻿using BossMod.Autorotation;
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 
 namespace BossMod.ReplayVisualization;
 
 // TODO: currently it assumes that there's only one instance that can edit db, it won't refresh if plan is edited and saved in a different instance...
-public class ColumnPlayerDetails : Timeline.ColumnGroup
+public sealed class ColumnPlayerDetails : Timeline.ColumnGroup
 {
     private readonly StateMachineTree _tree;
     private readonly List<int> _phaseBraches;
@@ -49,7 +49,10 @@ public class ColumnPlayerDetails : Timeline.ColumnGroup
         _hp = Add(new ColumnActorHP(timeline, tree, phaseBranches, replay, enc, player));
         _gauge = ColumnPlayerGauge.Create(timeline, tree, phaseBranches, replay, enc, player, playerClass);
         if (_gauge != null)
+        {
             Add(_gauge);
+        }
+
         _resourceSep = Add(new ColumnSeparator(timeline));
 
         if (_moduleInfo?.PlanLevel > 0)
@@ -65,15 +68,22 @@ public class ColumnPlayerDetails : Timeline.ColumnGroup
     {
         DrawConfigPlanner(tree);
         foreach (var _1 in tree.Node("Actions"))
+        {
             _actions.DrawConfig(tree);
+        }
+
         foreach (var _1 in tree.Node("Statuses"))
+        {
             _statuses.DrawConfig(tree);
+        }
 
         foreach (var _1 in tree.Node("Resources"))
         {
             DrawResourceColumnToggle(_hp, "HP");
             if (_gauge != null)
+            {
                 DrawResourceColumnToggle(_gauge, "Gauge");
+            }
         }
     }
 
@@ -104,8 +114,8 @@ public class ColumnPlayerDetails : Timeline.ColumnGroup
                 ImGui.TextUnformatted($"GUID: {_planner.Plan.Guid}");
                 _planner.DrawCommonControls();
 
-                bool haveDifferentPhaseTimes = false;
-                for (int i = 0; i < _tree.Phases.Count; ++i)
+                var haveDifferentPhaseTimes = false;
+                for (var i = 0; i < _tree.Phases.Count; ++i)
                 {
                     _planner.Modified |= ImGui.SliderFloat($"{_tree.Phases[i].Name}###phase-duration-{i}", ref _planner.Plan.PhaseDurations.Ref(i), 0, _tree.Phases[i].MaxTime, $"%.1f (replay: {_tree.Phases[i].Duration:f1} / {_tree.Phases[i].MaxTime:f1})");
                     haveDifferentPhaseTimes |= _planner.Plan.PhaseDurations[i] != _tree.Phases[i].Duration;
@@ -115,8 +125,11 @@ public class ColumnPlayerDetails : Timeline.ColumnGroup
                 {
                     if (ImGui.Button("Sync phase durations to replay"))
                     {
-                        for (int i = 0; i < _tree.Phases.Count; ++i)
+                        for (var i = 0; i < _tree.Phases.Count; ++i)
+                        {
                             _planner.Plan.PhaseDurations[i] = _tree.Phases[i].Duration;
+                        }
+
                         _planner.Modified = true;
                     }
                 }
@@ -127,9 +140,11 @@ public class ColumnPlayerDetails : Timeline.ColumnGroup
     private int DrawPlanSelector(Type moduleType, PlanDatabase.PlanList list, int selection)
     {
         using (ImRaii.Disabled(_planner?.Modified ?? false))
+        {
             selection = UIPlanDatabaseEditor.DrawPlanCombo(list, selection, "###planner");
+        }
 
-        bool isDefault = selection == list.SelectedIndex;
+        var isDefault = selection == list.SelectedIndex;
         ImGui.SameLine();
         if (ImGui.Checkbox("Default", ref isDefault))
         {
@@ -138,7 +153,10 @@ public class ColumnPlayerDetails : Timeline.ColumnGroup
         }
         ImGui.SameLine();
         if (UIMisc.Button("Save", _planner == null || !_planner.Modified, "Current plan was not modified"))
+        {
             SaveChanges();
+        }
+
         ImGui.SameLine();
         if (UIMisc.Button("Copy", _planner == null, "No plan selected") && _planner != null && _moduleInfo != null)
         {
@@ -179,7 +197,9 @@ public class ColumnPlayerDetails : Timeline.ColumnGroup
     private void UpdateSelectedPlan(PlanDatabase.PlanList list, int newSelection)
     {
         if (_selectedPlan == newSelection)
+        {
             return;
+        }
 
         if (_planner != null)
         {
@@ -195,7 +215,7 @@ public class ColumnPlayerDetails : Timeline.ColumnGroup
 
     private void DrawResourceColumnToggle(IToggleableColumn col, string name)
     {
-        bool visible = col.Visible;
+        var visible = col.Visible;
         if (ImGui.Checkbox(name, ref visible))
         {
             col.Visible = visible;

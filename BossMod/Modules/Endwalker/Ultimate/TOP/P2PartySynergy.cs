@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Ultimate.TOP;
 
-class P2PartySynergy(BossModule module) : CommonAssignments(module)
+sealed class P2PartySynergy(BossModule module) : CommonAssignments(module)
 {
     public enum Glitch { Unknown, Mid, Remote }
 
@@ -41,18 +41,18 @@ class P2PartySynergy(BossModule module) : CommonAssignments(module)
         {
             var distSq = (partner.Position - pc.Position).LengthSq();
             var range = DistanceRange;
-            Arena.AddLine(pc.Position, partner.Position, distSq < range.min * range.min || distSq > range.max * range.max ? ArenaColor.Danger : ArenaColor.Safe);
+            Arena.AddLine(pc.Position, partner.Position, distSq < range.min * range.min || distSq > range.max * range.max ? Colors.Danger : Colors.Safe);
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.MidGlitch:
+            case (uint)SID.MidGlitch:
                 ActiveGlitch = Glitch.Mid;
                 break;
-            case SID.RemoteGlitch:
+            case (uint)SID.RemoteGlitch:
                 ActiveGlitch = Glitch.Remote;
                 break;
         }
@@ -61,12 +61,12 @@ class P2PartySynergy(BossModule module) : CommonAssignments(module)
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
         // assuming standard 'blue-purple-orange-green' order
-        var order = (IconID)iconID switch
+        var order = iconID switch
         {
-            IconID.PartySynergyCross => 1,
-            IconID.PartySynergySquare => 2,
-            IconID.PartySynergyCircle => 3,
-            IconID.PartySynergyTriangle => 4,
+            (uint)IconID.PartySynergyCross => 1,
+            (uint)IconID.PartySynergySquare => 2,
+            (uint)IconID.PartySynergyCircle => 3,
+            (uint)IconID.PartySynergyTriangle => 4,
             _ => 0
         };
         Assign(actor, order);
@@ -106,15 +106,15 @@ class P2PartySynergy(BossModule module) : CommonAssignments(module)
     }
 }
 
-class P2PartySynergyDoubleAOEs(BossModule module) : Components.GenericAOEs(module)
+sealed class P2PartySynergyDoubleAOEs(BossModule module) : Components.GenericAOEs(module)
 {
     public List<AOEInstance> AOEs = [];
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => AOEs;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(AOEs);
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.BeyondStrength or AID.EfficientBladework or AID.SuperliminalSteel or AID.OptimizedBlizzard)
+        if (spell.Action.ID is (uint)AID.BeyondStrength or (uint)AID.EfficientBladework or (uint)AID.SuperliminalSteel or (uint)AID.OptimizedBlizzard)
             ++NumCasts;
     }
 
@@ -122,96 +122,100 @@ class P2PartySynergyDoubleAOEs(BossModule module) : Components.GenericAOEs(modul
     {
         if (id != 0x1E43)
             return;
-        switch ((OID)actor.OID)
+        var pos = actor.Position.Quantized();
+        var act = WorldState.FutureTime(5.1d);
+        var rot = actor.Rotation;
+        switch (actor.OID)
         {
-            case OID.OmegaMHelper:
+            case (uint)OID.OmegaMHelper:
                 if (actor.ModelState.ModelState == 4)
                 {
-                    AOEs.Add(new(new AOEShapeDonut(10, 40), actor.Position, actor.Rotation, WorldState.FutureTime(5.1f)));
+                    AOEs.Add(new(P5OmegaDoubleAOEs.Shapes[0], pos, rot, act));
                 }
                 else
                 {
-                    AOEs.Add(new(new AOEShapeCircle(10), actor.Position, actor.Rotation, WorldState.FutureTime(5.1f)));
+                    AOEs.Add(new(P5OmegaDoubleAOEs.Shapes[1], pos, rot, act));
                 }
                 break;
-            case OID.OmegaFHelper:
+            case (uint)OID.OmegaFHelper:
                 if (actor.ModelState.ModelState == 4)
                 {
-                    AOEs.Add(new(new AOEShapeRect(40, 40, -4), actor.Position, actor.Rotation + 90.Degrees(), WorldState.FutureTime(5.1f)));
-                    AOEs.Add(new(new AOEShapeRect(40, 40, -4), actor.Position, actor.Rotation - 90.Degrees(), WorldState.FutureTime(5.1f)));
+                    AOEs.Add(new(P5OmegaDoubleAOEs.Shapes[2], pos, rot + 90f.Degrees(), act));
+                    AOEs.Add(new(P5OmegaDoubleAOEs.Shapes[2], pos, rot - 90f.Degrees(), act));
                 }
                 else
                 {
-                    AOEs.Add(new(new AOEShapeCross(100, 5), actor.Position, actor.Rotation, WorldState.FutureTime(5.1f)));
+                    AOEs.Add(new(P5OmegaDoubleAOEs.Shapes[3], pos, rot, act));
                 }
                 break;
         }
     }
 }
 
-class P2PartySynergyOptimizedFire : Components.UniformStackSpread
+sealed class P2PartySynergyOptimizedFire : Components.UniformStackSpread
 {
-    public P2PartySynergyOptimizedFire(BossModule module) : base(module, 0, 7, alwaysShowSpreads: true)
+    public P2PartySynergyOptimizedFire(BossModule module) : base(module, default, 7f)
     {
-        AddSpreads(Raid.WithoutSlot(true));
+        AddSpreads(Raid.WithoutSlot(true, true, true));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.OptimizedFire)
+        if (spell.Action.ID == (uint)AID.OptimizedFire)
             Spreads.Clear();
     }
 }
 
-class P2PartySynergyOpticalLaser(BossModule module) : Components.GenericAOEs(module, AID.OpticalLaser)
+sealed class P2PartySynergyOpticalLaser(BossModule module) : Components.GenericAOEs(module, (uint)AID.OpticalLaser)
 {
     private readonly P2PartySynergy? _synergy = module.FindComponent<P2PartySynergy>();
-    private readonly Actor? _source = module.Enemies(OID.OpticalUnit).FirstOrDefault();
+    private readonly Actor? _source = module.Enemies((uint)OID.OpticalUnit).FirstOrDefault();
     private DateTime _activation;
 
-    private static readonly AOEShapeRect _shape = new(100, 8);
+    private static readonly AOEShapeRect _shape = new(100f, 8f);
 
     public void Show()
     {
-        _activation = WorldState.FutureTime(6.8f);
+        _activation = WorldState.FutureTime(6.8d);
     }
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         if (_activation != default && _source != null)
-            yield return new(_shape, _source.Position, _source.Rotation, _activation);
+            return new AOEInstance[1] { new(_shape, _source.Position.Quantized(), _source.Rotation, _activation) };
+        return [];
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        Arena.Actor(_source, ArenaColor.Object, true);
+        Arena.Actor(_source, Colors.Object, true);
         var pos = AssignedPosition(pcSlot);
         if (pos != default)
-            Arena.AddCircle(Module.Center + pos, 1, ArenaColor.Safe);
+            Arena.AddCircle(Arena.Center + pos, 1f, Colors.Safe);
     }
 
     private WDir AssignedPosition(int slot)
     {
         if (_synergy == null || _source == null || _activation == default)
-            return new();
+            return default;
 
         var ps = _synergy.PlayerStates[slot];
         if (ps.Order == 0 || ps.Group == 0 || _synergy.ActiveGlitch == P2PartySynergy.Glitch.Unknown)
-            return new();
+            return default;
 
-        var eyeOffset = _source.Position - Module.Center;
+        var eyeOffset = _source.Position - Arena.Center;
         var toRelNorth = eyeOffset.Normalized();
         var order = _synergy.GetNorthSouthOrder(ps);
         var centerOffset = _synergy.ActiveGlitch == P2PartySynergy.Glitch.Remote && order is 2 or 3 ? 17.5f : 11;
-        return 10 * (2.5f - order) * toRelNorth + centerOffset * (ps.Group == 1 ? toRelNorth.OrthoL() : toRelNorth.OrthoR());
+        return 10f * (2.5f - order) * toRelNorth + centerOffset * (ps.Group == 1 ? toRelNorth.OrthoL() : toRelNorth.OrthoR());
     }
 }
 
-class P2PartySynergyDischarger(BossModule module) : Components.Knockback(module, AID.Discharger)
+sealed class P2PartySynergyDischarger(BossModule module) : Components.GenericKnockback(module, (uint)AID.Discharger)
 {
-    public override IEnumerable<Source> Sources(int slot, Actor actor)
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
-        yield return new(Module.Center, 13); // TODO: activation
+        return new Knockback[1] { new(Arena.Center, 13f) }; // TODO: activation
     }
 }
 
@@ -230,17 +234,23 @@ class P2PartySynergyEfficientBladework : Components.GenericAOEs
     public P2PartySynergyEfficientBladework(BossModule module) : base(module)
     {
         _synergy = module.FindComponent<P2PartySynergy>();
-        _sources.AddRange(module.Enemies(OID.OmegaF));
+        _sources.AddRange(module.Enemies((uint)OID.OmegaF));
         // by default, use same group as for synergy
         if (_synergy != null)
-            _firstGroup = Raid.WithSlot(true).WhereSlot(s => _synergy.PlayerStates[s].Group == 1).Mask();
+            _firstGroup = Raid.WithSlot(true, true, true).WhereSlot(s => _synergy.PlayerStates[s].Group == 1).Mask();
     }
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         if (_activation != default)
-            foreach (var s in _sources)
-                yield return new(_shape, s.Position, new(), _activation);
+        {
+            var count = _sources.Count;
+            var aoes = new AOEInstance[count];
+            for (var i = 0; i < count; ++i)
+                aoes[i] = new(_shape, _sources[i].Position.Quantized(), default, _activation);
+            return aoes;
+        }
+        return [];
     }
 
     public override void AddGlobalHints(GlobalHints hints)
@@ -253,31 +263,31 @@ class P2PartySynergyEfficientBladework : Components.GenericAOEs
     {
         var pos = AssignedPosition(pcSlot);
         if (pos != default)
-            Arena.AddCircle(Module.Center + pos, 1, ArenaColor.Safe);
+            Arena.AddCircle(Arena.Center + pos, 1f, Colors.Safe);
     }
 
     public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
     {
-        if (id == 0x1E43 && (OID)actor.OID == OID.OmegaMHelper)
+        if (id == 0x1E43 && actor.OID == (uint)OID.OmegaMHelper)
             _sources.Add(actor);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.EfficientBladework:
+            case (uint)AID.EfficientBladework:
                 ++NumCasts;
                 break;
-            case AID.OpticalLaser:
-                _activation = WorldState.FutureTime(9.8f);
+            case (uint)AID.OpticalLaser:
+                _activation = WorldState.FutureTime(9.8d);
                 break;
         }
     }
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        if (iconID == (uint)IconID.Spotlight && Raid.TryFindSlot(actor.InstanceID, out var slot) && _synergy != null)
+        if (iconID == (uint)IconID.Spotlight && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0 && _synergy != null)
         {
             if (_firstStackSlot < 0)
             {
@@ -293,11 +303,11 @@ class P2PartySynergyEfficientBladework : Components.GenericAOEs
                     // need adjust
                     var s1Order = _synergy.GetNorthSouthOrder(s1);
                     var s2Order = _synergy.GetNorthSouthOrder(s2);
-                    int adjustOrder = _config.P2PartySynergyStackSwapSouth
+                    var adjustOrder = _config.P2PartySynergyStackSwapSouth
                         ? s1Order > s2Order ? s1.Order : s2.Order // south = higher order will swap
                         : s1Order > s2Order ? s2.Order : s1.Order; // north = lower
 
-                    for (int s = 0; s < _synergy.PlayerStates.Length; ++s)
+                    for (var s = 0; s < _synergy.PlayerStates.Length; ++s)
                     {
                         if (_synergy.PlayerStates[s].Order == adjustOrder)
                         {
@@ -319,15 +329,15 @@ class P2PartySynergyEfficientBladework : Components.GenericAOEs
     private WDir AssignedPosition(int slot)
     {
         if (_activation == default || _synergy == null || _sources.Count == 0)
-            return new();
+            return default;
 
         // assumption: first source (F) is our relative north, G1 always goes to relative west, G2 goes to relative S/E depending on glitch
-        var relNorth = 1.4f * (_sources[0].Position - Module.Center);
+        var relNorth = 1.4f * (_sources[0].Position - Arena.Center);
         return _firstGroup[slot] ? relNorth.OrthoL() : _synergy.ActiveGlitch == P2PartySynergy.Glitch.Mid ? -relNorth : relNorth.OrthoR();
     }
 }
 
-class P2PartySynergySpotlight(BossModule module) : Components.UniformStackSpread(module, 6, 0, 4, 4)
+sealed class P2PartySynergySpotlight(BossModule module) : Components.UniformStackSpread(module, 6f, default, 4, 4)
 {
     private readonly List<Actor> _stackTargets = []; // don't show anything until knockbacks are done, to reduce visual clutter
 
@@ -339,12 +349,12 @@ class P2PartySynergySpotlight(BossModule module) : Components.UniformStackSpread
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.Discharger:
+            case (uint)AID.Discharger:
                 AddStacks(_stackTargets);
                 break;
-            case AID.Spotlight:
+            case (uint)AID.Spotlight:
                 Stacks.RemoveAll(s => s.Target.InstanceID == spell.MainTargetID);
                 break;
         }

@@ -1,28 +1,30 @@
-﻿namespace BossMod.Dawntrail.Alliance.A13ArkAngels;
+namespace BossMod.Dawntrail.Alliance.A13ArkAngels;
 
-class Guillotine(BossModule module) : Components.GenericAOEs(module)
+sealed class Guillotine(BossModule module) : Components.GenericAOEs(module)
 {
-    private AOEInstance? _aoe;
+    private AOEInstance[] _aoe = [];
+    private static readonly AOEShapeCone _shape = new(40f, 120f.Degrees());
 
-    private static readonly AOEShapeCone _shape = new(40, 120.Degrees());
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.ZeroOrOne(_aoe);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.Guillotine)
+        if (spell.Action.ID == (uint)AID.Guillotine)
         {
-            _aoe = new(_shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell, 0.6f));
+            _aoe = [new(_shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell, 0.6f))];
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.GuillotineAOE or AID.GuillotineAOELast)
+        var id = spell.Action.ID;
+        if (id is (uint)AID.GuillotineAOE or (uint)AID.GuillotineAOELast)
         {
             ++NumCasts;
-            if ((AID)spell.Action.ID == AID.GuillotineAOELast)
-                _aoe = null;
+            if (id == (uint)AID.GuillotineAOELast)
+            {
+                _aoe = [];
+            }
         }
     }
 }

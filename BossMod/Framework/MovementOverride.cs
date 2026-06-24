@@ -1,4 +1,3 @@
-﻿using BossMod.Services;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Config;
 using Dalamud.Plugin;
@@ -6,7 +5,6 @@ using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.System.Input;
 using FFXIVClientStructs.FFXIV.Client.UI;
-using System.Runtime.InteropServices;
 
 namespace BossMod;
 
@@ -28,20 +26,21 @@ public unsafe struct MoveControllerSubMemberForMine
     [FieldOffset(0x94)] public byte Spinning;
 }
 
-public sealed unsafe class MovementOverride : IMovementOverride
+public sealed unsafe class MovementOverride : IDisposable
 {
-    public Vector3? DesiredDirection { get; set; }
-    public Angle MisdirectionThreshold { get; set; }
-    public Angle? DesiredSpinDirection { get; set; }
+    public Vector3? DesiredDirection;
+    public Angle MisdirectionThreshold;
+    public Angle? DesiredSpinDirection;
 
-    public WDir UserMove { get; private set; } // unfiltered movement direction, as read from input
-    public WDir ActualMove { get; private set; } // actual movement direction, as of last input read
+    public WDir UserMove; // unfiltered movement direction, as read from input
+    public WDir ActualMove; // actual movement direction, as of last input read
 
     private readonly IDalamudPluginInterface _dalamud;
     private readonly ActionTweaksConfig _tweaksConfig = Service.Config.Get<ActionTweaksConfig>();
     private bool? _forcedControlState;
-    private bool _legacyMode;
+    public bool LegacyMode;
     private bool[]? _navmeshPathIsRunning;
+    public static MovementOverride? Instance;
 
     public bool IsMoving() => ActualMove != default;
     public bool IsMoveRequested() => UserMove != default;
@@ -80,7 +79,7 @@ public sealed unsafe class MovementOverride : IMovementOverride
     public MovementOverride(IDalamudPluginInterface dalamud)
     {
         _dalamud = dalamud;
-
+        Instance = this;
         var rmiWalkIsInputEnabled1Addr = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 84 C0 75 10 38 43 3C");
         var rmiWalkIsInputEnabled2Addr = Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 84 C0 75 03 88 47 3F");
         Service.Log($"RMIWalkIsInputEnabled1 address: 0x{rmiWalkIsInputEnabled1Addr:X}");
@@ -104,12 +103,15 @@ public sealed unsafe class MovementOverride : IMovementOverride
         _mcIsInputActiveHook.Dispose();
         _rmiWalkHook.Dispose();
         _rmiFlyHook.Dispose();
+        Instance = null;
     }
 
     public bool FollowPathActive()
     {
         if (_navmeshPathIsRunning == null && _dalamud.TryGetData<bool[]>("vnav.PathIsRunning", out var data))
+        {
             _navmeshPathIsRunning = data;
+        }
 
         return _navmeshPathIsRunning != null && _navmeshPathIsRunning[0];
     }
@@ -117,7 +119,9 @@ public sealed unsafe class MovementOverride : IMovementOverride
     private void RMIWalkDetour(MoveControllerSubMemberForMine* self, float* sumLeft, float* sumForward, float* sumTurnLeft, byte* haveBackwardOrStrafe, byte* a6, byte bAdditiveUnk)
     {
         if (bAdditiveUnk == 0)
+        {
             _forcedControlState = null;
+        }
 
         _rmiWalkHook.Original(self, sumLeft, sumForward, sumTurnLeft, haveBackwardOrStrafe, a6, bAdditiveUnk);
 
@@ -169,7 +173,7 @@ public sealed unsafe class MovementOverride : IMovementOverride
         if (misdirectionMode)
         {
             var thresholdDeg = UserMove != default ? _tweaksConfig.MisdirectionThreshold : MisdirectionThreshold.Deg;
-            if (thresholdDeg < 180)
+            if (thresholdDeg < 180f)
             {
                 // note: if we are already moving, it doesn't matter what we do here, only whether 'is input active' function returns true or false
                 _forcedControlState = ActualMove != default && (Angle.FromDirection(ActualMove) + ForwardMovementDirection() - ForcedMovementDirection->Radians()).Normalized().Abs().Deg <= thresholdDeg;
@@ -193,7 +197,9 @@ public sealed unsafe class MovementOverride : IMovementOverride
 
         // do nothing while followpath is running
         if (FollowPathActive())
+        {
             return;
+        }
 
         // TODO: we really need to introduce some extra checks that PlayerMoveController::readInput does - sometimes it skips reading input, and returning something non-zero breaks stuff...
         if (result->Forward == 0 && result->Left == 0 && result->Up == 0 && DirectionToDestination(true) is var relDir && relDir != null)
@@ -205,19 +211,20 @@ public sealed unsafe class MovementOverride : IMovementOverride
         }
     }
 
-    private byte MCIsInputActiveDetour(void* self, byte inputSourceFlags)
-    {
-        return _forcedControlState != null ? (byte)(_forcedControlState.Value ? 1 : 0) : _mcIsInputActiveHook.Original(self, inputSourceFlags);
-    }
+    private byte MCIsInputActiveDetour(void* self, byte inputSourceFlags) => _forcedControlState != null ? (byte)(_forcedControlState.Value ? 1 : 0) : _mcIsInputActiveHook.Original(self, inputSourceFlags);
 
     private (Angle h, Angle v)? DirectionToDestination(bool allowVertical)
     {
         if (DesiredDirection == null || DesiredDirection.Value == default)
+        {
             return null;
+        }
 
         var player = GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
         if (player == null)
+        {
             return null;
+        }
 
         var dxz = new WDir(DesiredDirection.Value.X, DesiredDirection.Value.Z);
         var dirH = Angle.FromDirection(dxz);
@@ -225,24 +232,32 @@ public sealed unsafe class MovementOverride : IMovementOverride
         return (dirH - ForwardMovementDirection(), dirV);
     }
 
-    private Angle ForwardMovementDirection() => _legacyMode ? Camera.Instance!.CameraAzimuth.Radians() + 180.Degrees() : GameObjectManager.Instance()->Objects.IndexSorted[0].Value->Rotation.Radians();
+    private Angle ForwardMovementDirection() => LegacyMode ? Camera.Instance!.CameraAzimuth.Radians() + 180f.Degrees() : GameObjectManager.Instance()->Objects.IndexSorted[0].Value->Rotation.Radians();
 
     private bool PlayerHasMisdirection()
     {
         var player = (Character*)GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
         var sm = player != null && player->IsCharacter() ? player->GetStatusManager() : null;
         if (sm == null)
+        {
             return false;
-        for (int i = 0; i < sm->NumValidStatuses; ++i)
+        }
+
+        for (var i = 0; i < sm->NumValidStatuses; ++i)
+        {
             if (sm->Status[i].StatusId is 1422 or 2936 or 3694 or 3909)
+            {
                 return true;
+            }
+        }
+
         return false;
     }
 
     private void OnConfigChanged(object? sender, ConfigChangeEvent evt) => UpdateLegacyMode();
     private void UpdateLegacyMode()
     {
-        _legacyMode = Service.GameConfig.UiControl.TryGetUInt("MoveMode", out var mode) && mode == 1;
-        Service.Log($"Legacy mode is now {(_legacyMode ? "enabled" : "disabled")}");
+        LegacyMode = Service.GameConfig.UiControl.TryGetUInt("MoveMode", out var mode) && mode == 1;
+        Service.Log($"Legacy mode is now {(LegacyMode ? "enabled" : "disabled")}");
     }
 }

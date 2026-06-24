@@ -1,32 +1,43 @@
-﻿namespace BossMod.Dawntrail.Alliance.A14ShadowLord;
+namespace BossMod.Dawntrail.Alliance.A14ShadowLord;
 
-class Implosion(BossModule module) : Components.GenericAOEs(module)
+sealed class Implosion(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = [];
+    private readonly List<AOEInstance> _aoes = new(4);
 
-    private static readonly AOEShapeCone _shapeSmall = new(12, 90.Degrees());
-    private static readonly AOEShapeCone _shapeLarge = new(90, 90.Degrees());
+    private static readonly AOEShapeCone _shapeSmall = new(12f, 90f.Degrees()), _shapeLarge = new(90f, 90f.Degrees());
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => Module.FindComponent<GigaSlash>()?.AOEs.Count == 0 ? CollectionsMarshal.AsSpan(_aoes) : [];
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        var shape = (AID)spell.Action.ID switch
+        var shape = spell.Action.ID switch
         {
-            AID.ImplosionLargeL or AID.ImplosionLargeR => _shapeLarge,
-            AID.ImplosionSmallL or AID.ImplosionSmallR => _shapeSmall,
+            (uint)AID.ImplosionLargeL or (uint)AID.ImplosionLargeR => _shapeLarge,
+            (uint)AID.ImplosionSmallL or (uint)AID.ImplosionSmallR => _shapeSmall,
             _ => null
         };
         if (shape != null)
-            _aoes.Add(new(shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
+        {
+            _aoes.Add(new(shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID));
+        }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.ImplosionLargeL or AID.ImplosionSmallR or AID.ImplosionLargeR or AID.ImplosionSmallL)
+        if (spell.Action.ID is (uint)AID.ImplosionLargeL or (uint)AID.ImplosionSmallR or (uint)AID.ImplosionLargeR or (uint)AID.ImplosionSmallL)
         {
             ++NumCasts;
-            _aoes.RemoveAll(aoe => aoe.Origin.AlmostEqual(caster.Position, 1) && aoe.Rotation.AlmostEqual(spell.Rotation, 0.1f));
+            var count = _aoes.Count;
+            var aoes = CollectionsMarshal.AsSpan(_aoes);
+            for (var i = 0; i < count; ++i)
+            {
+                ref var aoe = ref aoes[i];
+                if (aoe.ActorID == caster.InstanceID)
+                {
+                    _aoes.RemoveAt(i);
+                    return;
+                }
+            }
         }
     }
 }

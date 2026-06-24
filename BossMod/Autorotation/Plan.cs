@@ -201,7 +201,7 @@ public class JsonPlanConverter : JsonConverter<Plan>
         foreach (var m in value.Modules)
         {
             writer.WriteStartObject(m.Type.FullName!);
-            for (int iTrack = 0; iTrack < m.Tracks.Count; ++iTrack)
+            for (var iTrack = 0; iTrack < m.Tracks.Count; ++iTrack)
             {
                 var track = m.Tracks[iTrack];
                 if (track.Count == 0)

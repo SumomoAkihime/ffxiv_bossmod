@@ -13,6 +13,7 @@ namespace BossMod;
 // - created when some event (e.g. user interaction) happens and not owned by the creator (can even outlive it)
 // - initially opened, closing automatically disposes it
 // - if another window with same name already exists, it is opened and focused instead; this can be detected by IsOpen being false after base class constructor runs
+[SkipLocalsInit]
 public abstract class UIWindow : Window, IDisposable
 {
     public bool DisposeOnClose; // defaults to true for detached windows, false for normal windows
@@ -22,11 +23,22 @@ public abstract class UIWindow : Window, IDisposable
         DisposeOnClose = detached;
         Size = initialSize;
         SizeCondition = ImGuiCond.FirstUseEver;
+        AllowClickthrough = AllowPinning = false; // this breaks uidev
         if (titleBarButtons != null)
         {
             TitleBarButtons = titleBarButtons;
         }
-        var existingWindow = Service.WindowSystem!.Windows.FirstOrDefault(w => w.WindowName == WindowName);
+        Window? existingWindow = null;
+        var windows = Service.WindowSystem!.Windows;
+        for (var wi = 0; wi < windows.Count; ++wi)
+        {
+            if (windows[wi].WindowName == WindowName)
+            {
+                existingWindow = (Window)windows[wi];
+                break;
+            }
+        }
+
         if (existingWindow == null)
         {
             // standard case - just register window in window system
@@ -55,7 +67,9 @@ public abstract class UIWindow : Window, IDisposable
     public override void OnClose()
     {
         if (DisposeOnClose)
+        {
             Dispose();
+        }
     }
 
     public void OpenAndBringToFront()

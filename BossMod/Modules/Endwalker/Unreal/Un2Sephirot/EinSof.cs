@@ -1,16 +1,24 @@
 ﻿namespace BossMod.Endwalker.Unreal.Un2Sephirot;
 
-class EinSof(BossModule module) : Components.GenericAOEs(module, AID.EinSofAOE)
+class EinSof(BossModule module) : Components.GenericAOEs(module, (uint)AID.EinSofAOE)
 {
     private readonly List<Actor> _active = [];
 
-    private static readonly AOEShape _shape = new AOEShapeCircle(10); // TODO: verify radius
+    private static readonly AOEShape _shape = new AOEShapeCircle(10f); // TODO: verify radius
 
     public bool Active => _active.Count > 0;
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        return _active.Select(p => new AOEInstance(_shape, p.Position));
+        var count = _active.Count;
+        if (count == 0)
+            return [];
+        var aoes = new AOEInstance[count];
+        for (var i = 0; i < count; ++i)
+        {
+            aoes[i] = new(_shape, _active[i].Position);
+        }
+        return aoes;
     }
 
     public override void OnActorEAnim(Actor actor, uint state)

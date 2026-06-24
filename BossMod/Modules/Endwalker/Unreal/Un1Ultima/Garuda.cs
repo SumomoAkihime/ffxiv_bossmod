@@ -15,7 +15,7 @@ class Garuda(BossModule module) : BossComponent(module)
     {
         if (_aoeMistralSong != null)
         {
-            var adjPos = _vulcanBurstImminent ? Arena.ClampToBounds(Components.Knockback.AwayFromSource(actor.Position, _mistralSong, 30)) : actor.Position;
+            var adjPos = _vulcanBurstImminent ? Arena.ClampToBounds(Components.GenericKnockback.AwayFromSource(actor.Position, _mistralSong, 30)) : actor.Position;
             if (_aoeMistralSong.Check(adjPos, _mistralSong))
                 hints.Add("GTFO from aoe!");
         }
@@ -36,11 +36,11 @@ class Garuda(BossModule module) : BossComponent(module)
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        var adjPos = _vulcanBurstImminent ? Arena.ClampToBounds(Components.Knockback.AwayFromSource(pc.Position, _mistralSong, 30)) : pc.Position;
+        var adjPos = _vulcanBurstImminent ? Arena.ClampToBounds(Components.GenericKnockback.AwayFromSource(pc.Position, _mistralSong, 30)) : pc.Position;
         if (adjPos != pc.Position)
         {
-            Arena.AddLine(pc.Position, adjPos, ArenaColor.Danger);
-            Arena.Actor(adjPos, 0.Degrees(), ArenaColor.Danger);
+            Arena.AddLine(pc.Position, adjPos, Colors.Danger);
+            Arena.Actor(adjPos, 0.Degrees(), Colors.Danger);
         }
     }
 

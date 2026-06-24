@@ -2,121 +2,117 @@
 
 public enum OID : uint
 {
-    Boss = 0x416A, // R5.075, x1
-    Helper = 0x233C, // R0.500, x28, Helper type
-    AddBlock = 0x416B, // R1.200, x9
+    Boss = 0x416A, // R5.075
+    AddBlock = 0x416B, // R1.2
+    Helper = 0x233C // R0.5
 }
 
 public enum AID : uint
 {
     AutoAttack = 872, // Boss->player, no cast, single-target
-    Electrowave = 36337, // Boss->self, 5.0s cast, single-target, visual (raidwide)
-    ElectrowaveAOE = 36338, // Helper->self, 5.0s cast, range 54 circle, raidwide
+
+    ElectrowaveVisual = 36337, // Boss->self, 5.0s cast, single-target
+    Electrowave = 36338, // Helper->self, 5.0s cast, range 54 circle, raidwide
     Disassembly = 36323, // Boss->self, 5.0s cast, range 40 circle, raidwide
-    SupercellMatrix = 39136, // Helper->self, 10.1s cast, ???
-    SupercellMatrixRect = 39138, // Helper->self, 7.8s cast, range 55 width 8 rect
-    SupercellMatrixEnd = 36325, // Boss->self, no cast, single-target, visual (???)
-    CentralizedCurrent = 36327, // Boss->self, 5.0s cast, range 90 width 15 rect
-    SplitCurrent = 36329, // Boss->self, 5.0s cast, single-target, visual (side cleaves)
-    SplitCurrentAOE1 = 36330, // Helper->self, 5.0s cast, range 90 width 25 rect
-    SplitCurrentAOE2 = 36331, // Helper->self, 5.0s cast, range 90 width 25 rect
-    StaticSpark = 36334, // Helper->player, 5.0s cast, range 6 circle, spread
+
+    CentralizedCurrent = 36327, // Boss->self, 5.0s cast, range 90 width 15 rect, central line AOE
+
+    SplitCurrentVisual = 36329, // Boss->self, 5.0s cast, single-target
+    SplitCurrent1 = 36331, // Helper->self, 5.0s cast, range 90 width 25 rect, side line AOE
+    SplitCurrent2 = 36330, // Helper->self, 5.0s cast, range 90 width 25 rect, side line AOE
+
+    SupercellMatrix1 = 39136, // Helper->self, 10.1s cast, triangle cone, 90-degrees, 40 range
+    SupercellMatrix2 = 39138, // Helper->self, 7.8s cast, range 55 width 8 rect, portal line AOEs
+
+    StaticSparkVisual = 36325, // Boss->self, no cast, single-target
+    StaticSpark = 36334, // Helper->player, 5.0s cast, range 6 circle, Spread
     Amalgamight = 36339, // Boss->player, 5.0s cast, single-target, tankbuster
-    Voltburst = 36336, // Helper->location, 4.0s cast, range 6 circle puddle
-    Superbolt = 36332, // Boss->self, 5.0s cast, single-target
-    SuperboltAOE = 36333, // Helper->none, 5.0s cast, range 6 circle, stack
-    TernaryCharge = 39253, // Boss->self, 4.0s cast, single-target
-    TernaryChargeAOE1 = 39254, // Helper->location, 4.0s cast, range 10 circle
-    TernaryChargeAOE2 = 39255, // Helper->location, 6.0s cast, range 10-20 donut
-    TernaryChargeAOE3 = 39256, // Helper->location, 8.0s cast, range 20-30 donut
+    Voltburst = 36336, // Helper->location, 4.0s cast, range 6 circle, 3x baited AOEs
+
+    SuperboltVisual = 36332, // Boss->self, 5.0s cast, single-target
+    Superbolt = 36333, // Helper->players, 5.0s cast, range 6 circle, stack
+
+    TernaryChargeVisual = 39253, // Boss->self, 4.0s cast, single-target
+    TernaryCharge1 = 39254, // Helper->location, 4.0s cast, range 10 circle
+    TernaryCharge2 = 39255, // Helper->location, 6.0s cast, range 10-20 donut
+    TernaryCharge3 = 39256, // Helper->location, 8.0s cast, range 20-30 donut
 }
 
-public enum IconID : uint
+sealed class ElectrowaveArenaChange(BossModule module) : Components.GenericAOEs(module)
 {
-    StaticSpark = 139, // player
-    Amalgamight = 218, // player
-    Superbolt = 161, // player
-}
+    private static readonly AOEShapeCustom square = new([new Square(D062Amalgam.ArenaCenter, 23f)], [new Square(D062Amalgam.ArenaCenter, 20f)]);
+    private AOEInstance[] _aoe = [];
 
-class Electrowave(BossModule module) : Components.RaidwideCast(module, AID.ElectrowaveAOE);
-class Disassembly(BossModule module) : Components.RaidwideCast(module, AID.Disassembly);
-class SupercellMatrix(BossModule module) : Components.StandardAOEs(module, AID.SupercellMatrix, new AOEShapeRect(28.2843f, 28.2843f));
-class SupercellMatrixRect(BossModule module) : Components.StandardAOEs(module, AID.SupercellMatrixRect, new AOEShapeRect(55, 4));
-class CentralizedCurrent(BossModule module) : Components.StandardAOEs(module, AID.CentralizedCurrent, new AOEShapeRect(90, 7.5f));
-
-class SplitCurrent(BossModule module) : Components.GenericAOEs(module, AID.SplitCurrent)
-{
-    private readonly List<AOEInstance> _aoes = [];
-    private static readonly AOEShapeRect _shape = new(45, 12.5f, 45);
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == (uint)AID.Electrowave && Arena.Bounds.Radius > 20f)
         {
-            var offset = (_shape.HalfWidth + 5) * spell.Rotation.ToDirection().OrthoL();
-            _aoes.Add(new(_shape, caster.Position + offset, spell.Rotation, Module.CastFinishAt(spell)));
-            _aoes.Add(new(_shape, caster.Position - offset, spell.Rotation, Module.CastFinishAt(spell)));
+            _aoe = [new(square, Arena.Center, default, Module.CastFinishAt(spell, 0.5d))];
+        }
+    }
+
+    public override void OnMapEffect(byte index, uint state)
+    {
+        if (index == 0x27 && state == 0x00020001u)
+        {
+            Arena.Bounds = new ArenaBoundsSquare(20f);
+            _aoe = [];
+        }
+    }
+}
+
+sealed class ElectrowaveDisassembly(BossModule module) : Components.RaidwideCasts(module, [(uint)AID.Electrowave, (uint)AID.Disassembly]);
+sealed class CentralizedCurrent(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CentralizedCurrent, new AOEShapeRect(90f, 7.5f));
+
+sealed class SplitCurrent(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.SplitCurrent1, (uint)AID.SplitCurrent2], new AOEShapeRect(90f, 12.5f));
+sealed class SupercellMatrix1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SupercellMatrix1, new AOEShapeTriCone(40f, 45.Degrees()));
+sealed class SupercellMatrix2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SupercellMatrix2, new AOEShapeRect(55f, 4f));
+sealed class StaticSpark(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.StaticSpark, 6f);
+sealed class Amalgamight(BossModule module) : Components.SingleTargetCast(module, (uint)AID.Amalgamight);
+sealed class Voltburst(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Voltburst, 6f);
+sealed class Superbolt(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.Superbolt, 6f, 4, 4);
+
+sealed class TernaryCharge(BossModule module) : Components.ConcentricAOEs(module, _shapes)
+{
+    private static readonly AOEShape[] _shapes = [new AOEShapeCircle(10f), new AOEShapeDonut(10f, 20f), new AOEShapeDonut(20f, 30f)];
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.TernaryCharge1)
+        {
+            AddSequence(spell.LocXZ, Module.CastFinishAt(spell));
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
-            _aoes.Clear();
-    }
-}
-
-class StaticSpark(BossModule module) : Components.SpreadFromCastTargets(module, AID.StaticSpark, 6)
-{
-    private readonly SupercellMatrixRect? _supercell = module.FindComponent<SupercellMatrixRect>();
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        // only spread after aoes are done
-        if (_supercell == null || _supercell.Casters.Count == 0)
-            base.AddAIHints(slot, actor, assignment, hints);
-    }
-}
-
-class Amalgamight(BossModule module) : Components.SingleTargetCast(module, AID.Amalgamight);
-class Voltburst(BossModule module) : Components.StandardAOEs(module, AID.Voltburst, 6);
-class Superbolt(BossModule module) : Components.StackWithCastTargets(module, AID.SuperboltAOE, 6, 4);
-
-class TernaryCharge(BossModule module) : Components.ConcentricAOEs(module, [new AOEShapeCircle(10), new AOEShapeDonut(10, 20), new AOEShapeDonut(20, 30)])
-{
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.TernaryChargeAOE1)
-            AddSequence(caster.Position, Module.CastFinishAt(spell));
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        var order = (AID)spell.Action.ID switch
+        if (Sequences.Count != 0)
         {
-            AID.TernaryChargeAOE1 => 0,
-            AID.TernaryChargeAOE2 => 1,
-            AID.TernaryChargeAOE3 => 2,
-            _ => -1
-        };
-        if (!AdvanceSequence(order, caster.Position, WorldState.FutureTime(2)))
-            ReportError($"Unexpected ring {order}");
+            var order = spell.Action.ID switch
+            {
+                (uint)AID.TernaryCharge1 => 0,
+                (uint)AID.TernaryCharge2 => 1,
+                (uint)AID.TernaryCharge3 => 2,
+                _ => -1
+            };
+            AdvanceSequence(order, spell.LocXZ, WorldState.FutureTime(2d));
+        }
     }
 }
 
-class D062AmalgamStates : StateMachineBuilder
+sealed class D062AmalgamStates : StateMachineBuilder
 {
     public D062AmalgamStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<Electrowave>()
-            .ActivateOnEnter<Disassembly>()
-            .ActivateOnEnter<SupercellMatrix>()
-            .ActivateOnEnter<SupercellMatrixRect>()
+            .ActivateOnEnter<ElectrowaveArenaChange>()
+            .ActivateOnEnter<ElectrowaveDisassembly>()
             .ActivateOnEnter<CentralizedCurrent>()
             .ActivateOnEnter<SplitCurrent>()
+            .ActivateOnEnter<SupercellMatrix1>()
+            .ActivateOnEnter<SupercellMatrix2>()
             .ActivateOnEnter<StaticSpark>()
             .ActivateOnEnter<Amalgamight>()
             .ActivateOnEnter<Voltburst>()
@@ -125,5 +121,8 @@ class D062AmalgamStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 827, NameID = 12864)]
-public class D062Amalgam(WorldState ws, Actor primary) : BossModule(ws, primary, new(-533, -373), new ArenaBoundsSquare(20));
+[ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus, LTS), erdelf", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 827, NameID = 12864)]
+public sealed class D062Amalgam(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, new ArenaBoundsSquare(23f))
+{
+    public static readonly WPos ArenaCenter = new(-533f, -373f);
+}

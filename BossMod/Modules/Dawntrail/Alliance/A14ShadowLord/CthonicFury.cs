@@ -1,127 +1,106 @@
-﻿namespace BossMod.Dawntrail.Alliance.A14ShadowLord;
+namespace BossMod.Dawntrail.Alliance.A14ShadowLord;
 
-class CthonicFury(BossModule module) : BossComponent(module)
+sealed class CthonicFury(BossModule module) : Components.GenericAOEs(module)
 {
-    public bool Active;
+    private AOEInstance[] _aoe = [];
+    public bool Active => _aoe.Length != 0 || Arena.Bounds != A14ShadowLord.DefaultBounds;
+    private static readonly Square[] def = [new Square(A14ShadowLord.ArenaCenter, 30f)]; // using a square for the difference instead of a circle since less vertices will result in slightly better performance
+    public static readonly AOEShapeCustom AOEBurningBattlements = new(def, [new Square(A14ShadowLord.ArenaCenter, 11.5f, 45f.Degrees())]);
+    private static readonly AOEShapeCustom aoeCthonicFury = new(def, A14ShadowLord.Combined);
 
-    private static readonly List<RelTriangle> _triangulation = A14ShadowLord.NormalBounds.Clipper.Difference(new(A14ShadowLord.NormalBounds.ShapeSimplified), new(A14ShadowLord.ChtonicBounds.Poly)).Triangulate();
-
-    public override void AddHints(int slot, Actor actor, TextHints hints)
-    {
-        if (Active && !A14ShadowLord.ChtonicBounds.Contains(actor.Position - Module.Center))
-            hints.Add("GTFO from aoe!");
-    }
-
-    public override void DrawArenaBackground(int pcSlot, Actor pc)
-    {
-        if (Active)
-            Arena.Zone(_triangulation, ArenaColor.AOE);
-    }
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.CthonicFuryStart)
-            Active = true;
+        if (spell.Action.ID == (uint)AID.CthonicFuryStart)
+        {
+            _aoe = [new(aoeCthonicFury, Arena.Center, default, Module.CastFinishAt(spell))];
+        }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.CthonicFuryStart:
-                Active = false;
-                Module.Arena.Bounds = A14ShadowLord.ChtonicBounds;
+            case (uint)AID.CthonicFuryStart:
+                _aoe = [];
+                SetArena(A14ShadowLord.ComplexBounds, A14ShadowLord.ComplexBounds.Center);
                 break;
-            case AID.CthonicFuryEnd:
-                Module.Arena.Bounds = A14ShadowLord.NormalBounds;
+            case (uint)AID.CthonicFuryEnd:
+                SetArena(A14ShadowLord.DefaultBounds, A14ShadowLord.ArenaCenter);
                 break;
+        }
+
+        void SetArena(ArenaBounds bounds, WPos center)
+        {
+            Arena.Bounds = bounds;
+            Arena.Center = center;
         }
     }
 }
 
-class BurningCourtMoatKeepBattlements(BossModule module) : Components.GenericAOEs(module)
+sealed class BurningCourtMoatKeepBattlements(BossModule module) : Components.GenericAOEs(module)
 {
-    public readonly List<AOEInstance> AOEs = [];
+    public readonly List<AOEInstance> AOEs = new(5);
+    private static readonly AOEShape _shapeC = new AOEShapeCircle(8f);
+    private static readonly AOEShape _shapeM = new AOEShapeDonut(5f, 15f);
+    private static readonly AOEShape _shapeK = new AOEShapeRect(23f, 11.5f);
 
-    private static readonly AOEShape _shapeC = new AOEShapeCircle(8);
-    private static readonly AOEShape _shapeM = new AOEShapeDonut(5, 15);
-    private static readonly AOEShape _shapeK = new AOEShapeRect(23, 11.5f);
-    private static readonly AOEShape _shapeB = new AOEShapeCustom(BuildBattlementsPolygon());
-
-    private static RelSimplifiedComplexPolygon BuildBattlementsPolygon()
-    {
-        RelPolygonWithHoles poly = new([.. CurveApprox.Rect(new(100, 0), new(0, 100))]);
-        poly.AddHole(CurveApprox.Rect(new(11.5f, 0), new(0, 11.5f)));
-        return new([poly]);
-    }
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => AOEs;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(AOEs);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        var shape = ShapeForAction(spell.Action);
+        var shape = ShapeForAction(spell.Action.ID);
         if (shape != null)
-            AOEs.Add(new(shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell)));
+        {
+            AOEs.Add(new(shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID));
+        }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        var shape = ShapeForAction(spell.Action);
+        var shape = ShapeForAction(spell.Action.ID);
         if (shape != null)
-            AOEs.RemoveAll(aoe => aoe.Shape == shape && aoe.Origin.AlmostEqual(caster.Position, 1));
+        {
+            ++NumCasts;
+            var aoes = CollectionsMarshal.AsSpan(AOEs);
+            var len = aoes.Length;
+            var id = caster.InstanceID;
+            for (var i = 0; i < len; ++i)
+            {
+                ref var aoe = ref aoes[i];
+                if (aoe.ActorID == id)
+                {
+                    AOEs.RemoveAt(i);
+                    return;
+                }
+            }
+        }
     }
 
-    private AOEShape? ShapeForAction(ActionID aid) => (AID)aid.ID switch
+    private static AOEShape? ShapeForAction(uint aid) => aid switch
     {
-        AID.BurningCourt => _shapeC,
-        AID.BurningMoat => _shapeM,
-        AID.BurningKeep => _shapeK,
-        AID.BurningBattlements => _shapeB,
+        (uint)AID.BurningCourt => _shapeC,
+        (uint)AID.BurningMoat => _shapeM,
+        (uint)AID.BurningKeep => _shapeK,
+        (uint)AID.BurningBattlements => CthonicFury.AOEBurningBattlements,
         _ => null
     };
 }
 
-class DarkNebula(BossModule module) : Components.Knockback(module)
-{
-    public readonly List<Actor> Casters = [];
-
-    public override IEnumerable<Source> Sources(int slot, Actor actor)
-    {
-        foreach (var caster in Casters.Take(2))
-        {
-            var dir = caster.CastInfo?.Rotation ?? caster.Rotation;
-            var kind = dir.ToDirection().OrthoL().Dot(actor.Position - caster.Position) > 0 ? Kind.DirLeft : Kind.DirRight;
-            yield return new(caster.Position, 20, Module.CastFinishAt(caster.CastInfo), null, dir, kind);
-        }
-    }
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.DarkNebulaShort or AID.DarkNebulaLong)
-            Casters.Add(caster);
-    }
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.DarkNebulaShort or AID.DarkNebulaLong)
-        {
-            ++NumCasts;
-            Casters.Remove(caster);
-        }
-    }
-}
-
-class EchoesOfAgony(BossModule module) : Components.StackWithIcon(module, (uint)IconID.EchoesOfAgony, AID.EchoesOfAgonyAOE, 5, 9.2f, 8)
+sealed class EchoesOfAgony(BossModule module) : Components.StackWithIcon(module, (uint)IconID.EchoesOfAgony, (uint)AID.EchoesOfAgonyAOE, 5f, 9.2d, PartyState.MaxAllianceSize, PartyState.MaxAllianceSize)
 {
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.EchoesOfAgony)
+        if (spell.Action.ID == (uint)AID.EchoesOfAgony)
+        {
             NumFinishedStacks = 0;
+        }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action == StackAction)
+        if (spell.Action.ID == StackAction)
         {
             if (++NumFinishedStacks >= 5)
             {

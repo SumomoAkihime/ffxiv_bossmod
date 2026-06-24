@@ -59,7 +59,7 @@ public sealed class NIN(RotationModuleManager manager, Actor player) : Attackxan
 
     private ReadOnlyCollection<int> Mudras => Array.AsReadOnly([Mudra.Param & 3, (Mudra.Param >> 2) & 3, (Mudra.Param >> 4) & 3]);
 
-    private readonly Dictionary<AID, (int Len, int Last)> Combos = new()
+    private static readonly Dictionary<AID, (int Len, int Last)> Combos = new()
     {
         [AID.FumaShuriken] = (1, 0),
         [AID.Katon] = (2, 1),
@@ -105,11 +105,11 @@ public sealed class NIN(RotationModuleManager manager, Actor player) : Attackxan
         Kassatsu = StatusLeft(SID.Kassatsu);
         PhantomKamaitachi = StatusLeft(SID.PhantomKamaitachiReady);
         HiddenStatus = StatusStacks(SID.Hidden) > 0;
-        TargetTrickLeft = MathF.Max(
+        TargetTrickLeft = Math.Max(
             StatusDetails(primaryTarget, SID.TrickAttack, Player.InstanceID).Left,
             StatusDetails(primaryTarget, SID.KunaisBane, Player.InstanceID).Left
         );
-        TargetMugLeft = MathF.Max(
+        TargetMugLeft = Math.Max(
             StatusDetails(primaryTarget, SID.VulnerabilityUp, Player.InstanceID).Left,
             StatusDetails(primaryTarget, SID.Dokumori, Player.InstanceID).Left
         );

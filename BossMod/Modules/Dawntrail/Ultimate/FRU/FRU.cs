@@ -1,16 +1,18 @@
 ﻿namespace BossMod.Dawntrail.Ultimate.FRU;
 
-class P2QuadrupleSlap(BossModule module) : Components.TankSwap(module, AID.QuadrupleSlapFirst, AID.QuadrupleSlapFirst, AID.QuadrupleSlapSecond, 4.1f, null, true);
-class P3Junction(BossModule module) : Components.CastCounter(module, AID.Junction);
-class P3BlackHalo(BossModule module) : Components.CastSharedTankbuster(module, AID.BlackHalo, new AOEShapeCone(60, 45.Degrees())); // TODO: verify angle
-class P4HallowedWingsL(BossModule module) : Components.StandardAOEs(module, AID.HallowedWingsL, new AOEShapeRect(80, 20));
-class P4HallowedWingsR(BossModule module) : Components.StandardAOEs(module, AID.HallowedWingsR, new AOEShapeRect(80, 20));
-class P5ParadiseLost(BossModule module) : Components.CastCounter(module, AID.ParadiseLostP5AOE);
+sealed class P2QuadrupleSlap(BossModule module) : Components.TankSwap(module, (uint)AID.QuadrupleSlapFirst, (uint)AID.QuadrupleSlapFirst, (uint)AID.QuadrupleSlapSecond, default, 4.1d);
+sealed class P3Junction(BossModule module) : Components.CastCounter(module, (uint)AID.Junction);
+sealed class P3BlackHalo(BossModule module) : Components.CastSharedTankbuster(module, (uint)AID.BlackHalo, new AOEShapeCone(60f, 45f.Degrees())); // TODO: verify angle
 
-[ModuleInfo(PrimaryActorOID = (uint)OID.BossP1, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1006, NameID = 9707, PlanLevel = 100)]
-public class FRU(WorldState ws, Actor primary) : BossModule(ws, primary, new(100, 100), new ArenaBoundsCircle(20))
+sealed class P4HallowedWings(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.HallowedWingsL, (uint)AID.HallowedWingsR], new AOEShapeRect(80f, 20f));
+
+sealed class P5ParadiseLost(BossModule module) : Components.CastCounter(module, (uint)AID.ParadiseLostP5AOE);
+
+[ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.BossP1, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1006, NameID = 9707, PlanLevel = 100)]
+public sealed class FRU(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
 {
-    public static readonly ArenaBoundsSquare PathfindHugBorderBounds = new(20); // this is a hack to allow precise positioning near border by some mechanics, TODO reconsider
+    private static readonly ArenaBoundsCustom arena = new([new Polygon(new(100f, 100f), 20f, 64)]) { IsCircle = true };
+    public static readonly ArenaBoundsSquare PathfindHugBorderBounds = new(20f); // this is a hack to allow precise positioning near border by some mechanics, TODO reconsider
 
     public override bool ShouldPrioritizeAllEnemies => true;
 
@@ -31,23 +33,30 @@ public class FRU(WorldState ws, Actor primary) : BossModule(ws, primary, new(100
 
     protected override void UpdateModule()
     {
-        // TODO: this is an ugly hack, think how multi-actor fights can be implemented without it...
-        // the problem is that on wipe, any actor can be deleted and recreated in the same frame
-        _bossP2 ??= StateMachine.ActivePhaseIndex == 1 ? Enemies(OID.BossP2).FirstOrDefault() : null;
-        _iceVeil ??= StateMachine.ActivePhaseIndex == 1 ? Enemies(OID.IceVeil).FirstOrDefault() : null;
-        _bossP3 ??= StateMachine.ActivePhaseIndex == 2 ? Enemies(OID.BossP3).FirstOrDefault() : null;
-        _bossP4Usurper ??= StateMachine.ActivePhaseIndex == 2 ? Enemies(OID.UsurperOfFrostP4).FirstOrDefault() : null;
-        _bossP4Oracle ??= StateMachine.ActivePhaseIndex == 2 ? Enemies(OID.OracleOfDarknessP4).FirstOrDefault() : null;
-        _bossP5 ??= StateMachine.ActivePhaseIndex == 3 ? Enemies(OID.BossP5).FirstOrDefault() : null;
+        switch (StateMachine.ActivePhaseIndex)
+        {
+            case 1:
+                _bossP2 ??= GetActor((uint)OID.BossP2);
+                _iceVeil ??= GetActor((uint)OID.IceVeil);
+                break;
+            case 2:
+                _bossP3 ??= GetActor((uint)OID.BossP3);
+                _bossP4Usurper ??= GetActor((uint)OID.UsurperOfFrostP4);
+                _bossP4Oracle ??= GetActor((uint)OID.OracleOfDarknessP4);
+                break;
+            case 3:
+                _bossP5 ??= GetActor((uint)OID.BossP5);
+                break;
+        }
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        Arena.Actor(_bossP2, ArenaColor.Enemy);
-        Arena.Actor(_bossP3, ArenaColor.Enemy);
-        Arena.Actor(_bossP4Usurper, ArenaColor.Enemy);
-        Arena.Actor(_bossP4Oracle, ArenaColor.Enemy);
-        Arena.Actor(_bossP5, ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actor(_bossP2);
+        Arena.Actor(_bossP3);
+        Arena.Actor(_bossP4Usurper);
+        Arena.Actor(_bossP4Oracle);
+        Arena.Actor(_bossP5);
     }
 }

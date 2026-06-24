@@ -1,22 +1,44 @@
 namespace BossMod.Endwalker.Alliance.A33Oschon;
 
-class P1ClimbingShot(BossModule module) : Components.Knockback(module)
+sealed class P1ClimbingShot(BossModule module) : Components.GenericKnockback(module)
 {
-    private readonly P1Downhill? _downhill = module.FindComponent<P1Downhill>();
-    private Source? _knockback;
+    private P1Downhill? _downhill = module.FindComponent<P1Downhill>();
+    private Knockback[] _kb = [];
 
-    public override IEnumerable<Source> Sources(int slot, Actor actor) => Utils.ZeroOrOne(_knockback);
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => !Module.InBounds(pos) || (_downhill?.ActiveAOEs(slot, actor).Any(z => z.Check(pos)) ?? false);
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor) => _kb;
+
+    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos)
+    {
+        _downhill ??= Module.FindComponent<P1Downhill>();
+        if (_downhill != null)
+        {
+            var aoes = _downhill.ActiveAOEs(slot, actor);
+            var len = aoes.Length;
+            for (var i = 0; i < len; ++i)
+            {
+                ref readonly var aoe = ref aoes[i];
+                if (aoe.Check(pos))
+                {
+                    return true;
+                }
+            }
+        }
+        return !Arena.InBounds(pos);
+    }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.ClimbingShot1 or AID.ClimbingShot2 or AID.ClimbingShot3 or AID.ClimbingShot4)
-            _knockback = new(Module.PrimaryActor.Position, 20, Module.CastFinishAt(spell));
+        if (spell.Action.ID is (uint)AID.ClimbingShot1 or (uint)AID.ClimbingShot2 or (uint)AID.ClimbingShot3 or (uint)AID.ClimbingShot4)
+        {
+            _kb = [new(spell.LocXZ, 20f, Module.CastFinishAt(spell))];
+        }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.ClimbingShot1 or AID.ClimbingShot2 or AID.ClimbingShot3 or AID.ClimbingShot4)
-            _knockback = null;
+        if (spell.Action.ID is (uint)AID.ClimbingShot1 or (uint)AID.ClimbingShot2 or (uint)AID.ClimbingShot3 or (uint)AID.ClimbingShot4)
+        {
+            _kb = [];
+        }
     }
 }

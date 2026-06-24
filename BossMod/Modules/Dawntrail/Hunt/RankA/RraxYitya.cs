@@ -2,88 +2,126 @@
 
 public enum OID : uint
 {
-    Boss = 0x4232, // R5.000, x1
+    Boss = 0x4232 // R5.0
 }
 
 public enum AID : uint
 {
     AutoAttack = 870, // Boss->player, no cast, single-target
-    RightWingbladeFirst = 37164, // Boss->self, 3.0s cast, range 25 180-degree cone (first in sequence)
-    LeftWingbladeFirst = 37165, // Boss->self, 3.0s cast, range 25 180-degree cone (first in sequence)
-    RightWingbladeRest = 37166, // Boss->self, 3.0s cast, range 25 180-degree cone (remaining in sequence)
-    LeftWingbladeRest = 37167, // Boss->self, 3.0s cast, range 25 180-degree cone (remaining in sequence)
-    TriplicateReflex = 37170, // Boss->self, 5.0s cast, single-target, visual (repeat last sequence)
-    RightWingbladeAOE = 37171, // Boss->self, no cast, range 25 180-degree cone
-    LeftWingbladeAOE = 37172, // Boss->self, no cast, range 25 180-degree cone
+
+    RightWingblade1 = 37164, // Boss->self, 3.0s cast, range 25 90 degree cone
+    LeftWingblade1 = 37165, // Boss->self, 3.0s cast, range 25 90 degree cone
+    RightWingblade2 = 37166, // Boss->self, 3.0s cast, range 25 90 degree cone
+    LeftWingblade2 = 37167, // Boss->self, 3.0s cast, range 25 90 degree cone
     LaughingLeap = 37372, // Boss->self, 4.0s cast, range 15 width 5 rect
+    TriplicateReflex = 37170, // Boss->self, 5.0s cast, single-target
+    RightWingbladeRepeat = 37171, // Boss->self, no cast, range 25 90 degree cone
+    LeftWingbladeRepeat = 37172 // Boss->self, no cast, range 25 90 degree cone
 }
 
-class Wingblade(BossModule module) : Components.GenericAOEs(module)
+sealed class LaughingLeap(BossModule module) : Components.SimpleAOEs(module, (uint)AID.LaughingLeap, new AOEShapeRect(15f, 2.5f));
+
+sealed class Wingblade(BossModule module) : Components.GenericAOEs(module)
 {
-    private AOEInstance? _nextAOE;
-    private readonly List<Angle> _lastSeq = [];
+    private readonly List<AOEInstance> _aoes = new(3);
+    private readonly List<Angle> offsets = new(3);
+    private static readonly Angle a180 = 180f.Degrees(), a90 = 90f.Degrees();
+    private static readonly AOEShapeCone cone = new(25f, a90);
 
-    private static readonly AOEShapeCone _shape = new(25, 90.Degrees());
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.ZeroOrOne(_nextAOE);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var count = _aoes.Count;
+        if (count == 0)
+            return [];
+        var max = count > 2 ? 2 : count;
+        var aoes = CollectionsMarshal.AsSpan(_aoes);
+        for (var i = 0; i < max; ++i)
+        {
+            ref var aoe = ref aoes[i];
+            if (i == 0)
+            {
+                if (count > 1)
+                    aoe.Color = Colors.Danger;
+                aoe.Risky = true;
+            }
+            else
+            {
+                if (aoes[0].Rotation.AlmostEqual(aoe.Rotation + a180, Angle.DegToRad))
+                    aoe.Risky = false;
+            }
+        }
+        return aoes[..max];
+    }
 
     public override void AddGlobalHints(GlobalHints hints)
     {
-        if (_lastSeq.Count > 0)
-            hints.Add($"Sequence: {string.Join(" -> ", _lastSeq.Select(a => a.Rad < 0 ? "Right" : "Left"))}");
+        var count = offsets.Count;
+        if (count != 0)
+        {
+            var sequenceBuilder = new StringBuilder("Sequence: ", 33);
+            for (var i = 0; i < count; ++i)
+            {
+                if (i > 0)
+                    sequenceBuilder.Append(" -> ");
+                sequenceBuilder.Append(offsets[i].Rad < 0 ? "Right" : "Left");
+            }
+            hints.Add(sequenceBuilder.ToString());
+        }
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        void AddAOE(Angle offset = default, float delay = default) => _aoes.Add(new(cone, spell.LocXZ, spell.Rotation + offset, Module.CastFinishAt(spell, delay)));
+        switch (spell.Action.ID)
         {
-            case AID.RightWingbladeFirst:
-                _lastSeq.Clear();
-                _lastSeq.Add(-90.Degrees());
-                _nextAOE = new(_shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell));
+            case (uint)AID.RightWingblade1:
+                offsets.Clear();
+                offsets.Add(-a90);
+                AddAOE();
                 break;
-            case AID.LeftWingbladeFirst:
-                _lastSeq.Clear();
-                _lastSeq.Add(90.Degrees());
-                _nextAOE = new(_shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell));
+            case (uint)AID.LeftWingblade1:
+                offsets.Clear();
+                offsets.Add(a90);
+                AddAOE();
                 break;
-            case AID.RightWingbladeRest:
-                _lastSeq.Add(-90.Degrees());
-                _nextAOE = new(_shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell));
+            case (uint)AID.RightWingblade2:
+                offsets.Add(-a90);
+                AddAOE();
                 break;
-            case AID.LeftWingbladeRest:
-                _lastSeq.Add(90.Degrees());
-                _nextAOE = new(_shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell));
+            case (uint)AID.LeftWingblade2:
+                offsets.Add(a90);
+                AddAOE();
                 break;
-            case AID.TriplicateReflex:
-                if (_lastSeq.Count != 3)
-                    ReportError($"Spell {spell.Action} started when sequence length is {_lastSeq.Count}");
-                if (_lastSeq.Count > 0)
-                    _nextAOE = new(_shape, caster.Position, spell.Rotation + _lastSeq[0], Module.CastFinishAt(spell, 0.4f));
+            case (uint)AID.TriplicateReflex:
+                var count = offsets.Count;
+                for (var i = 0; i < count; ++i)
+                    AddAOE(offsets[i], 0.4f + i * 2f);
                 break;
         }
-    }
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID is AID.RightWingbladeFirst or AID.LeftWingbladeFirst or AID.RightWingbladeRest or AID.LeftWingbladeRest)
-            _nextAOE = null;
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.RightWingbladeAOE or AID.LeftWingbladeAOE)
-        {
-            if (_lastSeq.Count > 0)
-                _lastSeq.RemoveAt(0);
-            _nextAOE = _lastSeq.Count > 0 ? new(_shape, caster.Position, caster.Rotation + _lastSeq[0], WorldState.FutureTime(2)) : null;
-        }
+        if (_aoes.Count != 0)
+            switch (spell.Action.ID)
+            {
+                case (uint)AID.RightWingblade1:
+                case (uint)AID.LeftWingblade1:
+                case (uint)AID.LeftWingblade2:
+                case (uint)AID.RightWingblade2:
+                    _aoes.RemoveAt(0);
+                    break;
+                case (uint)AID.RightWingbladeRepeat:
+                case (uint)AID.LeftWingbladeRepeat:
+                    _aoes.RemoveAt(0);
+                    if (offsets.Count != 0)
+                        offsets.RemoveAt(0);
+                    break;
+            }
     }
 }
 
-class LaughingLeap(BossModule module) : Components.StandardAOEs(module, AID.LaughingLeap, new AOEShapeRect(15, 2.5f));
-
-class RraxYityaStates : StateMachineBuilder
+sealed class RraxYityaStates : StateMachineBuilder
 {
     public RraxYityaStates(BossModule module) : base(module)
     {
@@ -93,5 +131,5 @@ class RraxYityaStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.A, NameID = 12753)]
-public class RraxYitya(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Shinryin, Malediktus", GroupType = BossModuleInfo.GroupType.Hunt, GroupID = (uint)BossModuleInfo.HuntRank.A, NameID = 12753)]
+public sealed class RraxYitya(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);

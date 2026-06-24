@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Endwalker.Savage.P11SThemis;
 
-class Dike(BossModule module) : Components.CastCounter(module, AID.DikeSecond)
+class Dike(BossModule module) : Components.CastCounter(module, (uint)AID.DikeSecond)
 {
     private ulong _firstPrimaryTarget;
 

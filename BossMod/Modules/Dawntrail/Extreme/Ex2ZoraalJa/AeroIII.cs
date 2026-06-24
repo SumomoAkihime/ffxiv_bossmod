@@ -1,21 +1,29 @@
 ﻿namespace BossMod.Dawntrail.Extreme.Ex2ZoraalJa;
 
-class AeroIII(BossModule module) : Components.Knockback(module, ignoreImmunes: true)
+sealed class AeroIII(BossModule module) : Components.GenericKnockback(module)
 {
-    public readonly IReadOnlyList<Actor> Voidzones = module.Enemies(OID.BitingWind);
+    public readonly List<Actor> Voidzones = module.Enemies((uint)OID.BitingWind);
 
     private static readonly AOEShapeCircle _shape = new(4);
 
-    public override IEnumerable<Source> Sources(int slot, Actor actor)
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
-        foreach (var v in Voidzones)
-            yield return new(v.Position, 25, Shape: _shape);
+        var count = Voidzones.Count;
+        if (count == 0)
+            return [];
+        var sources = new Knockback[count];
+        for (var i = 0; i < count; ++i)
+            sources[i] = new(Voidzones[i].Position, 25f, shape: _shape, ignoreImmunes: true);
+        return sources;
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (var v in Voidzones)
-            _shape.Outline(Arena, v.Position);
+        var count = Voidzones.Count;
+        if (count == 0)
+            return;
+        for (var i = 0; i < count; ++i)
+            _shape.Outline(Arena, Voidzones[i].Position);
         base.DrawArenaForeground(pcSlot, pc);
     }
 }

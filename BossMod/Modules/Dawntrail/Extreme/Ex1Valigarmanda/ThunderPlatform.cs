@@ -1,12 +1,37 @@
 ﻿namespace BossMod.Dawntrail.Extreme.Ex1Valigarmanda;
 
-class ThunderPlatform(BossModule module) : BossComponent(module)
+sealed class ThunderPlatform(BossModule module) : Components.GenericAOEs(module)
 {
     public BitMask RequireLevitating;
     public BitMask RequireHint;
     private BitMask _levitating;
 
-    private static readonly AOEShapeRect _shape = new(5, 5, 5);
+    private static readonly AOEShapeRect _shape = new(5f, 5f, 5f);
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        if (!RequireHint[slot])
+            return [];
+
+        var highlightLevitate = RequireLevitating[slot];
+        var aoes = new AOEInstance[12];
+        var index = 0;
+
+        for (var x = 0; x < 2; ++x)
+        {
+            for (var z = 0; z < 3; ++z)
+            {
+                var cellLevitating = ((x ^ z) & 1) != 0;
+                if (cellLevitating != highlightLevitate)
+                {
+                    aoes[index++] = new(_shape, Arena.Center + new WDir(-5f - 10f * x, -10f + 10f * z));
+                    aoes[index++] = new(_shape, Arena.Center + new WDir(+5f + 10f * x, -10f + 10f * z));
+                }
+            }
+        }
+
+        return aoes.AsSpan()[..index];
+    }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
@@ -14,35 +39,15 @@ class ThunderPlatform(BossModule module) : BossComponent(module)
             hints.Add(RequireLevitating[slot] ? "Levitate" : "Stay on ground", RequireLevitating[slot] != _levitating[slot]);
     }
 
-    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if (RequireHint[pcSlot])
-        {
-            var highlightLevitate = RequireLevitating[pcSlot];
-            for (int x = 0; x < 2; ++x)
-            {
-                for (int z = 0; z < 3; ++z)
-                {
-                    var cellLevitating = ((x ^ z) & 1) != 0;
-                    if (cellLevitating != highlightLevitate)
-                    {
-                        _shape.Draw(Arena, Module.Center + new WDir(-5 - 10 * x, -10 + 10 * z), default, ArenaColor.AOE);
-                        _shape.Draw(Arena, Module.Center + new WDir(+5 + 10 * x, -10 + 10 * z), default, ArenaColor.AOE);
-                    }
-                }
-            }
-        }
+        if (status.ID == (uint)SID.Levitate)
+            _levitating[Raid.FindSlot(actor.InstanceID)] = true;
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Levitate)
-            _levitating.Set(Raid.FindSlot(actor.InstanceID));
-    }
-
-    public override void OnStatusLose(Actor actor, ActorStatus status)
-    {
-        if ((SID)status.ID == SID.Levitate)
-            _levitating.Clear(Raid.FindSlot(actor.InstanceID));
+        if (status.ID == (uint)SID.Levitate)
+            _levitating[Raid.FindSlot(actor.InstanceID)] = false;
     }
 }

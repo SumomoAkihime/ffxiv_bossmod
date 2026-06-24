@@ -1,4 +1,4 @@
-﻿namespace BossMod.Endwalker.Criterion.C02AMR.C022Gorai;
+﻿namespace BossMod.Endwalker.VariantCriterion.C02AMR.C022Gorai;
 
 class TorchingTorment(BossModule module) : Components.GenericBaitAway(module, centerAtTarget: true)
 {
@@ -6,13 +6,13 @@ class TorchingTorment(BossModule module) : Components.GenericBaitAway(module, ce
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.TorchingTorment && WorldState.Actors.Find(spell.TargetID) is var target && target != null)
+        if (spell.Action.ID == (uint)AID.TorchingTorment && WorldState.Actors.Find(spell.TargetID) is var target && target != null)
             CurrentBaits.Add(new(caster, target, _shape));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.NTorchingTormentAOE or AID.STorchingTormentAOE)
+        if (spell.Action.ID is (uint)AID.NTorchingTormentAOE or (uint)AID.STorchingTormentAOE)
         {
             CurrentBaits.Clear();
             ++NumCasts;

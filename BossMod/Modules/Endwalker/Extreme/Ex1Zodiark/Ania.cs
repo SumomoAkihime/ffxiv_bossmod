@@ -16,7 +16,7 @@ class Ania(BossModule module) : BossComponent(module)
 
         if (actor == _target)
         {
-            if (Raid.WithoutSlot().InRadiusExcluding(actor, _aoeRadius).Any())
+            if (Raid.WithoutSlot(false, true, true).InRadiusExcluding(actor, _aoeRadius).Any())
                 hints.Add("GTFO from raid!");
             if (Module.PrimaryActor.TargetID == _target.InstanceID)
                 hints.Add("Pass aggro!");
@@ -35,15 +35,15 @@ class Ania(BossModule module) : BossComponent(module)
         if (_target == null)
             return;
 
-        Arena.AddCircle(_target.Position, _aoeRadius, ArenaColor.Danger);
+        Arena.AddCircle(_target.Position, _aoeRadius, Colors.Danger);
         if (pc == _target)
         {
-            foreach (var a in Raid.WithoutSlot().Exclude(pc))
-                Arena.Actor(a, a.Position.InCircle(_target.Position, _aoeRadius) ? ArenaColor.PlayerInteresting : ArenaColor.PlayerGeneric);
+            foreach (var a in Raid.WithoutSlot(false, true, true).Exclude(pc))
+                Arena.Actor(a, a.Position.InCircle(_target.Position, _aoeRadius) ? Colors.PlayerInteresting : Colors.PlayerGeneric);
         }
         else
         {
-            Arena.Actor(_target, ArenaColor.Danger);
+            Arena.Actor(_target, Colors.Danger);
         }
     }
 

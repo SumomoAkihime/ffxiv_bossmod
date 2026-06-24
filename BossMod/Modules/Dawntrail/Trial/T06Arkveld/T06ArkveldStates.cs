@@ -1,13 +1,15 @@
 namespace BossMod.Dawntrail.Trial.T06Arkveld;
 
-class GuardianArkveldStates : StateMachineBuilder
+[SkipLocalsInit]
+sealed class GuardianArkveldStates : StateMachineBuilder
 {
     public GuardianArkveldStates(BossModule module) : base(module)
     {
         TrivialPhase()
+            // Raidwides
             .ActivateOnEnter<Roar>()
-            .ActivateOnEnter<Roar1>()
             .ActivateOnEnter<ForgedFury>()
+            // Major tells
             .ActivateOnEnter<ChainbladeBlowLines>()
             .ActivateOnEnter<WyvernsRadianceCleave>()
             .ActivateOnEnter<GuardianResonanceRect>()
@@ -18,14 +20,16 @@ class GuardianArkveldStates : StateMachineBuilder
             .ActivateOnEnter<Concentric4>()
             .ActivateOnEnter<WyvernsOuroblade>()
             .ActivateOnEnter<SteeltailThrust>()
+            // Player mechanics
             .ActivateOnEnter<WildEnergy>()
             .ActivateOnEnter<ChainbladeCharge>()
             .ActivateOnEnter<ResonanceTowerSmall>()
             .ActivateOnEnter<ResonanceTowerLarge>()
+            // Arena hazards
             .ActivateOnEnter<CrackedCrystalSmall>()
             .ActivateOnEnter<CrackedCrystalLarge>()
             .ActivateOnEnter<WyvernsVengeance>()
-            .ActivateOnEnter<WyvernsWealAOE>()
+            .ActivateOnEnter<WyvernsWealAOE>()  // the casted rect telegraph
             .ActivateOnEnter<WyvernsWealPulses>()
             .ActivateOnEnter<WyvernsWealIrregularCastLane>();
     }

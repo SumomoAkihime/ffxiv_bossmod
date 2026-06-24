@@ -1,97 +1,86 @@
-﻿using System.Runtime.InteropServices;
+using BossMod.ReplayVisualization;
 
 namespace BossMod.Dawntrail.Extreme.Ex7Doomtrain;
 
-class MultiToot(BossModule module) : Components.GenericStackSpread(module)
-{
-    public int NumCasts { get; private set; }
 
+// // // Technically I've seen two survive aetherosote, but we want the highlighting for fewer than 3 in a stack
+sealed class AetherocharAetherosote(BossModule module) : Components.IconStackSpread(module, stackIcon: (uint)IconID.Aetherosote, spreadIcon: (uint)IconID.Aetherochar, stackAID: (uint)AID.Aetherosote, spreadAID: (uint)AID.Aetherochar, stackRadius: 6f, spreadRadius: 6f, minStackSize: 3, maxStackSize: 3, activationDelay: 6.5d)
+{
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        switch ((IconID)iconID)
+        // for some reason, we can't use stackIcon and spreadIcon here, so we have to use the AID values directly
+        if (iconID is (uint)IconID.Aetherosote or (uint)IconID.Aetherochar)
         {
-            case IconID.DoubleToot:
-                foreach (var player in Raid.WithoutSlot().OrderByDescending(r => r.Class.GetRole2() == Role2.Healer).Take(2))
-                    Stacks.Add(new(player, 6, minSize: 2, maxSize: 3, WorldState.FutureTime(10)));
-                break;
-            case IconID.TripleToot:
-                foreach (var player in Raid.WithoutSlot().Where(r => r.Class.GetRole2() != Role2.Tank))
-                    Spreads.Add(new(player, 6, WorldState.FutureTime(10)));
-                break;
+            var raid = Raid.WithoutSlot(false, true, true);
+            if (iconID == (uint)IconID.Aetherosote)
+            {
+                // Stack always targets healers
+                foreach (var member in raid)
+                {
+                    if (member.Role == Role.Healer)
+                    {
+                        AddStack(member, WorldState.FutureTime(ActivationDelay));
+                    }
+                }
+            }
+            else
+            {
+                // Spread targets any 3, but we can't tell which
+                foreach (var member in raid)
+                {
+                    if (member.Role != Role.Tank)
+                    {
+                        AddSpread(member, WorldState.FutureTime(ActivationDelay));
+                    }
+                }
+            }
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.Aetherochar or AID.Aetherosote)
+        var aid = spell.Action.ID;
+        if (aid == StackAction)
         {
-            Stacks.Clear();
+            var id = spell.MainTargetID;
+            if (MaxCasts != 1 && Stacks.Count == 1 && Stacks.Ref(0).Target.InstanceID != id) // multi hit stack target died and new target got selected
+            {
+                Stacks.Ref(0).Target = WorldState.Actors.Find(id)!;
+            }
+            if (++CastCounter == MaxCasts)
+            {
+                var count = Stacks.Count;
+                var stacks = CollectionsMarshal.AsSpan(Stacks);
+                for (var i = 0; i < count; ++i)
+                {
+                    if (stacks[i].Target.InstanceID == id)
+                    {
+                        ++NumFinishedStacks;
+                        CastCounter = 0;
+                        Stacks.RemoveAt(i);
+                        return;
+                    }
+                }
+                // stack not found, probably due to being self targeted
+                if (count != 0)
+                {
+                    ++NumFinishedStacks;
+                    CastCounter = 0;
+                    Stacks.RemoveAt(0);
+                }
+            }
+        }
+        else if (aid == SpreadAction)
+        {
             Spreads.Clear();
         }
     }
 }
 
-// tankbuster happens ~9.7 seconds after Horn icon (icon has no visual, just SFX)
-// train distance determined by SID 4541 on Ghost Train actor
-class AetherialRay(BossModule module) : Components.GenericBaitAway(module, AID.AetherialRay, damageType: AIHints.PredictedDamageType.Tankbuster)
+[SkipLocalsInit]
+sealed class AetherialRay(BossModule module) : Components.BaitAwayIcon(module, shape: new AOEShapeCone(50f, 22.5f.Degrees()), iconID: (uint)IconID.AetherialRay, aid: (uint)AID.AetherialRay, activationDelay: 7.6d, centerAtTarget: false, tankbuster: true, damageType: AIHints.PredictedDamageType.Tankbuster)
 {
-    private Angle _nextRotation;
-    private Actor? _nextSource;
-    private DateTime _nextActivation;
-
-    public override void OnStatusGain(Actor actor, ActorStatus status)
-    {
-        if ((SID)status.ID == SID.Distance)
-        {
-            _nextRotation = status.Extra switch
-            {
-                0x578 => 170.Degrees(),
-                0x960 => 106.Degrees(),
-                _ => default
-            };
-            if (_nextRotation == default)
-                ReportError($"Unrecognized status {status.Extra:X} on Ghost Train, don't know where to predict");
-        }
-
-        if ((SID)status.ID == SID.Stop)
-        {
-            foreach (ref var bait in CollectionsMarshal.AsSpan(CurrentBaits))
-                bait.Source = actor;
-        }
-    }
-
-    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
-    {
-        if ((IconID)iconID == IconID.Horn)
-        {
-            var gh = Module.Enemies(OID.GhostTrain)[0];
-            var g = (gh.Position - Arena.Center).ToAngle() + _nextRotation;
-            var offset = g.ToDirection() * 25;
-            _nextSource = new Actor(1, 0, 819, 0, "fake actor", 0, ActorType.Enemy, Class.ACN, 1, new Vector4(Arena.Center.X + offset.X, gh.PosRot.Y, Arena.Center.Z + offset.Z, 0));
-            _nextActivation = WorldState.FutureTime(9.7f);
-        }
-
-        if ((IconID)iconID == IconID.AetherialRay && _nextSource != null)
-            CurrentBaits.Add(new(_nextSource, actor, new AOEShapeCone(50, 17.5f.Degrees()), _nextActivation));
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if (spell.Action == WatchedAction)
-        {
-            NumCasts++;
-            CurrentBaits.Clear();
-        }
-    }
+    public override Actor? BaitSource(Actor target) => Module.Enemies((uint)OID.GhostTrain).First();
 }
 
-class RunawayTrain(BossModule module) : Components.RaidwideInstant(module, AID.RunawayTrainRaidwide, 15.2f)
-{
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        base.OnEventCast(caster, spell);
-
-        if ((AID)spell.Action.ID == AID.RunawayTrainEnd)
-            Activation = WorldState.FutureTime(Delay);
-    }
-}
+sealed class RunawayTrain(BossModule module) : Components.RaidwideCastDelay(module, actionVisual: (uint)AID.RunawayTrainVisual2, actionAOE: (uint)AID.RunawayTrain, delay: 15d, hint: "Choo choo, the train is coming! (Raidwide)");

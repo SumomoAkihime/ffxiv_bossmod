@@ -1,11 +1,14 @@
 ﻿namespace BossMod.Shadowbringers.Ultimate.TEA;
 
-class P3WormholeLimitCut(BossModule module) : LimitCut(module, 2.7f);
-class P3WormholeSacrament(BossModule module) : Components.StandardAOEs(module, AID.SacramentWormhole, new AOEShapeCross(100, 8));
+[SkipLocalsInit]
+sealed class P3WormholeLimitCut(BossModule module) : LimitCut(module, 2.7d);
+[SkipLocalsInit]
+sealed class P3WormholeSacrament(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SacramentWormhole, new AOEShapeCross(100f, 8f));
 
-class P3WormholeRepentance(BossModule module) : BossComponent(module)
+[SkipLocalsInit]
+sealed class P3WormholeRepentance(BossModule module) : BossComponent(module)
 {
-    public int NumSoaks { get; private set; }
+    public int NumSoaks;
     private bool _chakramsDone;
     private readonly LimitCut? _limitCut = module.FindComponent<LimitCut>();
     private readonly List<WPos> _wormholes = [];
@@ -22,14 +25,14 @@ class P3WormholeRepentance(BossModule module) : BossComponent(module)
         if (order == 0)
             return;
 
-        var dirToAlex = (alex.Position - Module.Center).Normalized();
+        var dirToAlex = (alex.Position - Arena.Center).Normalized();
         var dirToSide = SelectSide(order, dirToAlex);
-        bool shouldSoak = ShouldSoakWormhole(order);
+        var shouldSoak = ShouldSoakWormhole(order);
 
         if (_chakramsDone)
         {
             // show hints for soaking or avoiding wormhole
-            bool soakingWormhole = _wormholes.Any(w => actor.Position.InCircle(w, _radiuses[NumSoaks]));
+            var soakingWormhole = _wormholes.Any(w => actor.Position.InCircle(w, _radiuses[NumSoaks]));
             if (soakingWormhole != shouldSoak)
                 hints.Add(shouldSoak ? "Soak the wormhole!" : "GTFO from wormhole!");
         }
@@ -47,9 +50,9 @@ class P3WormholeRepentance(BossModule module) : BossComponent(module)
 
         if (!ShouldSoakWormhole(order) || !_chakramsDone)
         {
-            var dirToAlex = (alex.Position - Module.Center).Normalized();
+            var dirToAlex = (alex.Position - Arena.Center).Normalized();
             var dirToSide = SelectSide(order, dirToAlex);
-            movementHints.Add(actor.Position, Module.Center + SafeSpotOffset(order, dirToAlex, dirToSide), ArenaColor.Safe);
+            movementHints.Add(actor.Position, Arena.Center + SafeSpotOffset(order, dirToAlex, dirToSide), Colors.Safe);
         }
     }
 
@@ -63,37 +66,37 @@ class P3WormholeRepentance(BossModule module) : BossComponent(module)
         if (pcOrder == 0)
             return;
 
-        var dirToAlex = (alex.Position - Module.Center).Normalized();
+        var dirToAlex = (alex.Position - Arena.Center).Normalized();
         var dirToSide = SelectSide(pcOrder, dirToAlex);
         var shouldSoak = ShouldSoakWormhole(pcOrder);
 
         foreach (var w in _wormholes)
-            Arena.AddCircle(w, _radiuses[NumSoaks], shouldSoak && dirToSide.Dot(w - Module.Center) > 0 ? ArenaColor.Safe : ArenaColor.Danger);
+            Arena.AddCircle(w, _radiuses[NumSoaks], shouldSoak && dirToSide.Dot(w - Arena.Center) > 0f ? Colors.Safe : default);
 
         if (!shouldSoak || !_chakramsDone)
-            Arena.AddCircle(Module.Center + SafeSpotOffset(pcOrder, dirToAlex, dirToSide), 1, ArenaColor.Safe);
+            Arena.AddCircle(Arena.Center + SafeSpotOffset(pcOrder, dirToAlex, dirToSide), 1f, Colors.Safe);
     }
 
     public override void OnActorCreated(Actor actor)
     {
-        if ((OID)actor.OID == OID.Wormhole1)
+        if (actor.OID == (uint)OID.Wormhole1)
             _wormholes.Add(actor.Position);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.EyeOfTheChakram:
+            case (uint)AID.EyeOfTheChakram:
                 _chakramsDone = true;
                 break;
-            case AID.Repentance1:
+            case (uint)AID.Repentance1:
                 NumSoaks = 1;
                 break;
-            case AID.Repentance2:
+            case (uint)AID.Repentance2:
                 NumSoaks = 2;
                 break;
-            case AID.Repentance3:
+            case (uint)AID.Repentance3:
                 NumSoaks = 3;
                 break;
         }
@@ -116,14 +119,14 @@ class P3WormholeRepentance(BossModule module) : BossComponent(module)
         if (order > ordersDone && order <= ordersDone + 4) // next jump at player, so go to assigned spot
         {
             // assume LPDU assignments: 1/2/5/6 go opposite alex, rest go towards
-            bool towardsAlex = order is 3 or 4 or 7 or 8;
+            var towardsAlex = order is 3 or 4 or 7 or 8;
             // distance = 19, divided by sqrt(2)
             return 13.435f * (towardsAlex ? dirToSide + dirToAlex : dirToSide - dirToAlex);
         }
         else if (_chakramsDone)
         {
             // after chakrams are done, assume inactive chill at sides, this avoids sacrament
-            return 19 * dirToSide;
+            return 19f * dirToSide;
         }
         else
         {
@@ -134,9 +137,11 @@ class P3WormholeRepentance(BossModule module) : BossComponent(module)
     }
 }
 
-class P3WormholeIncineratingHeat(BossModule module) : Components.StackWithCastTargets(module, AID.IncineratingHeat, 5, 8);
+[SkipLocalsInit]
+sealed class P3WormholeIncineratingHeat(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.IncineratingHeat, 5f, 8, 8);
 
-class P3WormholeEnumeration(BossModule module) : Components.UniformStackSpread(module, 5, 0, 3, 3, raidwideOnResolve: false) // TODO: verify enumeration radius
+[SkipLocalsInit]
+sealed class P3WormholeEnumeration(BossModule module) : Components.UniformStackSpread(module, 5f, default, 3, 3, raidwideOnResolve: false) // TODO: verify enumeration radius
 {
     private BitMask _targets; // we start showing stacks only after incinerating heat is resolved
     private DateTime _activation;
@@ -146,19 +151,19 @@ class P3WormholeEnumeration(BossModule module) : Components.UniformStackSpread(m
         if (iconID == (uint)IconID.Enumeration)
         {
             _targets.Set(Raid.FindSlot(actor.InstanceID));
-            _activation = WorldState.FutureTime(5.1f);
+            _activation = WorldState.FutureTime(5.1d);
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.Enumeration:
+            case (uint)AID.Enumeration:
                 Stacks.Clear();
                 break;
-            case AID.IncineratingHeat:
-                AddStacks(Raid.WithSlot(true).IncludedInMask(_targets).Actors(), _activation);
+            case (uint)AID.IncineratingHeat:
+                AddStacks(Raid.WithSlot(true, true, true).IncludedInMask(_targets).Actors(), _activation);
                 break;
         }
     }

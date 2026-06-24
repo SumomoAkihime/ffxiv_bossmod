@@ -3,7 +3,7 @@
 // state related to [aether]flails mechanics
 class Flails : BossComponent
 {
-    public int NumCasts { get; private set; }
+    public int NumCasts;
     private AOEShape? _first;
     private AOEShape? _second;
     private bool _detectSecond;
@@ -47,8 +47,8 @@ class Flails : BossComponent
         if (!_detectSecond)
             return;
 
-        var weaponsBall = Module.Enemies(OID.FlailI);
-        var weaponsChakram = Module.Enemies(OID.FlailO);
+        var weaponsBall = Module.Enemies((uint)OID.FlailI);
+        var weaponsChakram = Module.Enemies((uint)OID.FlailO);
         if (weaponsBall.Count + weaponsChakram.Count > 0)
         {
             _detectSecond = false;

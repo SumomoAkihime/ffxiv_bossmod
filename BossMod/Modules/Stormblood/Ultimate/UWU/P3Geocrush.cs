@@ -1,36 +1,34 @@
 ﻿namespace BossMod.Stormblood.Ultimate.UWU;
 
-class P3Geocrush1(BossModule module) : Components.StandardAOEs(module, AID.Geocrush1, new AOEShapeCircle(18));
+sealed class P3Geocrush1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Geocrush1, 18f);
 
 // TODO: add prediction after PATE xxx - need non-interpolated actor rotation for that...
-class P3Geocrush2(BossModule module) : Components.GenericAOEs(module, AID.Geocrush2)
+sealed class P3Geocrush2(BossModule module) : Components.GenericAOEs(module, (uint)AID.Geocrush2)
 {
     private Actor? _caster;
-    private AOEShapeDonut? _shapeReduced;
 
     //private static WDir[] _possibleOffsets = { new(14, 0), new(0, 14), new(-14, 0), new(0, -14) };
-    private static readonly AOEShapeCircle _shapeCrush = new(24);
+    private static readonly AOEShapeCircle _shapeCrush = new(24f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         if (_caster != null)
-            yield return new(_shapeCrush, _caster.Position, _caster.CastInfo!.Rotation, Module.CastFinishAt(_caster.CastInfo));
-        if (_shapeReduced != null)
-            yield return new(_shapeReduced, Module.Center);
+            return new AOEInstance[1] { new(_shapeCrush, _caster.Position, _caster.CastInfo!.Rotation, Module.CastFinishAt(_caster.CastInfo)) };
+        return [];
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
         {
             _caster = caster;
-            _shapeReduced = new(NumCasts == 0 ? 16 : 12, Module.Bounds.Radius); // TODO: verify second radius
+            Arena.Bounds = new ArenaBoundsCircle(NumCasts == 0 ? 16f : 12f);
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
         {
             _caster = null;
         }
@@ -45,9 +43,9 @@ class P3Geocrush2(BossModule module) : Components.GenericAOEs(module, AID.Geocru
     //    if (_prevPredictedAngle == _caster.Rotation && ++_numFramesStill > 2)
     //    {
     //        var dir = _caster.Rotation.ToDirection();
-    //        _predictedPos = Module.Center + _possibleOffsets.MinBy(o =>
+    //        _predictedPos = Arena.Center + _possibleOffsets.MinBy(o =>
     //        {
-    //            var off = Module.Center + o - _caster.Position;
+    //            var off = Arena.Center + o - _caster.Position;
     //            var proj = off.Dot(dir);
     //            return proj > 0 ? (off - proj * dir).LengthSq() : float.MaxValue;
     //        });

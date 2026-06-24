@@ -1,6 +1,6 @@
-﻿namespace BossMod.Dawntrail.Trial.T05Necron;
+namespace BossMod.Dawntrail.Trial.T05Necron;
 
-sealed class NeutronRing(BossModule module) : Components.RaidwideCastDelay(module, AID.NeutronRingVisual, AID.NeutronRing, 2.6f);
+sealed class NeutronRing(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.NeutronRingVisual, (uint)AID.NeutronRing, 2.6d);
 
 sealed class GrandCrossArenaChange(BossModule module) : Components.GenericAOEs(module)
 {
@@ -8,13 +8,13 @@ sealed class GrandCrossArenaChange(BossModule module) : Components.GenericAOEs(m
     private static readonly AOEShapeDonut donut = new(9f, 60f);
     private bool active;
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         if (spell.Action.ID == (uint)AID.ArenaChangeVisual)
         {
-            _aoe = [new(donut, Necron.ArenaCenter, default, Module.CastFinishAt(spell, 1.1f))];
+            _aoe = [new(donut, Necron.ArenaCenter, default, Module.CastFinishAt(spell, 1.1d))];
         }
     }
 
@@ -60,9 +60,9 @@ sealed class GrandCrossRect(BossModule module) : Components.GenericAOEs(module)
     private readonly List<AOEInstance> _aoes = new(2);
     private static readonly AOEShapeRect rectPredict = new(50f, 2.25f, 50f), rect = new(100f, 2f);
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         var oid = source.OID;
         var offset = oid switch
@@ -74,11 +74,12 @@ sealed class GrandCrossRect(BossModule module) : Components.GenericAOEs(module)
         if (offset != default)
         {
             var center = Arena.Center;
-            _aoes.Add(new(rectPredict, center, Angle.FromDirection(center - source.Position) + offset, WorldState.FutureTime(oid == (uint)OID.AzureAether1 ? 7.6f : 5.6f)));
+            _aoes.Add(new(rectPredict, center, Angle.FromDirection(center - source.Position) + offset, WorldState.FutureTime(oid == (uint)OID.AzureAether1 ? 7.6d : 5.6d)));
             if (_aoes.Count > 1)
             {
-                ref var aoe1 = ref _aoes.Ref(0);
-                ref var aoe2 = ref _aoes.Ref(1);
+                var aoes = CollectionsMarshal.AsSpan(_aoes);
+                ref var aoe1 = ref aoes[0];
+                ref var aoe2 = ref aoes[1];
                 if (aoe1.Activation > aoe2.Activation)
                 {
                     (aoe1, aoe2) = (aoe2, aoe1);
@@ -110,4 +111,3 @@ sealed class GrandCrossRect(BossModule module) : Components.GenericAOEs(module)
 }
 
 sealed class GrandCrossProx(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GrandCrossProximity, new AOEShapeRect(100f, 5f));
-

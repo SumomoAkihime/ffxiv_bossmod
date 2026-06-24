@@ -1,7 +1,7 @@
 ﻿namespace BossMod.Endwalker.Ultimate.DSW2;
 
 // baited cones part of the mechanic
-class P6Wyrmsbreath(BossModule module, bool allowIntersect) : Components.GenericBaitAway(module, AID.FlameBreath) // note: cast is arbitrary
+abstract class P6Wyrmsbreath(BossModule module, bool allowIntersect) : Components.GenericBaitAway(module, (uint)AID.FlameBreath) // note: cast is arbitrary
 {
     public Actor?[] Dragons = [null, null]; // nidhogg & hraesvelgr
     public BitMask Glows;
@@ -9,14 +9,15 @@ class P6Wyrmsbreath(BossModule module, bool allowIntersect) : Components.Generic
     private readonly Actor?[] _tetheredTo = new Actor?[PartyState.MaxPartySize];
     private BitMask _tooClose;
 
-    private static readonly AOEShapeCone _shape = new(100, 10.Degrees()); // TODO: verify angle
+    private static readonly AOEShapeCone _shape = new(100f, 10f.Degrees()); // TODO: verify angle
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        var b = ActiveBaitsOn(actor).FirstOrDefault();
-        if (b.Source == null)
+        var bait = ActiveBaitsOn(actor);
+        Bait? b = bait.Count != 0 ? bait[0] : null;
+        if (b != null && b.Value.Source == null)
         {
-            if (ActiveBaits.Any(b => IsClippedBy(actor, b)))
+            if (ActiveBaits.Any(b => IsClippedBy(actor, ref b)))
                 hints.Add("GTFO from baits!");
         }
         else
@@ -24,10 +25,10 @@ class P6Wyrmsbreath(BossModule module, bool allowIntersect) : Components.Generic
             if (_tooClose[slot])
                 hints.Add("Stretch the tether!");
 
-            Actor? partner = IgnoredPartner(slot, actor);
-            if (ActiveBaitsOn(actor).Any(b => PlayersClippedBy(b).Any(p => p != partner)))
+            var partner = IgnoredPartner(slot, actor);
+            if (ActiveBaitsOn(actor).Any(b => PlayersClippedBy(ref b).Any(p => p != partner)))
                 hints.Add("Bait away from raid!");
-            if (ActiveBaitsNotOn(actor).Any(b => b.Target != partner && IsClippedBy(actor, b)))
+            if (ActiveBaitsNotOn(actor).Any(b => b.Target != partner && IsClippedBy(actor, ref b)))
                 hints.Add("GTFO from baited aoe!");
         }
     }
@@ -35,65 +36,80 @@ class P6Wyrmsbreath(BossModule module, bool allowIntersect) : Components.Generic
     public override void AddGlobalHints(GlobalHints hints)
     {
         if (Glows.Any())
-            hints.Add(Glows.Raw == 3 ? "Tankbuster: shared" : "Tankbuster: solo");
+            hints.Add(Glows.Raw == 3ul ? "Tankbuster: shared" : "Tankbuster: solo");
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
-        Actor? partner = IgnoredPartner(pcSlot, pc);
-        foreach (var bait in ActiveBaitsNotOn(pc).Where(b => b.Target != partner))
-            bait.Shape.Draw(Arena, BaitOrigin(bait), bait.Rotation);
+        var partner = IgnoredPartner(pcSlot, pc);
+        var baits = CollectionsMarshal.AsSpan(ActiveBaitsNotOn(pc));
+        var len = baits.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            ref var bait = ref baits[i];
+            if (bait.Target == partner)
+            {
+                continue;
+            }
+            bait.Shape.Draw(Arena, BaitOrigin(ref bait), bait.Rotation);
+        }
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (var bait in ActiveBaitsOn(pc))
-            bait.Shape.Outline(Arena, BaitOrigin(bait), bait.Rotation);
+        var baits = CollectionsMarshal.AsSpan(ActiveBaitsOn(pc));
+        var len = baits.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            ref var bait = ref baits[i];
+            bait.Shape.Outline(Arena, BaitOrigin(ref bait), bait.Rotation);
+        }
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.DreadWyrmsbreathNormal:
+            case (uint)AID.DreadWyrmsbreathNormal:
                 Dragons[0] = caster;
                 break;
-            case AID.DreadWyrmsbreathGlow:
+            case (uint)AID.DreadWyrmsbreathGlow:
                 Dragons[0] = caster;
                 Glows.Set(0);
                 break;
-            case AID.GreatWyrmsbreathNormal:
+            case (uint)AID.GreatWyrmsbreathNormal:
                 Dragons[1] = caster;
                 break;
-            case AID.GreatWyrmsbreathGlow:
+            case (uint)AID.GreatWyrmsbreathGlow:
                 Dragons[1] = caster;
                 Glows.Set(1);
                 break;
         }
     }
 
-    public override void OnTethered(Actor source, ActorTetherInfo tether)
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
-        if ((TetherID)tether.ID is TetherID.FlameBreath or TetherID.IceBreath or TetherID.FlameIceBreathNear)
+        if (tether.ID is (uint)TetherID.FlameBreath or (uint)TetherID.IceBreath or (uint)TetherID.FlameIceBreathNear)
         {
+            var slot = Raid.FindSlot(source.InstanceID);
             var boss = WorldState.Actors.Find(tether.Target);
-            if (Raid.TryFindSlot(source, out var slot) && boss != null)
+            if (slot >= 0 && boss != null)
             {
                 if (_tetheredTo[slot] == null)
                     CurrentBaits.Add(new(boss, source, _shape));
-                _tooClose[slot] = (TetherID)tether.ID == TetherID.FlameIceBreathNear;
+                _tooClose[slot] = tether.ID == (uint)TetherID.FlameIceBreathNear;
                 _tetheredTo[slot] = boss;
             }
         }
     }
 
-    private Actor? IgnoredPartner(int slot, Actor actor) => _allowIntersect && _tetheredTo[slot] != null ? Raid.WithSlot().WhereSlot(i => _tetheredTo[i] != null && _tetheredTo[i] != _tetheredTo[slot]).Closest(actor.Position).Item2 : null;
+    private Actor? IgnoredPartner(int slot, Actor actor) => _allowIntersect && _tetheredTo[slot] != null ? Raid.WithSlot(false, true, true).WhereSlot(i => _tetheredTo[i] != null && _tetheredTo[i] != _tetheredTo[slot]).Closest(actor.Position).Item2 : null;
 }
-class P6Wyrmsbreath1(BossModule module) : P6Wyrmsbreath(module, true);
-class P6Wyrmsbreath2(BossModule module) : P6Wyrmsbreath(module, false);
+sealed class P6Wyrmsbreath1(BossModule module) : P6Wyrmsbreath(module, true);
+sealed class P6Wyrmsbreath2(BossModule module) : P6Wyrmsbreath(module, false);
 
 // note: it is actually symmetrical (both tanks get tankbusters), but that is hard to express, so we select one to show arbitrarily (nidhogg)
-class P6WyrmsbreathTankbusterShared(BossModule module) : Components.GenericSharedTankbuster(module, AID.DarkOrb, 6)
+sealed class P6WyrmsbreathTankbusterShared(BossModule module) : Components.GenericSharedTankbuster(module, (uint)AID.DarkOrb, 6f)
 {
     private readonly P6Wyrmsbreath? _main = module.FindComponent<P6Wyrmsbreath>();
 
@@ -109,7 +125,7 @@ class P6WyrmsbreathTankbusterShared(BossModule module) : Components.GenericShare
     }
 }
 
-class P6WyrmsbreathTankbusterSolo(BossModule module) : Components.GenericBaitAway(module, centerAtTarget: true)
+sealed class P6WyrmsbreathTankbusterSolo(BossModule module) : Components.GenericBaitAway(module, centerAtTarget: true)
 {
     private readonly P6Wyrmsbreath? _main = module.FindComponent<P6Wyrmsbreath>();
 
@@ -121,26 +137,27 @@ class P6WyrmsbreathTankbusterSolo(BossModule module) : Components.GenericBaitAwa
         if (_main?.Glows.Raw is 1 or 2)
         {
             var source = _main.Dragons[_main.Glows.Raw == 1 ? 1 : 0];
-            var target = WorldState.Actors.Find(source?.TargetID ?? 0);
+            var target = WorldState.Actors.Find(source?.TargetID ?? default);
             if (source != null && target != null)
                 CurrentBaits.Add(new(source, target, _shape));
         }
     }
 }
 
-class P6WyrmsbreathCone(BossModule module) : Components.GenericAOEs(module)
+sealed class P6WyrmsbreathCone(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly P6Wyrmsbreath? _main = module.FindComponent<P6Wyrmsbreath>();
 
-    private static readonly AOEShapeCone _shape = new(50, 15.Degrees()); // TODO: verify angle
+    private static readonly AOEShapeCone _shape = new(50f, 15f.Degrees()); // TODO: verify angle
 
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         if (_main?.Glows.Raw is 1 or 2)
         {
-            var source = _main.Dragons[_main.Glows.Raw == 1 ? 0 : 1];
+            var source = _main.Dragons[_main.Glows.Raw == 1ul ? 0 : 1];
             if (source != null)
-                yield return new(_shape, source.Position, source.Rotation); // TODO: activation
+                return new AOEInstance[1] { new(_shape, source.Position, source.Rotation) }; // TODO: activation
         }
+        return [];
     }
 }

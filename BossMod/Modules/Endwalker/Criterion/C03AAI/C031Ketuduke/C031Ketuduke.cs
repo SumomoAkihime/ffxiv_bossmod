@@ -1,23 +1,23 @@
-﻿namespace BossMod.Endwalker.Criterion.C03AAI.C031Ketuduke;
+﻿namespace BossMod.Endwalker.VariantCriterion.C03AAI.C031Ketuduke;
 
-class TidalRoar(BossModule module, AID aid) : Components.CastCounter(module, aid);
-class NTidalRoar(BossModule module) : TidalRoar(module, AID.NTidalRoarAOE);
-class STidalRoar(BossModule module) : TidalRoar(module, AID.STidalRoarAOE);
+abstract class TidalRoar(BossModule module, uint aid) : Components.CastCounter(module, aid);
+class NTidalRoar(BossModule module) : TidalRoar(module, (uint)AID.NTidalRoarAOE);
+class STidalRoar(BossModule module) : TidalRoar(module, (uint)AID.STidalRoarAOE);
 
-class BubbleNet(BossModule module, AID aid) : Components.CastCounter(module, aid);
-class NBubbleNet1(BossModule module) : BubbleNet(module, AID.NBubbleNet1AOE);
-class SBubbleNet1(BossModule module) : BubbleNet(module, AID.SBubbleNet1AOE);
-class NBubbleNet2(BossModule module) : BubbleNet(module, AID.NBubbleNet2AOE);
-class SBubbleNet2(BossModule module) : BubbleNet(module, AID.SBubbleNet2AOE);
+abstract class BubbleNet(BossModule module, uint aid) : Components.CastCounter(module, aid);
+class NBubbleNet1(BossModule module) : BubbleNet(module, (uint)AID.NBubbleNet1AOE);
+class SBubbleNet1(BossModule module) : BubbleNet(module, (uint)AID.SBubbleNet1AOE);
+class NBubbleNet2(BossModule module) : BubbleNet(module, (uint)AID.NBubbleNet2AOE);
+class SBubbleNet2(BossModule module) : BubbleNet(module, (uint)AID.SBubbleNet2AOE);
 
-class Hydrobomb(BossModule module, AID aid) : Components.StandardAOEs(module, aid, 5);
-class NHydrobomb(BossModule module) : Hydrobomb(module, AID.NHydrobombAOE);
-class SHydrobomb(BossModule module) : Hydrobomb(module, AID.SHydrobombAOE);
+abstract class Hydrobomb(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, 5f);
+class NHydrobomb(BossModule module) : Hydrobomb(module, (uint)AID.NHydrobombAOE);
+class SHydrobomb(BossModule module) : Hydrobomb(module, (uint)AID.SHydrobombAOE);
 
-public abstract class C031Ketuduke(WorldState ws, Actor primary) : BossModule(ws, primary, new(0, 0), new ArenaBoundsSquare(20));
+public abstract class C031Ketuduke(WorldState ws, Actor primary) : BossModule(ws, primary, default, new ArenaBoundsSquare(20f));
 
-[ModuleInfo(PrimaryActorOID = (uint)OID.NBoss, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 979, NameID = 12605, SortOrder = 5, PlanLevel = 90)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.NBoss, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 979, NameID = 12605, SortOrder = 5, PlanLevel = 90)]
 public class C031NKetuduke(WorldState ws, Actor primary) : C031Ketuduke(ws, primary);
 
-[ModuleInfo(PrimaryActorOID = (uint)OID.SBoss, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 980, NameID = 12605, SortOrder = 5, PlanLevel = 90)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.SBoss, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 980, NameID = 12605, SortOrder = 5, PlanLevel = 90)]
 public class C031SKetuduke(WorldState ws, Actor primary) : C031Ketuduke(ws, primary);

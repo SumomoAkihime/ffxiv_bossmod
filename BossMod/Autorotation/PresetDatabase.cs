@@ -14,7 +14,28 @@ public sealed class PresetDatabase
 
     private readonly FileInfo _dbPath;
 
-    public IEnumerable<Preset> AllPresets => DefaultPresets.Select(p => p with { HiddenByDefault = _cfg.HideDefaultPreset || p.Name == "VBM Multibox" }).Concat(UserPresets);
+    public List<Preset> AllPresets
+    {
+        get
+        {
+            var countD = DefaultPresets.Count;
+            var countU = UserPresets.Count;
+            List<Preset> presets = new(countD + countU);
+            for (var i = 0; i < countD; ++i)
+            {
+                var def = DefaultPresets[i];
+                if (def.HiddenByDefault == _cfg.HideDefaultPresets)
+                {
+                    presets.Add(def);
+                }
+            }
+            for (var i = 0; i < countU; ++i)
+            {
+                presets.Add(UserPresets[i]);
+            }
+            return presets;
+        }
+    }
 
     public PresetDatabase(string rootPath, FileInfo defaultPresets)
     {
@@ -70,7 +91,28 @@ public sealed class PresetDatabase
         }
     }
 
-    public IEnumerable<Preset> PresetsForClass(Class c) => AllPresets.Where(p => p.Modules.Any(m => m.Definition.Classes[(int)c]));
+    public List<Preset> PresetsForClass(Class c)
+    {
+        var visible = AllPresets;
+        var count = visible.Count;
+        List<Preset> presets = new(count);
+        for (var i = 0; i < count; ++i)
+        {
+            var vis = visible[i];
+            var pm = vis.Modules;
+            var countM = pm.Count;
+            for (var j = 0; j < countM; ++j)
+            {
+                var pmj = pm[j];
+                if (pmj.Definition.Classes[(int)c])
+                {
+                    presets.Add(vis);
+                    break;
+                }
+            }
+        }
+        return presets;
+    }
 
     public Preset? FindPresetByName(ReadOnlySpan<char> name, StringComparison cmp = StringComparison.CurrentCultureIgnoreCase)
     {

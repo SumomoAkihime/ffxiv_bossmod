@@ -1,107 +1,87 @@
 ﻿namespace BossMod.RealmReborn.Dungeon.D08Qarn.D081Teratotaur;
-// note: this boss' radar pops up at the start because it's close to the arena
-// no mechanism to fix that yet
 
 public enum OID : uint
 {
-    Boss = 0x477A, // R2.240, x1
-    DungWespe = 0x477B, // R0.400, x0 (spawn during fight)
-    Platform1 = 0x1E87E2, // x1, EventObj type; eventstate 0 if active, 7 if inactive
-    Platform2 = 0x1E87E3, // x1, EventObj type; eventstate 0 if active, 7 if inactive
-    Platform3 = 0x1E87E4, // x1, EventObj type; eventstate 0 if active, 7 if inactive
+    Teratotaur = 0x477A, // R2.24
+    DungWespe = 0x477B, // R0.4
+    Platform1 = 0x1E87E2, // R2.0
+    Platform2 = 0x1E87E3, // R2.0
+    Platform3 = 0x1E87E4 // R2.0
 }
 
 public enum AID : uint
 {
     AutoAttackBoss = 870, // Boss->player, no cast, single-target
-    Triclip = 42231, // Boss->player, 5.0s cast, single-target tankbuster
-    Mow = 42232, // Boss->self, 2.5s cast, range 6+R 120-degree cone aoe
-    FrightfulRoar = 42233, // Boss->self, 3.0s cast, range 6 circle aoe
-    MortalRay = 42229, // Boss->self, 3.0s cast, raidwide doom debuff
-
     AutoAttackWespe = 871, // DungWespe->player, no cast, single-target
-    FinalSting = 919, // DungWespe->player, 3.0s cast
+
+    Triclip = 42231, // Boss->player, 5.0s cast, single-target
+    Mow = 42232, // Boss->self, 2.5s cast, range 6+R 120-degree cone
+    MortalRay = 42229, // Boss->self, 3.0s cast, range 50 circle
+    FrightfulRoar = 42233, // Boss->self, 3.0s cast, range 6 circle
+    FinalSting = 42230 // DungWespe->player, 3.0s cast, single-target
 }
 
 public enum SID : uint
 {
-    Doom = 5187, // Boss->player, extra=0x0
+    Doom = 5187 // Boss->player, extra=0x0
 }
 
-public enum IconID : uint
+sealed class Triclip(BossModule module) : Components.SingleTargetCast(module, (uint)AID.Triclip);
+sealed class Mow(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Mow, new AOEShapeCone(8.25f, 60f.Degrees()));
+sealed class FrightfulRoar(BossModule module) : Components.SimpleAOEs(module, (uint)AID.FrightfulRoar, 6f);
+
+sealed class MortalRay(BossModule module) : Components.GenericAOEs(module)
 {
-    Tankbuster = 218, //Player->self
-}
+    private BitMask doomed;
+    private AOEInstance[] _platform = [];
+    private readonly AOEShapeRect square = new(1.75f, 1.75f, 1.75f);
 
-class Triclip(BossModule module) : Components.SingleTargetCast(module, AID.Triclip, "Tankbuster");
-class Mow(BossModule module) : Components.StandardAOEs(module, AID.Mow, new AOEShapeCone(8.24f, 60.Degrees()));
-class FrightfulRoar(BossModule module) : Components.StandardAOEs(module, AID.FrightfulRoar, new AOEShapeCircle(6));
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => doomed[slot] ? _platform : [];
 
-// TODO:
-// A: priority stun to stop MR cast?
-// auto-stun doesn't exist yet.
-// B: second MR cast drops first pad after a sec or two; delay move?
-// no, this is on a timer between casts; it only happens to align.
-// would have to count time active & say "don't move if active/until inactive = say 2s or less."
-// C: runs off pad as soon as Doom drops; looks weird, only cuts like 200ms of downtime.
-// could delay to look more natural; maybe unnecessary-paranoiac.
-class MortalRay(BossModule module) : BossComponent(module)
-{
-    private BitMask _dooms;
-    private readonly Actor?[] _platforms = [null, null, null];
-
-    // note: cleanse area seems slightly smaller than it looks visually.
-    private static readonly AOEShapeCircle _platformShape = new(1);
-
-    private Actor? ActivePlatform => _platforms.FirstOrDefault(a => a != null && a.EventState == 0);
-
-    public override void Update()
+    public override void OnActorRenderflagsChange(Actor actor, int renderflags)
     {
-        _platforms[0] ??= Module.Enemies(OID.Platform1).FirstOrDefault();
-        _platforms[1] ??= Module.Enemies(OID.Platform2).FirstOrDefault();
-        _platforms[2] ??= Module.Enemies(OID.Platform3).FirstOrDefault();
-    }
-
-    public override void AddHints(int slot, Actor actor, TextHints hints)
-    {
-        if (_dooms[slot])
-            hints.Add("Go to glowing platform!");
-    }
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        if (_dooms[slot])
+        if (renderflags == 0 && actor.OID is (uint)OID.Platform1 or (uint)OID.Platform2 or (uint)OID.Platform3)
         {
-            var target = ActivePlatform;
-            if (target != null)
+            var pos = actor.Position;
+            _platform = [new(square, actor.Position, default, WorldState.FutureTime(10d), Colors.SafeFromAOE, shapeDistance: square.InvertedDistance(pos, default))];
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == (uint)AID.MortalRay)
+        {
+            var targets = CollectionsMarshal.AsSpan(spell.Targets);
+            var len = targets.Length;
+
+            for (var i = 0; i < len; ++i)
             {
-                hints.AddForbiddenZone(ShapeContains.InvertedCircle(target.Position, _platformShape.Radius), actor.FindStatus(SID.Doom)!.Value.ExpireAt);
+                ref var t = ref targets[i];
+                doomed.Set(Raid.FindSlot(t.ID));
             }
         }
     }
 
-    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        if (_dooms[pcSlot])
-            _platformShape.Draw(Arena, ActivePlatform, ArenaColor.SafeFromAOE);
+        if (doomed[slot])
+        {
+            hints.Add("Go to glowing platform!");
+        }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.Doom)
-            _dooms.Set(Raid.FindSlot(actor.InstanceID));
-    }
-
-    public override void OnStatusLose(Actor actor, ActorStatus status)
-    {
-        if ((SID)status.ID == SID.Doom)
-            _dooms.Clear(Raid.FindSlot(actor.InstanceID));
+        if (status.ID == (uint)SID.Doom)
+        {
+            doomed.Clear(Raid.FindSlot(actor.InstanceID));
+        }
     }
 }
 
-class MortalRayHint(BossModule module) : Components.CastInterruptHint(module, AID.MortalRay, canBeInterrupted: false, canBeStunned: true);
+sealed class MortalRayStun(BossModule module) : Components.CastInterruptHint(module, (uint)AID.MortalRay, false, true, showNameInHint: true);
 
-class D081TeratotaurStates : StateMachineBuilder
+sealed class D081TeratotaurStates : StateMachineBuilder
 {
     public D081TeratotaurStates(BossModule module) : base(module)
     {
@@ -109,33 +89,35 @@ class D081TeratotaurStates : StateMachineBuilder
             .ActivateOnEnter<Triclip>()
             .ActivateOnEnter<Mow>()
             .ActivateOnEnter<FrightfulRoar>()
-            .ActivateOnEnter<MortalRay>()
-            .ActivateOnEnter<MortalRayHint>();
+            .ActivateOnEnter<MortalRayStun>()
+            .ActivateOnEnter<MortalRay>();
     }
 }
 
-[ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 9, NameID = 1567)]
-public class D081Teratotaur(WorldState ws, Actor primary) : BossModule(ws, primary, new(-70, -60), new ArenaBoundsSquare(20))
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus, Chuggalo", PrimaryActorOID = (uint)OID.Teratotaur, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 9u, NameID = 1567u, Category = BossModuleInfo.Category.Dungeon, Expansion = BossModuleInfo.Expansion.RealmReborn, SortOrder = 1)]
+public sealed class D081Teratotaur(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
 {
+    private static readonly ArenaBoundsCustom arena = new([new PolygonCustom([new(-94.9f, -59f), new(-70.2f, -46.1f), new(-55.3f, -46.6f),
+    new(-55.7f, -55.6f), new(-51.1f, -60.9f), new(-51.2f, -65), new(-58.1f, -67.7f),
+    new(-64.7f, -70.6f), new(-88.4f, -72.2f), new(-89, -66.2f), new(-94.9f, -65.5f)])]);
+
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var e in hints.PotentialTargets)
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
         {
-            e.Priority = (OID)e.Actor.OID switch
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch
             {
-                OID.DungWespe => 2,
-                OID.Boss => 1,
+                (uint)OID.DungWespe => 1,
                 _ => 0
             };
         }
     }
 
-    // TODO: draw pads as AOEShapeRect while inactive?
-    // DrawArenaForeground seems preferred over DrawEnemies; bit inconsistent.
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
-        Arena.Actor(PrimaryActor, ArenaColor.Enemy);
-        foreach (var e in Enemies(OID.DungWespe))
-            Arena.Actor(e, ArenaColor.Enemy);
+        Arena.Actor(PrimaryActor);
+        Arena.Actors(Enemies((uint)OID.DungWespe));
     }
 }

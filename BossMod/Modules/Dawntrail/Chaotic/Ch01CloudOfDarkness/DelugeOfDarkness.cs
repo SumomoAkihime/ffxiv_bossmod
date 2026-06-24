@@ -5,148 +5,47 @@
 // - 00200010 - phase 1
 // - 00020001 - phase 2
 // - 00040004 - remove telegraph (note that actual bounds are controlled by something else!)
-class DelugeOfDarkness1(BossModule module) : Components.GenericAOEs(module)
+sealed class Phase2InnerCells(BossModule module) : Components.GenericAOEs(module)
 {
-    private AOEInstance? _aoe;
-
-    private static readonly AOEShapeCustom _shape = new(Ch01CloudOfDarkness.Phase1Bounds.Clipper.Difference(new(CurveApprox.Rect(new(100, 0), new(0, 100))), new(Ch01CloudOfDarkness.Phase1Bounds.Poly)));
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.ZeroOrOne(_aoe);
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID == AID.DelugeOfDarkness1)
-            _aoe = new(_shape, Module.Center, default, Module.CastFinishAt(spell));
-    }
-}
-
-class DelugeOfDarkness2(BossModule module) : Components.GenericAOEs(module)
-{
-    private AOEInstance? _aoe;
-
-    private static readonly AOEShapeCustom _shape = new(Ch01CloudOfDarkness.Phase2Bounds.Clipper.Difference(new(CurveApprox.Rect(new(100, 0), new(0, 100))), new(Ch01CloudOfDarkness.Phase2Bounds.Poly)));
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.ZeroOrOne(_aoe);
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID == AID.DelugeOfDarkness2)
-            _aoe = new(_shape, Module.Center, default, Module.CastFinishAt(spell));
-    }
-}
-
-class Phase2AIHints(BossModule module) : Components.GenericInvincible(module)
-{
-    [Flags]
-    enum Position
-    {
-        None,
-        Inside,
-        Outside
-    }
-
-    private readonly Position[] _playerPositions = new Position[PartyState.MaxAllianceSize];
-
-    protected override IEnumerable<Actor> ForbiddenTargets(int slot, Actor actor)
-    {
-        var pos = _playerPositions[slot];
-        var e = Enumerable.Empty<Actor>();
-
-        if (pos.HasFlag(Position.Inside))
-            e = e.Concat(Module.Enemies(OID.Atomos)).Concat(Module.Enemies(OID.StygianShadow));
-
-        if (pos.HasFlag(Position.Outside))
-            e = e.Concat([Module.PrimaryActor]);
-
-        return e;
-    }
-
-    public override void OnStatusGain(Actor actor, ActorStatus status)
-    {
-        switch ((SID)status.ID)
-        {
-            case SID.InnerDarkness:
-                SetState(actor, Position.Inside);
-                break;
-            case SID.OuterDarkness:
-                SetState(actor, Position.Outside);
-                break;
-        }
-    }
-
-    public override void OnStatusLose(Actor actor, ActorStatus status)
-    {
-        switch ((SID)status.ID)
-        {
-            case SID.InnerDarkness:
-                ClearState(actor, Position.Inside);
-                break;
-            case SID.OuterDarkness:
-                ClearState(actor, Position.Outside);
-                break;
-        }
-    }
-
-    private void SetState(Actor a, Position flag)
-    {
-        if (Raid.TryFindSlot(a, out var slot))
-            _playerPositions[slot] |= flag;
-    }
-
-    private void ClearState(Actor a, Position flag)
-    {
-        if (Raid.TryFindSlot(a, out var slot))
-            _playerPositions[slot] &= ~flag;
-    }
-}
-
-class Phase2OuterRing(BossModule module) : Components.GenericAOEs(module)
-{
-    public bool Dangerous;
-    private AOEInstance? _aoe;
-
-    private static readonly AOEShapeDonut _shape = new(34, 40);
-
-    public override IEnumerable<AOEInstance> ActiveAOEs(int slot, Actor actor) => Utils.ZeroOrOne(_aoe);
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if ((AID)spell.Action.ID == AID.DarkDominion)
-            _aoe = new(_shape, Module.Center, default, Module.CastFinishAt(spell, 1.1f));
-    }
-
-    public override void OnMapEffect(byte index, uint state)
-    {
-        if (index != 2)
-            return;
-        switch (state)
-        {
-            case 0x00020001:
-                Dangerous = true;
-                break;
-            case 0x00080004:
-                Dangerous = false;
-                _aoe = null;
-                break;
-            default:
-                ReportError($"Unexpected envcontrol {state:X8}");
-                break;
-        }
-    }
-}
-
-class Phase2InnerCells(BossModule module) : BossComponent(module)
-{
+    private readonly Ch01CloudOfDarknessConfig _config = Service.Config.Get<Ch01CloudOfDarknessConfig>();
     private readonly DateTime[] _breakTime = new DateTime[28];
+    private static readonly AOEShapeRect square = new(3f, 3f, 3f);
+    private static readonly Dictionary<int, (int x, int y)> _cellIndexToCoordinates = GenerateCellIndexToCoordinates();
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        if (!_config.ShowOccupiedTiles)
+            return [];
+        var cell = CellIndex(actor.Position - Arena.Center) - 3;
+        var tiles = new AOEInstance[28];
+        var index = 0;
+        for (var i = 0; i < 28; ++i)
+        {
+            ref var breaktime = ref _breakTime[i];
+            if (breaktime != default)
+            {
+                if (i == cell)
+                {
+                    if ((breaktime - WorldState.CurrentTime).TotalSeconds < 6d)
+                    {
+                        tiles[index++] = new(square, CellCenter(i));
+                    }
+                }
+                else
+                    tiles[index++] = new(square, CellCenter(i), color: Colors.FutureVulnerable);
+            }
+        }
+        return tiles.AsSpan()[..index];
+    }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        var cell = CellIndex(actor.Position - Module.Center) - 3;
+        var cell = CellIndex(actor.Position - Arena.Center) - 3;
         var breakTime = cell >= 0 && cell < _breakTime.Length ? _breakTime[cell] : default;
         if (breakTime != default)
         {
-            var remaining = Math.Max(0, (breakTime - WorldState.CurrentTime).TotalSeconds);
-            hints.Add($"Cell breaks in {remaining:f1}s", remaining < 10);
+            var remaining = Math.Max(0d, (breakTime - WorldState.CurrentTime).TotalSeconds);
+            hints.Add($"Cell breaks in {remaining:f1}s", remaining < 10d);
         }
     }
 
@@ -168,48 +67,122 @@ class Phase2InnerCells(BossModule module) : BossComponent(module)
         //      16             1D
         //   11 13 14 15 1C 1B 1A 18
         //      12             19
-        if (index is < 3 or > 30)
+        if (index is < 0x03 or > 0x1E)
             return;
         _breakTime[index - 3] = state switch
         {
-            0x00200010 => WorldState.FutureTime(44),
-            0x00800040 => WorldState.FutureTime(6),
+            0x00200010u => WorldState.FutureTime(44d),
+            0x00800040u => WorldState.FutureTime(6d),
+            0x00080004u => WorldState.CurrentTime,
             _ => default,
         };
     }
 
-    private int CoordinateToCell(float c) => (int)Math.Floor(c / 6);
-    private int CellIndex(WDir offset) => CellIndex(CoordinateToCell(offset.X), CoordinateToCell(offset.Z));
-    private int CellIndex(int x, int y) => (x, y) switch
+    private static int CoordinateToCell(float c) => (int)Math.Floor(c / 6);
+    private static int CellIndex(WDir offset) => CellIndex(CoordinateToCell(offset.X), CoordinateToCell(offset.Z));
+    private static int CellIndex(int x, int y) => (x, y) switch
     {
-        (-4, -3) => 3,
-        (-3, -4) => 4,
-        (-3, -3) => 5,
-        (-2, -3) => 6,
-        (-1, -3) => 7,
-        (-3, -2) => 8,
-        (-3, -1) => 9,
-        (+3, -3) => 10,
-        (+2, -4) => 11,
-        (+2, -3) => 12,
-        (+1, -3) => 13,
-        (+0, -3) => 14,
-        (+2, -2) => 15,
-        (+2, -1) => 16,
-        (-4, +2) => 17,
-        (-3, +3) => 18,
-        (-3, +2) => 19,
-        (-2, +2) => 20,
-        (-1, +2) => 21,
-        (-3, +1) => 22,
-        (-3, +0) => 23,
-        (+3, +2) => 24,
-        (+2, +3) => 25,
-        (+2, +2) => 26,
-        (+1, +2) => 27,
-        (+0, +2) => 28,
-        (+2, +1) => 29,
-        (+2, +0) => 30,
-        _ => -1
+        (-4, -3) => 0x03,
+        (-3, -4) => 0x04,
+        (-3, -3) => 0x05,
+        (-2, -3) => 0x06,
+        (-1, -3) => 0x07,
+        (-3, -2) => 0x08,
+        (-3, -1) => 0x09,
+        (+3, -3) => 0x0A,
+        (+2, -4) => 0x0B,
+        (+2, -3) => 0x0C,
+        (+1, -3) => 0x0D,
+        (+0, -3) => 0x0E,
+        (+2, -2) => 0x0F,
+        (+2, -1) => 0x10,
+        (-4, +2) => 0x11,
+        (-3, +3) => 0x12,
+        (-3, +2) => 0x13,
+        (-2, +2) => 0x14,
+        (-1, +2) => 0x15,
+        (-3, +1) => 0x16,
+        (-3, +0) => 0x17,
+        (+3, +2) => 0x18,
+        (+2, +3) => 0x19,
+        (+2, +2) => 0x1A,
+        (+1, +2) => 0x1B,
+        (+0, +2) => 0x1C,
+        (+2, +1) => 0x1D,
+        (+2, +0) => 0x1E,
+        _ => 0
     };
+
+    private static Dictionary<int, (int x, int y)> GenerateCellIndexToCoordinates()
+    {
+        var map = new Dictionary<int, (int x, int y)>();
+        for (var x = -4; x <= 3; ++x)
+        {
+            for (var y = -4; y <= 3; ++y)
+            {
+                var index = CellIndex(x, y);
+                if (index >= 0)
+                    map[index] = (x, y);
+            }
+        }
+        return map;
+    }
+
+    public static WPos CellCenter(int breakTimeIndex)
+    {
+        var cellIndex = breakTimeIndex + 3;
+        if (_cellIndexToCoordinates.TryGetValue(cellIndex, out var coordinates))
+        {
+            var worldX = (coordinates.x + 0.5f) * 6f;
+            var worldZ = (coordinates.y + 0.5f) * 6f;
+            return Ch01CloudOfDarkness.DefaultCenter + new WDir(worldX, worldZ);
+        }
+        else
+            return default;
+    }
+}
+
+sealed class Phase2AIHints(BossModule module) : BossComponent(module)
+{
+    private BitMask isInside;
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            var e = hints.PotentialTargets[i];
+            switch (e.Actor.OID)
+            {
+                case (uint)OID.Atomos:
+                    if (isInside[slot])
+                        e.Priority = AIHints.Enemy.PriorityInvincible;
+                    else if (actor.Class.GetRole() == Role.Ranged)
+                        e.Priority = 5;
+                    break;
+                case (uint)OID.StygianShadow:
+                    if (isInside[slot])
+                        e.Priority = AIHints.Enemy.PriorityInvincible;
+                    break;
+                case (uint)OID.Boss:
+                    if (!isInside[slot])
+                        e.Priority = AIHints.Enemy.PriorityInvincible;
+                    break;
+
+            }
+        }
+    }
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        switch (status.ID)
+        {
+            case (uint)SID.InnerDarkness:
+                isInside.Set(Raid.FindSlot(actor.InstanceID));
+                break;
+            case (uint)SID.OuterDarkness:
+                isInside.Clear(Raid.FindSlot(actor.InstanceID));
+                break;
+        }
+    }
 }

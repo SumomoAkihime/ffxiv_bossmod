@@ -18,7 +18,7 @@ class P2Fireball(BossModule module) : BossComponent(module)
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         if (Target != null)
-            Arena.AddCircle(Target.Position, Radius, ArenaColor.Safe);
+            Arena.AddCircle(Target.Position, Radius, Colors.Safe);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -61,7 +61,7 @@ class P2Conflagrate(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void OnStatusGain(Actor actor, ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         if (actor == Target && (SID)status.ID == SID.Fetters)
             Target = null;
@@ -88,7 +88,7 @@ class P2AI(BossModule module) : BossComponent(module)
                     break;
                 case OID.Conflagration:
                     e.Priority = 2;
-                    hints.AddForbiddenZone(ShapeContains.Circle(e.Actor.Position, 6)); // TODO: reconsider (e.g. fireball target might want to run inside conflag)
+                    hints.AddForbiddenZone(new SDCircle(e.Actor.Position, 6)); // TODO: reconsider (e.g. fireball target might want to run inside conflag)
                     break;
             }
         }
@@ -101,11 +101,11 @@ class P2AI(BossModule module) : BossComponent(module)
         if (_conflagrate?.Target == actor)
         {
             hints.ForbiddenZones.Clear(); // ignore things like cleave
-            hints.AddForbiddenZone(ShapeContains.InvertedCircle(Module.PrimaryActor.Position, 1), _conflagrate.FettersAt);
+            hints.AddForbiddenZone(new SDInvertedCircle(Module.PrimaryActor.Position, 1), _conflagrate.FettersAt);
         }
         else if (_deathSentence?.TankRole != assignment)
         {
-            bool stayLeft = actor.Role switch
+            var stayLeft = actor.Role switch
             {
                 Role.Healer => true,
                 Role.Ranged => false,
@@ -115,13 +115,13 @@ class P2AI(BossModule module) : BossComponent(module)
             var bossTarget = WorldState.Actors.Find(Module.PrimaryActor.TargetID);
             var dir = bossTarget != null ? Angle.FromDirection(bossTarget.Position - Module.PrimaryActor.Position) : Module.PrimaryActor.Rotation;
             dir += (stayLeft ? 135 : -135).Degrees();
-            hints.AddForbiddenZone(ShapeContains.InvertedCircle(Module.PrimaryActor.Position + dir.ToDirection() * 8, P2Fireball.Radius * 0.5f), _fireball?.Target != null ? _fireball.ExplosionAt : DateTime.MaxValue);
+            hints.AddForbiddenZone(new SDInvertedCircle(Module.PrimaryActor.Position + 8f * dir.ToDirection(), P2Fireball.Radius * 0.5f), _fireball?.Target != null ? _fireball.ExplosionAt : DateTime.MaxValue);
         }
 
         if (_fireball?.Target != null)
         {
-            bool hitHealers = _fireball.Target.Role == Role.Healer;
-            var hitPlayers = Raid.WithSlot().WhereActor(a => a.Role switch
+            var hitHealers = _fireball.Target.Role == Role.Healer;
+            var hitPlayers = Raid.WithSlot(false, true, true).WhereActor(a => a.Role switch
             {
                 Role.Healer => hitHealers,
                 Role.Ranged => !hitHealers,
