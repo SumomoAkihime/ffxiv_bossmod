@@ -41,6 +41,8 @@ sealed class AIManager : IDisposable
         Beh?.AIPreset = p;
     }
 
+    public void ExecuteCommand(string message) => OnCommand("/vbmai", string.IsNullOrWhiteSpace(message) ? "UI" : message);
+
     public void Dispose()
     {
         SwitchToIdle();

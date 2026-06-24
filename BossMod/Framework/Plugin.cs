@@ -208,6 +208,9 @@ public sealed class Plugin : IAsyncDalamudPlugin
             case "AR":
                 ParseAutorotationCommands(split);
                 break;
+            case "AI":
+                _ai.ExecuteCommand(string.Join(' ', split, 1, split.Length - 1));
+                break;
             case "RESETCOLORS":
                 ResetColors();
                 break;
@@ -474,7 +477,16 @@ public sealed class Plugin : IAsyncDalamudPlugin
 
                 break;
             case "TOGGLE":
-                ParseAutorotationSetCommand(cmd.Length > 2 ? cmd[1..] : [""], true, true);
+                if (cmd.Length > 2)
+                {
+                    ParseAutorotationSetCommand(cmd[1..], true, true);
+                }
+                else
+                {
+                    var before = _rotation.PresetNames;
+                    _rotation.Toggle(RotationModuleManager.ForceDisable, true);
+                    Service.Log($"Console: toggle force-disable changes presets from '{before}' to '{_rotation.PresetNames}'");
+                }
                 break;
             case "ACTIVATE":
                 ParseAutorotationSetCommand(cmd[1..], false, false);
