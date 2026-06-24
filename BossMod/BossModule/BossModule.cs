@@ -415,6 +415,10 @@ public abstract class BossModule : IDisposable
         {
             hints.ActionsToExecute.Clear();
         }
+        if (!WindowConfig.AllowAutomaticInteract)
+        {
+            hints.InteractWithTarget = null;
+        }
     }
 
     public void ReportError(BossComponent? comp, string message)
