@@ -240,7 +240,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
                     _wndReplay.StopRecording();
                     break;
                 default:
-                    Service.ChatGui.Print($"[BMR] Unknown replay command: {messageData[1]}");
+                    Service.ChatGui.Print($"[BossMod] Unknown replay command: {messageData[1]}");
                     break;
             }
         }

@@ -151,7 +151,7 @@ public sealed class ReplayManagementWindow : UIWindow
                 if (id == default)
                 {
                     StartRecording("");
-                    Service.ChatGui.Print("[BMR] Replay recording started");
+                    Service.ChatGui.Print("[BossMod] Replay recording started");
                 }
             });
             _disableAlertLinkPayload ??= Service.ChatGui.AddChatLinkHandler(2u, (id, str) =>
@@ -160,11 +160,11 @@ public sealed class ReplayManagementWindow : UIWindow
                 {
                     _config.ImportantDutyAlert = false;
                     _config.Modified.Fire();
-                    Service.ChatGui.Print("[BMR] Important duty alert disabled");
+                    Service.ChatGui.Print("[BossMod] Important duty alert disabled");
                 }
             });
             var alertPayload =
-                new TextPayload("[BMR] This duty does not yet have a complete module. Recording and uploading a replay will help enable module creation. ");
+                new TextPayload("[BossMod] This duty does not yet have a complete module. Recording and uploading a replay will help enable module creation. ");
             var linkTextPayload = new TextPayload("[Start replay recording]");
             var disableTextPayload = new TextPayload("[Permanently disable these alerts]");
 
@@ -364,12 +364,12 @@ public sealed class ReplayManagementWindow : UIWindow
                             UseShellExecute = true
                         });
                     });
-                    Service.ChatGui.Print($"[BMR] The path to your replay is: {path}");
+                    Service.ChatGui.Print($"[BossMod] The path to your replay is: {path}");
                 }
             });
             var alertPayload =
                 new TextPayload(
-                    "[BMR] You recorded a duty without a complete module. Uploading this replay helps with module development. ");
+                    "[BossMod] You recorded a duty without a complete module. Uploading this replay helps with module development. ");
             var linkTextPayload = new TextPayload("[Upload the replay]");
             var seString = new SeStringBuilder().Add(alertPayload).Add(_uploadLinkPayload).Add(linkTextPayload).Add(RawPayload.LinkTerminator).Build();
             Service.ChatGui.Print(seString);
