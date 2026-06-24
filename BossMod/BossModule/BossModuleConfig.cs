@@ -121,4 +121,5 @@ public sealed class BossModuleConfig : ConfigNode
     public float MaxLoadDistance = 500f;
 
     public List<string> DisabledModules = [];
+    public List<BossModuleInfo.Category> DisabledCategories = [];
 }
