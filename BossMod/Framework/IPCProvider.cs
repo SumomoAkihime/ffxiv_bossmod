@@ -279,7 +279,7 @@ sealed class IPCProvider : IDisposable
             return !ActionDefinitions.IsDashDangerous(player.Position, dest, hints);
         });
 
-        Register("Configuration", (List<string> args, bool save) => Service.Config.ConsoleCommand(args.AsSpan(), save));
+        Register("Configuration", (IReadOnlyList<string> args, bool save) => Service.Config.ConsoleCommand(args.ToArray().AsSpan(), save));
 
         var lastModified = DateTime.Now;
         Service.Config.Modified.Subscribe(() => lastModified = DateTime.Now);
@@ -358,6 +358,53 @@ sealed class IPCProvider : IDisposable
             if (preset == null)
             {
                 return false;
+            }
+
+            autorotation.Preset = preset;
+            return true;
+        });
+        Register("Presets.Activate", (string name) =>
+        {
+            var preset = autorotation.Database.Presets.FindPresetByName(name);
+            if (preset == null || autorotation.Preset == preset)
+            {
+                return false;
+            }
+
+            autorotation.Preset = preset;
+            return true;
+        });
+        Register("Presets.Deactivate", (string name) =>
+        {
+            var preset = autorotation.Database.Presets.FindPresetByName(name);
+            if (preset == null || autorotation.Preset != preset)
+            {
+                return false;
+            }
+
+            autorotation.Preset = null;
+            return true;
+        });
+        Register("Presets.GetActiveList", () =>
+            autorotation.Preset is { } preset && preset != RotationModuleManager.ForceDisable ? new List<string> { preset.Name } : []);
+        Register("Presets.SetActiveList", (List<string> names) =>
+        {
+            if (names.Count == 0)
+            {
+                autorotation.Preset = null;
+                return true;
+            }
+
+            var preset = autorotation.Database.Presets.FindPresetByName(names[0]);
+            if (preset == null)
+            {
+                Service.Log($"Presets.SetActiveList: input contained unrecognized preset name {names[0]} - giving up");
+                return false;
+            }
+
+            if (names.Count > 1)
+            {
+                Service.Log("Presets.SetActiveList: this Reborn-baseline branch supports one active preset; using the first entry only");
             }
 
             autorotation.Preset = preset;
