@@ -285,6 +285,24 @@ sealed class IPCProvider : IDisposable
         Service.Config.Modified.Subscribe(() => lastModified = DateTime.Now);
         Register("Configuration.LastModified", () => lastModified);
 
+        Register("Configuration.DisableModule", (string name, bool disable) =>
+        {
+            var disabledModules = Service.Config.Get<BossModuleConfig>().DisabledModules;
+
+            if (!disable)
+            {
+                return disabledModules.Remove(name);
+            }
+
+            if (!disabledModules.Contains(name))
+            {
+                disabledModules.Add(name);
+                return true;
+            }
+
+            return false;
+        });
+
         Register("Rotation.ActionQueue.HasEntries", () =>
         {
             var entries = CollectionsMarshal.AsSpan(autorotation.Hints.ActionsToExecute.Entries);
