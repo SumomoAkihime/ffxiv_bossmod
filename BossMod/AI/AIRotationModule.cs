@@ -12,7 +12,7 @@ public abstract class AIRotationModule(RotationModuleManager manager, Actor play
 
     protected bool InMeleeRange(Actor target, WPos position)
     {
-        var maxRange = target.HitboxRadius + 2.6f;
+        var maxRange = target.HitboxRadius + Player.HitboxRadius + 3f;
         return (target.Position - position).LengthSq() < maxRange * maxRange;
     }
 
@@ -34,7 +34,7 @@ public abstract class AIRotationModule(RotationModuleManager manager, Actor play
         return range <= maxRange ? pos : target + maxRange * toPlayer.Normalized();
     }
 
-    protected WPos ClosestInMelee(WPos pos, Actor target, float tolerance = 0f) => ClosestInRange(pos, target.Position, target.HitboxRadius + 2.6f - tolerance);
+    protected WPos ClosestInMelee(WPos pos, Actor target, float tolerance = 0.25f) => ClosestInRange(pos, target.Position, target.HitboxRadius + 3f - tolerance);
 
     // return uptime position if player will be able to reach downtime position within deadline having started movement after next action, otherwise downtime position
     protected WPos UptimeDowntimePos(WPos uptimePos, WPos downtimePos, float nextAction, float deadline)
