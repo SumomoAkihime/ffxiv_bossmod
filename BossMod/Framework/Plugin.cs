@@ -14,7 +14,7 @@ namespace BossMod;
 
 public sealed class Plugin : IAsyncDalamudPlugin
 {
-    public string Name => "BossMod Reborn";
+    public string Name => "Boss Mod";
 
     private readonly IDalamudPluginInterface _dalamud;
     private readonly ICommandManager CommandManager;

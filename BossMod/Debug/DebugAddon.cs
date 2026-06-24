@@ -1,4 +1,4 @@
-﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Bindings.ImGui;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 
@@ -111,7 +111,7 @@ public sealed unsafe class DebugAddon : IDisposable
                 AtkValueType.UInt => $"uint {values[i].UInt}",
                 AtkValueType.Float => $"int {values[i].Float}",
                 AtkValueType.String => $"string",
-                AtkValueType.ConstString => $"string8",
+                // AtkValueType.ConstString => $"string8", // not in this SDK version
                 AtkValueType.Vector => $"vector",
                 AtkValueType.Pointer => $"pointer",
                 AtkValueType.ManagedString => $"astring",
