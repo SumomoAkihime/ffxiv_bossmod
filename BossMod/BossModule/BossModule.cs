@@ -337,7 +337,7 @@ public abstract class BossModule : IDisposable
             Components[i].DrawArenaForeground(pcSlot, pc);
         }
 
-        if (WindowConfig.ShowMeleeRangeIndicator || WindowConfig.ShowMeleeRange)
+        if (WindowConfig.ShowMeleeRangeIndicator)
         {
             var t = WorldState.Actors.Find(pc.TargetID);
             var actor = t != null && !t.IsAlly && !t.IsDead && t.InCombat ? t : !PrimaryActor.IsDead && PrimaryActor.IsTargetable ? PrimaryActor : null;
@@ -414,10 +414,6 @@ public abstract class BossModule : IDisposable
         if (!WindowConfig.AllowAutomaticActions && AI.AIManager.Instance?.Beh == null && Autorotation.MiscAI.NormalMovement.Instance == null)
         {
             hints.ActionsToExecute.Clear();
-        }
-        if (!WindowConfig.AllowAutomaticInteract)
-        {
-            hints.InteractWithTarget = null;
         }
     }
 

@@ -20,9 +20,6 @@ public sealed class BossModuleConfig : ConfigNode
     [PropertyDisplay("Allow modules to automatically use actions", tooltip: "Example: modules can automatically use anti-knockback abilities before a knockback happens")]
     public bool AllowAutomaticActions = true;
 
-    [PropertyDisplay("Allow modules to automatically interact with world objects")]
-    public bool AllowAutomaticInteract = true;
-
     [PropertyDisplay("Show testing radar and hint window", tooltip: "Useful for configuring your radar and hint windows without being inside of a boss encounter", separator: true)]
     public bool ShowDemo = false;
 
@@ -119,12 +116,7 @@ public sealed class BossModuleConfig : ConfigNode
     [PropertyDisplay("Show melee range indicator")]
     public bool ShowMeleeRangeIndicator = false;
 
-    public bool ShowMeleeRange = false;
-
     [PropertyDisplay("Maximum load distance", tooltip: "Maximum load distance in yalms")]
     [PropertySlider(0.1f, 500f, Speed = 0.1f, Logarithmic = true)]
     public float MaxLoadDistance = 500f;
-
-    public List<string> DisabledModules = [];
-    public List<BossModuleInfo.Category> DisabledCategories = [];
 }

@@ -181,18 +181,7 @@ public static class BossModuleRegistry
         }
 
         var info = FindByOID(primary.OID);
-        if (info == null || info.Maturity < minMaturity)
-        {
-            return null;
-        }
-
-        var config = BossModuleManager.Config;
-        if (config.DisabledModules.Contains(info.ModuleType.ToString()) || config.DisabledCategories.Contains(info.Category))
-        {
-            return null;
-        }
-
-        return CreateModule(info, ws, primary);
+        return info?.Maturity >= minMaturity ? CreateModule(info, ws, primary) : null;
     }
 
     // TODO: this is a hack...
