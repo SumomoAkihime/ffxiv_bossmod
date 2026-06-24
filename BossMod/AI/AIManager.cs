@@ -103,7 +103,10 @@ sealed class AIManager : IDisposable
                 break;
             }
         }
-        Beh = new AIBehaviour(Controller, Autorot, preset);
+        preset ??= string.IsNullOrWhiteSpace(_config.AIAutorotPresetName) ? Autorot.Database.Presets.FindPresetByName("VBM AI") : null;
+        AiPreset = preset;
+        _config.AIAutorotPresetName = preset?.Name;
+        Beh = new AIBehaviour(Controller, Autorot, AiPreset);
         _config.Enabled = true;
         _wndAI.UpdateTitle();
     }
@@ -233,7 +236,7 @@ sealed class AIManager : IDisposable
                 configModified = cfgMD != _config.MoveDelay;
                 break;
             case "SETPRESETNAME":
-                if (cmd.Length <= 2)
+                if (messageData.Length <= 1)
                 {
                     if (_config.EchoToChat)
                     {
