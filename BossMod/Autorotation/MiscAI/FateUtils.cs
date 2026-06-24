@@ -1,4 +1,4 @@
-namespace BossMod.Autorotation.MiscAI;
+﻿namespace BossMod.Autorotation.MiscAI;
 
 public sealed class FateUtils(RotationModuleManager manager, Actor player) : RotationModule(manager, player)
 {
@@ -33,7 +33,7 @@ public sealed class FateUtils(RotationModuleManager manager, Actor player) : Rot
 
     public const int TurnInGoldReq = 10;
 
-    public override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         Hints.WantFateSync = strategy.Option(Track.Sync).As<AIHints.FateSync>();
 
@@ -79,9 +79,9 @@ public sealed class FateUtils(RotationModuleManager manager, Actor player) : Rot
                 if (progress <= 0)
                     return 0;
 
-                var cappedProgress = Math.Min(progress, losDist);
-                var overshoot = Math.Max(0f, progress - losDist);
-                return cappedProgress * 8f - overshoot * 16f;
+                var cappedProgress = MathF.Min(progress, losDist);
+                var overshoot = MathF.Max(0, progress - losDist);
+                return cappedProgress * 8 - overshoot * 16;
             });
         }
     }

@@ -196,7 +196,7 @@ public abstract class RotationModule(RotationModuleManager manager, Actor player
     }
 
     // the main entry point of the module - given a set of strategy values, fill the queue with a set of actions to execute
-    public abstract void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving);
+    public abstract void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving);
 
     public virtual bool WantsLoSFix => false;
 
@@ -305,7 +305,11 @@ public abstract class RotationModule(RotationModuleManager manager, Actor player
 
 public abstract class TypedRotationModule<TValues>(RotationModuleManager manager, Actor player) : RotationModule(manager, player) where TValues : struct
 {
-    public abstract void Execute(in TValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving);
+    public abstract void Execute(in TValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving);
 
-    public sealed override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving) => Execute(ValueConverter.FromValues<TValues>(strategy), primaryTarget, estimatedAnimLockDelay, isMoving);
+    public sealed override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    {
+        var values = ValueConverter.FromValues<TValues>(strategy);
+        Execute(values, ref primaryTarget, estimatedAnimLockDelay, isMoving);
+    }
 }

@@ -102,8 +102,8 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
         ImprovisationLeft = StatusLeft(SID.Improvisation);
         ImprovisedFinishLeft = StatusLeft(SID.ImprovisedFinish);
         DevilmentLeft = StatusLeft(SID.Devilment);
-        SymmetryLeft = Math.Max(StatusLeft(SID.SilkenSymmetry), StatusLeft(SID.FlourishingSymmetry));
-        FlowLeft = Math.Max(StatusLeft(SID.SilkenFlow), StatusLeft(SID.FlourishingFlow));
+        SymmetryLeft = MathF.Max(StatusLeft(SID.SilkenSymmetry), StatusLeft(SID.FlourishingSymmetry));
+        FlowLeft = MathF.Max(StatusLeft(SID.SilkenFlow), StatusLeft(SID.FlourishingFlow));
         FlourishingStarfallLeft = StatusLeft(SID.FlourishingStarfall);
         ThreefoldLeft = StatusLeft(SID.ThreefoldFanDance);
         FourfoldLeft = StatusLeft(SID.FourfoldFanDance);
@@ -153,7 +153,7 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
             return;
         }
 
-        if (ShouldTechStep(strategy) && ReadyIn(AID.TechnicalStep) <= GCDLength)
+        if (ShouldTechStep(strategy) && ReadyIn(AID.TechnicalStep) <= GCD)
             PushGCD(AID.TechnicalStep, Player);
 
         var shouldStdStep = ShouldStdStep(strategy);
@@ -174,9 +174,6 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
         if (canSymmetry && SymmetryLeft <= GCDLength)
             PushGCD(symmetryCombo, primaryTarget);
 
-        if (FinishingMoveLeft > GCDLength && NumDanceTargets > 0)
-            PushGCD(AID.FinishingMove, Player);
-
         if (DanceOfTheDawnLeft > GCD && Esprit >= 50)
             PushGCD(AID.DanceOfTheDawn, BestRangedAOETarget);
 
@@ -186,6 +183,9 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
         // TODO combine this with above
         if (canStarfall)
             PushGCD(AID.StarfallDance, BestStarfallTarget);
+
+        if (FinishingMoveLeft > GCD && NumDanceTargets > 0)
+            PushGCD(AID.FinishingMove, Player);
 
         if (LastDanceLeft > GCD)
             PushGCD(AID.LastDance, BestRangedAOETarget);
@@ -265,7 +265,7 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
 
     private bool ShouldStdStep(in Strategy strategy)
     {
-        if (ReadyIn(AID.StandardStep) > GCDLength)
+        if (ReadyIn(AID.StandardStep) > GCD)
             return false;
 
         var stdFinishCast = GCD + 3.5f;
@@ -343,7 +343,7 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
         return TechFinishLeft > AnimLock;
     }
 
-    private bool IsFan4Target(Actor primary, Actor other) => TargetInAOECone(other, Player.Position, 15, Player.DirectionTo(primary), 60.Degrees());
+    private bool IsFan4Target(Actor primary, Actor other) => AIHints.TargetInAOECone(other, Player.Position, 15, Player.DirectionTo(primary), 60.Degrees());
 
     private Actor? FindDancePartner(in Track<PartnerStrategy> p)
     {
@@ -357,11 +357,8 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
         if (partner != null)
         {
             // target is in cutscene, we're probably in a raid or something - wait for it to finish
-            var slotIndex = World.Party.FindSlot(partner.InstanceID);
-            if (slotIndex >= 0 && World.Party.Members[slotIndex].InCutscene)
-            {
+            if (World.Party.Members.BoundSafeAt(World.Party.FindSlot(partner.InstanceID)).InCutscene)
                 return null;
-            }
         }
 
         return partner;

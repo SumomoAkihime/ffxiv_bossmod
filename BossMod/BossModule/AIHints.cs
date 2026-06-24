@@ -37,7 +37,16 @@ public sealed class AIHints
         public bool ShouldBeStunned; // if set, AI will stun if possible
         public bool ShouldBeDispelled; // if set, AI will try to cast a dispel action; only relevant for foray content
         public bool StayAtLongRange; // if set, players with ranged attacks don't bother coming closer than max range (TODO: reconsider)
-        public bool Spikes; // if set, autoattacks will be prevented
+        public bool Spikes; // if set, autoattacks will be prevented;
+        public bool ShouldBeTargeted
+        {
+            get => Priority >= 0;
+            set
+            {
+                if (value && Priority < 0)
+                    Priority = 0;
+            }
+        }
 
         public void ForcePriority(int priority) => _priority = priority;
     }

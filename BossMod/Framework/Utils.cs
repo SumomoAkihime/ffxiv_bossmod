@@ -399,4 +399,26 @@ public static partial class Utils
     }
 
     public static DateTime Clamp(this DateTime dt, DateTime min, DateTime max) => dt < min ? min : dt > max ? max : dt;
+
+    public static bool IsPlayerUnsynced(WorldState ws, bool forFateOnly = true)
+    {
+        var player = ws.Party.Player();
+        if (player == null)
+            return false;
+
+        if (ws.Client.ActiveFate.ID != 0 && !IsPlayerSyncedToFate(ws))
+            return true;
+
+        return false;
+    }
+
+    public static void SortByReverse<TValue, TKey>(this List<TValue> list, Func<TValue, TKey> keySelector) where TKey : IComparable<TKey>
+    {
+        list.Sort((a, b) => keySelector(b).CompareTo(keySelector(a)));
+    }
+
+    public static void SortByReverse<TValue, TKey>(this TValue[] array, Func<TValue, TKey> keySelector) where TKey : IComparable<TKey>
+    {
+        Array.Sort(array, (a, b) => keySelector(b).CompareTo(keySelector(a)));
+    }
 }

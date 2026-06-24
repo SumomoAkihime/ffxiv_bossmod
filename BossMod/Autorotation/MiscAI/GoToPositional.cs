@@ -7,24 +7,23 @@ public sealed class GoToPositional(RotationModuleManager manager, Actor player) 
         Positional
     }
 
-    private static readonly Positional[] positionals = Enum.GetValues<Positional>();
-
     public static RotationModuleDefinition Definition()
     {
         RotationModuleDefinition def = new("Misc AI: Goes to specified positional", "Module for use with other rotation plugins.", "AI", "erdelf", RotationModuleQuality.Basic, new(~0ul), 1000);
 
         var track = def.Define(Tracks.Positional).As<Positional>("Positional", "Positional");
-        for (var i = 0; i < 4; ++i)
+
+        foreach (var positional in Enum.GetValues<Positional>())
         {
-            track.AddOption(positionals[i]);
+            track.AddOption(positional);
         }
         return def;
     }
 
-    public override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         if (!Player.InCombat
-            || Player.FindStatus((uint)ClassShared.AID.TrueNorth) != null
+            || Player.FindStatus(ClassShared.AID.TrueNorth) != null
             || primaryTarget == null
             || primaryTarget is { Omnidirectional: true }
             || primaryTarget is { TargetID: var t, CastInfo: null, IsStrikingDummy: false } && t == Player.InstanceID)
@@ -39,7 +38,7 @@ public sealed class GoToPositional(RotationModuleManager manager, Actor player) 
         //mainly from Basexan.UpdatePositionals
         var correct = positional switch
         {
-            Positional.Flank => Math.Abs(primaryTarget.Rotation.ToDirection().Dot((Player.Position - primaryTarget.Position).Normalized())) < 0.7071067f,
+            Positional.Flank => MathF.Abs(primaryTarget.Rotation.ToDirection().Dot((Player.Position - primaryTarget.Position).Normalized())) < 0.7071067f,
             Positional.Rear => primaryTarget.Rotation.ToDirection().Dot((Player.Position - primaryTarget.Position).Normalized()) < -0.7071068f,
             _ => true
         };

@@ -128,7 +128,7 @@ public sealed class PhantomAI(RotationModuleManager manager, Actor player) : AIB
 
     float DesiredRange = float.MaxValue;
 
-    public override void Execute(in Strategy strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(in Strategy strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         if (World.Client.CountdownRemaining > 0)
             return;

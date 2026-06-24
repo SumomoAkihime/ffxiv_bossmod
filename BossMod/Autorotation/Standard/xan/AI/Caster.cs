@@ -25,7 +25,7 @@ public sealed class Caster(RotationModuleManager manager, Actor player) : AIBase
         return new RotationModuleDefinition("Caster AI", "Auto-caster", "AI (xan)", "xan", RotationModuleQuality.WIP, BitMask.Build(Class.ACN, Class.SMN, Class.RDM), 100).WithStrategies<Strategy>();
     }
 
-    public override void Execute(in Strategy strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(in Strategy strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         var raise = strategy.Raise.Value;
         if (raise == RaiseStrategy.None)

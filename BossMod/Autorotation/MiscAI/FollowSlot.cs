@@ -1,4 +1,4 @@
-using BossMod.AI;
+﻿using BossMod.AI;
 
 namespace BossMod.Autorotation.MiscAI;
 
@@ -21,7 +21,7 @@ public sealed class FollowSlot(RotationModuleManager manager, Actor player) : Ty
         return def.WithStrategies<Strategy>();
     }
 
-    public override void Execute(in Strategy strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(in Strategy strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         // fallback for users not using autorot (this module is meant to replace legacy ai)
         if (Hints.GoalZones.Count == 0 && primaryTarget is { IsAlly: false })

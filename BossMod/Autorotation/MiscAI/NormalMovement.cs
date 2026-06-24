@@ -1,4 +1,4 @@
-﻿using BossMod.Pathfinding;
+using BossMod.Pathfinding;
 
 namespace BossMod.Autorotation.MiscAI;
 
@@ -19,12 +19,6 @@ public sealed class NormalMovement : RotationModule
     public NormalMovement(RotationModuleManager manager, Actor player) : base(manager, player)
     {
         Instance = this;
-    }
-
-    public override void Dispose()
-    {
-        Instance = null;
-        base.Dispose();
     }
 
     public static RotationModuleDefinition Definition()
@@ -94,7 +88,7 @@ public sealed class NormalMovement : RotationModule
         return _lastDecision;
     }
 
-    public override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         // do nothing if we're already being moved by some other module (i.e. quest battle pathfinding)
         if (Hints.ForcedMovement != null)

@@ -499,7 +499,7 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
         }
     }
 
-    public sealed override void Execute(in TValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public sealed override void Execute(in TValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         IsMoving = isMoving;
         NextGCD = default;

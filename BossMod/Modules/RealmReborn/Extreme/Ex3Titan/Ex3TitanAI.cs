@@ -1,4 +1,4 @@
-﻿using BossMod.AI;
+using BossMod.AI;
 using BossMod.Autorotation;
 using BossMod.Pathfinding;
 
@@ -19,7 +19,7 @@ sealed class Ex3TitanAIRotation(RotationModuleManager manager, Actor player) : A
         return res;
     }
 
-    public override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         SetForcedMovement(CalculateDestination(strategy.Option(Track.Movement)));
     }

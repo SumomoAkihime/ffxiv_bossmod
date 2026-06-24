@@ -72,7 +72,7 @@ public sealed class RolePvPUtility(RotationModuleManager manager, Actor player) 
             !h.Actor.IsAlly &&
             h.Actor.DistanceToHitbox(Player) <= range);
 
-    public override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         if (Player.IsDeadOrDestroyed || Player.MountId != 0 || Player.FindStatus(ClassShared.SID.GuardPvP) != null)
             return;

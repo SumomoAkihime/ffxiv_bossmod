@@ -95,7 +95,7 @@ public sealed class HealerAI(RotationModuleManager manager, Actor player) : AIBa
         }
     }
 
-    public override void Execute(in Strategy strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(in Strategy strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         Health.Update(Hints);
 
