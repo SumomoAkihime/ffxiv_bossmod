@@ -46,12 +46,12 @@ internal sealed class DTRProvider : IDisposable
 
     public void Update()
     {
-        var show = RotationModuleManager.Config.ShowDTR != AutorotationConfig.DtrStatus.None;
+        var show = _mgr.Config.ShowDTR != AutorotationConfig.DtrStatus.None;
         _autorotationEntry.Shown = show;
         if (show)
         {
-            var (icon, name) = _mgr.Preset == null ? (BitmapFontIcon.SwordSheathed, "Idle") : _mgr.Preset == RotationModuleManager.ForceDisable ? (BitmapFontIcon.SwordSheathed, "Disabled") : (BitmapFontIcon.SwordUnsheathed, _mgr.Preset.Name);
-            Payload prefix = RotationModuleManager.Config.ShowDTR == AutorotationConfig.DtrStatus.TextOnly ? new TextPayload("bmr: ") : new IconPayload(icon);
+            var (icon, name) = _mgr.Presets.Count == 0 ? (BitmapFontIcon.SwordSheathed, "Idle") : _mgr.IsForceDisabled ? (BitmapFontIcon.SwordSheathed, "Disabled") : (BitmapFontIcon.SwordUnsheathed, _mgr.PresetNames);
+            Payload prefix = _mgr.Config.ShowDTR == AutorotationConfig.DtrStatus.TextOnly ? new TextPayload("bmr: ") : new IconPayload(icon);
             _autorotationEntry.Text = new SeString(prefix, new TextPayload(name));
         }
 

@@ -453,12 +453,12 @@ public sealed class Plugin : IAsyncDalamudPlugin
         switch (cmd.Length > 1 ? cmd[1].ToUpperInvariant() : "")
         {
             case "CLEAR":
-                Service.Log($"Console: clearing autorotation preset '{_rotation.Preset?.Name ?? "<n/a>"}'");
-                _rotation.Preset = null;
+                Service.Log($"Console: clearing autorotation presets '{_rotation.PresetNames}'");
+                _rotation.Clear();
                 break;
             case "DISABLE":
-                Service.Log($"Console: force-disabling from preset '{_rotation.Preset?.Name ?? "<n/a>"}'");
-                _rotation.Preset = RotationModuleManager.ForceDisable;
+                Service.Log($"Console: force-disabling from presets '{_rotation.PresetNames}'");
+                _rotation.SetForceDisabled();
                 break;
             case "SET":
                 if (cmd.Length <= 2)
@@ -491,8 +491,8 @@ public sealed class Plugin : IAsyncDalamudPlugin
         var userInput = string.Join(" ", presetName, 1, presetName.Length - 1).Trim();
         if (userInput == "null" || string.IsNullOrWhiteSpace(userInput))
         {
-            _rotation.Preset = null;
-            Service.Log("Disabled AI autorotation preset.");
+            _rotation.Clear();
+            Service.Log("Cleared autorotation presets.");
             return;
         }
         var normalizedInput = userInput.ToUpperInvariant();
@@ -508,9 +508,13 @@ public sealed class Plugin : IAsyncDalamudPlugin
         preset ??= RotationModuleManager.ForceDisable;
         if (preset != null)
         {
-            var newPreset = toggle && _rotation.Preset == preset ? null : preset;
-            Service.Log($"Console: {(toggle ? "toggle" : "set")} changes preset from '{_rotation.Preset?.Name ?? "<n/a>"}' to '{newPreset?.Name ?? "<n/a>"}'");
-            _rotation.Preset = newPreset;
+            Service.Log($"Console: {(toggle ? "toggle" : "set")} changes presets from '{_rotation.PresetNames}' with '{preset.Name}'");
+            if (preset == RotationModuleManager.ForceDisable)
+                _rotation.SetForceDisabled();
+            else if (toggle)
+                _rotation.Toggle(preset);
+            else
+                _rotation.Activate(preset);
         }
         else
         {

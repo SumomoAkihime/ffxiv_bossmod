@@ -1,3 +1,4 @@
+using BossMod.AI;
 using FFXIVClientStructs.FFXIV.Common.Component.BGCollision;
 
 namespace BossMod.Autorotation;
@@ -15,42 +16,26 @@ public sealed class RotationModuleManager : IDisposable
     private readonly record struct ActiveModule(int DataIndex, RotationModuleDefinition Definition, RotationModule Module);
     public readonly record struct LineOfSightFix(ulong TargetID, WPos Origin, WPos Destination);
 
-    public Preset? Preset
-    {
-        get;
-        set
-        {
-            DirtyActiveModules(field != value);
-            field = value;
-        }
-    }
+    public readonly List<Preset> Presets = [];
 
-    public static readonly AutorotationConfig Config = Service.Config.Get<AutorotationConfig>();
+    public readonly AutorotationConfig Config = Service.Config.Get<AutorotationConfig>();
     public readonly RotationDatabase Database;
     public readonly BossModuleManager Bossmods;
     public int PlayerSlot; // TODO: reconsider, we rely on too many things in clientstate...
     public readonly AIHints Hints;
-    public PlanExecution? Planner;
+    public PlanExecution? Planner { get; private set; }
     private static readonly PartyRolesConfig _prc = Service.Config.Get<PartyRolesConfig>();
     private readonly EventSubscriptions _subscriptions;
-    private List<ActiveModule>? ActiveModules;
-    private bool WantsLoSFix
-    {
-        get
-        {
-            var count = ActiveModules?.Count;
-            for (var i = 0; i < count; ++i)
-            {
-                if (ActiveModules![i].Module.WantsLoSFix)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
+    private List<(int index, ActiveModule module)>? _activeModules;
+    private IEnumerable<ActiveModule> ActiveModulesFlat => _activeModules?.Select(m => m.module) ?? [];
+    private bool WantsLoSFix => ActiveModulesFlat.Any(m => m.Module.WantsLoSFix);
 
     public static readonly Preset ForceDisable = new(""); // empty preset, so if it's activated, rotation is force disabled
+    private readonly AIConfig _aiConfig = Service.Config.Get<AIConfig>();
+    private readonly Preset? _pMultibox;
+
+    public bool IsForceDisabled => Presets.Count == 1 && Presets[0] == ForceDisable;
+    public string PresetNames => Presets.Count > 0 ? string.Join(", ", Presets.Select(p => p.Name)) : "<n/a>";
 
     public WorldState WorldState => Bossmods.WorldState;
     public ulong PlayerInstanceId => WorldState.Party.Members[PlayerSlot].InstanceId;
@@ -95,6 +80,7 @@ public sealed class RotationModuleManager : IDisposable
         Bossmods = bmm;
         PlayerSlot = playerSlot;
         Hints = hints;
+        _pMultibox = Database.Presets.DefaultPresets.FirstOrDefault(f => f.Name == "VBM Multibox");
         _subscriptions = new
         (
             WorldState.Actors.Added.Subscribe(a => DirtyActiveModules(PlayerInstanceId == a.InstanceID)),
@@ -109,21 +95,14 @@ public sealed class RotationModuleManager : IDisposable
             WorldState.Client.ActionRequested.Subscribe(OnActionRequested),
             WorldState.Client.CountdownChanged.Subscribe(OnCountdownChanged),
             WorldState.Client.ActionFailedLoS.Subscribe(OnLoSFailed),
-            Database.Presets.PresetModified.Subscribe(OnPresetModified)
+            Database.Presets.PresetModified.Subscribe(OnPresetModified),
+            _aiConfig.Modified.Subscribe(() => DirtyActiveModules(true))
         );
     }
 
     public void Dispose()
     {
-        if (ActiveModules != null)
-        {
-            var count = ActiveModules.Count;
-            for (var i = 0; i < count; ++i)
-            {
-                ActiveModules[i].Module.Dispose();
-            }
-            ActiveModules = null;
-        }
+        DirtyActiveModules(true);
         _subscriptions.Dispose();
     }
 
@@ -135,18 +114,30 @@ public sealed class RotationModuleManager : IDisposable
         {
             Service.Log($"[RMM] Changing active plan: '{Planner?.Plan?.Guid}' -> '{expectedPlan?.Guid}'");
             Planner = Bossmods.ActiveModule != null ? new(Bossmods.ActiveModule, expectedPlan) : null;
-            DirtyActiveModules(Preset == null);
+            DirtyActiveModules(Presets.Count == 0);
         }
 
         // rebuild modules if needed
-        ActiveModules ??= Preset != null ? RebuildActiveModules(Preset.Modules) : Planner?.Plan != null ? RebuildActiveModules(Planner.Plan.Modules) : [];
+        if (_activeModules == null)
+        {
+            if (_pMultibox != null)
+            {
+                Presets.Remove(_pMultibox);
+                if (AIManager.Instance?.Beh != null && !Presets.Contains(ForceDisable))
+                    Presets.Add(_pMultibox);
+            }
+
+            _activeModules = Presets.Count > 0 ? [.. Presets.SelectMany((p, i) => RebuildActiveModules(p.Modules, i))] : Planner?.Plan != null ? RebuildActiveModules(Planner.Plan.Modules, 0) : [];
+        }
+
+        _activeModules.Sort((a, b) => a.module.Definition.Order.CompareTo(b.module.Definition.Order));
 
         // trying to change target or use actions is a waste of cpu cycles during duty recorder playback
         if (dutyRecorder)
             return;
 
         // forced target update
-        if (Hints.ForcedTarget == null && Preset == null && Planner?.ActiveForcedTarget() is var forced && forced != null)
+        if (Hints.ForcedTarget == null && Presets.Count == 0 && Planner?.ActiveForcedTarget() is var forced && forced != null)
         {
             Hints.ForcedTarget = forced.Target != StrategyTarget.Automatic
                 ? ResolveTargetOverride(forced.Target, forced.TargetParam)
@@ -155,10 +146,10 @@ public sealed class RotationModuleManager : IDisposable
 
         // auto actions
         var target = Hints.ForcedTarget ?? WorldState.Actors.Find(Player?.TargetID ?? 0);
-        for (var i = 0; i < ActiveModules.Count; ++i)
+        for (var i = 0; i < _activeModules.Count; ++i)
         {
-            var m = ActiveModules[i];
-            var values = Preset?.ActiveStrategyOverrides(m.DataIndex) ?? Planner?.ActiveStrategyOverrides(m.DataIndex) ?? throw new InvalidOperationException("Both preset and plan are null, but there are active modules");
+            var (slot, m) = _activeModules[i];
+            var values = Presets.BoundSafeAt(slot)?.ActiveStrategyOverrides(m.DataIndex) ?? Planner?.ActiveStrategyOverrides(m.DataIndex) ?? throw new InvalidOperationException("Both preset and plan are null, but there are active modules");
             m.Module.Execute(values, ref target, estimatedAnimLockDelay, isMoving);
         }
     }
@@ -181,7 +172,54 @@ public sealed class RotationModuleManager : IDisposable
         _ => (ResolveTargetOverride(strategy, param)?.Position + off1 * off2.Degrees().ToDirection()) ?? Player?.Position ?? default,
     };
 
-    public override string ToString() => string.Join(", ", ActiveModules?.Select(m => m.Module.GetType().Name) ?? []);
+    public override string ToString() => string.Join(", ", ActiveModulesFlat.Select(m => m.Module.GetType().Name));
+
+    public IEnumerable<Type> DuplicateModules => ActiveModulesFlat.GroupBy(m => m.Module.GetType()).Where(x => x.Skip(1).Any()).Select(p => p.Key);
+
+    public void Activate(Preset p, bool exclusive = false)
+    {
+        var dirty = Presets.Remove(ForceDisable);
+        if (exclusive)
+            Presets.Clear();
+        if (!Presets.Contains(p))
+        {
+            Presets.Add(p);
+            dirty = true;
+        }
+        DirtyActiveModules(dirty);
+    }
+
+    public void Deactivate(Preset p)
+    {
+        if (Presets.Remove(p))
+            DirtyActiveModules(true);
+    }
+
+    public void Toggle(Preset p, bool exclusive = false)
+    {
+        if (!Presets.Remove(p))
+        {
+            if (exclusive)
+                Presets.Clear();
+            Presets.Add(p);
+        }
+        if (p != ForceDisable)
+            Presets.Remove(ForceDisable);
+        DirtyActiveModules(true);
+    }
+
+    public void Clear()
+    {
+        Presets.Clear();
+        DirtyActiveModules(true);
+    }
+
+    public void SetForceDisabled()
+    {
+        Presets.Clear();
+        Presets.Add(ForceDisable);
+        DirtyActiveModules(true);
+    }
 
     private IEnumerable<Actor> FilteredPartyMembers(StrategyPartyFiltering filter)
     {
@@ -234,9 +272,9 @@ public sealed class RotationModuleManager : IDisposable
     }
 
     // TODO: consider not recreating modules that were active and continue to be active?
-    private List<ActiveModule> RebuildActiveModules<T>(List<T> modules) where T : IRotationModuleData
+    private List<(int, ActiveModule)> RebuildActiveModules<T>(List<T> modules, int index) where T : IRotationModuleData
     {
-        List<ActiveModule> res = [];
+        List<(int, ActiveModule)> res = [];
         var player = Player;
         if (player != null)
         {
@@ -248,7 +286,7 @@ public sealed class RotationModuleManager : IDisposable
                     continue;
                 if (!def.CanUseWhileRoleplaying && isRPMode)
                     continue;
-                res.Add(new(i, def, modules[i].Builder(this, player)));
+                res.Add((index, new(i, def, modules[i].Builder(this, player))));
             }
         }
         return res;
@@ -256,17 +294,17 @@ public sealed class RotationModuleManager : IDisposable
 
     private void DirtyActiveModules(bool condition)
     {
-        if (!condition || ActiveModules == null)
+        if (!condition || _activeModules == null)
         {
             return;
         }
 
-        var count = ActiveModules.Count;
+        var count = _activeModules.Count;
         for (var i = 0; i < count; ++i)
         {
-            ActiveModules[i].Module.Dispose();
+            _activeModules[i].module.Module.Dispose();
         }
-        ActiveModules = null;
+        _activeModules = null;
     }
 
     private void OnCombatChanged(Actor actor)
@@ -276,17 +314,17 @@ public sealed class RotationModuleManager : IDisposable
 
         CombatStart = actor.InCombat ? WorldState.CurrentTime : default; // keep track of combat time in case rotation modules want to do something special in openers
 
-        if (!actor.InCombat && (Preset == ForceDisable ? Config.ClearForceDisableOnCombatEnd : Config.ClearPresetOnCombatEnd))
+        if (!actor.InCombat && (IsForceDisabled ? Config.ClearForceDisableOnCombatEnd : Config.ClearPresetOnCombatEnd))
         {
             // player exits combat => clear manual overrides
-            Service.Log($"[RMM] Player exits combat => clear preset '{Preset?.Name ?? "<n/a>"}'");
-            Preset = null;
+            Service.Log($"[RMM] Player exits combat => clear presets '{PresetNames}'");
+            Clear();
         }
         else if (actor.InCombat && WorldState.Client.CountdownRemaining > Config.EarlyPullThreshold)
         {
             // player enters combat while countdown is in progress => force disable
-            Service.Log($"[RMM] Player ninja pulled => force-disabling from '{Preset?.Name ?? "<n/a>"}'");
-            Preset = ForceDisable;
+            Service.Log($"[RMM] Player ninja pulled => force-disabling from '{PresetNames}'");
+            SetForceDisabled();
         }
         // if player enters combat when countdown is either not active or around zero, proceed normally - if override is queued, let it run, otherwise let plan run
     }
@@ -300,8 +338,8 @@ public sealed class RotationModuleManager : IDisposable
         if (actor.IsDead && actor.InCombat && Config.ClearPresetOnDeath)
         {
             // player died in combat => force disable (otherwise there's a risk of dying immediately after rez)
-            Service.Log($"[RMM] Player died in combat => force-disabling from '{Preset?.Name ?? "<n/a>"}'");
-            Preset = ForceDisable;
+            Service.Log($"[RMM] Player died in combat => force-disabling from '{PresetNames}'");
+            SetForceDisabled();
         }
         // else: player either died outside combat (no need to touch anything) or rez'd (unless player cleared override, we stay in force disable mode)
     }
@@ -312,21 +350,24 @@ public sealed class RotationModuleManager : IDisposable
         {
             // countdown ended and player is not in combat - so either it was cancelled, or pull didn't happen => clear manual overrides
             // note that if pull will happen regardless after this, we'll start executing plan normally (without prepull part)
-            Service.Log($"[RMM] Countdown expired or aborted => clear preset '{Preset?.Name ?? "<n/a>"}'");
-            Preset = null;
+            Service.Log($"[RMM] Countdown expired or aborted => clear presets '{PresetNames}'");
+            Clear();
         }
     }
 
     private void OnPresetModified(Preset? prev, Preset? curr)
     {
-        if (prev != null && prev == Preset)
-            Preset = curr;
+        var wasActive = prev != null && Presets.Any(p => p.Name == prev.Name);
+        if (prev != null)
+            Deactivate(prev);
+        if (wasActive && curr != null)
+            Activate(curr);
     }
 
     private void OnActionRequested(ClientState.OpActionRequest op)
     {
 #if DEBUG
-        Service.Log($"[RMM] Exec #{op.Request.SourceSequence} {op.Request.Action} @ {op.Request.TargetID:X} [{string.Join(" --- ", ActiveModules?.Select(m => m.Module.DescribeState()) ?? [])}]");
+        Service.Log($"[RMM] Exec #{op.Request.SourceSequence} {op.Request.Action} @ {op.Request.TargetID:X} [{string.Join(" --- ", ActiveModulesFlat.Select(m => m.Module.DescribeState()))}]");
 #endif
     }
 
@@ -336,14 +377,14 @@ public sealed class RotationModuleManager : IDisposable
         {
             LastCast = (WorldState.CurrentTime, cast);
 #if DEBUG
-            Service.Log($"[RMM] Cast #{cast.SourceSequence} {cast.Action} @ {cast.MainTargetID:X} [{string.Join(" --- ", ActiveModules?.Select(m => m.Module.DescribeState()) ?? [])}]");
+            Service.Log($"[RMM] Cast #{cast.SourceSequence} {cast.Action} @ {cast.MainTargetID:X} [{string.Join(" --- ", ActiveModulesFlat.Select(m => m.Module.DescribeState()))}]");
 #endif
         }
 
         if (cast.Action.ID == 6276u && Config.ClearPresetOnLuring)
         {
-            Service.Log($"[RMM] Luring Trap triggered, force-disabling autorotation'");
-            Preset = ForceDisable;
+            Service.Log($"[RMM] Luring Trap triggered, force-disabling from '{PresetNames}'");
+            SetForceDisabled();
         }
 
         if (actor.InstanceID == PlayerInstanceId)
