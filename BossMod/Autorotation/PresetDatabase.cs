@@ -6,39 +6,20 @@ namespace BossMod.Autorotation;
 // note: presets in the database are immutable (otherwise eg. manager won't see the changes in active preset)
 public sealed class PresetDatabase
 {
-    private readonly AutorotationConfig _cfg = Service.Config.Get<AutorotationConfig>();
-
     public readonly List<Preset> DefaultPresets; // default presets, distributed as part of the plugin
     public readonly List<Preset> UserPresets; // user-defined presets, stored in user's preset db
     public Event<Preset?, Preset?> PresetModified = new(); // (old, new); old == null if preset is added, new == null if preset is removed
 
     private readonly FileInfo _dbPath;
 
-    public List<Preset> AllPresets
-    {
-        get
-        {
-            var countD = DefaultPresets.Count;
-            var countU = UserPresets.Count;
-            List<Preset> presets = new(countD + countU);
-            for (var i = 0; i < countD; ++i)
-            {
-                var def = DefaultPresets[i];
-                presets.Add(def with { HiddenByDefault = _cfg.HideDefaultPresets || def.HiddenByDefault });
-            }
-            for (var i = 0; i < countU; ++i)
-            {
-                presets.Add(UserPresets[i]);
-            }
-            return presets;
-        }
-    }
+    public IEnumerable<Preset> AllPresets => DefaultPresets.Concat(UserPresets);
 
     public PresetDatabase(string rootPath, FileInfo defaultPresets)
     {
         _dbPath = new(rootPath + ".db.json");
         DefaultPresets = LoadPresetsFromFile(defaultPresets);
         UserPresets = LoadPresetsFromFile(_dbPath);
+        Service.Log($"[PresetDB] Loaded {DefaultPresets.Count} default presets ({DefaultPresets.Sum(p => p.Modules.Count)} modules) and {UserPresets.Count} user presets ({UserPresets.Sum(p => p.Modules.Count)} modules)");
     }
 
     private List<Preset> LoadPresetsFromFile(FileInfo file)
@@ -88,28 +69,7 @@ public sealed class PresetDatabase
         }
     }
 
-    public List<Preset> PresetsForClass(Class c)
-    {
-        var visible = AllPresets;
-        var count = visible.Count;
-        List<Preset> presets = new(count);
-        for (var i = 0; i < count; ++i)
-        {
-            var vis = visible[i];
-            var pm = vis.Modules;
-            var countM = pm.Count;
-            for (var j = 0; j < countM; ++j)
-            {
-                var pmj = pm[j];
-                if (pmj.Definition.Classes[(int)c])
-                {
-                    presets.Add(vis);
-                    break;
-                }
-            }
-        }
-        return presets;
-    }
+    public IEnumerable<Preset> PresetsForClass(Class c) => AllPresets.Where(p => p.Modules.Any(m => m.Definition.Classes[(int)c]));
 
     public Preset? FindPresetByName(ReadOnlySpan<char> name, StringComparison cmp = StringComparison.CurrentCultureIgnoreCase)
     {

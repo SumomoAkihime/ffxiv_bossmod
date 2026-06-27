@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Autorotation.xan;
 
-public sealed class BozjaAI(RotationModuleManager manager, Actor player) : AIBase<BozjaAI.Strategy>(manager, player)
+public class BozjaAI(RotationModuleManager manager, Actor player) : AIBase<BozjaAI.Strategy>(manager, player)
 {
     public struct Strategy
     {

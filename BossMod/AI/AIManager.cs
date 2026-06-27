@@ -84,7 +84,7 @@ sealed class AIManager : IDisposable
     {
         SwitchToIdle();
         MasterSlot = WorldState.Party[masterSlot]?.Name == null ? 0 : masterSlot;
-        var allpresets = Autorot.Database.Presets.AllPresets;
+        var allpresets = Autorot.Database.Presets.AllPresets.ToList();
         var count = allpresets.Count;
         Preset? preset = null;
         for (var i = 0; i < count; ++i)
@@ -96,7 +96,8 @@ sealed class AIManager : IDisposable
                 break;
             }
         }
-        Beh = new AIBehaviour(Controller, Autorot, preset);
+        SetAIPreset(preset);
+        Beh = new AIBehaviour(Controller, Autorot, AiPreset);
         _wndAI.UpdateTitle();
     }
 
@@ -134,13 +135,13 @@ sealed class AIManager : IDisposable
         switch (messageData[0].ToUpperInvariant())
         {
             case "ON":
-                EnableConfig(true);
+                configModified = EnableConfig(true);
                 break;
             case "OFF":
-                EnableConfig(false);
+                configModified = EnableConfig(false);
                 break;
             case "TOGGLE":
-                ToggleConfig();
+                configModified = ToggleConfig();
                 break;
             case "TARGETMASTER":
                 configModified = ToggleFocusTargetMaster();
@@ -254,8 +255,10 @@ sealed class AIManager : IDisposable
         }
     }
 
-    private void EnableConfig(bool enable)
+    private bool EnableConfig(bool enable)
     {
+        var modified = _config.Enabled != enable;
+        _config.Enabled = enable;
         if (enable)
         {
             SwitchToFollow(_config.FollowSlot);
@@ -264,17 +267,22 @@ sealed class AIManager : IDisposable
         {
             SwitchToIdle();
         }
+        return modified;
     }
 
-    private void ToggleConfig()
+    private bool ToggleConfig()
     {
         if (Beh == null)
         {
+            _config.Enabled = true;
             SwitchToFollow(_config.FollowSlot);
+            return true;
         }
         else
         {
+            _config.Enabled = false;
             SwitchToIdle();
+            return true;
         }
     }
 
@@ -757,10 +765,8 @@ sealed class AIManager : IDisposable
             return;
         }
 
-        var normalizedInput = userInput.ToUpperInvariant();
         var preset = Autorot.Database.Presets.AllPresets
-            .FirstOrDefault(p => p.Name.Trim().Equals(normalizedInput, StringComparison.OrdinalIgnoreCase))
-            ?? RotationModuleManager.ForceDisable;
+            .FirstOrDefault(p => p.Name.Trim().Equals(userInput, StringComparison.OrdinalIgnoreCase));
 
         if (preset != null)
         {

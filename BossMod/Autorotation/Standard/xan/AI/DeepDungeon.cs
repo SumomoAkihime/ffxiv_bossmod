@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Autorotation.xan;
 
-public sealed class DeepDungeonAI(RotationModuleManager manager, Actor player) : AIBase<DeepDungeonAI.Strategy>(manager, player)
+public class DeepDungeonAI(RotationModuleManager manager, Actor player) : AIBase<DeepDungeonAI.Strategy>(manager, player)
 {
     public struct Strategy
     {
@@ -144,17 +144,17 @@ public sealed class DeepDungeonAI(RotationModuleManager manager, Actor player) :
         if (primaryTarget.CastInfo != null)
             return;
 
-        var maxRange = 25f;
-        var maxKite = 9f;
+        float maxRange = 25;
+        float maxKite = 9;
 
         var primaryPos = primaryTarget.Position;
         var total = maxRange + Player.HitboxRadius + primaryTarget.HitboxRadius;
         var totalKite = maxKite + Player.HitboxRadius + primaryTarget.HitboxRadius;
-        var goalFactor = 0.05f;
+        float goalFactor = 0.05f;
         Hints.GoalZones.Add(pos =>
         {
             var dist = (pos - primaryPos).Length();
-            return dist <= total && dist >= totalKite ? goalFactor : default;
+            return dist <= total && dist >= totalKite ? goalFactor : 0;
         });
     }
 
@@ -171,36 +171,36 @@ public sealed class DeepDungeonAI(RotationModuleManager manager, Actor player) :
         switch (t)
         {
             case Transformation.Manticore:
-                goal = AIHints.GoalSingleTarget(primaryTarget, 3f);
+                goal = AIHints.GoalSingleTarget(primaryTarget, 3);
                 numTargets = 1;
                 attack = ActionID.MakeSpell(Roleplay.AID.Pummel);
                 break;
             case Transformation.Succubus:
-                goal = AIHints.GoalSingleTarget(primaryTarget, 25f);
-                numTargets = Hints.NumPriorityTargetsInAOECircle(primaryTarget.Position, 5f);
+                goal = AIHints.GoalSingleTarget(primaryTarget, 25);
+                numTargets = Hints.NumPriorityTargetsInAOECircle(primaryTarget.Position, 5);
                 attack = ActionID.MakeSpell(Roleplay.AID.VoidFireII);
                 castTime = 2.5f;
                 break;
             case Transformation.Kuribu:
                 // heavenly judge is ground targeted
-                goal = AIHints.GoalSingleTarget(primaryTarget.Position, 25f);
-                numTargets = Hints.NumPriorityTargetsInAOECircle(primaryTarget.Position, 6f);
+                goal = AIHints.GoalSingleTarget(primaryTarget.Position, 25);
+                numTargets = Hints.NumPriorityTargetsInAOECircle(primaryTarget.Position, 6);
                 attack = ActionID.MakeSpell(Roleplay.AID.HeavenlyJudge);
                 castTime = 2.5f;
                 break;
             case Transformation.Dreadnaught:
-                goal = AIHints.GoalSingleTarget(primaryTarget, 3f);
+                goal = AIHints.GoalSingleTarget(primaryTarget, 3);
                 numTargets = 1;
                 attack = ActionID.MakeSpell(Roleplay.AID.Rotosmash);
                 break;
             case Transformation.Bomb:
                 numTargets = 1;
-                goal = AIHints.GoalSingleTarget(primaryTarget, 14f);
+                goal = AIHints.GoalSingleTarget(primaryTarget, 14);
                 attack = ActionID.MakeSpell(Roleplay.AID.BigBurst);
                 break;
             case Transformation.Mudball:
                 numTargets = 1;
-                goal = AIHints.GoalSingleTarget(primaryTarget.Position, 25f);
+                goal = AIHints.GoalSingleTarget(primaryTarget.Position, 25);
                 attack = ActionID.MakeSpell(Roleplay.AID.RockyRoll);
                 break;
             default:
@@ -227,10 +227,14 @@ public sealed class DeepDungeonAI(RotationModuleManager manager, Actor player) :
 
     private bool ShouldPotion(in Strategy strategy)
     {
-        if (!strategy.Potion.IsEnabled() || World.Actors.Any(w => w.OID == (uint)OID.Unei))
+        if (!strategy.Potion.IsEnabled())
+            return false;
+
+        // external heals
+        if (World.Actors.Any(w => w.OID == (uint)OID.Unei) || Player.FindStatus(SID.Anointed) != null)
             return false;
 
         var ratio = Player.ClassCategory is ClassCategory.Tank ? 0.4f : 0.6f;
-        return Player.PendingHPRatio < ratio && Player.FindStatus(648u) == null && Player.InCombat;
+        return Player.PendingHPRatio < ratio && Player.FindStatus(648) == null && Player.InCombat;
     }
 }

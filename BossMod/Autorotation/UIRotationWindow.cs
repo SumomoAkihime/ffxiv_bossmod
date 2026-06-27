@@ -1,4 +1,4 @@
-﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 
@@ -62,7 +62,7 @@ public sealed class UIRotationWindow : UIWindow
             {
                 ImGui.SameLine();
                 var plans = _mgr.Database.Plans.GetPlans(activeModule.GetType(), player.Class);
-                var newSel = UIPlanDatabaseEditor.DrawPlanCombo(plans, plans.SelectedIndex, "");
+                var newSel = UIPlanDatabaseEditor.DrawPlanCombo(plans, plans.SelectedIndex, "###root");
                 if (newSel != plans.SelectedIndex)
                 {
                     plans.SelectedIndex = newSel;
@@ -164,10 +164,8 @@ public sealed class UIRotationWindow : UIWindow
         foreach (var p in mgr.Database.Presets.PresetsForClass(mgr.Player.Class))
         {
             var isActive = mgr.Presets.Contains(p);
-            if (!isActive && p.HiddenByDefault)
-            {
+            if (!isActive && ShouldHidePresetButton(p))
                 continue;
-            }
             ImGui.SameLine();
             using var col = ImRaii.PushColor(ImGuiCol.Button, Colors.ButtonPushColor2, isActive);
             using var colHovered = ImRaii.PushColor(ImGuiCol.ButtonHovered, Colors.ButtonPushColor5, isActive);
@@ -180,6 +178,12 @@ public sealed class UIRotationWindow : UIWindow
         }
 
         return modified;
+    }
+
+    private static bool ShouldHidePresetButton(Preset preset)
+    {
+        var config = Service.Config.Get<AutorotationConfig>();
+        return preset.HiddenByDefault || preset.Name == "VBM Multibox" || (config.HideDefaultPreset && preset.Name == "VBM Default");
     }
 
     private void DrawPositional()

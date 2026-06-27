@@ -46,6 +46,7 @@ public sealed class Service
     public static WindowSystem? WindowSystem;
 
     public static ImFontPtr IconFont => UiBuilder.IconFont;
+    public static bool IsDev => false;
 #pragma warning restore CA2211
 
     public static readonly ConfigRoot Config = new();

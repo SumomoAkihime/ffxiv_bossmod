@@ -5,7 +5,7 @@
   "RepoUrl": "https://github.com/SumomoAkihime/ffxiv_bossmod",
   "Description": "Integrated Boss encounter toolkit with radar, mechanic hints, and combat assistance.",
   "ApplicableVersion": "any",
-  "AssemblyVersion": "7.5.1.705",
+  "AssemblyVersion": "7.5.1.706",
   "Tags": [
     "combat",
     "boss",

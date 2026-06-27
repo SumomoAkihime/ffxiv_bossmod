@@ -1,5 +1,6 @@
 ﻿using Dalamud.Game.ClientState.Objects.Types;
 using System.Globalization;
+using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
@@ -400,7 +401,13 @@ public static partial class Utils
 
     public static DateTime Clamp(this DateTime dt, DateTime min, DateTime max) => dt < min ? min : dt > max ? max : dt;
 
-    public static bool IsPlayerUnsynced(WorldState ws, bool forFateOnly = true)
+    public static T LoadFromAssembly<T>(string resourceName)
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName) ?? throw new InvalidDataException($"unable to locate resource {resourceName}");
+        return System.Text.Json.JsonSerializer.Deserialize<T>(stream, new System.Text.Json.JsonSerializerOptions { IncludeFields = true }) ?? throw new InvalidDataException("unable to load json from assembly resource");
+    }
+
+    public static bool IsPlayerUnsynced(WorldState ws, bool forFateOnly = true, bool mightyGuard = false)
     {
         var player = ws.Party.Player();
         if (player == null)
@@ -412,9 +419,27 @@ public static partial class Utils
         return false;
     }
 
+    public static T? FirstOrNull<T>(this IEnumerable<T> source, Func<T, bool> predicate) where T : struct
+    {
+        foreach (var item in source)
+            if (predicate(item))
+                return item;
+        return null;
+    }
+
+    public static void SortBy<TValue, TKey>(this List<TValue> list, Func<TValue, TKey> keySelector) where TKey : IComparable
+    {
+        list.Sort((a, b) => keySelector(a).CompareTo(keySelector(b)));
+    }
+
     public static void SortByReverse<TValue, TKey>(this List<TValue> list, Func<TValue, TKey> keySelector) where TKey : IComparable<TKey>
     {
         list.Sort((a, b) => keySelector(b).CompareTo(keySelector(a)));
+    }
+
+    public static void SortBy<TValue, TKey>(this TValue[] array, Func<TValue, TKey> keySelector) where TKey : IComparable
+    {
+        Array.Sort(array, (a, b) => keySelector(a).CompareTo(keySelector(b)));
     }
 
     public static void SortByReverse<TValue, TKey>(this TValue[] array, Func<TValue, TKey> keySelector) where TKey : IComparable<TKey>

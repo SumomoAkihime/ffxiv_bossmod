@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Autorotation.xan;
 
-public sealed class EurekaAI(RotationModuleManager manager, Actor player) : AIBase<EurekaAI.Strategy>(manager, player)
+public class EurekaAI(RotationModuleManager manager, Actor player) : AIBase<EurekaAI.Strategy>(manager, player)
 {
     public struct Strategy
     {

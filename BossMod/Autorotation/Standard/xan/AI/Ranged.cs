@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Autorotation.xan;
 
-public sealed class RangedAI(RotationModuleManager manager, Actor player) : AIBase<RangedAI.Strategy>(manager, player)
+public class RangedAI(RotationModuleManager manager, Actor player) : AIBase<RangedAI.Strategy>(manager, player)
 {
     public struct Strategy
     {

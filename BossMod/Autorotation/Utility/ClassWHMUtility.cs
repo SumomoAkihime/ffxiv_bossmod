@@ -1,4 +1,4 @@
-﻿namespace BossMod.Autorotation;
+namespace BossMod.Autorotation;
 
 public sealed class ClassWHMUtility(RotationModuleManager manager, Actor player) : RoleHealerUtility(manager, player)
 {
@@ -106,7 +106,7 @@ public sealed class ClassWHMUtility(RotationModuleManager manager, Actor player)
         {
             var medicaHotUp = StatusDetails(Player, WHM.SID.MedicaII, Player.InstanceID).Left > 0.1f || StatusDetails(Player, WHM.SID.MedicaIII, Player.InstanceID).Left > 0.1f;
             if (!medicaHotUp)
-                Hints.ActionsToExecute.Push(ActionID.MakeSpell(medicaAction), Player, medica.Priority(), medica.Value.ExpireIn, castTime: 2f);
+                Hints.ActionsToExecute.Push(ActionID.MakeSpell(medicaAction), Player, medica.Priority(), medica.Value.ExpireIn, castTime: 2);
         }
 
         var asylum = strategy.Option(Track.Asylum);

@@ -609,7 +609,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
                 {
                     var dashTarget = ResolveTargetOverride(tc)?.Actor ?? primaryTarget?.Actor ?? World.Party.WithoutSlot(includeDead: false).Exclude(Player).Closest(Player.Position);
                     if (dashTarget != null)
-                        Hints.ActionsToExecute.Push(ActionID.MakeSpell(AID.Thunderclap), dashTarget, tc.Priority(ActionQueue.Priority.Low + (int)OGCDPriority.PerfectBalance));
+                        Hints.ActionsToExecute.Push(ActionID.MakeSpell(AID.Thunderclap), dashTarget, tc.Priority(ActionQueue.Priority.Low + (int)OGCDPriority.PerfectBalance), forced: true);
                 }
                 break;
         }

@@ -408,7 +408,7 @@ sealed class IPCProvider : IDisposable
 
         bool addTransientStrategy(string presetName, string moduleTypeName, string trackName, string value, StrategyTarget target = StrategyTarget.Automatic, int targetParam = 0)
         {
-            var mt = Type.GetType(moduleTypeName);
+            var mt = Type.GetType(moduleTypeName) ?? typeof(IPCProvider).Assembly.GetType(moduleTypeName);
             if (mt == null || !RotationModuleRegistry.Modules.TryGetValue(mt, out var md))
             {
                 return false;
@@ -467,7 +467,7 @@ sealed class IPCProvider : IDisposable
 
         Register("Presets.ClearTransientStrategy", (string presetName, string moduleTypeName, string trackName) =>
         {
-            var mt = Type.GetType(moduleTypeName);
+            var mt = Type.GetType(moduleTypeName) ?? typeof(IPCProvider).Assembly.GetType(moduleTypeName);
             if (mt == null || !RotationModuleRegistry.Modules.TryGetValue(mt, out var md))
             {
                 return false;
@@ -496,7 +496,7 @@ sealed class IPCProvider : IDisposable
         });
         Register("Presets.ClearTransientModuleStrategies", (string presetName, string moduleTypeName) =>
         {
-            var mt = Type.GetType(moduleTypeName);
+            var mt = Type.GetType(moduleTypeName) ?? typeof(IPCProvider).Assembly.GetType(moduleTypeName);
             if (mt == null || !RotationModuleRegistry.Modules.TryGetValue(mt, out var md))
             {
                 return false;

@@ -65,10 +65,10 @@ public enum AID : uint
 
     // Duty actions
     SmokeScreen = 7816,
-    MagitekPulse = 7962, // MarkXLIIIMiniCannon->location, 1.0s cast, range 6 circle, Castrum Abania, 1st boss
     AethericSiphon = 9102,
-    Vril = 9345,
     Shatterstone = 9823,
+    Vril = 9345,
+    MagitekPulse = 8336,
     Deflect = 10006,
     DeflectVeryEasy = 18863,
     MegaPotion = 10229,
@@ -183,11 +183,11 @@ public enum SID : uint
     DiabrosisEquippedPvP = 4497,
 }
 
-public sealed class Definitions : IDisposable
+public sealed class Definitions : Defs
 {
     private readonly SharedActionsConfig _config = Service.Config.Get<SharedActionsConfig>();
 
-    public Definitions(ActionDefinitions d)
+    public override void Define(ActionDefinitions d)
     {
         #region PvE
         d.RegisterSpell(AID.Sprint);
@@ -242,11 +242,11 @@ public sealed class Definitions : IDisposable
         d.RegisterSpell(AID.Resurrection);
 
         // duty actions
-        d.RegisterSpell(AID.MagitekPulse);
         d.RegisterSpell(AID.SmokeScreen);
         d.RegisterSpell(AID.AethericSiphon);
-        d.RegisterSpell(AID.Vril);
         d.RegisterSpell(AID.Shatterstone);
+        d.RegisterSpell(AID.Vril);
+        d.RegisterSpell(AID.MagitekPulse);
         d.RegisterSpell(AID.Deflect);
         d.RegisterSpell(AID.DeflectVeryEasy);
         d.RegisterSpell(AID.MegaPotion);
@@ -294,23 +294,17 @@ public sealed class Definitions : IDisposable
 
         #region Phantom actions
         foreach (var action in typeof(PhantomID).GetEnumValues())
-        {
             if ((uint)action > 0)
-            {
                 d.RegisterSpell((PhantomID)action);
-            }
-        }
         #endregion
 
         Customize(d);
     }
 
-    public void Dispose() { }
-
     private void Customize(ActionDefinitions d)
     {
         d.Spell(AID.Interject)!.ForbidExecute = (_, _, act, _) => !(act.Target?.CastInfo?.Interruptible ?? false); // don't use interject if target is not casting interruptible spell
-        d.Spell(AID.Reprisal)!.ForbidExecute = (_, player, _, hints) => { foreach (var e in hints.PotentialTargets) { if (e.Actor.Position.InCircle(player.Position, 5 + e.Actor.HitboxRadius)) { return false; } } return true; }; // don't use reprisal if no one would be hit; TODO: consider checking only target?
+        d.Spell(AID.Reprisal)!.ForbidExecute = (_, player, _, hints) => !hints.PotentialTargets.Any(e => e.Actor.Position.InCircle(player.Position, 5 + e.Actor.HitboxRadius)); // don't use reprisal if no one would be hit; TODO: consider checking only target?..
         d.Spell(AID.Shirk)!.SmartTarget = ActionDefinitions.SmartTargetCoTank;
 
         //d.Spell(AID.Repose)!.EffectDuration = 30;
@@ -336,14 +330,10 @@ public sealed class Definitions : IDisposable
             var cfg = Service.Config.Get<ActionTweaksConfig>();
             var target = action.Target;
             if (target == null || !cfg.DashSafety)
-            {
                 return false;
-            }
 
             if (player.PendingKnockbacks.Count > 0)
-            {
                 return true;
-            }
 
             var dir = player.DirectionTo(target).Normalized() * 15;
             return ActionDefinitions.IsDashDangerous(player.Position, player.Position + dir, hints);

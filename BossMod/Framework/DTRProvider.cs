@@ -12,8 +12,8 @@ internal sealed class DTRProvider : IDisposable
 {
     private readonly RotationModuleManager _mgr;
     private readonly AIManager _ai;
-    private readonly IDtrBarEntry _autorotationEntry = Service.DtrBar.Get("bmr-autorotation");
-    private readonly IDtrBarEntry _aiEntry = Service.DtrBar.Get("bmr-ai");
+    private readonly IDtrBarEntry _autorotationEntry = Service.DtrBar.Get("vbm-autorotation");
+    private readonly IDtrBarEntry _aiEntry = Service.DtrBar.Get("vbm-ai");
     private static readonly AIConfig _aiConfig = Service.Config.Get<AIConfig>();
     private bool _wantOpenPopup;
 
@@ -51,7 +51,7 @@ internal sealed class DTRProvider : IDisposable
         if (show)
         {
             var (icon, name) = _mgr.Presets.Count == 0 ? (BitmapFontIcon.SwordSheathed, "Idle") : _mgr.IsForceDisabled ? (BitmapFontIcon.SwordSheathed, "Disabled") : (BitmapFontIcon.SwordUnsheathed, _mgr.PresetNames);
-            Payload prefix = _mgr.Config.ShowDTR == AutorotationConfig.DtrStatus.TextOnly ? new TextPayload("bmr: ") : new IconPayload(icon);
+            Payload prefix = _mgr.Config.ShowDTR == AutorotationConfig.DtrStatus.TextOnly ? new TextPayload("vbm: ") : new IconPayload(icon);
             _autorotationEntry.Text = new SeString(prefix, new TextPayload(name));
         }
 
@@ -65,11 +65,11 @@ internal sealed class DTRProvider : IDisposable
 
         if (_wantOpenPopup && _mgr.Player != null)
         {
-            ImGui.OpenPopup("bmr_dtr_menu");
+            ImGui.OpenPopup("vbm_dtr_menu");
             _wantOpenPopup = false;
         }
 
-        using var popup = ImRaii.Popup("bmr_dtr_menu");
+        using var popup = ImRaii.Popup("vbm_dtr_menu");
         if (popup)
         {
             if (UIRotationWindow.DrawRotationSelector(_mgr))

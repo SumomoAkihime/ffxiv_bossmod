@@ -3,7 +3,7 @@ using static BossMod.Autorotation.xan.TrackPartyHealth;
 
 namespace BossMod.Autorotation.xan;
 
-public sealed class HealerAI(RotationModuleManager manager, Actor player) : AIBase<HealerAI.Strategy>(manager, player)
+public class HealerAI(RotationModuleManager manager, Actor player) : AIBase<HealerAI.Strategy>(manager, player)
 {
     public struct Strategy
     {
@@ -409,9 +409,9 @@ public sealed class HealerAI(RotationModuleManager manager, Actor player) : AIBa
         var rsq = radius * radius;
         var bestCount = 0;
         var bestCenter = allies[0];
-        for (var i = 0; i < allies.Count; ++i)
+        for (var i = 0; i < allies.Count; i++)
         {
-            for (var j = i; j < allies.Count; ++j)
+            for (var j = i; j < allies.Count; j++)
             {
                 var center = WPos.Lerp(allies[i], allies[j], 0.5f);
                 var thisCount = allies.Count(pos => (pos - center).LengthSq() <= rsq);

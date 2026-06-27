@@ -924,7 +924,7 @@ public sealed class VeynWAR(RotationModuleManager manager, Actor player) : Rotat
 
     private bool ShouldUseUpheaval(OffensiveStrategy strategy) => strategy switch
     {
-        OffensiveStrategy.Automatic => Player.InCombat && SurgingTempestLeft > Math.Max(CD(WAR.AID.Upheaval), World.Client.AnimationLock), // TODO: consider delaying until burst window in opener?..
+        OffensiveStrategy.Automatic => Player.InCombat && SurgingTempestLeft > MathF.Max(CD(WAR.AID.Upheaval), World.Client.AnimationLock), // TODO: consider delaying until burst window in opener?..
         OffensiveStrategy.Delay => false,
         OffensiveStrategy.Force => true,
         _ => false
@@ -932,7 +932,7 @@ public sealed class VeynWAR(RotationModuleManager manager, Actor player) : Rotat
 
     private bool ShouldUsePrimalWrath(OffensiveStrategy strategy) => strategy switch
     {
-        OffensiveStrategy.Automatic => Player.InCombat && SurgingTempestLeft > Math.Max(CD(WAR.AID.PrimalWrath), World.Client.AnimationLock),
+        OffensiveStrategy.Automatic => Player.InCombat && SurgingTempestLeft > MathF.Max(CD(WAR.AID.PrimalWrath), World.Client.AnimationLock),
         OffensiveStrategy.Delay => false,
         OffensiveStrategy.Force => true,
         _ => false

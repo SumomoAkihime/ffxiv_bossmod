@@ -22,27 +22,6 @@ public sealed class ManualActionQueueTweak(WorldState ws, AIHints hints)
     private readonly List<Entry> _queue = [];
     private bool _emergencyMode;
 
-    private static bool IsRSREnabled()
-    {
-        try
-        {
-            const string rsrName = "Rotation Solver Reborn";
-            var plugins = Service.PluginInterface.InstalledPlugins;
-            foreach (var p in plugins)
-            {
-                if ((p.Name.Equals(rsrName, StringComparison.OrdinalIgnoreCase) || p.InternalName.Equals(rsrName, StringComparison.OrdinalIgnoreCase)) && p.IsLoaded)
-                {
-                    return true;
-                }
-            }
-        }
-        catch
-        {
-            // ignore errors and assume not installed
-        }
-        return false;
-    }
-
     public void RemoveExpired()
     {
         if (_emergencyMode && _queue[0].Expired(ws.CurrentTime))
@@ -82,47 +61,37 @@ public sealed class ManualActionQueueTweak(WorldState ws, AIHints hints)
                 // - a regular item with cast time (choco greens)
                 // - duty specific item-like animation (deep dungeons, bozja, etc)
                 if (e.Definition.IsGCD || e.Definition.TotalDuration > 1.5f)
-                {
                     prio = ActionQueue.Priority.ManualGCD;
-                }
 
                 queue.Push(e.Action, e.Target, prio, expireOrder++, 0, e.CastTime, e.TargetPos, e.FacingAngle, true);
             }
         }
     }
 
+    public bool Enabled => _config.UseManualQueue;
+
     public bool Push(ActionID action, ulong targetId, float castTime, bool allowTargetOverride, Func<(ulong, Vector3?)> getAreaTarget, Func<ulong> targetNearest)
     {
-        if (!_config.UseManualQueue)
-        {
+        if (!Enabled)
             return false; // we don't use queue at all
-        }
 
         var player = ws.Party.Player();
         if (player == null)
-        {
             return false; // player is unknown, skip
-        }
 
         var def = ActionDefinitions.Instance[action];
         if (def == null)
-        {
             return false; // unknown action, let native queue handle it instead
-        }
 
-        var isGCD = def.IsGCD;
-        var expire = isGCD ? 1.0f : 3.0f;
+        bool isGCD = def.IsGCD;
+        float expire = isGCD ? 1.0f : 3.0f;
         if (def.ReadyIn(ws.Client.Cooldowns, ws.Client.DutyActions) > expire)
-        {
             return false; // don't bother trying to queue something that's on cd
-        }
 
         if (!ResolveTarget(def, player, targetId, getAreaTarget, targetNearest, allowTargetOverride, out var target, out var targetPos))
-        {
             return false; // failed to resolve target
-        }
 
-        var angleOverride = def.TransformAngle?.Invoke(ws, player, target, hints);
+        Angle? angleOverride = def.TransformAngle?.Invoke(ws, player, target, hints);
 
         var expireAt = ws.CurrentTime.AddSeconds(expire);
         var index = _queue.FindIndex(e => e.Definition.MainCooldownGroup == def.MainCooldownGroup); // TODO: what about alt groups and duty actions?..
@@ -161,9 +130,7 @@ public sealed class ManualActionQueueTweak(WorldState ws, AIHints hints)
         }
 
         if (_emergencyMode && index == 0)
-        {
             _emergencyMode = false;
-        }
     }
 
     private bool ResolveTarget(ActionDefinition def, Actor player, ulong targetId, Func<(ulong, Vector3?)> getAreaTarget, Func<ulong> targetNearest, bool allowSmartTarget, out Actor? target, out Vector3 targetPos)
@@ -174,20 +141,9 @@ public sealed class ManualActionQueueTweak(WorldState ws, AIHints hints)
         // ground targeted actions that must target specific objects
         if (def.ID.ID == (uint)BLM.AID.BetweenTheLines)
         {
-            Actor? playerLL = null;
-            foreach (var act in ws.Actors)
-            {
-                if (act.OwnerID == player.InstanceID && act.OID == 0x179)
-                {
-                    playerLL = act;
-                    break;
-                }
-            }
-
+            var playerLL = ws.Actors.FirstOrDefault(act => act.OwnerID == player.InstanceID && act.OID == 0x179);
             if (playerLL == null)
-            {
                 return false;
-            }
 
             targetPos = playerLL.PosRot.XYZ();
             return true;
@@ -195,20 +151,9 @@ public sealed class ManualActionQueueTweak(WorldState ws, AIHints hints)
 
         if (def.ID.ID == (uint)RPR.AID.Regress)
         {
-            Actor? playerGate = null;
-            foreach (var act in ws.Actors)
-            {
-                if (act.OwnerID == player.InstanceID && act.OID == 0x4C3)
-                {
-                    playerGate = act;
-                    break;
-                }
-            }
-
+            var playerGate = ws.Actors.FirstOrDefault(act => act.OwnerID == player.InstanceID && act.OID == 0x4C3);
             if (playerGate == null)
-            {
                 return false;
-            }
 
             targetPos = playerGate.PosRot.XYZ();
             return true;
@@ -256,16 +201,12 @@ public sealed class ManualActionQueueTweak(WorldState ws, AIHints hints)
         }
 
         target = ws.Actors.Find(targetId);
-        if (target == null && targetId is not 0u and not 0xE0000000)
-        {
+        if (target == null && targetId is not 0 and not 0xE0000000)
             return false; // target is valid, but not found in world, bail... (TODO this shouldn't be happening really)
-        }
 
         // custom smart-targeting
-        if (allowSmartTarget && _config.SmartTargeting && !IsRSREnabled() && def.SmartTarget != null)
-        {
-            target = ws.Actors.Find(targetNearest());
-        }
+        if (allowSmartTarget && _config.SmartTargets && def.SmartTarget != null)
+            target = def.SmartTarget(ws, player, target, hints);
 
         // fallback: if requested, use native "target nearest" function to try to find a valid hostile target
         // this conditional ensures we don't get a false positive for holmgang (can target self or hostile) or phantom oracle invuln (can target ally, but not self)
@@ -278,9 +219,7 @@ public sealed class ManualActionQueueTweak(WorldState ws, AIHints hints)
         // smart-targeting fallback: cast on self if target is not valid
         var targetInvalid = target == null || !def.AllowedTargets.HasFlag(ActionTargets.Hostile) && !target.IsAlly;
         if (targetInvalid && def.AllowedTargets.HasFlag(ActionTargets.Self))
-        {
             target = player;
-        }
 
         return true;
     }
