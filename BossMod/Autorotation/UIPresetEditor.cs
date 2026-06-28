@@ -18,8 +18,8 @@ public sealed class UIPresetEditor
     private int _sourcePresetIndex;
     private bool _sourcePresetDefault;
     public readonly Preset Preset; // note: this is an edited copy, and as such it never has transient settings
-    public bool Modified;
-    public bool NameConflict;
+    public bool Modified { get; private set; }
+    public bool NameConflict { get; private set; }
     private int _selectedModuleIndex = -1;
     private readonly List<int> _orderedTrackList = []; // for current module, by UI order
     private readonly ModuleCategory _availableModules;
@@ -78,7 +78,7 @@ public sealed class UIPresetEditor
         {
             var md = Preset.Modules[index].Definition;
             _orderedTrackList.AddRange(Enumerable.Range(0, md.Configs.Count));
-            _orderedTrackList.Sort((b, a) => md.Configs[a].UIPriority.CompareTo(md.Configs[b].UIPriority));
+            _orderedTrackList.SortByReverse(i => md.Configs[i].UIPriority);
         }
     }
 
@@ -382,6 +382,8 @@ public sealed class UIPresetEditor
         ModuleCategory res = new();
         foreach (var m in RotationModuleRegistry.Modules)
         {
+            if (m.Value.Definition.DevMode && !Service.IsDev)
+                continue; // skip dev-mode-only module in "production"
             if (m.Value.Definition.RelatedBossModule != null)
                 continue; // don't care about boss-specific modules for presets
             if (FindModuleByType(m.Key) >= 0)
@@ -401,7 +403,7 @@ public sealed class UIPresetEditor
             cat = sub;
         }
         cat.Leafs.Add((type, def, builder));
-        cat.Leafs.Sort(static (a, b) => a.def.DisplayName.CompareTo(b.def.DisplayName));
+        cat.Leafs.SortBy(e => e.def.DisplayName);
     }
 
     private void RemoveAvailableModule(ModuleCategory cat, Type type)

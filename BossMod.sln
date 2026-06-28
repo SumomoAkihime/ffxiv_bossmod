@@ -1,40 +1,25 @@
-﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.1.11312.151
+VisualStudioVersion = 18.5.11723.231 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BossMod", "BossMod\BossMod.csproj", "{13C812E9-0D42-4B95-8646-40EEBF30636F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CodeAnalysis", "CodeAnalysis\CodeAnalysis.csproj", "{F5F7E565-DCF2-494A-A18F-F7FA503428F5}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{83DEBDD2-29E9-4087-8FBD-092B458D2F7D}"
-	ProjectSection(SolutionItems) = preProject
-		.github\workflows\build_pr.yml = .github\workflows\build_pr.yml
-		.github\workflows\publish.yml = .github\workflows\publish.yml
-	EndProjectSection
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "benchmarks", "benchmarks\benchmarks.csproj", "{A8D1E505-DA3A-4F19-9831-F745718AD97C}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExampleLib", "ExampleLib\ExampleLib.csproj", "{0A4B3F30-3460-40EB-BDDA-DE25E49332CA}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|AnyCPU = Debug|AnyCPU
-		Release|AnyCPU = Release|AnyCPU
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Debug|AnyCPU.ActiveCfg = Debug|x64
-		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Debug|AnyCPU.Build.0 = Debug|x64
-		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Release|AnyCPU.ActiveCfg = Release|x64
-		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Release|AnyCPU.Build.0 = Release|x64
-		{F5F7E565-DCF2-494A-A18F-F7FA503428F5}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
-		{F5F7E565-DCF2-494A-A18F-F7FA503428F5}.Debug|AnyCPU.Build.0 = Debug|Any CPU
-		{F5F7E565-DCF2-494A-A18F-F7FA503428F5}.Release|AnyCPU.ActiveCfg = Release|Any CPU
-		{F5F7E565-DCF2-494A-A18F-F7FA503428F5}.Release|AnyCPU.Build.0 = Release|Any CPU
-		{A8D1E505-DA3A-4F19-9831-F745718AD97C}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
-		{A8D1E505-DA3A-4F19-9831-F745718AD97C}.Release|AnyCPU.ActiveCfg = Release|Any CPU
-		{0A4B3F30-3460-40EB-BDDA-DE25E49332CA}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
-		{0A4B3F30-3460-40EB-BDDA-DE25E49332CA}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Debug|Any CPU.Build.0 = Debug|x64
+		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Debug|x64.ActiveCfg = Debug|x64
+		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Debug|x64.Build.0 = Debug|x64
+		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Release|Any CPU.ActiveCfg = Release|x64
+		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Release|Any CPU.Build.0 = Release|x64
+		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Release|x64.ActiveCfg = Release|x64
+		{13C812E9-0D42-4B95-8646-40EEBF30636F}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

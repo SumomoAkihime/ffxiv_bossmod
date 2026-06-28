@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Autorotation.xan;
 
-public sealed class TrackPartyHealth(WorldState World)
+public class TrackPartyHealth(WorldState World)
 {
     public record struct PartyMemberState
     {
@@ -38,7 +38,7 @@ public sealed class TrackPartyHealth(WorldState World)
     public const float AOEBreakpointHPVariance = 0.25f;
 
     public readonly PartyMemberState[] PartyMemberStates = new PartyMemberState[PartyState.MaxAllies];
-    public PartyHealthState PartyHealth = new();
+    public PartyHealthState PartyHealth { get; private set; } = new();
 
     private bool _haveRealPartyMembers;
     private BitMask _trackedActors;
@@ -60,6 +60,9 @@ public sealed class TrackPartyHealth(WorldState World)
         2977,
         2978,
         3967,
+
+        // Accretion, triggers earth raidwide when healing target to full, let players handle it manually
+        1604
     ];
     private float StatusDuration(DateTime expireAt) => Math.Max((float)(expireAt - World.CurrentTime).TotalSeconds, 0.0f);
 
@@ -90,7 +93,7 @@ public sealed class TrackPartyHealth(WorldState World)
             if (act.PendingHPDifferences.Any(p => -p.Value >= act.HPMP.MaxHP))
                 continue;
 
-            ++count;
+            count++;
 
             var valCurrent = p.DoomRemaining > 0 ? 0.01f : p.CurrentHPRatio;
             if (valCurrent < minCur)
@@ -150,7 +153,7 @@ public sealed class TrackPartyHealth(WorldState World)
     public void Update(AIHints Hints)
     {
         // copied from veyn's HealerActions in EW bossmod - i am a thief
-        BitMask esunas = default;
+        BitMask esunas = new();
         foreach (var caster in World.Party.WithoutSlot(excludeAlliance: true).Where(a => a.CastInfo?.IsSpell(BossMod.WHM.AID.Esuna) ?? false))
             esunas.Set(World.Party.FindSlot(caster.CastInfo!.TargetID));
 
@@ -158,7 +161,7 @@ public sealed class TrackPartyHealth(WorldState World)
 
         _trackedActors.Reset();
 
-        for (var i = 0; i < PartyState.MaxAllies; ++i)
+        for (var i = 0; i < PartyState.MaxAllies; i++)
         {
             var shouldSkip = false;
             if (i >= PartyState.MaxPartySize)
@@ -190,7 +193,7 @@ public sealed class TrackPartyHealth(WorldState World)
             state.PredictedHPMissing = (int)actor.HPMP.MaxHP - actor.PendingHPRaw;
             state.PredictedHPRatio = actor.PendingHPRatio;
             // include pending heals, but not pending damage - used for stuff like essential dignity, where the actor's actual HP ratio is important
-            state.CurrentHPRatio = Math.Max(actor.HPRatio, actor.PendingHPRatio);
+            state.CurrentHPRatio = MathF.Max(actor.HPRatio, actor.PendingHPRatio);
             state.AttackerStrength = 0;
             state.EsunableStatusRemaining = 0;
             state.DoomRemaining = 0;

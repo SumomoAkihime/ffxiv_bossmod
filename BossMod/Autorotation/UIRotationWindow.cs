@@ -1,4 +1,4 @@
-﻿using Dalamud.Bindings.ImGui;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 
@@ -62,7 +62,7 @@ public sealed class UIRotationWindow : UIWindow
             {
                 ImGui.SameLine();
                 var plans = _mgr.Database.Plans.GetPlans(activeModule.GetType(), player.Class);
-                var newSel = UIPlanDatabaseEditor.DrawPlanCombo(plans, plans.SelectedIndex, "");
+                var newSel = UIPlanDatabaseEditor.DrawPlanCombo(plans, plans.SelectedIndex, "###root");
                 if (newSel != plans.SelectedIndex)
                 {
                     plans.SelectedIndex = newSel;
@@ -90,9 +90,17 @@ public sealed class UIRotationWindow : UIWindow
             }
         }
 
-        // TODO: more fancy action history/queue...
-        ImGui.TextUnformatted($"Modules: {_mgr}");
-        if (_mgr.Presets.SelectMany(p => p.Modules).Any(m => m.TransientSettings.Count > 0))
+        ImGui.TextUnformatted("Modules: ");
+
+        var dups = _mgr.DuplicateModules.ToList();
+        if (dups.Count > 0)
+        {
+            ImGui.SameLine();
+            using var style = ImRaii.PushColor(ImGuiCol.Text, Colors.TextColor2);
+            UIMisc.HelpMarker(() => $"You have multiple copies of the same module active ({string.Join(", ", dups)}). Only one of each will execute. This is probably not what you want.", FontAwesomeIcon.ExclamationTriangle);
+        }
+
+        if (_mgr.Presets.Any(p => p.Modules.Any(m => m.TransientSettings.Count > 0)))
         {
             ImGui.SameLine();
             using (ImRaii.PushColor(ImGuiCol.Text, 0xff00ff00))
@@ -101,18 +109,24 @@ public sealed class UIRotationWindow : UIWindow
             {
                 using var tooltip = ImRaii.Tooltip();
                 ImGui.TextUnformatted("Transient strategies:");
-                foreach (var m in _mgr.Presets.SelectMany(p => p.Modules).Where(m => m.TransientSettings.Count > 0))
+                foreach (var p in _mgr.Presets)
                 {
-                    ImGui.TextUnformatted($"> {m.Type.FullName}");
-                    using var indent = ImRaii.PushIndent();
-                    foreach (var s in m.TransientSettings)
+                    foreach (var m in p.Modules.Where(m => m.TransientSettings.Count > 0))
                     {
-                        var track = m.Definition.Configs[s.Track];
-                        ImGui.TextUnformatted($"{track.InternalName} = {track.ToDisplayString(s.Value)}");
+                        ImGui.TextUnformatted($"> {m.Type.FullName}");
+                        using var indent = ImRaii.PushIndent();
+                        foreach (var s in m.TransientSettings)
+                        {
+                            var track = m.Definition.Configs[s.Track];
+                            ImGui.TextUnformatted($"{track.InternalName} = {track.ToDisplayString(s.Value)}");
+                        }
                     }
                 }
             }
         }
+
+        ImGui.SameLine();
+        ImGui.TextUnformatted(_mgr.ToString());
 
         ImGui.TextUnformatted($"GCD={_mgr.WorldState.Client.Cooldowns[ActionDefinitions.GCDGroup].Remaining:f3}, AnimLock={_amex.EffectiveAnimationLock:f3}+{_amex.AnimationLockDelayEstimate:f3}, Combo={_amex.ComboTimeLeft:f3}, RBIn={_mgr.Bossmods.RaidCooldowns.NextDamageBuffIn():f3}");
         foreach (var a in _mgr.Hints.ActionsToExecute.Entries)
@@ -149,15 +163,13 @@ public sealed class UIRotationWindow : UIWindow
 
         foreach (var p in mgr.Database.Presets.PresetsForClass(mgr.Player.Class))
         {
-            if (p.HiddenByDefault)
-            {
+            var isActive = mgr.Presets.Contains(p);
+            if (!isActive && ShouldHidePresetButton(p))
                 continue;
-            }
             ImGui.SameLine();
-            var active = mgr.Presets.Contains(p);
-            using var col = ImRaii.PushColor(ImGuiCol.Button, Colors.ButtonPushColor2, active);
-            using var colHovered = ImRaii.PushColor(ImGuiCol.ButtonHovered, Colors.ButtonPushColor5, active);
-            using var colActive = ImRaii.PushColor(ImGuiCol.ButtonActive, Colors.ButtonPushColor6, active);
+            using var col = ImRaii.PushColor(ImGuiCol.Button, Colors.ButtonPushColor2, isActive);
+            using var colHovered = ImRaii.PushColor(ImGuiCol.ButtonHovered, Colors.ButtonPushColor5, isActive);
+            using var colActive = ImRaii.PushColor(ImGuiCol.ButtonActive, Colors.ButtonPushColor6, isActive);
             if (ImGui.Button(p.Name))
             {
                 mgr.Toggle(p);
@@ -166,6 +178,12 @@ public sealed class UIRotationWindow : UIWindow
         }
 
         return modified;
+    }
+
+    private static bool ShouldHidePresetButton(Preset preset)
+    {
+        var config = Service.Config.Get<AutorotationConfig>();
+        return preset.HiddenByDefault || preset.Name == "VBM Multibox" || (config.HideDefaultPreset && preset.Name == "VBM Default");
     }
 
     private void DrawPositional()

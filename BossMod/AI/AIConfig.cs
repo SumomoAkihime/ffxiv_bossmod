@@ -7,10 +7,10 @@ sealed class AIConfig : ConfigNode
     public bool Enabled = false;
 
     [PropertyDisplay("Show status in DTR bar")]
-    public bool ShowDTR = true;
+    public bool ShowDTR = false;
 
     [PropertyDisplay("Show AI interface")]
-    public bool DrawUI = true;
+    public bool DrawUI = false;
 
     [PropertyDisplay("Focus target master")]
     public bool FocusTargetMaster = false;
@@ -36,6 +36,9 @@ sealed class AIConfig : ConfigNode
     [PropertyDisplay("Follow during active boss module")]
     public bool FollowDuringActiveBossModule = true;
 
+    [PropertyDisplay("Follow master even if a boss module is active")]
+    public bool FollowDuringBoss = true;
+
     [PropertyDisplay("Follow out of combat")]
     public bool FollowOutOfCombat = false;
 
@@ -48,6 +51,9 @@ sealed class AIConfig : ConfigNode
 
     [PropertyDisplay("Max distance to slot")]
     public float MaxDistanceToSlot = 1f;
+
+    [PropertyDisplay("Distance to master")]
+    public float DistanceToMaster = 25f;
 
     [PropertyDisplay("Max distance to target")]
     public float MaxDistanceToTarget = 2.6f;

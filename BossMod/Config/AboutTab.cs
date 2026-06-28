@@ -18,9 +18,9 @@ public sealed class AboutTab(DirectoryInfo? replayDir)
     {
         using var wrap = ImRaii.TextWrapPos(0);
 
-        ImGui.TextUnformatted("BossMod provides boss fight radar, auto-rotation, cooldown planning, and AI. All of its modules can be toggled individually.");
-        ImGui.TextUnformatted("This experimental branch uses the Reborn code baseline while keeping BossMod plugin identity and compatibility entry points.");
-        ImGui.TextUnformatted("Please do not load multiple BossMod variants at the same time. The consequences of doing that are unexplored and unsupported.");
+        ImGui.TextUnformatted("BossModReborn (BMR) provides boss fight radar, auto-rotation, cooldown planning, and AI. All of its modules can be toggled individually. Support for it can be found in the Discord server linked at the bottom of this tab.");
+        ImGui.TextUnformatted("This is a FORK of the original BossMod (VBM). Only ask for support on the Combat Reborn Discord.");
+        ImGui.TextUnformatted("Please also make sure to not load VBM and this fork at the same time. The consequences of doing that are unexplored and unsupported.");
         ImGui.Spacing();
         DrawSection("Radar",
         [
@@ -73,9 +73,9 @@ public sealed class AboutTab(DirectoryInfo? replayDir)
         }
 
         ImGui.SameLine();
-        if (ImGui.Button("BossMod GitHub", new(220, 0)))
+        if (ImGui.Button("BossModReborn GitHub", new(220, 0)))
         {
-            _lastErrorMessage = OpenLink("https://github.com/SumomoAkihime/ffxiv_bossmod");
+            _lastErrorMessage = OpenLink("https://github.com/FFXIV-CombatReborn/BossmodReborn");
         }
 
         ImGui.SameLine();

@@ -75,7 +75,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         Service.LogHandlerDebug = msg => Service.Logger.Debug(msg);
         Service.LogHandlerVerbose = msg => Service.Logger.Verbose(msg);
         Service.LuminaGameData = dataManager.GameData;
-        Service.WindowSystem = new("vbm");
+        Service.WindowSystem = new("bmr");
     }
 
     public async Task LoadAsync(CancellationToken cancellationToken)
@@ -102,7 +102,6 @@ public sealed class Plugin : IAsyncDalamudPlugin
 
         Service.Config.Modified.Subscribe(() => Task.Run(() => Service.Config.SaveToFile(_dalamud.ConfigFile)));
 
-        CommandManager.AddHandler("/vbm", new CommandInfo(OnCommand) { HelpMessage = "Show boss mod settings UI" });
         CommandManager.AddHandler("/bmr", new CommandInfo(OnCommand) { HelpMessage = "Show boss mod settings UI" });
 
         ActionDefinitions.Instance.UnlockCheck = QuestUnlocked; // ensure action definitions are initialized and set unlock check functor (we don't really store the quest progress in clientstate, for now at least)
@@ -171,7 +170,6 @@ public sealed class Plugin : IAsyncDalamudPlugin
         _bossmod.Dispose();
         ActionDefinitions.Instance.Dispose();
         CommandManager.RemoveHandler("/bmr");
-        CommandManager.RemoveHandler("/vbm");
         GarbageCollection();
     }
 
@@ -208,9 +206,6 @@ public sealed class Plugin : IAsyncDalamudPlugin
             case "AR":
                 ParseAutorotationCommands(split);
                 break;
-            case "AI":
-                _ai.ExecuteCommand(string.Join(' ', split, 1, split.Length - 1));
-                break;
             case "RESETCOLORS":
                 ResetColors();
                 break;
@@ -240,7 +235,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
                     _wndReplay.StopRecording();
                     break;
                 default:
-                    Service.ChatGui.Print($"[BossMod] Unknown replay command: {messageData[1]}");
+                    Service.ChatGui.Print($"[BMR] Unknown replay command: {messageData[1]}");
                     break;
             }
         }
@@ -288,7 +283,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
     private void OpenConfigUI(string showTab = "")
     {
         _configUI.ShowTab(showTab);
-        _ = new UISimpleWindow("Boss Mod Settings", _configUI.Draw, true, new(300, 300));
+        _ = new UISimpleWindow("BossModReborn", _configUI.Draw, true, new(300, 300));
     }
 
     private void DrawUI()
@@ -472,30 +467,12 @@ public sealed class Plugin : IAsyncDalamudPlugin
                 }
                 else
                 {
-                    ParseAutorotationSetCommand(cmd[1..], false, true);
+                    ParseAutorotationSetCommand(cmd[1..], false);
                 }
 
                 break;
             case "TOGGLE":
-                if (cmd.Length > 2)
-                {
-                    ParseAutorotationSetCommand(cmd[1..], true, true);
-                }
-                else
-                {
-                    var before = _rotation.PresetNames;
-                    _rotation.Toggle(RotationModuleManager.ForceDisable, true);
-                    Service.Log($"Console: toggle force-disable changes presets from '{before}' to '{_rotation.PresetNames}'");
-                }
-                break;
-            case "ACTIVATE":
-                ParseAutorotationSetCommand(cmd[1..], false, false);
-                break;
-            case "DEACTIVATE":
-                ParseAutorotationDeactivateCommand(cmd[1..]);
-                break;
-            case "TOGGLEMULTI":
-                ParseAutorotationSetCommand(cmd[1..], true, false);
+                ParseAutorotationSetCommand(cmd.Length > 2 ? cmd[1..] : [""], true);
                 break;
             case "UI":
                 _wndRotation.SetVisible(!_wndRotation.IsOpen);
@@ -503,7 +480,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         }
     }
 
-    private void ParseAutorotationSetCommand(string[] presetName, bool toggle, bool exclusive)
+    private void ParseAutorotationSetCommand(string[] presetName, bool toggle)
     {
         if (presetName.Length < 2)
         {
@@ -515,7 +492,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         if (userInput == "null" || string.IsNullOrWhiteSpace(userInput))
         {
             _rotation.Clear();
-            Service.Log("Disabled AI autorotation preset.");
+            Service.Log("Cleared autorotation presets.");
             return;
         }
         var normalizedInput = userInput.ToUpperInvariant();
@@ -531,38 +508,18 @@ public sealed class Plugin : IAsyncDalamudPlugin
         preset ??= RotationModuleManager.ForceDisable;
         if (preset != null)
         {
-            var before = _rotation.PresetNames;
-            if (toggle)
-                _rotation.Toggle(preset, exclusive);
+            Service.Log($"Console: {(toggle ? "toggle" : "set")} changes presets from '{_rotation.PresetNames}' with '{preset.Name}'");
+            if (preset == RotationModuleManager.ForceDisable)
+                _rotation.SetForceDisabled();
+            else if (toggle)
+                _rotation.Toggle(preset);
             else
-                _rotation.Activate(preset, exclusive);
-            Service.Log($"Console: {(toggle ? "toggle" : exclusive ? "set" : "activate")} changes presets from '{before}' to '{_rotation.PresetNames}'");
+                _rotation.Activate(preset);
         }
         else
         {
             Service.ChatGui.PrintError($"Failed to find preset '{presetName}'");
         }
-    }
-
-    private void ParseAutorotationDeactivateCommand(string[] presetName)
-    {
-        if (presetName.Length < 2)
-        {
-            Service.Log("No valid preset name provided.");
-            return;
-        }
-
-        var userInput = string.Join(" ", presetName, 1, presetName.Length - 1).Trim();
-        var preset = _rotation.Database.Presets.FindPresetByName(userInput);
-        if (preset == null)
-        {
-            Service.ChatGui.PrintError($"Failed to find preset '{userInput}'");
-            return;
-        }
-
-        var before = _rotation.PresetNames;
-        _rotation.Deactivate(preset);
-        Service.Log($"Console: deactivate changes presets from '{before}' to '{_rotation.PresetNames}'");
     }
 
     private static void OnConditionChanged(ConditionFlag flag, bool value)

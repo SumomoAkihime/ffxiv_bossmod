@@ -172,6 +172,12 @@ public sealed class PartyState
         return -1;
     }
 
+    public bool TryFindSlot(ulong instanceID, out int slot)
+    {
+        slot = FindSlot(instanceID);
+        return slot >= 0;
+    }
+
     // find a slot index containing specified player (by name); returns -1 if not found
     public int FindSlot(ReadOnlySpan<char> name, StringComparison cmp = StringComparison.CurrentCultureIgnoreCase)
     {

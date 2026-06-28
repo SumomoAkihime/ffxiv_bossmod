@@ -49,7 +49,7 @@ public sealed class UIPresetDatabaseEditor(RotationDatabase rotationDB)
         }
 
         ImGui.OpenPopup("Unsaved modifications"); // TODO: why do i have to do it every frame???
-        var modalOpen = true;
+        bool modalOpen = true;
         using var modal = ImRaii.PopupModal("Unsaved modifications", ref modalOpen, ImGuiWindowFlags.AlwaysAutoResize);
         if (!modal)
             return;
@@ -100,7 +100,7 @@ public sealed class UIPresetDatabaseEditor(RotationDatabase rotationDB)
         {
             if (combo)
             {
-                if (!_cfg.HideDefaultPresets)
+                if (!_cfg.HideDefaultPreset)
                     DrawPresetListElements(true);
                 DrawPresetListElements(false);
             }

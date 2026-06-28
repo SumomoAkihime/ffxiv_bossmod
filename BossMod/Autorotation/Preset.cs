@@ -75,7 +75,7 @@ public sealed record class Preset(string Name)
 
     public static Modifier CurrentModifiers()
     {
-        var mods = Modifier.None;
+        Modifier mods = Modifier.None;
         if (ImGui.GetIO().KeyShift)
             mods |= Modifier.Shift;
         if (ImGui.GetIO().KeyCtrl)
@@ -95,7 +95,7 @@ public class JsonPresetConverter : JsonConverter<Preset>
         var res = new Preset(jdoc.RootElement.GetProperty(nameof(Preset.Name)).GetString() ?? "");
         foreach (var jm in jdoc.RootElement.GetProperty(nameof(Preset.Modules)).EnumerateObject())
         {
-            var mt = Type.GetType(jm.Name);
+            var mt = Type.GetType(jm.Name) ?? typeof(Preset).Assembly.GetType(jm.Name);
             if (mt == null || !RotationModuleRegistry.Modules.TryGetValue(mt, out var md))
             {
                 Service.Log($"Error while deserializing preset {res.Name}: failed to find module {jm.Name}");

@@ -138,7 +138,7 @@ public sealed class ConfigUI : IDisposable
         ( "movedelay X", "Sets AI movement decision delay. (default = 0)" ),
         ( "obstaclemaps", "Toggles loading obstacle maps." ),
         ( "obstaclemaps on/off", "Sets the loading of obstacle maps to on or off." ),
-        ( "setpresetname X", "Sets an autorotation preset for the AI, eg. setpresetname VBM Default." )
+        ( "setpresetname X", "Sets an autorotation preset for the AI, eg. setpresetname vbm default." )
     ];
 
     private static readonly (string, string)[] _autorotationCommands =
@@ -171,7 +171,7 @@ public sealed class ConfigUI : IDisposable
         for (var i = 0; i < 30; ++i)
         {
             ref readonly var text = ref _availableAICommands[i];
-            ImGui.Text($"/vbm ai {text.Item1}: {text.Item2}");
+            ImGui.Text($"/bmrai {text.Item1}: {text.Item2}");
         }
         ImGui.Separator();
         ImGui.Text("Autorotation commands:");
@@ -179,7 +179,7 @@ public sealed class ConfigUI : IDisposable
         for (var i = 0; i < 6; ++i)
         {
             ref readonly var text = ref _autorotationCommands[i];
-            ImGui.Text($"/vbm {text.Item1}: {text.Item2}");
+            ImGui.Text($"/bmr {text.Item1}: {text.Item2}");
         }
         ImGui.Separator();
         ImGui.Text("Other commands:");
@@ -187,7 +187,7 @@ public sealed class ConfigUI : IDisposable
         for (var i = 0; i < 7; ++i)
         {
             ref readonly var text = ref _availableOtherCommands[i];
-            ImGui.Text($"/vbm {text.Item1}: {text.Item2}");
+            ImGui.Text($"/bmr {text.Item1}: {text.Item2}");
         }
     }
 

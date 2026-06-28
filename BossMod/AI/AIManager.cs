@@ -26,29 +26,23 @@ sealed class AIManager : IDisposable
         _wndAI = new AIManagementWindow(this);
         Autorot = autorot;
         Controller = new(autorot.WorldState, amex, movement);
-        Service.CommandManager.AddHandler("/vbmai", new Dalamud.Game.Command.CommandInfo(OnCommand) { HelpMessage = "Toggle AI mode" });
         Service.CommandManager.AddHandler("/bmrai", new Dalamud.Game.Command.CommandInfo(OnCommand) { HelpMessage = "Toggle AI mode" });
     }
 
     public void SetAIPreset(Preset? p)
     {
         if (AiPreset != null && AiPreset != p)
-        {
             Autorot.Deactivate(AiPreset);
-        }
         AiPreset = p;
         _config.AIAutorotPresetName = p?.Name;
         Beh?.AIPreset = p;
     }
-
-    public void ExecuteCommand(string message) => OnCommand("/vbmai", string.IsNullOrWhiteSpace(message) ? "UI" : message);
 
     public void Dispose()
     {
         SwitchToIdle();
         _wndAI.Dispose();
         Service.CommandManager.RemoveHandler("/bmrai");
-        Service.CommandManager.RemoveHandler("/vbmai");
         Instance = null;
     }
 
@@ -77,12 +71,11 @@ sealed class AIManager : IDisposable
     {
         Beh?.Dispose();
         Beh = null;
-        _config.Enabled = false;
         MasterSlot = PartyState.PlayerSlot;
-        if (AiPreset != null)
-        {
+        if (Autorot.IsForceDisabled)
+            Autorot.Clear();
+        else if (AiPreset != null)
             Autorot.Deactivate(AiPreset);
-        }
         Controller.Clear();
         _wndAI.UpdateTitle();
     }
@@ -91,7 +84,7 @@ sealed class AIManager : IDisposable
     {
         SwitchToIdle();
         MasterSlot = WorldState.Party[masterSlot]?.Name == null ? 0 : masterSlot;
-        var allpresets = Autorot.Database.Presets.AllPresets;
+        var allpresets = Autorot.Database.Presets.AllPresets.ToList();
         var count = allpresets.Count;
         Preset? preset = null;
         for (var i = 0; i < count; ++i)
@@ -103,11 +96,8 @@ sealed class AIManager : IDisposable
                 break;
             }
         }
-        preset ??= string.IsNullOrWhiteSpace(_config.AIAutorotPresetName) ? Autorot.Database.Presets.FindPresetByName("VBM AI") : null;
-        AiPreset = preset;
-        _config.AIAutorotPresetName = preset?.Name;
+        SetAIPreset(preset);
         Beh = new AIBehaviour(Controller, Autorot, AiPreset);
-        _config.Enabled = true;
         _wndAI.UpdateTitle();
     }
 
@@ -145,13 +135,13 @@ sealed class AIManager : IDisposable
         switch (messageData[0].ToUpperInvariant())
         {
             case "ON":
-                EnableConfig(true);
+                configModified = EnableConfig(true);
                 break;
             case "OFF":
-                EnableConfig(false);
+                configModified = EnableConfig(false);
                 break;
             case "TOGGLE":
-                ToggleConfig();
+                configModified = ToggleConfig();
                 break;
             case "TARGETMASTER":
                 configModified = ToggleFocusTargetMaster();
@@ -236,7 +226,7 @@ sealed class AIManager : IDisposable
                 configModified = cfgMD != _config.MoveDelay;
                 break;
             case "SETPRESETNAME":
-                if (messageData.Length <= 1)
+                if (cmd.Length <= 2)
                 {
                     if (_config.EchoToChat)
                     {
@@ -254,7 +244,7 @@ sealed class AIManager : IDisposable
             default:
                 if (_config.EchoToChat)
                 {
-                    Service.ChatGui.Print($"[BossMod AI] Unknown command: {messageData[0]}");
+                    Service.ChatGui.Print($"[BMRAI] Unknown command: {messageData[0]}");
                 }
                 return;
         }
@@ -265,8 +255,10 @@ sealed class AIManager : IDisposable
         }
     }
 
-    private void EnableConfig(bool enable)
+    private bool EnableConfig(bool enable)
     {
+        var modified = _config.Enabled != enable;
+        _config.Enabled = enable;
         if (enable)
         {
             SwitchToFollow(_config.FollowSlot);
@@ -275,17 +267,22 @@ sealed class AIManager : IDisposable
         {
             SwitchToIdle();
         }
+        return modified;
     }
 
-    private void ToggleConfig()
+    private bool ToggleConfig()
     {
         if (Beh == null)
         {
+            _config.Enabled = true;
             SwitchToFollow(_config.FollowSlot);
+            return true;
         }
         else
         {
+            _config.Enabled = false;
             SwitchToIdle();
+            return true;
         }
     }
 
@@ -314,14 +311,14 @@ sealed class AIManager : IDisposable
                 default:
                     if (_config.EchoToChat)
                     {
-                        Service.ChatGui.Print($"[BossMod AI] Unknown obstacle map command: {messageData[1]}");
+                        Service.ChatGui.Print($"[BMRAI] Unknown obstacle map command: {messageData[1]}");
                     }
                     return;
             }
         }
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Obstacle maps are now {(_config.DisableObstacleMaps ? "disabled" : "enabled")}");
+            Service.ChatGui.Print($"[BMRAI] Obstacle maps are now {(_config.DisableObstacleMaps ? "disabled" : "enabled")}");
         }
     }
 
@@ -344,14 +341,14 @@ sealed class AIManager : IDisposable
                 default:
                     if (_config.EchoToChat)
                     {
-                        Service.ChatGui.Print($"[BossMod AI] Unknown idle while mounted command: {messageData[1]}");
+                        Service.ChatGui.Print($"[BMRAI] Unknown idle while mounted command: {messageData[1]}");
                     }
                     return;
             }
         }
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Idle while mounted is now {(_config.ForbidAIMovementMounted ? "enabled" : "disabled")}");
+            Service.ChatGui.Print($"[BMRAI] Idle while mounted is now {(_config.ForbidAIMovementMounted ? "enabled" : "disabled")}");
         }
     }
 
@@ -359,7 +356,7 @@ sealed class AIManager : IDisposable
     {
         if (messageData.Length < 2 && _config.EchoToChat)
         {
-            Service.ChatGui.Print("[BossMod AI] Missing follow target.");
+            Service.ChatGui.Print("[BMRAI] Missing follow target.");
             return;
         }
 
@@ -390,7 +387,7 @@ sealed class AIManager : IDisposable
             else
                 if (_config.EchoToChat)
                 {
-                    Service.ChatGui.Print($"[BossMod AI] Unknown party member: {sb}");
+                    Service.ChatGui.Print($"[BMRAI] Unknown party member: {sb}");
                 }
         }
     }
@@ -400,7 +397,7 @@ sealed class AIManager : IDisposable
         _config.DrawUI = !_config.DrawUI;
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] AI menu is now {(_config.DrawUI ? "enabled" : "disabled")}");
+            Service.ChatGui.Print($"[BMRAI] AI menu is now {(_config.DrawUI ? "enabled" : "disabled")}");
         }
         return true;
     }
@@ -424,14 +421,14 @@ sealed class AIManager : IDisposable
                 default:
                     if (_config.EchoToChat)
                     {
-                        Service.ChatGui.Print($"[BossMod AI] Unknown forbid actions command: {messageData[1]}");
+                        Service.ChatGui.Print($"[BMRAI] Unknown forbid actions command: {messageData[1]}");
                     }
                     return;
             }
         }
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Forbid actions is now {(_config.ForbidActions ? "enabled" : "disabled")}");
+            Service.ChatGui.Print($"[BMRAI] Forbid actions is now {(_config.ForbidActions ? "enabled" : "disabled")}");
         }
     }
 
@@ -454,14 +451,14 @@ sealed class AIManager : IDisposable
                 default:
                     if (_config.EchoToChat)
                     {
-                        Service.ChatGui.Print($"[BossMod AI] Unknown forbid movement command: {messageData[1]}");
+                        Service.ChatGui.Print($"[BMRAI] Unknown forbid movement command: {messageData[1]}");
                     }
                     return;
             }
         }
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Forbid movement is now {(_config.ForbidMovement ? "enabled" : "disabled")}");
+            Service.ChatGui.Print($"[BMRAI] Forbid movement is now {(_config.ForbidMovement ? "enabled" : "disabled")}");
         }
     }
 
@@ -484,14 +481,14 @@ sealed class AIManager : IDisposable
                 default:
                     if (_config.EchoToChat)
                     {
-                        Service.ChatGui.Print($"[BossMod AI] Unknown follow out of combat command: {messageData[1]}");
+                        Service.ChatGui.Print($"[BMRAI] Unknown follow out of combat command: {messageData[1]}");
                     }
                     return;
             }
         }
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Follow out of combat is now {(_config.FollowOutOfCombat ? "enabled" : "disabled")}");
+            Service.ChatGui.Print($"[BMRAI] Follow out of combat is now {(_config.FollowOutOfCombat ? "enabled" : "disabled")}");
         }
     }
 
@@ -521,14 +518,14 @@ sealed class AIManager : IDisposable
                     _config.FollowDuringActiveBossModule = false;
                     break;
                 default:
-                    Service.ChatGui.Print($"[BossMod AI] Unknown follow during combat command: {messageData[1]}");
+                    Service.ChatGui.Print($"[BMRAI] Unknown follow during combat command: {messageData[1]}");
                     return;
             }
         }
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Follow during combat is now {(_config.FollowDuringCombat ? "enabled" : "disabled")}");
-            Service.ChatGui.Print($"[BossMod AI] Follow during active boss module is now {(_config.FollowDuringActiveBossModule ? "enabled" : "disabled")}");
+            Service.ChatGui.Print($"[BMRAI] Follow during combat is now {(_config.FollowDuringCombat ? "enabled" : "disabled")}");
+            Service.ChatGui.Print($"[BMRAI] Follow during active boss module is now {(_config.FollowDuringActiveBossModule ? "enabled" : "disabled")}");
         }
     }
 
@@ -554,14 +551,14 @@ sealed class AIManager : IDisposable
                     _config.FollowDuringActiveBossModule = false;
                     break;
                 default:
-                    Service.ChatGui.Print($"[BossMod AI] Unknown follow during active boss module command: {messageData[1]}");
+                    Service.ChatGui.Print($"[BMRAI] Unknown follow during active boss module command: {messageData[1]}");
                     return;
             }
         }
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Follow during active boss module is now {(_config.FollowDuringActiveBossModule ? "enabled" : "disabled")}");
-            Service.ChatGui.Print($"[BossMod AI] Follow during combat is now {(_config.FollowDuringCombat ? "enabled" : "disabled")}");
+            Service.ChatGui.Print($"[BMRAI] Follow during active boss module is now {(_config.FollowDuringActiveBossModule ? "enabled" : "disabled")}");
+            Service.ChatGui.Print($"[BMRAI] Follow during combat is now {(_config.FollowDuringCombat ? "enabled" : "disabled")}");
         }
     }
 
@@ -584,14 +581,14 @@ sealed class AIManager : IDisposable
                 default:
                     if (_config.EchoToChat)
                     {
-                        Service.ChatGui.Print($"[BossMod AI] Unknown follow target command: {messageData[1]}");
+                        Service.ChatGui.Print($"[BMRAI] Unknown follow target command: {messageData[1]}");
                     }
                     return;
             }
         }
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Following targets is now {(_config.FollowTarget ? "enabled" : "disabled")}");
+            Service.ChatGui.Print($"[BMRAI] Following targets is now {(_config.FollowTarget ? "enabled" : "disabled")}");
         }
     }
 
@@ -599,7 +596,7 @@ sealed class AIManager : IDisposable
     {
         if (messageData.Length < 2 && _config.EchoToChat)
         {
-            Service.ChatGui.Print("[BossMod AI] Missing positional type.");
+            Service.ChatGui.Print("[BMRAI] Missing positional type.");
             return;
         }
 
@@ -621,13 +618,13 @@ sealed class AIManager : IDisposable
             default:
                 if (_config.EchoToChat)
                 {
-                    Service.ChatGui.Print($"[BossMod AI] Unknown positional: {msg}");
+                    Service.ChatGui.Print($"[BMRAI] Unknown positional: {msg}");
                 }
                 return;
         }
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Desired positional set to {_config.DesiredPositional}");
+            Service.ChatGui.Print($"[BMRAI] Desired positional set to {_config.DesiredPositional}");
         }
     }
 
@@ -635,20 +632,20 @@ sealed class AIManager : IDisposable
     {
         if (messageData.Length < 2 && _config.EchoToChat)
         {
-            Service.ChatGui.Print("[BossMod AI] Missing distance value.");
+            Service.ChatGui.Print("[BMRAI] Missing distance value.");
             return;
         }
 
         if (!float.TryParse(messageData[1].Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var distance) && _config.EchoToChat)
         {
-            Service.ChatGui.Print("[BossMod AI] Invalid distance value.");
+            Service.ChatGui.Print("[BMRAI] Invalid distance value.");
             return;
         }
 
         _config.MaxDistanceToTarget = distance;
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Max distance to target set to {distance.ToString(System.Globalization.CultureInfo.InvariantCulture)}y");
+            Service.ChatGui.Print($"[BMRAI] Max distance to target set to {distance.ToString(System.Globalization.CultureInfo.InvariantCulture)}y");
         }
     }
 
@@ -656,20 +653,20 @@ sealed class AIManager : IDisposable
     {
         if (messageData.Length < 2 && _config.EchoToChat)
         {
-            Service.ChatGui.Print("[BossMod AI] Missing distance value.");
+            Service.ChatGui.Print("[BMRAI] Missing distance value.");
             return;
         }
 
         if (!float.TryParse(messageData[1].Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var distance) && _config.EchoToChat)
         {
-            Service.ChatGui.Print("[BossMod AI] Invalid distance value.");
+            Service.ChatGui.Print("[BMRAI] Invalid distance value.");
             return;
         }
 
         _config.MaxDistanceToSlot = distance;
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Max distance to slot set to {distance.ToString(System.Globalization.CultureInfo.InvariantCulture)}y");
+            Service.ChatGui.Print($"[BMRAI] Max distance to slot set to {distance.ToString(System.Globalization.CultureInfo.InvariantCulture)}y");
         }
     }
 
@@ -677,20 +674,20 @@ sealed class AIManager : IDisposable
     {
         if (messageData.Length < 2 && _config.EchoToChat)
         {
-            Service.ChatGui.Print("[BossMod AI] Missing distance value.");
+            Service.ChatGui.Print("[BMRAI] Missing distance value.");
             return;
         }
 
         if (!float.TryParse(messageData[1].Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var distance) && _config.EchoToChat)
         {
-            Service.ChatGui.Print("[BossMod AI] Invalid distance value.");
+            Service.ChatGui.Print("[BMRAI] Invalid distance value.");
             return;
         }
 
         _config.MinDistance = distance;
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Min distance to slot set to {distance.ToString(System.Globalization.CultureInfo.InvariantCulture)}y");
+            Service.ChatGui.Print($"[BMRAI] Min distance to slot set to {distance.ToString(System.Globalization.CultureInfo.InvariantCulture)}y");
         }
     }
 
@@ -698,20 +695,20 @@ sealed class AIManager : IDisposable
     {
         if (messageData.Length < 2 && _config.EchoToChat)
         {
-            Service.ChatGui.Print("[BossMod AI] Missing distance value.");
+            Service.ChatGui.Print("[BMRAI] Missing distance value.");
             return;
         }
 
         if (!float.TryParse(messageData[1].Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var distance) && _config.EchoToChat)
         {
-            Service.ChatGui.Print("[BossMod AI] Invalid distance value.");
+            Service.ChatGui.Print("[BMRAI] Invalid distance value.");
             return;
         }
 
         _config.PreferredDistance = distance;
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Preferred distance to slot set to {distance.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+            Service.ChatGui.Print($"[BMRAI] Preferred distance to slot set to {distance.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
         }
     }
 
@@ -719,20 +716,20 @@ sealed class AIManager : IDisposable
     {
         if (messageData.Length < 2 && _config.EchoToChat)
         {
-            Service.ChatGui.Print("[BossMod AI] Missing delay value.");
+            Service.ChatGui.Print("[BMRAI] Missing delay value.");
             return;
         }
 
         if (!float.TryParse(messageData[1].Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var delay) && _config.EchoToChat)
         {
-            Service.ChatGui.Print("[BossMod AI] Invalid delay value.");
+            Service.ChatGui.Print("[BMRAI] Invalid delay value.");
             return;
         }
 
         _config.MoveDelay = delay;
         if (_config.EchoToChat)
         {
-            Service.ChatGui.Print($"[BossMod AI] Max distance to target set to {delay.ToString(System.Globalization.CultureInfo.InvariantCulture)}s");
+            Service.ChatGui.Print($"[BMRAI] Max distance to target set to {delay.ToString(System.Globalization.CultureInfo.InvariantCulture)}s");
         }
     }
 
@@ -768,10 +765,8 @@ sealed class AIManager : IDisposable
             return;
         }
 
-        var normalizedInput = userInput.ToUpperInvariant();
         var preset = Autorot.Database.Presets.AllPresets
-            .FirstOrDefault(p => p.Name.Trim().Equals(normalizedInput, StringComparison.OrdinalIgnoreCase))
-            ?? RotationModuleManager.ForceDisable;
+            .FirstOrDefault(p => p.Name.Trim().Equals(userInput, StringComparison.OrdinalIgnoreCase));
 
         if (preset != null)
         {

@@ -279,7 +279,7 @@ sealed class IPCProvider : IDisposable
             return !ActionDefinitions.IsDashDangerous(player.Position, dest, hints);
         });
 
-        Register("Configuration", (IReadOnlyList<string> args, bool save) => Service.Config.ConsoleCommand(args.ToArray().AsSpan(), save));
+        Register("Configuration", (List<string> args, bool save) => Service.Config.ConsoleCommand(args.AsSpan(), save));
 
         var lastModified = DateTime.Now;
         Service.Config.Modified.Subscribe(() => lastModified = DateTime.Now);
@@ -351,7 +351,7 @@ sealed class IPCProvider : IDisposable
             return true;
         });
 
-        Register("Presets.GetActive", () => autorotation.Preset?.Name);
+        Register("Presets.GetActive", () => autorotation.Presets.Count == 1 ? autorotation.Presets[0].Name : null);
         Register("Presets.SetActive", (string name) =>
         {
             var preset = autorotation.Database.Presets.FindPresetByName(name);
@@ -360,52 +360,8 @@ sealed class IPCProvider : IDisposable
                 return false;
             }
 
-            autorotation.Activate(preset, true);
-            return true;
-        });
-        Register("Presets.Activate", (string name) =>
-        {
-            var preset = autorotation.Database.Presets.FindPresetByName(name);
-            if (preset == null || autorotation.Presets.Contains(preset))
-            {
-                return false;
-            }
-
-            autorotation.Activate(preset);
-            return true;
-        });
-        Register("Presets.Deactivate", (string name) =>
-        {
-            var preset = autorotation.Database.Presets.FindPresetByName(name);
-            if (preset == null || !autorotation.Presets.Contains(preset))
-            {
-                return false;
-            }
-
-            autorotation.Deactivate(preset);
-            return true;
-        });
-        Register("Presets.GetActiveList", () =>
-            autorotation.Presets.Where(p => p != RotationModuleManager.ForceDisable).Select(p => p.Name).ToList());
-        Register("Presets.SetActiveList", (List<string> names) =>
-        {
-            List<Preset> presets = [];
-            foreach (var name in names)
-            {
-                var preset = autorotation.Database.Presets.FindPresetByName(name);
-                if (preset == null)
-                {
-                    Service.Log($"Presets.SetActiveList: input contained unrecognized preset name {name} - giving up");
-                    return false;
-                }
-                presets.Add(preset);
-            }
-
             autorotation.Clear();
-            foreach (var preset in presets)
-            {
-                autorotation.Activate(preset);
-            }
+            autorotation.Activate(preset);
             return true;
         });
         Register("Presets.ClearActive", () =>
@@ -429,10 +385,30 @@ sealed class IPCProvider : IDisposable
             autorotation.SetForceDisabled();
             return true;
         });
+        Register("Presets.GetActiveList", () => autorotation.Presets.Select(p => p.Name).ToList());
+        Register("Presets.SetActiveList", (List<string> names) =>
+        {
+            List<Preset> presets = [];
+            foreach (var name in names)
+            {
+                var p = autorotation.Database.Presets.FindPresetByName(name);
+                if (p == null)
+                {
+                    Service.Log($"Presets.SetActiveList: input contained unrecognized preset name {name} - giving up");
+                    return false;
+                }
+                presets.Add(p);
+            }
+
+            autorotation.Clear();
+            foreach (var p in presets)
+                autorotation.Activate(p);
+            return true;
+        });
 
         bool addTransientStrategy(string presetName, string moduleTypeName, string trackName, string value, StrategyTarget target = StrategyTarget.Automatic, int targetParam = 0)
         {
-            var mt = Type.GetType(moduleTypeName);
+            var mt = Type.GetType(moduleTypeName) ?? typeof(IPCProvider).Assembly.GetType(moduleTypeName);
             if (mt == null || !RotationModuleRegistry.Modules.TryGetValue(mt, out var md))
             {
                 return false;
@@ -491,7 +467,7 @@ sealed class IPCProvider : IDisposable
 
         Register("Presets.ClearTransientStrategy", (string presetName, string moduleTypeName, string trackName) =>
         {
-            var mt = Type.GetType(moduleTypeName);
+            var mt = Type.GetType(moduleTypeName) ?? typeof(IPCProvider).Assembly.GetType(moduleTypeName);
             if (mt == null || !RotationModuleRegistry.Modules.TryGetValue(mt, out var md))
             {
                 return false;
@@ -520,7 +496,7 @@ sealed class IPCProvider : IDisposable
         });
         Register("Presets.ClearTransientModuleStrategies", (string presetName, string moduleTypeName) =>
         {
-            var mt = Type.GetType(moduleTypeName);
+            var mt = Type.GetType(moduleTypeName) ?? typeof(IPCProvider).Assembly.GetType(moduleTypeName);
             if (mt == null || !RotationModuleRegistry.Modules.TryGetValue(mt, out var md))
             {
                 return false;

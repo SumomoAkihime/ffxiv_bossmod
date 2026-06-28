@@ -2,7 +2,7 @@
 
 namespace BossMod.Autorotation.xan;
 
-public sealed class PhantomAI(RotationModuleManager manager, Actor player) : AIBase<PhantomAI.Strategy>(manager, player)
+public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase<PhantomAI.Strategy>(manager, player)
 {
     public struct Strategy
     {
@@ -94,13 +94,13 @@ public sealed class PhantomAI(RotationModuleManager manager, Actor player) : AIB
     }
 
     public static readonly uint[] UndeadMobs = [
-        13921u, // caoineag
-        13922u, // crescent ghost
-        13923u, // crescent geshunpest
-        13924u, // crescent armor
-        13925u, // crescent troubadour
-        13926u, // crescent gourmand
-        13927u, // crescent dullahan
+        13921, // caoineag
+        13922, // crescent ghost
+        13923, // crescent geshunpest
+        13924, // crescent armor
+        13925, // crescent troubadour
+        13926, // crescent gourmand
+        13927, // crescent dullahan
     ];
 
     public static readonly uint[] UndesirableStatus = [
@@ -128,7 +128,7 @@ public sealed class PhantomAI(RotationModuleManager manager, Actor player) : AIB
 
     float DesiredRange = float.MaxValue;
 
-    public override void Execute(in Strategy strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(in Strategy strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         if (World.Client.CountdownRemaining > 0)
             return;

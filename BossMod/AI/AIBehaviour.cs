@@ -108,16 +108,8 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot, Prese
                     _navStartTime = WorldState.FutureTime(_config.MoveDelay);
                 }
 
-                if (!forbidTargeting && !cancel)
-                {
-                    if (AIPreset != null)
-                    {
-                        if (target.Target != null)
-                            autorot.Activate(AIPreset);
-                        else
-                            autorot.Deactivate(AIPreset);
-                    }
-                }
+                if (!cancel)
+                    SetAIPresetActive(!forbidTargeting && target.Target != null);
                 UpdateMovement(player, master, gazeImminent || pyreticImminent, misdirectionMode ? autorot.Hints.MisdirectionThreshold : default, !forbidTargeting ? autorot.Hints.ActionsToExecute : null);
             }
             finally
@@ -125,6 +117,17 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot, Prese
                 _semaphore.Release();
             }
         }
+    }
+
+    private void SetAIPresetActive(bool active)
+    {
+        if (AIPreset == null)
+            return;
+
+        if (active)
+            autorot.Activate(AIPreset);
+        else
+            autorot.Deactivate(AIPreset);
     }
 
     // returns null if we're to be idle, otherwise target to attack

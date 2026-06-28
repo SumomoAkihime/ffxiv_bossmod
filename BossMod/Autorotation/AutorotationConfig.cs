@@ -1,4 +1,6 @@
-﻿namespace BossMod.Autorotation;
+using System.Text.Json;
+
+namespace BossMod.Autorotation;
 
 [ConfigDisplay(Name = "Autorotation", Order = 5)]
 public sealed class AutorotationConfig : ConfigNode
@@ -19,8 +21,11 @@ public sealed class AutorotationConfig : ConfigNode
     [PropertyDisplay("Show autorotation preset in the server info bar")]
     public DtrStatus ShowDTR = DtrStatus.None;
 
+    [PropertyDisplay("Show performance stats in the server info bar")]
+    public bool ShowStatsDTR = false;
+
     [PropertyDisplay("Hide built-in presets", tooltip: "If you've created your own presets and no longer need the included defaults, this option will prevent them from being shown in the Autorotation and Preset Editor windows.")]
-    public bool HideDefaultPresets = true;
+    public bool HideDefaultPreset = false;
 
     public bool SuggestHealerAI = true;
 
@@ -42,4 +47,11 @@ public sealed class AutorotationConfig : ConfigNode
     [PropertyDisplay("Early pull threshold", tooltip: "If someone enters combat with a boss when the countdown is longer than this value, it's consider a ninja-pull and autorotation is force disabled")]
     [PropertySlider(0, 30, Speed = 1)]
     public float EarlyPullThreshold = 1.5f;
+
+    public override void Deserialize(JsonElement j, JsonSerializerOptions ser)
+    {
+        base.Deserialize(j, ser);
+        if (j.TryGetProperty("HideDefaultPresets", out var legacyHideDefaultPresets))
+            HideDefaultPreset = legacyHideDefaultPresets.GetBoolean();
+    }
 }

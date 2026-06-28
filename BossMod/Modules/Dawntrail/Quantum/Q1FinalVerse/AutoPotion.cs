@@ -18,7 +18,7 @@ sealed class AutoPotionModule(RotationModuleManager manager, Actor player) : Rot
         return res;
     }
 
-    public override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         var opt = strategy.Option(Track.Potion);
         if (opt.As<PotionStrategy>() == PotionStrategy.Use && RegenLeft() < 2)

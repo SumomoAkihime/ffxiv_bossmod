@@ -166,13 +166,13 @@ public abstract class AkechiTools<AID, TraitID>(RotationModuleManager manager, A
     protected Actor? AOETargetChoice(Actor? manual, Actor? auto, StrategyValues.OptionRef track, StrategyValues strategy) => ResolveTargetOverride(track.Value) ?? (strategy.AutoTarget() ? auto : manual);
 
     //position checks
-    protected PositionCheck IsSplashTarget => (primary, other) => TargetInAOECircle(other, primary.Position, 5f);
-    protected PositionCheck Is10ySplashTarget => (primary, other) => TargetInAOECircle(other, primary.Position, 10f);
-    protected PositionCheck ConeTargetCheck(float range) => (primary, other) => TargetInAOECone(other, Player.Position, range, Player.DirectionTo(primary), 45f.Degrees());
-    protected PositionCheck Is12yConeTarget => ConeTargetCheck(12f);
-    protected PositionCheck LineTargetCheck(float range, float halfWidth = 2f) => (primary, other) => TargetInAOERect(other, Player.Position, Player.DirectionTo(primary), range, halfWidth);
-    protected PositionCheck Is10yRectTarget => LineTargetCheck(10f);
-    protected PositionCheck Is25yRectTarget => LineTargetCheck(25f);
+    protected PositionCheck IsSplashTarget => (primary, other) => AIHints.TargetInAOECircle(other, primary.Position, 5);
+    protected PositionCheck Is10ySplashTarget => (primary, other) => AIHints.TargetInAOECircle(other, primary.Position, 10);
+    protected PositionCheck ConeTargetCheck(float range) => (primary, other) => AIHints.TargetInAOECone(other, Player.Position, range, Player.DirectionTo(primary), 45.Degrees());
+    protected PositionCheck Is12yConeTarget => ConeTargetCheck(12);
+    protected PositionCheck LineTargetCheck(float range, float halfWidth = 2) => (primary, other) => TargetInAOERect(other, Player.Position, Player.DirectionTo(primary), range, halfWidth);
+    protected PositionCheck Is10yRectTarget => LineTargetCheck(10);
+    protected PositionCheck Is25yRectTarget => LineTargetCheck(25);
 
     //distance checks
     protected bool DistanceFrom(Actor? target, float maxDistance) => Player.DistanceToHitbox(target) <= maxDistance;
@@ -385,7 +385,7 @@ public abstract class AkechiTools<AID, TraitID>(RotationModuleManager manager, A
         NextPositionalImminent = !tn && positional.imm;
         NextPositionalCorrect = tn || target == null || positional.pos switch
         {
-            Positional.Flank => Math.Abs(target.Rotation.ToDirection().Dot((Player.Position - target.Position).Normalized())) < 0.7071067f,
+            Positional.Flank => MathF.Abs(target.Rotation.ToDirection().Dot((Player.Position - target.Position).Normalized())) < 0.7071067f,
             Positional.Rear => target.Rotation.ToDirection().Dot((Player.Position - target.Position).Normalized()) < -0.7071068f,
             _ => true
         };
@@ -401,7 +401,7 @@ public abstract class AkechiTools<AID, TraitID>(RotationModuleManager manager, A
     protected void GoalZoneSingle(float range)
     {
         if (PlayerTarget != null)
-            Hints.GoalZones.Add(GoalSingleTarget(PlayerTarget.Actor, range));
+            Hints.GoalZones.Add(AIHints.GoalSingleTarget(PlayerTarget.Actor, range));
     }
 
     protected void GoalZoneCombined(StrategyValues strategy, float range, Func<WPos, float> fAoe, AID firstUnlockedAoeAction, int minAoe, float? maximumActionRange = null)
@@ -418,9 +418,9 @@ public abstract class AkechiTools<AID, TraitID>(RotationModuleManager manager, A
         }
         else
         {
-            Hints.GoalZones.Add(GoalCombined(GoalSingleTarget(PlayerTarget.Actor, positional, range), fAoe, minAoe));
+            Hints.GoalZones.Add(AIHints.GoalCombined(AIHints.GoalSingleTarget(PlayerTarget.Actor, positional, range), fAoe, minAoe));
             if (maximumActionRange is float r)
-                Hints.GoalZones.Add(GoalSingleTarget(PlayerTarget.Actor, r, 0.5f));
+                Hints.GoalZones.Add(AIHints.GoalSingleTarget(PlayerTarget.Actor, r, 0.5f));
         }
     }
 
@@ -438,9 +438,9 @@ public abstract class AkechiTools<AID, TraitID>(RotationModuleManager manager, A
         }
         else
         {
-            Hints.GoalZones.Add(GoalCombined(GoalSingleTarget(PlayerTarget.Actor, imminent ? positional : Positional.Any, range), fAoe, minAoe));
+            Hints.GoalZones.Add(AIHints.GoalCombined(AIHints.GoalSingleTarget(PlayerTarget.Actor, imminent ? positional : Positional.Any, range), fAoe, minAoe));
             if (maximumActionRange is float r)
-                Hints.GoalZones.Add(GoalSingleTarget(PlayerTarget.Actor, r, 0.5f));
+                Hints.GoalZones.Add(AIHints.GoalSingleTarget(PlayerTarget.Actor, r, 0.5f));
         }
     }
     #endregion
@@ -523,7 +523,7 @@ public abstract class AkechiTools<AID, TraitID>(RotationModuleManager manager, A
 
     #endregion
 
-    public sealed override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public sealed override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         NextGCD = default;
         NextGCDPrio = 0;

@@ -8,18 +8,7 @@
 // - repeat the process until no more actions can be found
 public sealed class ActionQueue
 {
-    public readonly struct Entry(ActionID action, Actor? target, float priority, float expire, float delay, float castTime, Vector3 targetPos, Angle? facingAngle, bool manual)
-    {
-        public readonly ActionID Action = action;
-        public readonly Actor? Target = target;
-        public readonly float Priority = priority;
-        public readonly float Expire = expire;
-        public readonly float Delay = delay;
-        public readonly float CastTime = castTime;
-        public readonly Vector3 TargetPos = targetPos;
-        public readonly Angle? FacingAngle = facingAngle;
-        public readonly bool Manual = manual;
-    }
+    public readonly record struct Entry(ActionID Action, Actor? Target, float Priority, float Expire, float Delay, float CastTime, Vector3 TargetPos, Angle? FacingAngle, bool Manual, bool Force);
 
     // reference priority guidelines
     // values divisible by 1000 are reserved for standard cooldown planner priorities
@@ -28,43 +17,38 @@ public sealed class ActionQueue
     // note that actions with priority < 0 will never be executed; they can still be added to the queue if it's convenient for the implementation
     public static class Priority
     {
-        public const float Minimal = default; // minimal priority for action to be still considered for execution; do not use directly
+        public const float Minimal = 0; // minimal priority for action to be still considered for execution; do not use directly
         // priorities > Minimal and < VeryLow should be used for ??? (don't know good usecases)
-        public const float VeryLow = 1000f; // only use this action if there is nothing else to press
+        public const float VeryLow = 1000; // only use this action if there is nothing else to press
         // priorities > VeryLow and < Low should be used for actions that can be safely delayed without affecting dps (eg. ability with charges when there is no risk of overcapping or losing raidbuffs any time soon)
-        public const float Low = 2000f; // only use this action if it won't delay dps action (eg. delay if there are any ogcds that need to be used)
+        public const float Low = 2000; // only use this action if it won't delay dps action (eg. delay if there are any ogcds that need to be used)
         // priorities > Low and < Medium should be used for normal ogcds that are part of the rotation
-        public const float Medium = 3000f; // use this action in first possible ogcd slot, unless there's some hugely important rotational ogcd; you should always have at least 1 slot per gcd to execute Medium actions
+        public const float Medium = 3000; // use this action in first possible ogcd slot, unless there's some hugely important rotational ogcd; you should always have at least 1 slot per gcd to execute Medium actions
         // priorities > Medium and < High should be used for ogcds that can't be delayed (eg. GNB continuation); code should be careful not to queue more than one such action per gcd window
-        public const float High = 4000f; // use this action asap, unless it would delay gcd (that is - in first possible ogcd slot); careless use could severely affect dps
+        public const float High = 4000; // use this action asap, unless it would delay gcd (that is - in first possible ogcd slot); careless use could severely affect dps
         // priorities > High and < VeryHigh should be used for gcds, or any other actions that need to delay gcd
-        public const float VeryHigh = 5000f; // drop everything and use this action asap, delaying gcd if needed; almost guaranteed to severely affect dps
+        public const float VeryHigh = 5000; // drop everything and use this action asap, delaying gcd if needed; almost guaranteed to severely affect dps
         // priorities > VeryHigh should not be used by general code
 
-        public const float ManualOGCD = 4001f; // manually pressed ogcd should be higher priority than any non-gcd, but lower than any gcd
-        public const float ManualGCD = 4999f; // manually pressed gcd should be higher priority than any gcd; it's still lower priority than VeryHigh, since presumably that action is planned to delay gcd
-        public const float ManualEmergency = 9000f; // this action should be used asap, because user is spamming it
+        public const float ManualOGCD = 4001; // manually pressed ogcd should be higher priority than any non-gcd, but lower than any gcd
+        public const float ManualGCD = 4999; // manually pressed gcd should be higher priority than any gcd; it's still lower priority than VeryHigh, since presumably that action is planned to delay gcd
+        public const float ManualEmergency = 9000; // this action should be used asap, because user is spamming it
     }
 
     public readonly List<Entry> Entries = [];
 
     public void Clear() => Entries.Clear();
-    public void Push(in ActionID action, Actor? target, float priority, float expire = float.MaxValue, float delay = default, float castTime = default, Vector3 targetPos = default, Angle? facingAngle = null, bool manual = false) => Entries.Add(new(action, target, priority, expire, delay, castTime, targetPos, facingAngle, manual));
+    public void Push(ActionID action, Actor? target, float priority, float expire = float.MaxValue, float delay = 0, float castTime = 0, Vector3 targetPos = default, Angle? facingAngle = null, bool manual = false, bool forced = false) => Entries.Add(new(action, target, priority, expire, delay, castTime, targetPos, facingAngle, manual, forced));
 
     public Entry FindBest(WorldState ws, Actor player, ReadOnlySpan<Cooldown> cooldowns, float animationLock, AIHints hints, float instantAnimLockDelay, bool allowDismount)
     {
-        Entries.Sort(static (b, a) => (a.Priority, -a.Expire).CompareTo((b.Priority, -b.Expire)));
+        Entries.SortByReverse(e => (e.Priority, -e.Expire));
         Entry best = default;
-        var deadline = float.MaxValue; // any candidate we consider, if executed, should allow executing next action by this deadline
-        var entries = CollectionsMarshal.AsSpan(Entries);
-        var len = entries.Length;
-        for (var i = 0; i < len; ++i)
+        float deadline = float.MaxValue; // any candidate we consider, if executed, should allow executing next action by this deadline
+        foreach (ref var candidate in Entries.AsSpan())
         {
-            ref var candidate = ref entries[i];
             if (candidate.Priority < Priority.Minimal)
-            {
                 break; // this and further actions are something we don't really want to execute (prio < minimal)
-            }
 
             var def = ActionDefinitions.Instance[candidate.Action];
             if (def == null)
@@ -73,23 +57,17 @@ public sealed class ActionQueue
                 continue;
             }
             if (!def.IsUnlocked(ws, player))
-            {
                 continue;
-            }
 
             if (candidate.CastTime > hints.MaxCastTime)
-            {
                 continue; // this cast can't be finished in time, look for something else
-            }
 
             var startDelay = Math.Max(Math.Max(candidate.Delay, animationLock), def.ReadyIn(cooldowns, ws.Client.DutyActions));
 
             // TODO: adjusted cast time!
             var duration = def.CastTime > 0 ? def.CastTime + def.CastAnimLock : def.InstantAnimLock + instantAnimLockDelay;
             if (startDelay + duration > deadline)
-            {
                 continue; // this action can't be done in time for higher-priority action, skip
-            }
 
             // we can use this action before deadline it seems
             if (startDelay > 0.05f)
@@ -109,45 +87,33 @@ public sealed class ActionQueue
 
         // double check that best candidate can be executed before we return it; it may have been promoted to best if a better action was interrupted for example
         if (CanExecute(ref best, ActionDefinitions.Instance[best.Action], ws, player, hints, allowDismount))
-        {
             return best;
-        }
 
         return default;
     }
 
     private bool CanExecute(ref Entry entry, ActionDefinition? def, WorldState ws, Actor player, AIHints hints, bool allowDismount)
     {
-        if (entry.Priority >= Priority.ManualEmergency || def == null)
-        {
+        if (entry.Priority >= Priority.ManualEmergency || entry.Force || def == null)
             return true; // don't make any assumptions
-        }
 
         if (!allowDismount && AutoDismountTweak.IsMountPreventingAction(ws, def.ID))
-        {
             return false;
-        }
 
         if (def.ID.Type == ActionType.Item && ws.Client.GetInventoryItemQuantity(def.ID.ID) == 0)
-        {
             return false;
-        }
 
         var range = def.Range;
         if (range > 0)
         {
             if ((RDM.AID)def.ID.ID is RDM.AID.Riposte or RDM.AID.Zwerchhau or RDM.AID.Redoublement or RDM.AID.EnchantedRiposte or RDM.AID.EnchantedZwerchhau or RDM.AID.EnchantedRedoublement && player.FindStatus(RDM.SID.Manafication) != null)
-            {
                 range = 25;
-            }
 
             var to = entry.Target?.Position ?? new(entry.TargetPos.XZ());
             var distSq = (to - player.Position).LengthSq();
-            var effRange = range + player.HitboxRadius + (entry.Target?.HitboxRadius ?? default);
+            var effRange = range + player.HitboxRadius + (entry.Target?.HitboxRadius ?? 0);
             if (distSq > effRange * effRange)
-            {
                 return false;
-            }
         }
 
         return def.ForbidExecute == null || !def.ForbidExecute.Invoke(ws, player, entry, hints);

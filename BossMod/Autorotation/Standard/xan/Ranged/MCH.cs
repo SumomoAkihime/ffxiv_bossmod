@@ -235,8 +235,8 @@ public sealed class MCH(RotationModuleManager manager, Actor player) : Attackxan
             PushOGCD(AID.Hypercharge, Player);
     }
 
-    private float NextToolCharge => Math.Min(ReadyIn(AID.Drill), Math.Min(ReadyIn(AID.ChainSaw), ReadyIn(AID.AirAnchor)));
-    private float NextToolCap => Math.Min(MaxChargesIn(AID.Drill), Math.Min(MaxChargesIn(AID.ChainSaw), MaxChargesIn(AID.AirAnchor)));
+    private float NextToolCharge => MathF.Min(ReadyIn(AID.Drill), MathF.Min(ReadyIn(AID.ChainSaw), ReadyIn(AID.AirAnchor)));
+    private float NextToolCap => MathF.Min(MaxChargesIn(AID.Drill), MathF.Min(MaxChargesIn(AID.ChainSaw), MaxChargesIn(AID.AirAnchor)));
 
     private float MaxGaussCD => MaxChargesIn(AID.GaussRound);
     private float MaxRicochetCD => MaxChargesIn(AID.Ricochet);
@@ -380,5 +380,5 @@ public sealed class MCH(RotationModuleManager manager, Actor player) : Attackxan
         return OnCooldown(AID.Drill);
     }
 
-    private PositionCheck IsConeAOETarget => (playerTarget, targetToTest) => TargetInAOECone(targetToTest, Player.Position, 12, Player.DirectionTo(playerTarget), 60f.Degrees());
+    private PositionCheck IsConeAOETarget => (playerTarget, targetToTest) => AIHints.TargetInAOECone(targetToTest, Player.Position, 12, Player.DirectionTo(playerTarget), 60.Degrees());
 }

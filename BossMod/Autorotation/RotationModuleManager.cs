@@ -1,3 +1,4 @@
+using BossMod.AI;
 using FFXIVClientStructs.FFXIV.Common.Component.BGCollision;
 
 namespace BossMod.Autorotation;
@@ -17,53 +18,25 @@ public sealed class RotationModuleManager : IDisposable
 
     public readonly List<Preset> Presets = [];
 
-    public Preset? Preset
-    {
-        get => Presets.Count == 1 ? Presets[0] : null;
-        set
-        {
-            if (Preset == value)
-            {
-                return;
-            }
-
-            Presets.Clear();
-            if (value != null)
-            {
-                Presets.Add(value);
-            }
-            DirtyActiveModules(true);
-        }
-    }
-
-    public static readonly AutorotationConfig Config = Service.Config.Get<AutorotationConfig>();
+    public readonly AutorotationConfig Config = Service.Config.Get<AutorotationConfig>();
     public readonly RotationDatabase Database;
     public readonly BossModuleManager Bossmods;
     public int PlayerSlot; // TODO: reconsider, we rely on too many things in clientstate...
     public readonly AIHints Hints;
-    public PlanExecution? Planner;
-    private static readonly PartyRolesConfig _prc = Service.Config.Get<PartyRolesConfig>();
+    public PlanExecution? Planner { get; private set; }
+    private readonly PartyRolesConfig _prc = Service.Config.Get<PartyRolesConfig>();
     private readonly EventSubscriptions _subscriptions;
-    private List<(int PresetIndex, ActiveModule Module)>? ActiveModules;
-    private IEnumerable<ActiveModule> ActiveModulesFlat => ActiveModules?.Select(m => m.Module) ?? [];
-    private bool WantsLoSFix
-    {
-        get
-        {
-            var count = ActiveModules?.Count;
-            for (var i = 0; i < count; ++i)
-            {
-                if (ActiveModules![i].Module.Module.WantsLoSFix)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
+    private List<(int index, ActiveModule module)>? _activeModules;
+    private IEnumerable<ActiveModule> ActiveModulesFlat => _activeModules?.Select(m => m.module) ?? [];
+    private bool WantsLoSFix => ActiveModulesFlat.Any(m => m.Module.WantsLoSFix);
 
     public static readonly Preset ForceDisable = new(""); // empty preset, so if it's activated, rotation is force disabled
+
+    private readonly AIConfig _aiConfig = Service.Config.Get<AIConfig>();
+    private readonly Preset _pMultibox;
+
     public bool IsForceDisabled => Presets.Count == 1 && Presets[0] == ForceDisable;
+
     public string PresetNames => Presets.Count > 0 ? string.Join(", ", Presets.Select(p => p.Name)) : "<n/a>";
 
     public WorldState WorldState => Bossmods.WorldState;
@@ -71,9 +44,9 @@ public sealed class RotationModuleManager : IDisposable
     public Actor? Player => WorldState.Party[PlayerSlot];
 
     // historic data for recent events that could be interesting for modules
-    public DateTime CombatStart; // default value when player is not in combat, otherwise timestamp when player entered combat
-    public (DateTime Time, ActorCastEvent? Data) LastCast;
-    public LineOfSightFix? LoSFix;
+    public DateTime CombatStart { get; private set; } // default value when player is not in combat, otherwise timestamp when player entered combat
+    public (DateTime Time, ActorCastEvent? Data) LastCast { get; private set; }
+    public LineOfSightFix? LoSFix { get; private set; }
 
     public volatile float LastRasterizeMs;
     public volatile float LastPathfindMs;
@@ -86,19 +59,20 @@ public sealed class RotationModuleManager : IDisposable
         (uint)Roleplay.SID.BorrowedFlesh, // used specifically for In from the Cold (Endwalker)
         (uint)Roleplay.SID.FreshPerspective, // sapphire weapon quest
 
-        // hacking intermission gimmick in Tower of Paradigm's Breach boss 3
-        (uint)Shadowbringers.Alliance.A33RedGirl.SID.Program000000,
-        (uint)Shadowbringers.Alliance.A33RedGirl.SID.ProgramFFFFFFF,
+        // hacking interlude gimmick in Paradigm's Breach boss 3
+        2633, // Program000000 from The Puppets' Bunker hacking interlude
+        2632, // ProgramFFFFFFF from The Puppets' Bunker hacking interlude
 
-        565u, // "Transfiguration" from certain pomanders in Palace of the Dead
-        439u, // "Toad", palace of the dead
-        1546u, // "Odder", heaven-on-high
-        3502u, // "Owlet", EO
-        404u, // "Transporting", not a transformation but prevents actions
-        4235u, // "Rage" status from Phantom Berserker, prevents all actions and movement
-        4376u, // "Transporting", variant in Occult Crescent
-        4586u, // "Away with the Fae", PT
-        4708u, // "Transfiguration", PT
+        565, // "Transfiguration" from certain pomanders in Palace of the Dead
+        439, // "Toad", palace of the dead
+        1546, // "Odder", heaven-on-high
+        3502, // "Owlet", EO
+        1284, // "Out of the Action", bardam's mettle b2 and probably some others
+        404, // "Transporting", not a transformation but prevents actions
+        4235, // "Rage" status from Phantom Berserker, prevents all actions and movement
+        4376, // "Transporting", variant in Occult Crescent
+        4586, // "Away with the Fae", PT
+        4708, // "Transfiguration", PT
     ];
 
     public static bool IsTransformStatus(ActorStatus st) => TransformationStatuses.Contains(st.ID);
@@ -109,6 +83,7 @@ public sealed class RotationModuleManager : IDisposable
         Bossmods = bmm;
         PlayerSlot = playerSlot;
         Hints = hints;
+        _pMultibox = Database.Presets.DefaultPresets.First(f => f.Name == "VBM Multibox");
         _subscriptions = new
         (
             WorldState.Actors.Added.Subscribe(a => DirtyActiveModules(PlayerInstanceId == a.InstanceID)),
@@ -123,21 +98,13 @@ public sealed class RotationModuleManager : IDisposable
             WorldState.Client.ActionRequested.Subscribe(OnActionRequested),
             WorldState.Client.CountdownChanged.Subscribe(OnCountdownChanged),
             WorldState.Client.ActionFailedLoS.Subscribe(OnLoSFailed),
-            Database.Presets.PresetModified.Subscribe(OnPresetModified)
+            Database.Presets.PresetModified.Subscribe(OnPresetModified),
+            _aiConfig.Modified.Subscribe(() => DirtyActiveModules(true))
         );
     }
 
     public void Dispose()
     {
-        if (ActiveModules != null)
-        {
-            var count = ActiveModules.Count;
-            for (var i = 0; i < count; ++i)
-            {
-                ActiveModules[i].Module.Module.Dispose();
-            }
-            ActiveModules = null;
-        }
         _subscriptions.Dispose();
     }
 
@@ -153,10 +120,17 @@ public sealed class RotationModuleManager : IDisposable
         }
 
         // rebuild modules if needed
-        ActiveModules ??= Presets.Count > 0
-            ? [.. Presets.SelectMany((p, i) => RebuildActiveModules(p.Modules, i))]
-            : Planner?.Plan != null ? RebuildActiveModules(Planner.Plan.Modules, 0) : [];
-        ActiveModules.Sort((l, r) => l.Module.Definition.Order.CompareTo(r.Module.Definition.Order));
+        if (_activeModules == null)
+        {
+            // ensure AI compatibility status matches config option, unless force disabled
+            Presets.Remove(_pMultibox);
+            if (_aiConfig.Enabled && !Presets.Contains(ForceDisable))
+                Presets.Add(_pMultibox);
+
+            _activeModules ??= Presets.Count > 0 ? [.. Presets.SelectMany((p, i) => RebuildActiveModules(p.Modules, i))] : Planner?.Plan != null ? RebuildActiveModules(Planner.Plan.Modules, 0) : [];
+        }
+
+        _activeModules?.SortBy(m => m.module.Definition.Order);
 
         // trying to change target or use actions is a waste of cpu cycles during duty recorder playback
         if (dutyRecorder)
@@ -172,11 +146,10 @@ public sealed class RotationModuleManager : IDisposable
 
         // auto actions
         var target = Hints.ForcedTarget ?? WorldState.Actors.Find(Player?.TargetID ?? 0);
-        for (var i = 0; i < ActiveModules.Count; ++i)
+        foreach (var (slot, m) in _activeModules ?? [])
         {
-            var m = ActiveModules[i];
-            var values = Presets.BoundSafeAt(m.PresetIndex)?.ActiveStrategyOverrides(m.Module.DataIndex) ?? Planner?.ActiveStrategyOverrides(m.Module.DataIndex) ?? throw new InvalidOperationException("Both presets and plan are empty, but there are active modules");
-            m.Module.Module.Execute(values, target, estimatedAnimLockDelay, isMoving);
+            var values = Presets.BoundSafeAt(slot)?.ActiveStrategyOverrides(m.DataIndex) ?? Planner?.ActiveStrategyOverrides(m.DataIndex) ?? throw new InvalidOperationException("Both preset and plan are null, but there are active modules");
+            m.Module.Execute(values, ref target, estimatedAnimLockDelay, isMoving);
         }
     }
 
@@ -206,9 +179,7 @@ public sealed class RotationModuleManager : IDisposable
     {
         var dirty = Presets.Remove(ForceDisable);
         if (exclusive)
-        {
             Presets.Clear();
-        }
         if (!Presets.Contains(p))
         {
             Presets.Add(p);
@@ -220,9 +191,7 @@ public sealed class RotationModuleManager : IDisposable
     public void Deactivate(Preset p)
     {
         if (Presets.Remove(p))
-        {
             DirtyActiveModules(true);
-        }
     }
 
     public void Toggle(Preset p, bool exclusive = false)
@@ -230,15 +199,11 @@ public sealed class RotationModuleManager : IDisposable
         if (!Presets.Remove(p))
         {
             if (exclusive)
-            {
                 Presets.Clear();
-            }
             Presets.Add(p);
         }
         if (p != ForceDisable)
-        {
             Presets.Remove(ForceDisable);
-        }
         DirtyActiveModules(true);
     }
 
@@ -306,7 +271,7 @@ public sealed class RotationModuleManager : IDisposable
     }
 
     // TODO: consider not recreating modules that were active and continue to be active?
-    private List<(int PresetIndex, ActiveModule Module)> RebuildActiveModules<T>(List<T> modules, int presetIndex) where T : IRotationModuleData
+    private List<(int, ActiveModule)> RebuildActiveModules<T>(List<T> modules, int index) where T : IRotationModuleData
     {
         List<(int, ActiveModule)> res = [];
         var player = Player;
@@ -320,7 +285,7 @@ public sealed class RotationModuleManager : IDisposable
                     continue;
                 if (!def.CanUseWhileRoleplaying && isRPMode)
                     continue;
-                res.Add((presetIndex, new(i, def, modules[i].Builder(this, player))));
+                res.Add((index, new(i, def, modules[i].Builder(this, player))));
             }
         }
         return res;
@@ -328,17 +293,12 @@ public sealed class RotationModuleManager : IDisposable
 
     private void DirtyActiveModules(bool condition)
     {
-        if (!condition || ActiveModules == null)
+        if (condition)
         {
-            return;
+            LastRasterizeMs = 0;
+            LastPathfindMs = 0;
+            _activeModules = null;
         }
-
-        var count = ActiveModules.Count;
-        for (var i = 0; i < count; ++i)
-        {
-            ActiveModules[i].Module.Module.Dispose();
-        }
-        ActiveModules = null;
     }
 
     private void OnCombatChanged(Actor actor)
@@ -401,9 +361,8 @@ public sealed class RotationModuleManager : IDisposable
 
     private void OnActionRequested(ClientState.OpActionRequest op)
     {
-#if DEBUG
-        Service.Log($"[RMM] Exec #{op.Request.SourceSequence} {op.Request.Action} @ {op.Request.TargetID:X} [{string.Join(" --- ", ActiveModulesFlat.Select(m => m.Module.DescribeState()))}]");
-#endif
+        if (Service.IsDev)
+            Service.Log($"[RMM] Exec #{op.Request.SourceSequence} {op.Request.Action} @ {op.Request.TargetID:X} [{string.Join(" --- ", ActiveModulesFlat.Select(m => m.Module.DescribeState()))}]");
     }
 
     private void OnCastEvent(Actor actor, ActorCastEvent cast)
@@ -411,12 +370,11 @@ public sealed class RotationModuleManager : IDisposable
         if (cast.SourceSequence != 0 && WorldState.Party.Members[PlayerSlot].InstanceId == actor.InstanceID)
         {
             LastCast = (WorldState.CurrentTime, cast);
-#if DEBUG
-            Service.Log($"[RMM] Cast #{cast.SourceSequence} {cast.Action} @ {cast.MainTargetID:X} [{string.Join(" --- ", ActiveModulesFlat.Select(m => m.Module.DescribeState()))}]");
-#endif
+            if (Service.IsDev)
+                Service.Log($"[RMM] Cast #{cast.SourceSequence} {cast.Action} @ {cast.MainTargetID:X} [{string.Join(" --- ", ActiveModulesFlat.Select(m => m.Module.DescribeState()))}]");
         }
 
-        if (cast.Action.ID == 6276u && Config.ClearPresetOnLuring)
+        if (cast.Action.ID == 6276 && Config.ClearPresetOnLuring)
         {
             Service.Log($"[RMM] Luring Trap triggered, force-disabling from '{PresetNames}'");
             SetForceDisabled();
@@ -449,7 +407,12 @@ public sealed class RotationModuleManager : IDisposable
             return;
         }
 
-        var dest = FindLosDestination(Hints.PathfindMapObstacles, Hints.PathfindMapCenter, Player, target, out var _);
+        var dest = FindLosDestination(Hints.PathfindMapObstacles, Hints.PathfindMapCenter, Player, target, out var debug);
+        if (Service.IsDev)
+        {
+            Service.Log($"[RMM] LoS failed for action {op.ActionId} on target {target.Name}#{op.TargetId:X}, setting LoS destination to {dest}");
+            Service.Log($"[RMM] {debug}");
+        }
         LoSFix = dest != null ? new(op.TargetId, Player.Position, dest.Value) : null;
     }
 

@@ -1,4 +1,6 @@
-﻿namespace BossMod;
+﻿using System.Reflection;
+
+namespace BossMod;
 
 // allowed categories of targets for an action
 [Flags]
@@ -92,26 +94,16 @@ public sealed record class ActionDefinition(ActionID ID)
     public int MaxChargesAtCap()
     {
         foreach (ref var o in MaxChargesOverride.AsSpan())
-        {
             if (LinkUnlocked(o.UnlockLink))
-            {
                 return o.Charges;
-            }
-        }
-
         return MaxChargesBase;
     }
 
     public int MaxChargesAtLevel(int level)
     {
         foreach (ref var o in MaxChargesOverride.AsSpan())
-        {
             if (level >= o.Level && LinkUnlocked(o.UnlockLink))
-            {
                 return o.Charges;
-            }
-        }
-
         return MaxChargesBase;
     }
 
@@ -132,27 +124,21 @@ public sealed record class ActionDefinition(ActionID ID)
     public float MainReadyIn(ReadOnlySpan<Cooldown> cooldowns, ReadOnlySpan<ClientState.DutyAction> dutyActions)
     {
         if (MainCooldownGroup < 0)
-        {
             return 0;
-        }
-
         var cdg = cooldowns[ActualMainCooldownGroup(dutyActions)];
-        return cdg.Total > 0f ? Math.Max(0f, cdg.Total / MaxChargesAtCap() - cdg.Elapsed) : default;
+        return cdg.Total > 0 ? Math.Max(0, cdg.Total / MaxChargesAtCap() - cdg.Elapsed) : 0;
     }
 
-    public float ExtraReadyIn(ReadOnlySpan<Cooldown> cooldowns) => ExtraCooldownGroup >= 0 ? cooldowns[ExtraCooldownGroup].Remaining : default;
+    public float ExtraReadyIn(ReadOnlySpan<Cooldown> cooldowns) => ExtraCooldownGroup >= 0 ? cooldowns[ExtraCooldownGroup].Remaining : 0;
     public float ReadyIn(ReadOnlySpan<Cooldown> cooldowns, ReadOnlySpan<ClientState.DutyAction> dutyActions) => Math.Max(MainReadyIn(cooldowns, dutyActions), ExtraReadyIn(cooldowns));
 
     // return time until charges are capped (for multi-charge abilities; for single-charge this is equivalent to remaining cooldown)
     public float ChargeCapIn(ReadOnlySpan<Cooldown> cooldowns, ReadOnlySpan<ClientState.DutyAction> dutyActions, int level)
     {
         if (MainCooldownGroup < 0)
-        {
-            return default;
-        }
-
+            return 0;
         var cdg = cooldowns[ActualMainCooldownGroup(dutyActions)];
-        return cdg.Total > 0f ? Math.Max(0f, MaxChargesAtLevel(level) * cdg.Total / MaxChargesAtCap() - cdg.Elapsed) : default;
+        return cdg.Total > 0 ? Math.Max(0, MaxChargesAtLevel(level) * cdg.Total / MaxChargesAtCap() - cdg.Elapsed) : 0;
     }
 
     public bool IsUnlocked(WorldState ws, Actor player)
@@ -166,15 +152,12 @@ public sealed record class ActionDefinition(ActionID ID)
 
 // database of all supported player-initiated actions
 // note that it is associated to a specific worldstate, so that it can be used for things like action conditions
-public sealed class ActionDefinitions : IDisposable
+public sealed class ActionDefinitions
 {
-    private static readonly ActionTweaksConfig _config = Service.Config.Get<ActionTweaksConfig>();
-
     private readonly Lumina.Excel.ExcelSheet<Lumina.Excel.Sheets.Action> _actionsSheet = Service.LuminaSheet<Lumina.Excel.Sheets.Action>()!;
     private readonly Lumina.Excel.ExcelSheet<Lumina.Excel.Sheets.Item> _itemsSheet = Service.LuminaSheet<Lumina.Excel.Sheets.Item>()!;
     private readonly Lumina.Excel.ExcelSheet<Lumina.Excel.RawRow> _cjcSheet = Service.LuminaGameData!.Excel.GetSheet<Lumina.Excel.RawRow>(null, "ClassJobCategory")!;
     private readonly Lumina.Excel.ExcelSheet<Lumina.Excel.Sheets.Trait> _traitSheet = Service.LuminaSheet<Lumina.Excel.Sheets.Trait>()!;
-    private readonly List<IDisposable> _classDefinitions;
     private readonly Dictionary<ActionID, ActionDefinition> _definitions = [];
 
     public IEnumerable<ActionDefinition> Definitions => _definitions.Values;
@@ -188,72 +171,52 @@ public sealed class ActionDefinitions : IDisposable
     public const int DutyAction0CDGroup = 80;
     public const int DutyAction1CDGroup = 81;
 
-    public static readonly ActionID IDSprint = new(ActionType.Spell, 3u);
-    public static readonly ActionID IDAutoAttack = new(ActionType.Spell, 7u);
-    public static readonly ActionID IDAutoShot = new(ActionType.Spell, 8u);
-    public static readonly ActionID Armslength = new(ActionType.Spell, 7548u);
-    public static readonly ActionID Surecast = new(ActionType.Spell, 7559u);
-    public static readonly ActionID Esuna = new(ActionType.Spell, 7568u);
-    public static readonly ActionID WardensPaean = new(ActionType.Spell, 3561u);
-    public static readonly ActionID IDPotionStr = new(ActionType.Item, 1049234u); // hq grade 4 gemdraught of strength
-    public static readonly ActionID IDPotionDex = new(ActionType.Item, 1049235u); // hq grade 4 gemdraught of dexterity
-    public static readonly ActionID IDPotionVit = new(ActionType.Item, 1049236u); // hq grade 4 gemdraught of vitality
-    public static readonly ActionID IDPotionInt = new(ActionType.Item, 1049237u); // hq grade 4 gemdraught of intelligence
-    public static readonly ActionID IDPotionMnd = new(ActionType.Item, 1049238u); // hq grade 4 gemdraught of mind
+    public static readonly ActionID IDSprint = new(ActionType.Spell, 3);
+    public static readonly ActionID IDAutoAttack = new(ActionType.Spell, 7);
+    public static readonly ActionID IDAutoShot = new(ActionType.Spell, 8);
+    public static readonly ActionID Armslength = new(ActionType.Spell, 7548);
+    public static readonly ActionID Surecast = new(ActionType.Spell, 7559);
+    public static readonly ActionID Esuna = new(ActionType.Spell, 7568);
+    public static readonly ActionID WardensPaean = new(ActionType.Spell, 3561);
+    public static readonly ActionID IDPotionStr = new(ActionType.Item, 1049234); // hq grade 3 gemdraught of strength
+    public static readonly ActionID IDPotionDex = new(ActionType.Item, 1049235); // hq grade 3 gemdraught of dexterity
+    public static readonly ActionID IDPotionVit = new(ActionType.Item, 1049236); // hq grade 3 gemdraught of vitality
+    public static readonly ActionID IDPotionInt = new(ActionType.Item, 1049237); // hq grade 3 gemdraught of intelligence
+    public static readonly ActionID IDPotionMnd = new(ActionType.Item, 1049238); // hq grade 3 gemdraught of mind
 
     // content specific consumables
-    public static readonly ActionID IDPotionSustaining = new(ActionType.Item, 20309u);
-    public static readonly ActionID IDPotionMax = new(ActionType.Item, 1013637u);
-    public static readonly ActionID IDPotionEmpyrean = new(ActionType.Item, 23163u);
-    public static readonly ActionID IDPotionSuper = new(ActionType.Item, 1023167u);
-    public static readonly ActionID IDPotionOrthos = new(ActionType.Item, 38944u);
-    public static readonly ActionID IDPotionHyper = new(ActionType.Item, 1038956u);
-    public static readonly ActionID IDPotionPilgrim = new(ActionType.Item, 47102u);
-    public static readonly ActionID IDPotionUltra = new(ActionType.Item, 1047701u);
+    public static readonly ActionID IDPotionSustaining = new(ActionType.Item, 20309);
+    public static readonly ActionID IDPotionMax = new(ActionType.Item, 1013637);
+    public static readonly ActionID IDPotionEmpyrean = new(ActionType.Item, 23163);
+    public static readonly ActionID IDPotionSuper = new(ActionType.Item, 1023167);
+    public static readonly ActionID IDPotionOrthos = new(ActionType.Item, 38944);
+    public static readonly ActionID IDPotionHyper = new(ActionType.Item, 1038956);
+    public static readonly ActionID IDPotionPilgrim = new(ActionType.Item, 47102);
+    public static readonly ActionID IDPotionUltra = new(ActionType.Item, 1047701);
 
-    public static readonly ActionID IDPotionEureka = new(ActionType.Item, 22306u);
+    public static readonly ActionID IDPotionEureka = new(ActionType.Item, 22306);
 
     // items we support
     public static readonly ActionID IDMiscItemGreens = new(ActionType.Item, 4868);
 
     // special general actions that we support
-    public static readonly ActionID IDGeneralLimitBreak = new(ActionType.General, 3u);
-    public static readonly ActionID IDGeneralSprint = new(ActionType.General, 4u);
-    public static readonly ActionID IDGeneralDuty1 = new(ActionType.General, 26u);
-    public static readonly ActionID IDGeneralDuty2 = new(ActionType.General, 27u);
+    public static readonly ActionID IDGeneralLimitBreak = new(ActionType.General, 3);
+    public static readonly ActionID IDGeneralSprint = new(ActionType.General, 4);
+    public static readonly ActionID IDGeneralDuty1 = new(ActionType.General, 26);
+    public static readonly ActionID IDGeneralDuty2 = new(ActionType.General, 27);
 
     public static readonly ActionDefinitions Instance = new();
 
     public Func<uint, bool>? UnlockCheck;
 
+    public void Dispose()
+    {
+    }
+
     private ActionDefinitions()
     {
-        _classDefinitions = [
-            new ClassShared.Definitions(this),
-            new PLD.Definitions(this),
-            new WAR.Definitions(this),
-            new DRK.Definitions(this),
-            new GNB.Definitions(this),
-            new WHM.Definitions(this),
-            new SCH.Definitions(this),
-            new AST.Definitions(this),
-            new SGE.Definitions(this),
-            new MNK.Definitions(this),
-            new DRG.Definitions(this),
-            new NIN.Definitions(this),
-            new SAM.Definitions(this),
-            new RPR.Definitions(this),
-            new BRD.Definitions(this),
-            new MCH.Definitions(this),
-            new DNC.Definitions(this),
-            new BLM.Definitions(this),
-            new SMN.Definitions(this),
-            new RDM.Definitions(this),
-            new BLU.Definitions(this),
-            new PCT.Definitions(this),
-            new VPR.Definitions(this),
-            new Roleplay.Definitions(this),
-        ];
+        foreach (var d in Utils.GetDerivedTypes<Defs>(Assembly.GetExecutingAssembly()))
+            ((Defs)Activator.CreateInstance(d)!).Define(this);
 
         // items (TODO: more generic approach is needed...)
         RegisterItem(IDPotionStr);
@@ -276,29 +239,17 @@ public sealed class ActionDefinitions : IDisposable
 
         // special content actions - bozja, deep dungeons, etc
         for (var i = BozjaHolsterID.None + 1; i < BozjaHolsterID.Count; ++i)
-        {
             RegisterBozja(i);
-        }
-
         for (var i = PomanderID.Safety; i < PomanderID.Count; ++i)
-        {
             RegisterDeepDungeon(new(ActionType.Pomander, (uint)i));
-        }
-
-        for (var i = 1u; i <= 3; ++i)
-        {
+        for (var i = 1u; i <= 3; i++)
             RegisterDeepDungeon(new(ActionType.Magicite, i));
-        }
 
         foreach (var act in typeof(EurekaActionID).GetEnumValues())
-        {
             if ((uint)act > 0)
-            {
                 RegisterSpell((EurekaActionID)act);
-            }
-        }
 
-        for (var i = 1u; i <= 6u; ++i)
+        for (var i = 1u; i <= 6u; i++)
         {
             var petAction = new ActionID(ActionType.PetAction, i);
             var def = new ActionDefinition(petAction)
@@ -315,63 +266,28 @@ public sealed class ActionDefinitions : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        foreach (var c in _classDefinitions)
-        {
-            c.Dispose();
-        }
-    }
-
     // smart targeting utility: return target (if friendly) or null (otherwise)
     public static Actor? SmartTargetFriendly(Actor? primaryTarget) => (primaryTarget?.IsAlly ?? false) ? primaryTarget : null;
 
     // smart targeting utility: return target (if friendly) or other tank (if available) or null (otherwise)
-    public static Actor? FindCoTank(WorldState ws, Actor player)
-    {
-        foreach (var a in ws.Party.WithoutSlot())
-        {
-            if (a != player && a.Role == Role.Tank)
-            {
-                return a;
-            }
-        }
-
-        return null;
-    }
+    public static Actor? FindCoTank(WorldState ws, Actor player) => ws.Party.WithoutSlot().Exclude(player).FirstOrDefault(a => a.Role == Role.Tank);
     public static Actor? SmartTargetCoTank(WorldState ws, Actor player, Actor? primaryTarget, AIHints hints) => SmartTargetFriendly(primaryTarget) ?? FindCoTank(ws, player);
 
     // smart targeting utility: return target (if friendly) or any esunable player (if any) or self (otherwise)
-    public static Actor? FindEsunaTarget(WorldState ws)
-    {
-        foreach (var p in ws.Party.WithoutSlot())
-        {
-            foreach (var s in p.Statuses)
-            {
-                if (Utils.StatusIsRemovable(s.ID))
-                {
-                    return p;
-                }
-            }
-        }
-        return null;
-    }
+    public static Actor? FindEsunaTarget(WorldState ws) => ws.Party.WithoutSlot().FirstOrDefault(p => p.Statuses.Any(s => Utils.StatusIsRemovable(s.ID)));
     public static Actor? SmartTargetEsunable(WorldState ws, Actor player, Actor? primaryTarget, AIHints hints) => SmartTargetFriendly(primaryTarget) ?? FindEsunaTarget(ws) ?? player;
 
     public static bool DashToTargetCheck(WorldState ws, Actor player, ActionQueue.Entry action, AIHints hints)
     {
+        var cfg = Service.Config.Get<ActionTweaksConfig>();
         var target = action.Target;
-        if (target == null || !_config.DashSafety)
-        {
+        if (target == null || !cfg.DashSafety)
             return false;
-        }
 
         // if there are pending knockbacks, god only knows where we would be sent after using a gapcloser
         // note that once the knockback is actually active and not pending, we can probably cancel it with a dash
         if (player.PendingKnockbacks.Count > 0)
-        {
             return true;
-        }
 
         var dist = player.DistanceToHitbox(target);
         var dir = player.AngleTo(target);
@@ -379,40 +295,42 @@ public sealed class ActionDefinitions : IDisposable
 
         // facing target (to dash) would make us fail gaze, directional bait, etc
         // TODO: only forbid if dash duration is longer than time to deadline?
-        var dirs = hints.ForbiddenDirections;
-        var count = dirs.Count;
-        for (var i = 0; i < count; ++i)
-        {
-            var d = dirs[i];
-            if (dir.AlmostEqual(d.center, d.halfWidth.Rad))
-            {
-                return true;
-            }
-        }
+        if (hints.ForbiddenDirections.Any(d => dir.AlmostEqual(d.center, d.halfWidth.Rad)))
+            return true;
 
         // TODO: check against action's animation lock duration instead of constant 0.8?
         var (mode, deadline, _) = hints.ImminentSpecialMode;
-        return mode is AIHints.SpecialMode.Pyretic or AIHints.SpecialMode.NoMovement && deadline <= ws.FutureTime(0.8d) || IsDashDangerous(src, src + dir.ToDirection() * Math.Max(0f, dist), hints);
+        if (mode is AIHints.SpecialMode.Pyretic or AIHints.SpecialMode.PyreticMove && deadline <= ws.FutureTime(0.8f))
+            return true;
+
+        return IsDashDangerous(src, src + dir.ToDirection() * MathF.Max(0, dist), hints);
     }
 
-    public static bool DashToPositionCheck(WorldState _, Actor player, ActionQueue.Entry action, AIHints hints) => action.TargetPos != default && _config.DashSafety && _config.DashSafetyExtra && (player.PendingKnockbacks.Count > 0 || IsDashDangerous(player.Position, new WPos(action.TargetPos.XZ()), hints));
+    public static bool DashToPositionCheck(WorldState _, Actor player, ActionQueue.Entry action, AIHints hints)
+    {
+        var cfg = Service.Config.Get<ActionTweaksConfig>();
+        if (action.TargetPos == default || !cfg.DashSafety || !cfg.DashSafetyExtra)
+            return false;
+
+        if (player.PendingKnockbacks.Count > 0)
+            return true;
+
+        return IsDashDangerous(player.Position, new WPos(action.TargetPos.XZ()), hints);
+    }
 
     public static ActionDefinition.ConditionDelegate DashFixedDistanceCheck(float range, bool backwards = false)
         => (ws, player, act, hints) =>
         {
-            if (!_config.DashSafety || !_config.DashSafetyExtra)
-            {
+            var cfg = Service.Config.Get<ActionTweaksConfig>();
+            if (!cfg.DashSafety || !cfg.DashSafetyExtra)
                 return false;
-            }
 
-            if (player.PendingKnockbacks.Count != 0)
-            {
+            if (player.PendingKnockbacks.Count > 0)
                 return true;
-            }
 
             var dir = act.FacingAngle ?? player.Rotation;
 
-            var dest = player.Position + dir.ToDirection() * range * (backwards ? -1f : 1f);
+            var dest = player.Position + dir.ToDirection() * range * (backwards ? -1 : 1);
 
             return IsDashDangerous(player.Position, dest, hints);
         };
@@ -420,15 +338,12 @@ public sealed class ActionDefinitions : IDisposable
     public static ActionDefinition.ConditionDelegate BackdashCheck(float range)
          => (ws, player, act, hints) =>
         {
-            if (act.Target == null || !_config.DashSafety || !_config.DashSafetyExtra)
-            {
+            var cfg = Service.Config.Get<ActionTweaksConfig>();
+            if (act.Target == null || !cfg.DashSafety || !cfg.DashSafetyExtra)
                 return false;
-            }
 
             if (player.PendingKnockbacks.Count > 0)
-            {
                 return true;
-            }
 
             var dir = act.Target.DirectionTo(player).Normalized();
 
@@ -440,41 +355,18 @@ public sealed class ActionDefinitions : IDisposable
     {
         var center = hints.PathfindMapCenter;
         if (!hints.PathfindMapBounds.Contains(to - center))
-        {
             return true;
-        }
 
         // if arena is a weird shape, try to ensure player won't dash out of it
         if (from != to && hints.PathfindMapBounds is ArenaBoundsCustom)
         {
             var len = (to - from).Length();
             var distToNearestWall = hints.PathfindMapBounds.IntersectRay(from - center, (to - from).Normalized());
-            if (distToNearestWall >= 0f && distToNearestWall < len)
-            {
+            if (distToNearestWall >= 0 && distToNearestWall < len)
                 return true;
-            }
         }
 
-        var forbiddenZones = CollectionsMarshal.AsSpan(hints.ForbiddenZones);
-        var countFZ = forbiddenZones.Length;
-        for (var i = 0; i < countFZ; ++i)
-        {
-            ref var fz = ref forbiddenZones[i];
-            if (fz.shapeDistance.Contains(to))
-            {
-                return true;
-            }
-        }
-        var voidZones = CollectionsMarshal.AsSpan(hints.TemporaryObstacles);
-        var countVZ = voidZones.Length;
-        for (var i = 0; i < countVZ; ++i)
-        {
-            if (voidZones[i].Contains(to))
-            {
-                return true;
-            }
-        }
-        return false;
+        return hints.ForbiddenZones.Any(d => d.shapeDistance.Contains(to));
     }
 
     public BitMask SpellAllowedClasses(Lumina.Excel.Sheets.Action data)
@@ -482,13 +374,8 @@ public sealed class ActionDefinitions : IDisposable
         BitMask res = default;
         var cjc = _cjcSheet?.GetRowOrDefault(data.ClassJobCategory.RowId);
         if (cjc != null)
-        {
-            for (var i = 1; i < _cjcSheet!.Columns.Count; ++i)
-            {
+            for (int i = 1; i < _cjcSheet!.Columns.Count; ++i)
                 res[i - 1] = cjc.Value.ReadBoolColumn(i);
-            }
-        }
-
         return res;
     }
     public BitMask SpellAllowedClasses(uint spellId) => SpellAllowedClasses(ActionData(spellId));
@@ -505,52 +392,25 @@ public sealed class ActionDefinitions : IDisposable
     // see ActionManager.CanUseActionOnTarget
     public ActionTargets SpellAllowedTargets(Lumina.Excel.Sheets.Action data)
     {
-        var res = ActionTargets.None;
+        ActionTargets res = ActionTargets.None;
         if (data.CanTargetSelf)
-        {
             res |= ActionTargets.Self;
-        }
-
         if (data.CanTargetParty)
-        {
             res |= ActionTargets.Party;
-        }
-
         if (data.CanTargetAlliance)
-        {
             res |= ActionTargets.Alliance;
-        }
-
         if (data.CanTargetHostile)
-        {
             res |= ActionTargets.Hostile;
-        }
-
         if (data.CanTargetAlly)
-        {
             res |= ActionTargets.Friendly;
-        }
-
         if (data.CanTargetOwnPet)
-        {
             res |= ActionTargets.OwnPet;
-        }
-
         if (data.CanTargetPartyPet)
-        {
             res |= ActionTargets.PartyPet;
-        }
-
         if (data.TargetArea)
-        {
             res |= ActionTargets.Area;
-        }
-
         if (data.DeadTargetBehaviour == 1)
-        {
             res |= ActionTargets.Dead;
-        }
-
         return res;
     }
     public ActionTargets SpellAllowedTargets(uint spellId) => SpellAllowedTargets(ActionData(spellId));
@@ -561,10 +421,7 @@ public sealed class ActionDefinitions : IDisposable
     public int SpellRange(Lumina.Excel.Sheets.Action data, bool isPhysRanged = false)
     {
         if ((SCH.AID)data.RowId is SCH.AID.PetEmbrace or SCH.AID.PetFeyUnion or SCH.AID.PetSeraphicVeil)
-        {
             return 30; // these are hardcoded
-        }
-
         var range = data.Range;
         return range >= 0 ? range : isPhysRanged ? 25 : 3;
     }
@@ -596,12 +453,11 @@ public sealed class ActionDefinitions : IDisposable
     public float ActionBaseCooldown(ActionID aid) => aid.Type switch
     {
         ActionType.Spell => SpellBaseCooldown(aid.ID),
-        ActionType.Item => ItemData(aid.ID).Cooldowns * (aid.ID > 1000000u ? 0.9f : 1.0f) /*?? 5*/,
+        ActionType.Item => ItemData(aid.ID).Cooldowns * (aid.ID > 1000000 ? 0.9f : 1.0f) /*?? 5*/,
         _ => 5,
     };
 
-    public ActionAspect SpellAspect(Lumina.Excel.Sheets.Action data) => BossMod.ActionAspect.None;
-
+    public ActionAspect SpellAspect(Lumina.Excel.Sheets.Action data) => (ActionAspect)data.Aspect;
     public ActionAspect SpellAspect(uint spellId) => SpellAspect(ActionData(spellId));
     public ActionAspect ActionAspect(ActionID aid) => aid.Type switch
     {
@@ -671,7 +527,7 @@ public sealed class ActionDefinitions : IDisposable
             InstantAnimLock = animLock,
             CastAnimLock = castAnimLock
         };
-        var aidHQ = new ActionID(ActionType.Item, baseId + 1000000u);
+        var aidHQ = new ActionID(ActionType.Item, baseId + 1000000);
         _definitions[aidHQ] = new(aidHQ)
         {
             AllowedTargets = targets,
@@ -690,7 +546,7 @@ public sealed class ActionDefinitions : IDisposable
     private void RegisterBozja(BozjaHolsterID id)
     {
         var normalAction = BozjaActionID.GetNormal(id);
-        var isItem = normalAction == BozjaActionID.GetHolster(id);
+        bool isItem = normalAction == BozjaActionID.GetHolster(id);
         RegisterSpell(normalAction, instantAnimLock: isItem ? 1.1f : 0.6f);
         if (!isItem)
         {
@@ -701,19 +557,25 @@ public sealed class ActionDefinitions : IDisposable
         }
 
         if (id == BozjaHolsterID.LostSeraphStrike)
-        {
             _definitions[normalAction].ForbidExecute = DashToTargetCheck;
-        }
     }
 
-    private void RegisterDeepDungeon(ActionID id) => _definitions[id] = new(id) { AllowedTargets = ActionTargets.Self, InstantAnimLock = 2.1f };
+    private void RegisterDeepDungeon(ActionID id)
+    {
+        _definitions[id] = new(id) { AllowedTargets = ActionTargets.Self, InstantAnimLock = 2.1f };
+    }
 
     // hardcoded mechanic implementations
     public void RegisterChargeIncreaseTrait(ActionID aid, uint traitId)
     {
         var trait = TraitData(traitId)!;
         _definitions[aid].MaxChargesOverride.Add((trait.Value, trait.Level, trait.Quest.RowId));
-        _definitions[aid].MaxChargesOverride.Sort(static (b, a) => a.Level.CompareTo(b.Level));
+        _definitions[aid].MaxChargesOverride.SortByReverse(c => c.Level);
     }
     public void RegisterChargeIncreaseTrait<AID, TraitID>(AID aid, TraitID traitId) where AID : Enum where TraitID : Enum => RegisterChargeIncreaseTrait(ActionID.MakeSpell(aid), (uint)(object)traitId);
+}
+
+public abstract class Defs
+{
+    public abstract void Define(ActionDefinitions d);
 }

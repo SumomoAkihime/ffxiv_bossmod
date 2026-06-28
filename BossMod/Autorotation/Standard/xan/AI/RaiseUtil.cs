@@ -16,7 +16,7 @@ public static class RaiseUtil
     {
         var candidates = targets switch
         {
-            Targets.Everyone => world.Actors.Where(x => x.Type is ActorType.Player or ActorType.Buddy && x.IsAlly),
+            Targets.Everyone => world.Actors.Where(x => x.IsAlly && (x.Type is ActorType.Player or ActorType.Enemy)),
             Targets.Alliance => world.Party.WithoutSlot(includeDead: true, excludeAlliance: false, excludeNPCs: true),
             _ => world.Party.WithoutSlot(includeDead: true, excludeAlliance: true, excludeNPCs: true)
         };
@@ -25,7 +25,7 @@ public static class RaiseUtil
         if (filterByRange)
             t1 = t1.Where(t => world.Party.Player()?.DistanceToHitbox(t) <= 30);
         if (sortByClass)
-            t1 = t1.OrderByDescending(t => t.Role switch
+            t1 = t1.OrderByDescending(t => t.Class.GetRole() switch
             {
                 Role.Healer => 5,
                 Role.Tank => 4,
@@ -35,7 +35,7 @@ public static class RaiseUtil
         return t1;
     }
 
-    public static readonly uint[] RaiseStatus = [148u, 1140u, 2648u];
+    public static readonly uint[] RaiseStatus = [148, 1140, 2648];
 
     public static bool BeingRaised(Actor actor) => actor.Statuses.Any(s => RaiseStatus.Contains(s.ID)) || actor.PendingStatuses.Any(s => RaiseStatus.Contains(s.StatusId));
 }

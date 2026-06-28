@@ -58,7 +58,7 @@ public sealed class PlanDatabase
                 var payload = json.RootElement.GetProperty("payload");
                 foreach (var enc in payload.EnumerateObject())
                 {
-                    var encType = Type.GetType(enc.Name);
+                    var encType = Type.GetType(enc.Name) ?? typeof(PlanDatabase).Assembly.GetType(enc.Name);
                     var encInfo = encType != null ? BossModuleRegistry.FindByType(encType) : null;
                     if (encInfo == null)
                     {

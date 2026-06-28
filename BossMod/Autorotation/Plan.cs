@@ -60,7 +60,7 @@ public class JsonPlanConverter : JsonConverter<Plan>
         using var jdoc = JsonDocument.ParseValue(ref reader);
         var name = jdoc.RootElement.GetProperty(nameof(Plan.Name)).GetString() ?? "";
         var encName = jdoc.RootElement.GetProperty(nameof(Plan.Encounter)).GetString() ?? "";
-        var encType = Type.GetType(encName);
+        var encType = Type.GetType(encName) ?? typeof(Plan).Assembly.GetType(encName);
         var encInfo = encType != null ? BossModuleRegistry.FindByType(encType) : null;
         if (encInfo == null)
         {
@@ -79,7 +79,7 @@ public class JsonPlanConverter : JsonConverter<Plan>
         }
         foreach (var jm in jdoc.RootElement.GetProperty(nameof(Plan.Modules)).EnumerateObject())
         {
-            var mt = Type.GetType(jm.Name);
+            var mt = Type.GetType(jm.Name) ?? typeof(Plan).Assembly.GetType(jm.Name);
             if (mt == null || !RotationModuleRegistry.Modules.TryGetValue(mt, out var md))
             {
                 Service.Log($"Error while deserializing plan {name} for L{res.Level} {res.Class} encounter {encName}: failed to find module {jm.Name}");
@@ -201,7 +201,7 @@ public class JsonPlanConverter : JsonConverter<Plan>
         foreach (var m in value.Modules)
         {
             writer.WriteStartObject(m.Type.FullName!);
-            for (var iTrack = 0; iTrack < m.Tracks.Count; ++iTrack)
+            for (int iTrack = 0; iTrack < m.Tracks.Count; ++iTrack)
             {
                 var track = m.Tracks[iTrack];
                 if (track.Count == 0)

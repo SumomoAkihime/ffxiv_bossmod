@@ -1,42 +1,49 @@
-name: Build & Publish to Dynamis
-
+name: Publish
 on:
   push:
-    branches:
-      - master
-      - testing
-  workflow_dispatch:
-    inputs:
-      testing:
-        description: 'Testing release'
-        required: true
-        type: boolean
-
+    tags:
+      - '*.*.*.*'
 jobs:
-  build:
-    uses: xanunderscore/DynamisPublishAction/.github/workflows/dynamis.yml@master
-    with:
-      plugin_id: 30
-      internal_name: BossMod
-      project_file: BossMod/BossMod.csproj
-      dotnet_version: 10.0.x
-      dalamud_version: 15
-      testing: ${{ github.ref == 'refs/heads/testing' || inputs.testing == 'true' }}
-    secrets:
-      publisher_key: ${{ secrets.PUBLISHER_KEY }}
-
-  make_release:
-    runs-on: ubuntu-latest
-    needs: build
-    if: needs.build.outputs.completed == 'true'
+  Build:
+    permissions:
+      contents: write
+    runs-on: windows-latest
     steps:
-      - uses: actions/download-artifact@v5
+      - name: Checkout Repository
+        uses: actions/checkout@v6
         with:
-          name: latest_zip
+          submodules: true
 
-      - uses: softprops/action-gh-release@v2
+      - name: Get Environment Variables
+        run: |
+          $tag = "${{ github.ref }}" -replace 'refs/tags/', ''
+
+          "tag=$tag" | Out-File -Append -FilePath $Env:GITHUB_ENV
+          
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
         with:
-          name: ${{ needs.build.outputs.version }}
-          tag_name: ${{ needs.build.outputs.release_type == 'testing' && 't' || 'v' }}${{ needs.build.outputs.version }}
-          prerelease: ${{ needs.build.outputs.release_type == 'testing' }}
-          files: latest.zip
+          dotnet-version: '10.0.x'
+
+      - name: Download Dalamud Latest
+        run: |
+          Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/latest.zip -OutFile latest.zip
+          Expand-Archive -Force latest.zip "$env:AppData\XIVLauncher\addon\Hooks\dev"
+
+      - name: Restore Nuget Packages
+        run: dotnet restore BossMod\BossModReborn.csproj
+
+      - name: Build Plugin
+        run: dotnet build --no-restore -c Release BossMod\BossModReborn.csproj -p:AssemblyVersion=${{ env.tag }} -p:FileVersion=${{ env.tag }} -p:PackageVersion=${{ env.tag }} -p:InformationalVersion=${{ env.tag }} --output .\build
+
+      - name: Cleanup Build Output
+        run: Get-ChildItem .\build\* -Exclude BossModReborn.*,DefaultRotationPresets.json,PInvoke.User32.dll | Remove-Item -Force -Recurse
+
+      - name: Zip Plugin
+        run: Compress-Archive -Path .\build\* -DestinationPath .\build\latest.zip
+
+      - name: Publish Plugin
+        uses: softprops/action-gh-release@v3
+        with:
+          files: ./build/latest.zip
+          token: ${{ secrets.GITHUB_TOKEN }}

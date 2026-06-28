@@ -37,7 +37,7 @@ public enum RotationModuleOrder
 // the configuration part of the rotation module
 // importantly, it defines constraints (supported classes and level ranges) and strategy configs (with their sets of possible options) used by the module to make its decisions
 // rotation modules can optionally be constrained to a specific boss module, if they are used to implement custom encounter-specific logic - these would only be available in plans for that module
-public sealed record class RotationModuleDefinition(string DisplayName, string Description, string Category, string Author, RotationModuleQuality Quality, BitMask Classes, int MaxLevel, int MinLevel = 1, RotationModuleOrder Order = RotationModuleOrder.Actions, Type? RelatedBossModule = null, bool CanUseWhileRoleplaying = false)
+public sealed record class RotationModuleDefinition(string DisplayName, string Description, string Category, string Author, RotationModuleQuality Quality, BitMask Classes, int MaxLevel, int MinLevel = 1, RotationModuleOrder Order = RotationModuleOrder.Actions, Type? RelatedBossModule = null, bool CanUseWhileRoleplaying = false, bool DevMode = false)
 {
     public readonly BitMask Classes = Classes;
     public readonly List<StrategyConfig> Configs = [];
@@ -137,6 +137,8 @@ public sealed record class RotationModuleDefinition(string DisplayName, string D
 
                     var trackCfg = new StrategyConfigTrack(inner, trackInfo.InternalName ?? field.Name, trackInfo.DisplayName ?? field.Name, trackInfo.UiPriority, renderer);
 
+                    trackCfg.AssociatedActions.AddRange(trackInfo.ActionIDs);
+
                     foreach (var variantName in inner.GetEnumNames())
                     {
                         var variantField = inner.GetField(variantName)!;
@@ -166,7 +168,7 @@ public sealed record class RotationModuleDefinition(string DisplayName, string D
                     continue;
                 }
 
-                if (inner == typeof(int))
+                if (inner == typeof(long))
                 {
                     var attr = field.GetCustomAttribute<NumberAttribute>() ?? new();
                     Configs.Add(new StrategyConfigInt(field.Name, attr.DisplayName, (long)attr.MinValue, (long)attr.MaxValue, attr.UiPriority, attr.Renderer ?? typeof(IntRenderer), attr.Slider, attr.Speed));
@@ -183,20 +185,16 @@ public sealed record class RotationModuleDefinition(string DisplayName, string D
 
 // base class for rotation modules
 // each rotation module should contain a `public static RotationModuleDefinition Definition()` function
-public abstract class RotationModule(RotationModuleManager manager, Actor player) : IDisposable
+public abstract class RotationModule(RotationModuleManager manager, Actor player)
 {
     public readonly RotationModuleManager Manager = manager;
     public readonly Actor Player = player;
     public BossModuleManager Bossmods => Manager.Bossmods;
     public WorldState World => Manager.Bossmods.WorldState;
     public AIHints Hints => Manager.Hints;
-    public virtual void Dispose()
-    {
-        GC.SuppressFinalize(this);
-    }
 
     // the main entry point of the module - given a set of strategy values, fill the queue with a set of actions to execute
-    public abstract void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving);
+    public abstract void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving);
 
     public virtual bool WantsLoSFix => false;
 
@@ -305,7 +303,7 @@ public abstract class RotationModule(RotationModuleManager manager, Actor player
 
 public abstract class TypedRotationModule<TValues>(RotationModuleManager manager, Actor player) : RotationModule(manager, player) where TValues : struct
 {
-    public abstract void Execute(in TValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving);
+    public abstract void Execute(in TValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving);
 
-    public sealed override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving) => Execute(ValueConverter.FromValues<TValues>(strategy), primaryTarget, estimatedAnimLockDelay, isMoving);
+    public sealed override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving) => Execute(ValueConverter.FromValues<TValues>(strategy), ref primaryTarget, estimatedAnimLockDelay, isMoving);
 }

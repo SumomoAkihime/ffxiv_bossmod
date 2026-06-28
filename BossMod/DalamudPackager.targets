@@ -18,7 +18,7 @@
     <DalamudPackager ProjectDir="$(ProjectDir)"
                      OutputPath="$(OutputPath)"
                      AssemblyName="$(AssemblyName)"
-                     MakeZip="false"
+                     MakeZip="true"
                      Author="$(Author)"
                      Name="$(Name)"
                      Description="$(Description)" />

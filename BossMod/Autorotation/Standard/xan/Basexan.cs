@@ -120,7 +120,7 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
     protected bool OnCooldown(AID aid) => MaxChargesIn(aid) > 0;
 
     public bool CanWeave(float cooldown, float actionLock, int extraGCDs = 0, float extraFixedDelay = 0)
-        => Math.Max(cooldown, AnimLock) + actionLock + AnimationLockDelay <= GCD + GCDLength * extraGCDs + extraFixedDelay;
+        => MathF.Max(cooldown, AnimLock) + actionLock + AnimationLockDelay <= GCD + GCDLength * extraGCDs + extraFixedDelay;
 
     public bool CanWeave(AID aid, int extraGCDs = 0, float extraFixedDelay = 0)
     {
@@ -374,7 +374,7 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
     protected void GoalZoneSingle(float range)
     {
         if (PlayerTarget != null)
-            Hints.GoalZones.Add(GoalSingleTarget(PlayerTarget.Actor, range));
+            Hints.GoalZones.Add(AIHints.GoalSingleTarget(PlayerTarget.Actor, range));
     }
 
     protected void GoalZoneCombined(in IStrategyCommon strategy, float range, Func<WPos, float> fAoe, AID firstUnlockedAoeAction, int minAoe, float? maximumActionRange = null)
@@ -392,9 +392,9 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
         }
         else
         {
-            Hints.GoalZones.Add(GoalCombined(GoalSingleTarget(PlayerTarget.Actor, imminent ? positional : Positional.Any, range), fAoe, minAoe));
+            Hints.GoalZones.Add(AIHints.GoalCombined(AIHints.GoalSingleTarget(PlayerTarget.Actor, imminent ? positional : Positional.Any, range), fAoe, minAoe));
             if (maximumActionRange is float r)
-                Hints.GoalZones.Add(GoalSingleTarget(PlayerTarget.Actor, r, 0.5f));
+                Hints.GoalZones.Add(AIHints.GoalSingleTarget(PlayerTarget.Actor, r, 0.5f));
         }
     }
 
@@ -412,8 +412,8 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
             _ => 0
         };
 
-    protected PositionCheck IsSplashTarget => (primary, other) => TargetInAOECircle(other, primary.Position, 5);
-    protected PositionCheck Is25yRectTarget => (primary, other) => TargetInAOERect(other, Player.Position, Player.DirectionTo(primary), 25, 2);
+    protected PositionCheck IsSplashTarget => (Actor primary, Actor other) => AIHints.TargetInAOECircle(other, primary.Position, 5);
+    protected PositionCheck Is25yRectTarget => (Actor primary, Actor other) => TargetInAOERect(other, Player.Position, Player.DirectionTo(primary), 25, 2);
 
     /// <summary>
     /// Get <em>effective</em> cast time for the provided action.<br/>
@@ -438,7 +438,7 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
 
     protected float NextCastStart => AnimLock > GCD ? AnimLock + AnimationLockDelay : GCD;
 
-    protected float GetSlidecastTime(AID aid) => Math.Max(0, GetCastTime(aid) - 0.5f);
+    protected float GetSlidecastTime(AID aid) => MathF.Max(0, GetCastTime(aid) - 0.5f);
     protected float GetSlidecastEnd(AID aid) => NextCastStart + GetSlidecastTime(aid);
 
     protected bool Unlocked(AID aid) => ActionUnlocked(ActionID.MakeSpell(aid));
@@ -472,7 +472,7 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
         NextPositionalImminent = !trueNorth && positional.imm;
         NextPositionalCorrect = trueNorth || target == null || positional.pos switch
         {
-            Positional.Flank => Math.Abs(target.Rotation.ToDirection().Dot((Player.Position - target.Position).Normalized())) < 0.7071067f,
+            Positional.Flank => MathF.Abs(target.Rotation.ToDirection().Dot((Player.Position - target.Position).Normalized())) < 0.7071067f,
             Positional.Rear => target.Rotation.ToDirection().Dot((Player.Position - target.Position).Normalized()) < -0.7071068f,
             // the only Front positional is Goblin Punch, used by BLU, who can't use True North anyway, so it's irrelevant
             _ => true
@@ -499,7 +499,7 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
         }
     }
 
-    public sealed override void Execute(in TValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public sealed override void Execute(in TValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         IsMoving = isMoving;
         NextGCD = default;

@@ -60,6 +60,7 @@ dotnet_diagnostic.CA1724.severity = none # no way i'm forbidding any types from 
 # these rules have minor benefit, but are expensive to run, so are disabled
 dotnet_diagnostic.CA1508.severity = none # this rule is extremely expensive (adds like 50s to build time!), it performs data flow analysis to try and find dead code
 
+dotnet_diagnostic.CS8618.severity = suggestion # skill issue
 
 #### Code style rules (IDExxxx) ####
 
@@ -142,7 +143,7 @@ dotnet_style_coalesce_expression = true
 dotnet_diagnostic.IDE0031.severity = warning # prefer x?.foo() to x != null ? x.foo() : null;
 dotnet_style_null_propagation = true
 
-dotnet_diagnostic.IDE0032.severity = warning # prefer auto properties to explicit backing fields
+dotnet_diagnostic.IDE0032.severity = none # prefer auto properties to explicit backing fields
 dotnet_style_prefer_auto_properties = true
 dotnet_diagnostic.IDE0033.severity = warning # prefer explicit tuple member names to ItemN
 dotnet_style_explicit_tuple_names = true

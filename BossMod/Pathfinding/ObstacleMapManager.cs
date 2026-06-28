@@ -10,7 +10,7 @@ public sealed class DeveloperConfig : ConfigNode
     [PropertyDisplay("Obstacle maps: load from source")]
     public bool MapLoadFromSource;
 
-    [PropertyDisplay("Obstacle maps: source path", tooltip: "Should be <repo root>/BossMod/Pathfinding/ObstacleMaps/maplist.json")]
+    [PropertyDisplay("Obstacle maps: source path", tooltip: "Should be <repo root>/BossModReborn/Pathfinding/ObstacleMaps/maplist.json")]
     public string MapSourcePath = "";
 }
 
@@ -393,5 +393,5 @@ public sealed class ObstacleMapManager : IDisposable
         }
     }
 
-    private Stream GetEmbeddedResource(string name) => Assembly.GetExecutingAssembly().GetManifestResourceStream($"BossMod.Pathfinding.ObstacleMaps.{name}") ?? throw new InvalidDataException($"Missing embedded resource {name}");
+    private Stream GetEmbeddedResource(string name) => Assembly.GetExecutingAssembly().GetManifestResourceStream($"BossModReborn.Pathfinding.ObstacleMaps.{name}") ?? throw new InvalidDataException($"Missing embedded resource {name}");
 }

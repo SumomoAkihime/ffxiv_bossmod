@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Autorotation.xan;
 
-public sealed class EurekaAI(RotationModuleManager manager, Actor player) : AIBase<EurekaAI.Strategy>(manager, player)
+public class EurekaAI(RotationModuleManager manager, Actor player) : AIBase<EurekaAI.Strategy>(manager, player)
 {
     public struct Strategy
     {
@@ -34,7 +34,7 @@ public sealed class EurekaAI(RotationModuleManager manager, Actor player) : AIBa
         return new RotationModuleDefinition("Eureka AI", "Eureka utilities", "AI (xan)", "xan", RotationModuleQuality.WIP, new(~0ul), MaxLevel: 70).WithStrategies<Strategy>();
     }
 
-    public override void Execute(in Strategy strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(in Strategy strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         if (strategy.Platebearer.IsEnabled() && Player.Statuses.Any(s => s.ID == (uint)SID.WisdomOfThePlatebearer))
             Hints.ForbiddenZones.Clear();
