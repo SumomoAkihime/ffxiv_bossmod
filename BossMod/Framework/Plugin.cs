@@ -76,6 +76,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         Service.LogHandlerVerbose = msg => Service.Logger.Verbose(msg);
         Service.LuminaGameData = dataManager.GameData;
         Service.WindowSystem = new("bmr");
+        Loc.Initialize();
     }
 
     public async Task LoadAsync(CancellationToken cancellationToken)

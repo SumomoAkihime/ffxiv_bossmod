@@ -10,7 +10,7 @@ public static class UICombo
     public static string EnumString(Enum v)
     {
         var name = v.ToString();
-        return v.GetType().GetField(name)?.GetCustomAttribute<PropertyDisplayAttribute>()?.Label ?? name;
+        return Loc.Tr(v.GetType().GetField(name)?.GetCustomAttribute<PropertyDisplayAttribute>()?.Label ?? name);
     }
 
     public static bool Enum<T>(string label, ref T v, Func<T, string>? print = null, Func<T, bool>? filter = null) where T : Enum
@@ -81,7 +81,7 @@ public static class UICombo
         if (!label.StartsWith('#'))
         {
             ImGui.SameLine();
-            ImGui.TextWrapped(label);
+            ImGui.TextWrapped(Loc.Tr(label));
         }
         return res;
     }
@@ -113,11 +113,11 @@ public static class UICombo
     {
         var res = false;
         ImGui.SetNextItemWidth(200);
-        if (ImGui.BeginCombo(label, v < values.Length ? values[v] : v.ToString()))
+        if (ImGui.BeginCombo(Loc.UiLabel(label), v < values.Length ? Loc.Tr(values[v]) : v.ToString()))
         {
             for (var i = 0; i < values.Length; ++i)
             {
-                if (ImGui.Selectable(values[i], v == i))
+                if (ImGui.Selectable(Loc.Tr(values[i]), v == i))
                 {
                     v = i;
                     res = true;

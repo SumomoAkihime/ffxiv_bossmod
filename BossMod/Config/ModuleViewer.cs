@@ -184,14 +184,14 @@ public sealed class ModuleViewer : IDisposable
         ImGui.TableNextColumn();
         ImGui.TableNextColumn(); //spacing with only one seemed to be a bit small on certain window sizes
         ImGui.AlignTextToFramePadding();
-        ImGui.Text("Search:");
+        ImGui.Text(Loc.Tr("Search:"));
         ImGui.SameLine();
         ImGui.SetNextItemWidth(-1);
         DrawSearchBar();
         ImGui.TableNextColumn();
 
         ImGui.TableNextColumn();
-        ImGui.TableHeader("Expansion");
+        ImGui.TableHeader(Loc.Tr("Expansion"));
         ImGui.TableNextRow(ImGuiTableRowFlags.None);
         ImGui.TableNextColumn();
         DrawExpansionFilters();
@@ -199,7 +199,7 @@ public sealed class ModuleViewer : IDisposable
         ImGui.TableNextRow();
 
         ImGui.TableNextColumn();
-        ImGui.TableHeader("Content");
+        ImGui.TableHeader(Loc.Tr("Content"));
         ImGui.TableNextRow(ImGuiTableRowFlags.None);
         ImGui.TableNextColumn();
         DrawContentTypeFilters();
@@ -207,12 +207,12 @@ public sealed class ModuleViewer : IDisposable
 
     private void DrawSearchBar()
     {
-        ImGui.InputTextWithHint("##search", "e.g. \"Ultimate\"", ref _searchText, 100, ImGuiInputTextFlags.CallbackCompletion);
+        ImGui.InputTextWithHint("##search", Loc.Tr("e.g. \"Ultimate\""), ref _searchText, 100, ImGuiInputTextFlags.CallbackCompletion);
 
         if (ImGui.IsItemHovered() && !ImGui.IsItemFocused())
         {
             ImGui.BeginTooltip();
-            ImGui.Text("Type here to search for any specific instance by its respective title.");
+            ImGui.Text(Loc.Tr("Type here to search for any specific instance by its respective title."));
             ImGui.EndTooltip();
         }
     }
@@ -364,21 +364,21 @@ public sealed class ModuleViewer : IDisposable
                 groupId |= module.GroupID;
                 var mcRow = Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value;
                 var mcSort = uint.Parse(mcRow.ShortCode.ToString().AsSpan(3), CultureInfo.InvariantCulture); // 'aozNNN'
-                var mcName = $"Stage {mcSort}: {FixCase(mcRow.Name)}";
+                var mcName = Loc.Tr("Stage {0}: {1}", mcSort, FixCase(mcRow.Name));
                 return (new(mcName, groupId, mcSort), new(module, BNpcName(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.RemovedUnreal:
-                return (new("Removed Content", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
+                return (new(Loc.Tr("Removed Content"), groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.BaldesionArsenal:
-                return (new("Baldesion Arsenal", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
+                return (new(Loc.Tr("Baldesion Arsenal"), groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.CastrumLacusLitore:
-                return (new("Castrum Lacus Litore", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
+                return (new(Loc.Tr("Castrum Lacus Litore"), groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.TheDalriada:
-                return (new("The Dalriada", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
+                return (new(Loc.Tr("The Dalriada"), groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.TheForkedTowerBlood:
-                return (new("The Forked Tower: Blood", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
+                return (new(Loc.Tr("The Forked Tower: Blood"), groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.ForayFATE:
                 var fateRowBozjaSkirmish = Service.LuminaRow<Fate>(module.NameID)!.Value;
-                var skirmishName = $"{FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name)} FATE";
+                var skirmishName = Loc.Tr("{0} FATE", FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name));
                 return (new(skirmishName, groupId, groupId), new(module, $"{fateRowBozjaSkirmish.Name}", module.SortOrder));
             case BossModuleInfo.GroupType.Quest:
                 var questRow = Service.LuminaRow<Quest>(module.GroupID)!.Value;
@@ -387,36 +387,36 @@ public sealed class ModuleViewer : IDisposable
                 return (new(questCategoryName, groupId, groupId), new(module, $"{questRow.Name}: {BNpcName(module.NameID)}", module.SortOrder));
             case BossModuleInfo.GroupType.Fate:
                 var fateRow = Service.LuminaRow<Fate>(module.GroupID)!.Value;
-                return (new($"{module.Expansion.ShortName()} FATE", groupId, groupId, _iconFATE), new(module, $"{fateRow.Name}: {BNpcName(module.NameID)}", module.SortOrder));
+                return (new(Loc.Tr("{0} FATE", module.Expansion.ShortName()), groupId, groupId, _iconFATE), new(module, $"{fateRow.Name}: {BNpcName(module.NameID)}", module.SortOrder));
             case BossModuleInfo.GroupType.Hunt:
                 groupId |= module.GroupID;
-                return (new($"{module.Expansion.ShortName()} Hunt {(BossModuleInfo.HuntRank)module.GroupID}", groupId, groupId, _iconHunt), new(module, BNpcName(module.NameID), module.SortOrder));
+                return (new(Loc.Tr("{0} Hunt {1}", module.Expansion.ShortName(), (BossModuleInfo.HuntRank)module.GroupID), groupId, groupId, _iconHunt), new(module, BNpcName(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.CriticalEngagement:
                 groupId |= module.GroupID;
-                var ceName = $"{FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name)} CE";
+                var ceName = Loc.Tr("{0} CE", FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name));
                 return (new(ceName, groupId, groupId), new(module, Service.LuminaRow<DynamicEvent>(module.NameID)!.Value.Name.ToString(), module.SortOrder));
             case BossModuleInfo.GroupType.BozjaDuel:
                 groupId |= module.GroupID;
-                var duelName = $"{FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name)} Duel";
+                var duelName = Loc.Tr("{0} Duel", FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name));
                 return (new(duelName, groupId, groupId), new(module, Service.LuminaRow<DynamicEvent>(module.NameID)!.Value.Name.ToString(), module.SortOrder));
             case BossModuleInfo.GroupType.EurekaNM:
                 groupId |= module.GroupID;
                 var nmName = FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name);
                 return (new(nmName, groupId, groupId), new(module, Service.LuminaRow<Fate>(module.NameID)!.Value.Name.ToString(), module.SortOrder));
             case BossModuleInfo.GroupType.GoldSaucer:
-                return (new("Gold saucer", groupId, groupId), new(module, $"{Service.LuminaRow<GoldSaucerTextData>(module.GroupID)?.Text}: {BNpcName(module.NameID)}", module.SortOrder));
+                return (new(Loc.Tr("Gold saucer"), groupId, groupId), new(module, $"{Service.LuminaRow<GoldSaucerTextData>(module.GroupID)?.Text}: {BNpcName(module.NameID)}", module.SortOrder));
             default:
-                return (new("Ungrouped", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
+                return (new(Loc.Tr("Ungrouped"), groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
         }
     }
 
     private string ModuleHelpText(ModuleInfo info)
     {
         var sb = new StringBuilder();
-        sb.AppendLine(CultureInfo.CurrentCulture, $"Cooldown planning: {(info.Info.PlanLevel > 0 ? $"L{info.Info.PlanLevel}" : "not supported")}");
+        sb.AppendLine(Loc.Tr("Cooldown planning: {0}", info.Info.PlanLevel > 0 ? $"L{info.Info.PlanLevel}" : Loc.Tr("not supported")));
         if (info.Info.Contributors.Length > 0)
         {
-            sb.AppendLine(CultureInfo.CurrentCulture, $"Contributors: {info.Info.Contributors}");
+            sb.AppendLine(Loc.Tr("Contributors: {0}", info.Info.Contributors));
         }
 
         return sb.ToString();
@@ -434,7 +434,7 @@ public sealed class ModuleViewer : IDisposable
         {
             foreach (var plan in plans.Plans)
             {
-                if (ImGui.Selectable($"Edit {cls} '{plan.Name}' ({plan.Guid})"))
+                if (ImGui.Selectable(Loc.Tr("Edit {0} '{1}' ({2})", cls, plan.Name, plan.Guid)))
                 {
                     UIPlanDatabaseEditor.StartPlanEditor(_planDB, plan);
                 }
@@ -444,7 +444,7 @@ public sealed class ModuleViewer : IDisposable
         var player = _ws.Party.Player();
         if (player != null)
         {
-            if (ImGui.Selectable($"New plan for {player.Class}..."))
+            if (ImGui.Selectable(Loc.Tr("New plan for {0}...", player.Class)))
             {
                 var plans = mplans.GetOrAdd(player.Class);
                 var plan = new Plan($"New {plans.Plans.Count + 1}", info.ModuleType) { Guid = Guid.NewGuid().ToString(), Class = player.Class, Level = info.PlanLevel };

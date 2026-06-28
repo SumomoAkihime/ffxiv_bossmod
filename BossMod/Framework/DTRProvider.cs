@@ -23,7 +23,7 @@ internal sealed class DTRProvider : IDisposable
         _ai = ai;
 
         _autorotationEntry.OnClick = _ => _wantOpenPopup = true;
-        _aiEntry.Tooltip = "Left Click => Toggle Enabled";
+        _aiEntry.Tooltip = Loc.Tr("Left Click => Toggle Enabled");
 
         _aiEntry.OnClick = _ =>
         {
@@ -50,7 +50,7 @@ internal sealed class DTRProvider : IDisposable
         _autorotationEntry.Shown = show;
         if (show)
         {
-            var (icon, name) = _mgr.Presets.Count == 0 ? (BitmapFontIcon.SwordSheathed, "Idle") : _mgr.IsForceDisabled ? (BitmapFontIcon.SwordSheathed, "Disabled") : (BitmapFontIcon.SwordUnsheathed, _mgr.PresetNames);
+            var (icon, name) = _mgr.Presets.Count == 0 ? (BitmapFontIcon.SwordSheathed, Loc.Tr("Idle")) : _mgr.IsForceDisabled ? (BitmapFontIcon.SwordSheathed, Loc.Tr("Disabled")) : (BitmapFontIcon.SwordUnsheathed, _mgr.PresetNames);
             Payload prefix = _mgr.Config.ShowDTR == AutorotationConfig.DtrStatus.TextOnly ? new TextPayload("vbm: ") : new IconPayload(icon);
             _autorotationEntry.Text = new SeString(prefix, new TextPayload(name));
         }
@@ -60,7 +60,7 @@ internal sealed class DTRProvider : IDisposable
         var beh = _ai.Beh;
         if (show2)
         {
-            _aiEntry.Text = "AI: " + (beh == null ? "Off" : "On");
+            _aiEntry.Text = Loc.Tr("AI: {0}", beh == null ? Loc.Tr("Off") : Loc.Tr("On"));
         }
 
         if (_wantOpenPopup && _mgr.Player != null)
