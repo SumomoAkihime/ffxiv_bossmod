@@ -27,14 +27,8 @@ internal sealed class DTRProvider : IDisposable
 
         _aiEntry.OnClick = _ =>
         {
-            if (_ai.Beh == null)
-            {
-                _ai.SwitchToFollow(_aiConfig.FollowSlot);
-            }
-            else
-            {
-                _ai.SwitchToIdle();
-            }
+            if (_ai.ToggleConfig())
+                _aiConfig.Modified.Fire();
         };
     }
 

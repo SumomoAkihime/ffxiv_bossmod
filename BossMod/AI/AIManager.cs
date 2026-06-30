@@ -7,6 +7,8 @@ namespace BossMod.AI;
 
 sealed class AIManager : IDisposable
 {
+    private const string VBMAIPresetName = "VBM AI";
+
     public static AIManager? Instance;
     public readonly RotationModuleManager Autorot;
     public readonly AIController Controller;
@@ -15,6 +17,7 @@ sealed class AIManager : IDisposable
     public int MasterSlot = PartyState.PlayerSlot; // non-zero means corresponding player is master
     public AIBehaviour? Beh;
     public Preset? AiPreset;
+    private bool _autoStartedByVBMAI;
 
     public WorldState WorldState => Autorot.Bossmods.WorldState;
     public float ForceMovementIn => Beh?.ForceMovementIn ?? float.MaxValue;
@@ -48,6 +51,8 @@ sealed class AIManager : IDisposable
 
     public void Update()
     {
+        SyncVBMAIAutoMovement();
+
         if (!WorldState.Party.Members[MasterSlot].IsValid())
         {
             SwitchToIdle();
@@ -67,6 +72,29 @@ sealed class AIManager : IDisposable
         Controller.Update(player, Autorot.Hints, WorldState.CurrentTime);
     }
 
+    public bool SetConfigEnabled(bool enable)
+    {
+        var modified = _config.Enabled != enable;
+        _config.Enabled = enable;
+        if (enable)
+        {
+            SwitchToFollow(_config.FollowSlot);
+        }
+        else
+        {
+            if (_autoStartedByVBMAI)
+                DeactivateVBMAIPreset();
+            SwitchToIdle();
+        }
+        return modified;
+    }
+
+    public bool ToggleConfig()
+    {
+        SetConfigEnabled(Beh == null);
+        return true;
+    }
+
     public void SwitchToIdle()
     {
         Beh?.Dispose();
@@ -76,6 +104,7 @@ sealed class AIManager : IDisposable
             Autorot.Clear();
         else if (AiPreset != null)
             Autorot.Deactivate(AiPreset);
+        _autoStartedByVBMAI = false;
         Controller.Clear();
         _wndAI.UpdateTitle();
     }
@@ -83,6 +112,7 @@ sealed class AIManager : IDisposable
     public void SwitchToFollow(int masterSlot)
     {
         SwitchToIdle();
+        _autoStartedByVBMAI = false;
         MasterSlot = WorldState.Party[masterSlot]?.Name == null ? 0 : masterSlot;
         var allpresets = Autorot.Database.Presets.AllPresets.ToList();
         var count = allpresets.Count;
@@ -99,6 +129,53 @@ sealed class AIManager : IDisposable
         SetAIPreset(preset);
         Beh = new AIBehaviour(Controller, Autorot, AiPreset);
         _wndAI.UpdateTitle();
+    }
+
+    private void SyncVBMAIAutoMovement()
+    {
+        var vbmAIActive = IsVBMAIPresetActive();
+        if (vbmAIActive)
+        {
+            if (Beh == null && !_config.Enabled)
+                SwitchToFollowForVBMAI(_config.FollowSlot);
+        }
+        else if (_autoStartedByVBMAI)
+        {
+            StopAutoStartedBehaviour();
+        }
+    }
+
+    private void SwitchToFollowForVBMAI(int masterSlot)
+    {
+        Beh?.Dispose();
+        Beh = null;
+        MasterSlot = WorldState.Party[masterSlot]?.Name == null ? 0 : masterSlot;
+        _autoStartedByVBMAI = true;
+        Beh = new AIBehaviour(Controller, Autorot, null);
+        _wndAI.UpdateTitle();
+    }
+
+    private void StopAutoStartedBehaviour()
+    {
+        Beh?.Dispose();
+        Beh = null;
+        MasterSlot = PartyState.PlayerSlot;
+        _autoStartedByVBMAI = false;
+        Controller.Clear();
+        _wndAI.UpdateTitle();
+    }
+
+    private bool IsVBMAIPresetActive()
+    {
+        var preset = Autorot.Database.Presets.FindPresetByName(VBMAIPresetName, StringComparison.OrdinalIgnoreCase);
+        return preset != null && Autorot.Presets.Contains(preset);
+    }
+
+    private void DeactivateVBMAIPreset()
+    {
+        var preset = Autorot.Database.Presets.FindPresetByName(VBMAIPresetName, StringComparison.OrdinalIgnoreCase);
+        if (preset != null)
+            Autorot.Deactivate(preset);
     }
 
     private unsafe int FindPartyMemberSlotFromSender(SeString sender)
@@ -256,35 +333,7 @@ sealed class AIManager : IDisposable
     }
 
     private bool EnableConfig(bool enable)
-    {
-        var modified = _config.Enabled != enable;
-        _config.Enabled = enable;
-        if (enable)
-        {
-            SwitchToFollow(_config.FollowSlot);
-        }
-        else
-        {
-            SwitchToIdle();
-        }
-        return modified;
-    }
-
-    private bool ToggleConfig()
-    {
-        if (Beh == null)
-        {
-            _config.Enabled = true;
-            SwitchToFollow(_config.FollowSlot);
-            return true;
-        }
-        else
-        {
-            _config.Enabled = false;
-            SwitchToIdle();
-            return true;
-        }
-    }
+        => SetConfigEnabled(enable);
 
     private bool ToggleFocusTargetMaster()
     {
