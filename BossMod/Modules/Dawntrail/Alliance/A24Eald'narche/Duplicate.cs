@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Alliance.A24Ealdnarche;
+﻿namespace BossMod.Dawntrail.Alliance.A24Ealdnarche;
 
 sealed class Duplicate(BossModule module) : Components.GenericAOEs(module)
 {

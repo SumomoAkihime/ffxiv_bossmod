@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Alliance.A22UltimaOmega;
+﻿namespace BossMod.Dawntrail.Alliance.A22UltimaOmega;
 
 sealed class SurfaceMissile(BossModule module) : Components.GenericAOEs(module)
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Trial.T04Zelenia;
+﻿namespace BossMod.Dawntrail.Trial.T04Zelenia;
 
 sealed class ValorousAscension(BossModule module) : Components.RaidwideCast(module, (uint)AID.ValorousAscension1, "Raidwide x3");
 

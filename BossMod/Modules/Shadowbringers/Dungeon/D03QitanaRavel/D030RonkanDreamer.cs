@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D03QitanaRavel.D030RonkanDreamer;
+﻿namespace BossMod.Shadowbringers.Dungeon.D03QitanaRavel.D030RonkanDreamer;
 
 public enum OID : uint
 {

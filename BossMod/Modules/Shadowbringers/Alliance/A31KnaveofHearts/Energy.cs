@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A31KnaveofHearts;
+﻿namespace BossMod.Shadowbringers.Alliance.A31KnaveofHearts;
 
 sealed class Energy(BossModule module) : Components.GenericAOEs(module)
 {

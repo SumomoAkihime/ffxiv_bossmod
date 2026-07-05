@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Dungeon.D09SaintMociannesArboretum.D091RoseGarden;
+﻿namespace BossMod.Heavensward.Dungeon.D09SaintMociannesArboretum.D091RoseGarden;
 
 public enum OID : uint
 {

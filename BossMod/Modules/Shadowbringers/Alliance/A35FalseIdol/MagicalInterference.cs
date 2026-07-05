@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A35FalseIdol;
+﻿namespace BossMod.Shadowbringers.Alliance.A35FalseIdol;
 
 sealed class MagicalInterference(BossModule module) : Components.GenericAOEs(module)
 {

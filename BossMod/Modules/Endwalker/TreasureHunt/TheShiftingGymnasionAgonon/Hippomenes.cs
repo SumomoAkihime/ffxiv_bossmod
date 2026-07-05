@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.TreasureHunt.ShiftingGymnasionAgonon.Hippomenes;
+﻿namespace BossMod.Endwalker.TreasureHunt.ShiftingGymnasionAgonon.Hippomenes;
 
 public enum OID : uint
 {

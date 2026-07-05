@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.VariantCriterion.V1SildihnSubterrane.V11Geryon;
+﻿namespace BossMod.Endwalker.VariantCriterion.V1SildihnSubterrane.V11Geryon;
 
 sealed class SuddenlySewage(BossModule module) : Components.GenericAOEs(module)
 {

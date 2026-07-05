@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M08SHowlingBlade;
+﻿namespace BossMod.Dawntrail.Savage.M08SHowlingBlade;
 
 sealed class WolvesReignConeCircle(BossModule module) : Components.GenericAOEs(module)
 {

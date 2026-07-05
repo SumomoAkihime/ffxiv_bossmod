@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.Trial.T08Asura;
+﻿namespace BossMod.Endwalker.Trial.T08Asura;
 
 class Laceration(BossModule module) : Components.GenericAOEs(module)
 {

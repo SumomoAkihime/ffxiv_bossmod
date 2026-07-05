@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Dungeon.D10Underkeep.D103ValiaPira;
+﻿namespace BossMod.Dawntrail.Dungeon.D10Underkeep.D103ValiaPira;
 
 public enum OID : uint
 {

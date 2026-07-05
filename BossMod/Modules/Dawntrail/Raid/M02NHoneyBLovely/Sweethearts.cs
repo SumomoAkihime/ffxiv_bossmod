@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Raid.M02NHoneyBLovely;
+﻿namespace BossMod.Dawntrail.Raid.M02NHoneyBLovely;
 
 abstract class Sweethearts(BossModule module, uint oid, uint aid) : Components.GenericAOEs(module)
 {

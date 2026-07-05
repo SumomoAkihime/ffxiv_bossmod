@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Dungeon.D12Mistwake.D123ThundergustGriffin;
+﻿namespace BossMod.Dawntrail.Dungeon.D12Mistwake.D123ThundergustGriffin;
 
 public enum OID : uint
 {

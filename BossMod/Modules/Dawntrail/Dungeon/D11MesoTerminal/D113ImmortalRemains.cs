@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Dungeon.D11MesoTerminal.D113ImmortalRemains;
+﻿namespace BossMod.Dawntrail.Dungeon.D11MesoTerminal.D113ImmortalRemains;
 
 public enum OID : uint
 {

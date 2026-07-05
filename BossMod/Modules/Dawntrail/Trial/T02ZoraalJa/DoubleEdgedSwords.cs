@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Trial.T02ZoraalJa;
+﻿namespace BossMod.Dawntrail.Trial.T02ZoraalJa;
 
 sealed class DoubleEdgedSwords(BossModule module) : Components.GenericAOEs(module)
 {

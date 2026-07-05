@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.DelubrumReginae.DRN5TrinityAvowed;
+﻿namespace BossMod.Shadowbringers.Foray.DelubrumReginae.DRN5TrinityAvowed;
 
 sealed class ElementalImpact(BossModule module) : Components.GenericAOEs(module)
 {

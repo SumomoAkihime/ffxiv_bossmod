@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE105CrawlingDeath;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE105CrawlingDeath;
 
 public enum OID : uint
 {

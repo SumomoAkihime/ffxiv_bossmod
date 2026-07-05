@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Dungeon.D15TheGhimlytDark.D153SoranusDuo;
+﻿namespace BossMod.Stormblood.Dungeon.D15TheGhimlytDark.D153SoranusDuo;
 
 public enum OID : uint
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A33RedGirl;
+﻿namespace BossMod.Shadowbringers.Alliance.A33RedGirl;
 
 sealed class ChildsPlay : Components.GenericForcedMarch
 {

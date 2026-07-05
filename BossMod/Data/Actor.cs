@@ -1,4 +1,4 @@
-namespace BossMod;
+﻿namespace BossMod;
 
 // objkind << 8 + objsubkind
 public enum ActorType : ushort

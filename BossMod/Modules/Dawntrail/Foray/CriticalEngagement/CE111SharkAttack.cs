@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE111SharkAttack;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE111SharkAttack;
 
 public enum OID : uint
 {

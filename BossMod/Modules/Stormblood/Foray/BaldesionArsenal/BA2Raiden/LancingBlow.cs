@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA2Raiden;
+﻿namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA2Raiden;
 
 sealed class LancingBlowSpread(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.Spreadmarker, (uint)AID.LancingBlow, 10f, 6f)
 {

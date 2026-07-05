@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A24TheCompound2P;
+﻿namespace BossMod.Shadowbringers.Alliance.A24TheCompound2P;
 
 sealed class RelentlessSpiral(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RelentlessSpiral1, 8f);
 sealed class PrimeBladeCircle(BossModule module) : Components.SimpleAOEs(module, (uint)AID.PrimeBladeCircle1, 20f);

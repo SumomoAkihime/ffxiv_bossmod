@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A34XunZiMengZi;
+﻿namespace BossMod.Shadowbringers.Alliance.A34XunZiMengZi;
 
 sealed class HighPoweredLaser(BossModule module) : Components.GenericAOEs(module)
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA4ProtoOzma;
+﻿namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA4ProtoOzma;
 
 sealed class AutoAttacksCube(BossModule module) : Components.GenericBaitAway(module)
 {

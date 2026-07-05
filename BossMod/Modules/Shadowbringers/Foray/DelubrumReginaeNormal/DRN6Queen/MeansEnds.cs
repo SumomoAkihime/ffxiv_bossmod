@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.DelubrumReginae.DRN6Queen;
+﻿namespace BossMod.Shadowbringers.Foray.DelubrumReginae.DRN6Queen;
 
 sealed class MeansEnds(BossModule module) : Components.GenericAOEs(module)
 {

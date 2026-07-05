@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage18.Act1;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage18.Act1;
 
 public enum OID : uint
 {

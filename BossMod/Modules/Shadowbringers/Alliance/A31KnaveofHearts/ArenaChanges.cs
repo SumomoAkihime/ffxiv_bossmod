@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A31KnaveofHearts;
+﻿namespace BossMod.Shadowbringers.Alliance.A31KnaveofHearts;
 
 sealed class BoxSpawn(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BoxSpawn, new AOEShapeRect(8f, 4f));
 

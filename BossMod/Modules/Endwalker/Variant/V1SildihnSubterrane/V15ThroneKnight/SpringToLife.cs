@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.VariantCriterion.V1SildihnSubterrane.V15ThorneKnight;
+﻿namespace BossMod.Endwalker.VariantCriterion.V1SildihnSubterrane.V15ThorneKnight;
 
 sealed class SpringToLife(BossModule module) : Components.GenericAOEs(module)
 {

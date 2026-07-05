@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Dungeon.D13SohrKhai.D131ChieftainMoglin;
+﻿namespace BossMod.Heavensward.Dungeon.D13SohrKhai.D131ChieftainMoglin;
 
 public enum OID : uint
 {

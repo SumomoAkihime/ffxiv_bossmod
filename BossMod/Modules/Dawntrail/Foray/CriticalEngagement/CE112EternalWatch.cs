@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE112EternalWatch;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE112EternalWatch;
 
 public enum OID : uint
 {

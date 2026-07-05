@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE22TheHuntForRedChoctober;
+﻿namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE22TheHuntForRedChoctober;
 
 public enum OID : uint
 {

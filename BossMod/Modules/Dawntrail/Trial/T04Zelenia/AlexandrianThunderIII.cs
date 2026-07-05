@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Trial.T04Zelenia;
+﻿namespace BossMod.Dawntrail.Trial.T04Zelenia;
 
 sealed class AlexandrianThunderIII(BossModule module) : Components.GenericAOEs(module)
 {

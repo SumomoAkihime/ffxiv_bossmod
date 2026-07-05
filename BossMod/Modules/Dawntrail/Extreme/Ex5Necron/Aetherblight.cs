@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Extreme.Ex5Necron;
+﻿namespace BossMod.Dawntrail.Extreme.Ex5Necron;
 
 sealed class Aetherblight(BossModule module) : Components.GenericAOEs(module)
 {

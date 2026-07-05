@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Raid.M01NBlackCat;
+﻿namespace BossMod.Dawntrail.Raid.M01NBlackCat;
 
 sealed class PredaceousPounce(BossModule module) : Components.GenericAOEs(module)
 {

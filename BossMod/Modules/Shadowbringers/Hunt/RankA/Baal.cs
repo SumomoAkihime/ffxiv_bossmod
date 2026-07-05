@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Hunt.RankA.Baal;
+﻿namespace BossMod.Shadowbringers.Hunt.RankA.Baal;
 
 public enum OID : uint
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.VariantCriterion.V1SildihnSubterrane.V14ZelessGah;
+﻿namespace BossMod.Endwalker.VariantCriterion.V1SildihnSubterrane.V14ZelessGah;
 
 sealed class ArcaneFont(BossModule module) : Components.GenericAOEs(module)
 {

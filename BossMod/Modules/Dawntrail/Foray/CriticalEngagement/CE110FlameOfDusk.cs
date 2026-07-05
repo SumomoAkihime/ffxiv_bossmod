@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE110FlameOfDusk;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE110FlameOfDusk;
 
 public enum OID : uint
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA1Owain;
+﻿namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA1Owain;
 
 sealed class ElementalMagicks(BossModule module) : Components.GenericAOEs(module)
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.ForkedTowerBlood.FTB3MarbleDragon;
+﻿namespace BossMod.Dawntrail.Foray.ForkedTowerBlood.FTB3MarbleDragon;
 
 sealed class ImitationBlizzard(BossModule module) : Components.GenericAOEs(module)
 {

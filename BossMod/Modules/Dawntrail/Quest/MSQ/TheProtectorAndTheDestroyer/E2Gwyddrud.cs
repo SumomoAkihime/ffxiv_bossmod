@@ -1,4 +1,4 @@
-using BossMod.Dawntrail.Quest.MSQ.TheProtectorAndTheDestroyer.Otis;
+﻿using BossMod.Dawntrail.Quest.MSQ.TheProtectorAndTheDestroyer.Otis;
 
 namespace BossMod.Dawntrail.Quest.MSQ.TheProtectorAndTheDestroyer.Gwyddrud;
 

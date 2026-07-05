@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D05MtGulg.D055ForgivenObscenity;
+﻿namespace BossMod.Shadowbringers.Dungeon.D05MtGulg.D055ForgivenObscenity;
 
 public enum OID : uint
 {

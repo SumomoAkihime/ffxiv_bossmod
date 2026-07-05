@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.VariantCriterion.V1SildihnSubterrane.V13Gladiator;
+﻿namespace BossMod.Endwalker.VariantCriterion.V1SildihnSubterrane.V13Gladiator;
 
 sealed class RushOfMight(BossModule module) : Components.GenericAOEs(module)
 {

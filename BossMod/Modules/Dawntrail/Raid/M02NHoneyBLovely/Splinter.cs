@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Raid.M02NHoneyBLovely;
+﻿namespace BossMod.Dawntrail.Raid.M02NHoneyBLovely;
 
 sealed class Splinter(BossModule module) : Components.GenericAOEs(module)
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.TreasureHunt.VaultOneiron.GreatGimmeCat;
+﻿namespace BossMod.Dawntrail.TreasureHunt.VaultOneiron.GreatGimmeCat;
 
 public enum OID : uint
 {

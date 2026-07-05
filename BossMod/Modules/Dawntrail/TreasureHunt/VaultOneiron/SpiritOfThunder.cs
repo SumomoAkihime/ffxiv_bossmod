@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.TreasureHunt.VaultOneiron.SpiritOfThunder;
+﻿namespace BossMod.Dawntrail.TreasureHunt.VaultOneiron.SpiritOfThunder;
 
 public enum OID : uint
 {

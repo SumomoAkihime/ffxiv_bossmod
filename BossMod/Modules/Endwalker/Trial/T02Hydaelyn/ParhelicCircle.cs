@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.Trial.T02Hydaelyn;
+﻿namespace BossMod.Endwalker.Trial.T02Hydaelyn;
 
 class ParhelicCircle(BossModule module) : Components.GenericAOEs(module)
 {

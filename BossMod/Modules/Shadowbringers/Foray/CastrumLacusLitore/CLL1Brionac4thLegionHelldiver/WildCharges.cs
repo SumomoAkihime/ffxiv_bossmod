@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.CastrumLacusLitore.CLL1Brionac4thLegionHelldiver;
+﻿namespace BossMod.Shadowbringers.Foray.CastrumLacusLitore.CLL1Brionac4thLegionHelldiver;
 
 sealed class WildCharges(BossModule module) : Components.GenericAOEs(module)
 {

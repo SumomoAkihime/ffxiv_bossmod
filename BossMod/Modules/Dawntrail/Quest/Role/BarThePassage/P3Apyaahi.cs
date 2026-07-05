@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Quest.Role.BarThePassage.Apyaahi;
+﻿namespace BossMod.Dawntrail.Quest.Role.BarThePassage.Apyaahi;
 
 public enum OID : uint
 {

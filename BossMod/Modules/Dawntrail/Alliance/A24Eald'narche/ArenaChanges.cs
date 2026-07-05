@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Alliance.A24Ealdnarche;
+﻿namespace BossMod.Dawntrail.Alliance.A24Ealdnarche;
 
 sealed class ArenaChanges(BossModule module) : Components.SimpleAOEs(module, (uint)AID.DestroyTile, Duplicate.Rect)
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Dungeon.D08FractalContinuum.D083TheCurator;
+﻿namespace BossMod.Heavensward.Dungeon.D08FractalContinuum.D083TheCurator;
 
 public enum OID : uint
 {

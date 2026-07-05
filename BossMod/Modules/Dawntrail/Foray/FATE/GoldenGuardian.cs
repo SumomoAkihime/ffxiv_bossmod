@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.FATE.GoldenGuardian;
+﻿namespace BossMod.Dawntrail.Foray.FATE.GoldenGuardian;
 
 public enum OID : uint
 {

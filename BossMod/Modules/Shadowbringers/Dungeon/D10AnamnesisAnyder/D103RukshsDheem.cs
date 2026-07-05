@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D10AnamnesisAnyder.D103RukshsDheem;
+﻿namespace BossMod.Shadowbringers.Dungeon.D10AnamnesisAnyder.D103RukshsDheem;
 
 public enum OID : uint
 {

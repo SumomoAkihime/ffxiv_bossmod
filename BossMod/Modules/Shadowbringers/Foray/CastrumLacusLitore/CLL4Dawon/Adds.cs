@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.CastrumLacusLitore.CLL4Dawon;
+﻿namespace BossMod.Shadowbringers.Foray.CastrumLacusLitore.CLL4Dawon;
 
 sealed class CrackleHiss(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CrackleHiss, new AOEShapeCone(25f, 60f.Degrees()))
 {

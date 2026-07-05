@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M05SDancingGreen;
+﻿namespace BossMod.Dawntrail.Savage.M05SDancingGreen;
 
 sealed class RideTheWaves(BossModule module) : Components.GenericAOEs(module)
 {

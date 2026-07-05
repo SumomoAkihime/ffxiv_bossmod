@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M05SDancingGreen;
+﻿namespace BossMod.Dawntrail.Savage.M05SDancingGreen;
 
 sealed class FunkyFloor(BossModule module) : Components.GenericAOEs(module)
 {

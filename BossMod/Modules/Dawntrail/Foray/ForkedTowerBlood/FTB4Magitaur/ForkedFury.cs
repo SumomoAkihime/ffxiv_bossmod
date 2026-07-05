@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.ForkedTowerBlood.FTB4Magitaur;
+﻿namespace BossMod.Dawntrail.Foray.ForkedTowerBlood.FTB4Magitaur;
 
 sealed class ForkedFury(BossModule module) : Components.GenericAOEs(module)
 {

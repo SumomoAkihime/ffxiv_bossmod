@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.Duel.Duel3Sartauvoir;
+﻿namespace BossMod.Shadowbringers.Foray.Duel.Duel3Sartauvoir;
 
 sealed class Flamedive(BossModule module) : Components.GenericAOEs(module)
 {

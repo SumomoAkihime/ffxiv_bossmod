@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Quest.Role.AnAntidoteForAnarchy;
+﻿namespace BossMod.Dawntrail.Quest.Role.AnAntidoteForAnarchy;
 
 public enum OID : uint
 {

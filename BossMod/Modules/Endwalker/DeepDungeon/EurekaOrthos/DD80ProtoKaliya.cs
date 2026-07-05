@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.DeepDungeon.EurekaOrthos.DD80ProtoKaliya;
+﻿namespace BossMod.Endwalker.DeepDungeon.EurekaOrthos.DD80ProtoKaliya;
 
 public enum OID : uint
 {

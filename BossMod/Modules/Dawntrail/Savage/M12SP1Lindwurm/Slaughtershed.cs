@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M12SLindwurm;
+﻿namespace BossMod.Dawntrail.Savage.M12SLindwurm;
 
 sealed class FourthWallFusion1(BossModule module) : Components.StackWithIcon(module, (uint)IconID.FourthWallFusion1_Icon, (uint)AID.FourthWallFusion1, 6f, 5d, 4, 4);
 sealed class FourthWallFusion2(BossModule module) : Components.StackWithIcon(module, (uint)IconID.FourthWallFusion2_Icon, (uint)AID.FourthWallFusion2, 6f, 5d, 6, 6);

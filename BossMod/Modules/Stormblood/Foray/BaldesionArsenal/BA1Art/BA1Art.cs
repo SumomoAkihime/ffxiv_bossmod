@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA1Art;
+﻿namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA1Art;
 
 sealed class Thricecull(BossModule module) : Components.SingleTargetCast(module, (uint)AID.Thricecull);
 sealed class AcallamNaSenorach(BossModule module) : Components.RaidwideCast(module, (uint)AID.AcallamNaSenorach);

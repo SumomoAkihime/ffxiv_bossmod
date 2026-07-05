@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.Alliance.A14Naldthal;
+﻿namespace BossMod.Endwalker.Alliance.A14Naldthal;
 
 class TippedScales(BossModule module) : Components.GenericAOEs(module, (uint)AID.TippedScalesAOE)
 {

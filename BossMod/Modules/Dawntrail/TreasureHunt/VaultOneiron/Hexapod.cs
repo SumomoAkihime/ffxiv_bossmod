@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.TreasureHunt.VaultOneiron.Hexapod;
+﻿namespace BossMod.Dawntrail.TreasureHunt.VaultOneiron.Hexapod;
 
 public enum OID : uint
 {

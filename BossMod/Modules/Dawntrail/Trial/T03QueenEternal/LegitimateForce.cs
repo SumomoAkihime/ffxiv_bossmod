@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Trial.T03QueenEternal;
+﻿namespace BossMod.Dawntrail.Trial.T03QueenEternal;
 
 sealed class LegitimateForce(BossModule module) : Components.GenericAOEs(module)
 {

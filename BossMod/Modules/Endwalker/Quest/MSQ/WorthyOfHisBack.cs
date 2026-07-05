@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.Quest.MSQ.WorthyOfHisBack;
+﻿namespace BossMod.Endwalker.Quest.MSQ.WorthyOfHisBack;
 
 public enum OID : uint
 {

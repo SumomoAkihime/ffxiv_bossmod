@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.TreasureHunt.VaultOneiron.MobileFortress;
+﻿namespace BossMod.Dawntrail.TreasureHunt.VaultOneiron.MobileFortress;
 
 public enum OID : uint
 {

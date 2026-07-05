@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.VariantCriterion.V2MountRokkon.V23Gorai;
+﻿namespace BossMod.Endwalker.VariantCriterion.V2MountRokkon.V23Gorai;
 
 sealed class ArenaChange(BossModule module) : Components.GenericAOEs(module)
 {

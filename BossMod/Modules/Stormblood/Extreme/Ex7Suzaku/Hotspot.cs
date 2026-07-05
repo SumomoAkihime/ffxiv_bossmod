@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Extreme.Ex7Suzaku;
+﻿namespace BossMod.Stormblood.Extreme.Ex7Suzaku;
 
 sealed class Hotspot(BossModule module) : Components.GenericAOEs(module)
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Raid.M05NDancingGreen;
+﻿namespace BossMod.Dawntrail.Raid.M05NDancingGreen;
 
 sealed class Spotlight(BossModule module) : Components.GenericAOEs(module)
 {

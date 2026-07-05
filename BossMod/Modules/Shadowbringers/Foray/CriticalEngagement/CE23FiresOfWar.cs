@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE23FiresOfWar;
+﻿namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE23FiresOfWar;
 
 public enum OID : uint
 {

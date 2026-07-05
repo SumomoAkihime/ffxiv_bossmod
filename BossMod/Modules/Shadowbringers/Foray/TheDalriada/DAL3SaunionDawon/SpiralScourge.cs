@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.TheDalriada.DAL3SaunionDawon;
+﻿namespace BossMod.Shadowbringers.Foray.TheDalriada.DAL3SaunionDawon;
 
 sealed class SpiralScourge(BossModule module) : Components.GenericAOEs(module)
 {

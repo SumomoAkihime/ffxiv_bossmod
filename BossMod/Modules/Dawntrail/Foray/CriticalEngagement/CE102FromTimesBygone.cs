@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE102FromTimesBygone;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE102FromTimesBygone;
 
 public enum OID : uint
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Raid.M03NBruteBomber;
+﻿namespace BossMod.Dawntrail.Raid.M03NBruteBomber;
 
 sealed class LitFuse(BossModule module) : Components.GenericAOEs(module)
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Hunt.RankA.Huracan;
+﻿namespace BossMod.Shadowbringers.Hunt.RankA.Huracan;
 
 public enum OID : uint
 {

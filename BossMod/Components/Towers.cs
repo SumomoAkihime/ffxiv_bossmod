@@ -1,4 +1,4 @@
-namespace BossMod.Components;
+﻿namespace BossMod.Components;
 
 [SkipLocalsInit]
 public class GenericTowers(BossModule module, uint aid = default, bool prioritizeInsufficient = false, AIHints.PredictedDamageType damageType = AIHints.PredictedDamageType.Raidwide) : CastCounter(module, aid)

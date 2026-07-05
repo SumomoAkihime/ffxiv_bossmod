@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Alliance.A10Despot;
+﻿namespace BossMod.Dawntrail.Alliance.A10Despot;
 
 public enum OID : uint
 {

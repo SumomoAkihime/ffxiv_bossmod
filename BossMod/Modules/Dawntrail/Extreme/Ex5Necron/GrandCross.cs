@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Extreme.Ex5Necron;
+﻿namespace BossMod.Dawntrail.Extreme.Ex5Necron;
 
 sealed class GrandCross(BossModule module) : Components.RaidwideCast(module, (uint)AID.GrandCross);
 sealed class GrandCrossRW(BossModule module) : Components.RaidwideCast(module, (uint)AID.GrandCrossProximity);

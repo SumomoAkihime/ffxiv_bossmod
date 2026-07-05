@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.TreasureHunt.ShiftingAltarsOfUznair.AltarKelpie;
+﻿namespace BossMod.Stormblood.TreasureHunt.ShiftingAltarsOfUznair.AltarKelpie;
 
 public enum OID : uint
 {

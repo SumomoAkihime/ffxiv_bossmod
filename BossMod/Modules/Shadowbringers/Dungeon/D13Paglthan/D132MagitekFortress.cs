@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D13Paglthan.D132MagitekFortress;
+﻿namespace BossMod.Shadowbringers.Dungeon.D13Paglthan.D132MagitekFortress;
 
 public enum OID : uint
 {

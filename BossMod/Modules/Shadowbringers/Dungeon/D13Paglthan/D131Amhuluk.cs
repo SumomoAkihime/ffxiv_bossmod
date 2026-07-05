@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D13Paglthan.D131Amhuluk;
+﻿namespace BossMod.Shadowbringers.Dungeon.D13Paglthan.D131Amhuluk;
 
 public enum OID : uint
 {

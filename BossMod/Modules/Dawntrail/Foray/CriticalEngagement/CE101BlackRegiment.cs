@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE101BlackRegiment;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE101BlackRegiment;
 
 public enum OID : uint
 {

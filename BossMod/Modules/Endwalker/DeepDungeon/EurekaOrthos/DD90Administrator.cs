@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.DeepDungeon.EurekaOrthos.DD90Administrator;
+﻿namespace BossMod.Endwalker.DeepDungeon.EurekaOrthos.DD90Administrator;
 
 public enum OID : uint
 {

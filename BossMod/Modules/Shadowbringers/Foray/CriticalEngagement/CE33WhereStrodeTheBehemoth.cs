@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE33WhereStrodeTheBehemoth;
+﻿namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE33WhereStrodeTheBehemoth;
 
 public enum OID : uint
 {

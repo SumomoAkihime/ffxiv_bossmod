@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE113ScourgeOfMind;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE113ScourgeOfMind;
 
 public enum OID : uint
 {

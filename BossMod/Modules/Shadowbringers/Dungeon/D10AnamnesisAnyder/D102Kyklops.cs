@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D10AnamnesisAnyder.D102Kyklops;
+﻿namespace BossMod.Shadowbringers.Dungeon.D10AnamnesisAnyder.D102Kyklops;
 
 public enum OID : uint
 {

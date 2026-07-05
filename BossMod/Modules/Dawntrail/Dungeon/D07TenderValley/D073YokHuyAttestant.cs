@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Dungeon.D07TenderValley.D073YokHuyAttestant;
+﻿namespace BossMod.Dawntrail.Dungeon.D07TenderValley.D073YokHuyAttestant;
 
 public enum OID : uint
 {

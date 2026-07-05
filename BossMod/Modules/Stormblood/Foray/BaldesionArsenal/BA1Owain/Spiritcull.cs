@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA1Owain;
+﻿namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA1Owain;
 
 sealed class PiercingLight1(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.PiercingLight1, 6f);
 sealed class PiercingLight2(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.PiercingLight2, 6f);

@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.TheDalriada.DAL1Gauntlet;
+﻿namespace BossMod.Shadowbringers.Foray.TheDalriada.DAL1Gauntlet;
 
 sealed class Stormcall(BossModule module) : Components.GenericAOEs(module, (uint)AID.Stormcall)
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE104NoiseComplaint;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE104NoiseComplaint;
 
 public enum OID : uint
 {

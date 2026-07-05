@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Trial.T03QueenEternal;
+﻿namespace BossMod.Dawntrail.Trial.T03QueenEternal;
 
 // mechanic spawns target markers that result in 5 rectangles of 7 front and 7 back length
 // forming almost a circle that can be approximated with a circle radius of sqrt(212)/2 for easy coding

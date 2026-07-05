@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Dungeon.D13TheBurn.D132DefectiveDrone;
+﻿namespace BossMod.Stormblood.Dungeon.D13TheBurn.D132DefectiveDrone;
 
 public enum OID : uint
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Dungeon.D11Antitower.D152DotoliCiloc;
+﻿namespace BossMod.Heavensward.Dungeon.D11Antitower.D152DotoliCiloc;
 
 public enum OID : uint
 {

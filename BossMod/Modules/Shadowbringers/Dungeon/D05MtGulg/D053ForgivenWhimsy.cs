@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D05MtGulg.D053ForgivenWhimsy;
+﻿namespace BossMod.Shadowbringers.Dungeon.D05MtGulg.D053ForgivenWhimsy;
 
 public enum OID : uint
 {

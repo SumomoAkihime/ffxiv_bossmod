@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.FATE.KingOfTheCrescent;
+﻿namespace BossMod.Dawntrail.Foray.FATE.KingOfTheCrescent;
 
 public enum OID : uint
 {

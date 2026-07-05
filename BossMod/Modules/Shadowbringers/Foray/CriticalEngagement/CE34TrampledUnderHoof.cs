@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE34TrampledUnderHoof;
+﻿namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE34TrampledUnderHoof;
 
 public enum OID : uint
 {

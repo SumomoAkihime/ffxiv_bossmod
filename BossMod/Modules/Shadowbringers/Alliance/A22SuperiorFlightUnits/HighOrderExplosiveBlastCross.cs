@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A22SuperiorFlightUnits;
+﻿namespace BossMod.Shadowbringers.Alliance.A22SuperiorFlightUnits;
 
 sealed class HighOrderExplosiveBlastCross(BossModule module) : Components.GenericAOEs(module)
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D11HeroesGauntlet.D112SpectralNecromancer;
+﻿namespace BossMod.Shadowbringers.Dungeon.D11HeroesGauntlet.D112SpectralNecromancer;
 
 public enum OID : uint
 {

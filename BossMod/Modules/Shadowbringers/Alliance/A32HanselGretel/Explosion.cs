@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A32HanselGretel;
+﻿namespace BossMod.Shadowbringers.Alliance.A32HanselGretel;
 
 sealed class Explosion(BossModule module) : Components.GenericAOEs(module)
 {

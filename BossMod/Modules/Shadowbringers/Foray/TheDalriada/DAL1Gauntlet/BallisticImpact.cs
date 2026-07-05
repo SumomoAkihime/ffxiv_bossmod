@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.TheDalriada.DAL1Gauntlet;
+﻿namespace BossMod.Shadowbringers.Foray.TheDalriada.DAL1Gauntlet;
 
 sealed class BallisticImpact(BossModule module) : Components.GenericAOEs(module)
 {

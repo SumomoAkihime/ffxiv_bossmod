@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D06Amaurot.D063Therion;
+﻿namespace BossMod.Shadowbringers.Dungeon.D06Amaurot.D063Therion;
 
 public enum OID : uint
 {

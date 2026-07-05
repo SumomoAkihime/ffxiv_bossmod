@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.DeepDungeon.PilgrimsTraverse.DD10OrnamentalLeafman;
+﻿namespace BossMod.Endwalker.DeepDungeon.PilgrimsTraverse.DD10OrnamentalLeafman;
 
 public enum OID : uint
 {

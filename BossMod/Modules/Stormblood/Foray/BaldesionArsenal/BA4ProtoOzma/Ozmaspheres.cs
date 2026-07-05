@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA4ProtoOzma;
+﻿namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA4ProtoOzma;
 
 sealed class Ozmaspheres(BossModule module) : Components.GenericAOEs(module)
 {

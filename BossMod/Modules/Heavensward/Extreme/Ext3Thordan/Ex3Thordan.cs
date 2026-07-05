@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Extreme.Ex3Thordan;
+﻿namespace BossMod.Heavensward.Extreme.Ex3Thordan;
 
 sealed class AscalonsMight(BossModule module) : Components.Cleave(module, (uint)AID.AscalonsMight, new AOEShapeCone(11.8f, 45f.Degrees()));
 

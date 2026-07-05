@@ -1,4 +1,4 @@
-namespace BossMod.Global.GoldSaucer.SliceIsRight;
+﻿namespace BossMod.Global.GoldSaucer.SliceIsRight;
 
 public enum OID : uint
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.DeepDungeon.PilgrimsTraverse.DD30ForgivenTreachery;
+﻿namespace BossMod.Endwalker.DeepDungeon.PilgrimsTraverse.DD30ForgivenTreachery;
 
 public enum OID : uint
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
+﻿namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
 
 sealed class AlexandrianThunderII(BossModule module) : Components.GenericRotatingAOE(module)
 {

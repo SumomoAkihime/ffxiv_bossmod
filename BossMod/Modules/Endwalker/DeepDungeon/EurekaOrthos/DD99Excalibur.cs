@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.DeepDungeon.EurekaOrthos.DD99Excalibur;
+﻿namespace BossMod.Endwalker.DeepDungeon.EurekaOrthos.DD99Excalibur;
 
 public enum OID : uint
 {

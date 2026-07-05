@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Alliance.A11Mateus;
+﻿namespace BossMod.Stormblood.Alliance.A11Mateus;
 
 class IceSpiral(BossModule module) : Components.GenericAOEs(module)
 {

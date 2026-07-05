@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.DeepDungeon.PilgrimsTraverse.DD99EminentGrief;
+﻿namespace BossMod.Endwalker.DeepDungeon.PilgrimsTraverse.DD99EminentGrief;
 
 public enum OID : uint
 {

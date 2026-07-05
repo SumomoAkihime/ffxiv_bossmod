@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE32RiseOfTheRobots;
+﻿namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE32RiseOfTheRobots;
 
 public enum OID : uint
 {

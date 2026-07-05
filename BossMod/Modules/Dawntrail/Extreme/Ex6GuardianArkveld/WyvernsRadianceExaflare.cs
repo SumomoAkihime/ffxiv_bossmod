@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Extreme.Ex6GuardianArkveld;
+﻿namespace BossMod.Dawntrail.Extreme.Ex6GuardianArkveld;
 
 sealed class WyvernsRadianceExaflare1(BossModule module) : Components.Exaflare(module, new AOEShapeRect(8f, 20f))
 {

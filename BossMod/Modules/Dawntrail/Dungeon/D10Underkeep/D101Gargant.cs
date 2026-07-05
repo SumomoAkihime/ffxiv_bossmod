@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Dungeon.D10Underkeep.D101Gargant;
+﻿namespace BossMod.Dawntrail.Dungeon.D10Underkeep.D101Gargant;
 
 public enum OID : uint
 {

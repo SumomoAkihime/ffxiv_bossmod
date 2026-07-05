@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A21AegisUnit;
+﻿namespace BossMod.Shadowbringers.Alliance.A21AegisUnit;
 
 sealed class BeamCannons(BossModule module) : Components.GenericAOEs(module)
 {

@@ -1,4 +1,4 @@
-namespace BossMod.RealmReborn.Dungeon.D26Snowcloak.D260NorthernBateleur;
+﻿namespace BossMod.RealmReborn.Dungeon.D26Snowcloak.D260NorthernBateleur;
 
 public enum OID : uint
 {

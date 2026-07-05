@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.ForkedTowerBlood.FTB2DeadStars;
+﻿namespace BossMod.Dawntrail.Foray.ForkedTowerBlood.FTB2DeadStars;
 
 sealed class SixHandedFistfightRaidwide(BossModule module) : Components.CastCounter(module, (uint)AID.SixHandedFistfight);
 sealed class SixHandedFistfightArenaChange(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SixHandedFistfightVisual2, 12f)

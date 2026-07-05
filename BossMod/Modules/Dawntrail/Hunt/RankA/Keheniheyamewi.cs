@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Hunt.RankA.Keheniheyamewi;
+﻿namespace BossMod.Dawntrail.Hunt.RankA.Keheniheyamewi;
 
 public enum OID : uint
 {

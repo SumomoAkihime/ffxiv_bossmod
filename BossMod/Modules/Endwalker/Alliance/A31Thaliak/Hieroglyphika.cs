@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.Alliance.A31Thaliak;
+﻿namespace BossMod.Endwalker.Alliance.A31Thaliak;
 
 // arena is split into 4x4 squares, with 2 safe spots - one along edge, another in farthest corner
 // there are only two possible patterns here - safe spot is either along N or E edge (out of 8 possible ones):

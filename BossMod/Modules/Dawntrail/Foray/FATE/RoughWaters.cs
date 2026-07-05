@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.FATE.RoughWaters;
+﻿namespace BossMod.Dawntrail.Foray.FATE.RoughWaters;
 
 public enum OID : uint
 {

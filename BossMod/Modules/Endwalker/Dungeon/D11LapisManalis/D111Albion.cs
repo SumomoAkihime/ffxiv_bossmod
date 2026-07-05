@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.Dungeon.D11LapisManalis.D111Albion;
+﻿namespace BossMod.Endwalker.Dungeon.D11LapisManalis.D111Albion;
 
 public enum OID : uint
 {

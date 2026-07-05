@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Dungeon.D02ShisuiOfTheVioletTides.D022RubyPrincess;
+﻿namespace BossMod.Stormblood.Dungeon.D02ShisuiOfTheVioletTides.D022RubyPrincess;
 
 public enum OID : uint
 {

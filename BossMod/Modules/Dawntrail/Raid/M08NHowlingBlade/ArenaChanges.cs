@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Raid.M08NHowlingBlade;
+﻿namespace BossMod.Dawntrail.Raid.M08NHowlingBlade;
 
 sealed class ArenaChanges(BossModule module) : Components.GenericAOEs(module)
 {

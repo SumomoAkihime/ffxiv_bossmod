@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A20HeavyArtilleryUnit;
+﻿namespace BossMod.Shadowbringers.Alliance.A20HeavyArtilleryUnit;
 
 public enum OID : uint
 {

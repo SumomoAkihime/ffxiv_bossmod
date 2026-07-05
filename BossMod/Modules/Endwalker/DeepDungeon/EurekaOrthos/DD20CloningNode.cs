@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.DeepDungeon.EurekaOrthos.DD20CloningNode;
+﻿namespace BossMod.Endwalker.DeepDungeon.EurekaOrthos.DD20CloningNode;
 
 public enum OID : uint
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.Trial.T02Hydaelyn;
+﻿namespace BossMod.Endwalker.Trial.T02Hydaelyn;
 
 class Lightwave(BossModule module) : Components.GenericAOEs(module)
 {

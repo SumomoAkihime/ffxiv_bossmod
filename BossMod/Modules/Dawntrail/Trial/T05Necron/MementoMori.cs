@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Trial.T05Necron;
+﻿namespace BossMod.Dawntrail.Trial.T05Necron;
 
 sealed class MementoMori(BossModule module) : Components.GenericAOEs(module)
 {

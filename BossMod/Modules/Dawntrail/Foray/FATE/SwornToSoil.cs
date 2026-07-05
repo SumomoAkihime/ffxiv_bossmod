@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.FATE.SwornToSoil;
+﻿namespace BossMod.Dawntrail.Foray.FATE.SwornToSoil;
 
 public enum OID : uint
 {

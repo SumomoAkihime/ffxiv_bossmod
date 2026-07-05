@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.TreasureHunt.VaultOneiron.Gwyddneu;
+﻿namespace BossMod.Dawntrail.TreasureHunt.VaultOneiron.Gwyddneu;
 
 public enum OID : uint
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Quest.Role.TheMightiestShield;
+﻿namespace BossMod.Dawntrail.Quest.Role.TheMightiestShield;
 
 public enum OID : uint
 {

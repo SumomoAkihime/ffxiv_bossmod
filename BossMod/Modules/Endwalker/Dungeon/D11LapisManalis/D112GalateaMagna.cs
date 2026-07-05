@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.Dungeon.D11LapisManalis.D112GalateaMagna;
+﻿namespace BossMod.Endwalker.Dungeon.D11LapisManalis.D112GalateaMagna;
 
 public enum OID : uint
 {

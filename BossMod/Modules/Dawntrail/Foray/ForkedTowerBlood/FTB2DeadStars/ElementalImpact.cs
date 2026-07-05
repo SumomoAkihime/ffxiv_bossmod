@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.ForkedTowerBlood.FTB2DeadStars;
+﻿namespace BossMod.Dawntrail.Foray.ForkedTowerBlood.FTB2DeadStars;
 
 sealed class ElementalImpact(BossModule module) : Components.GenericTowersOpenWorld(module)
 {

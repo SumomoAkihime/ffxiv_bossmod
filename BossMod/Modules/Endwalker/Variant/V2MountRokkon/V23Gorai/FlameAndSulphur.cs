@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.VariantCriterion.V2MountRokkon.V23Gorai;
+﻿namespace BossMod.Endwalker.VariantCriterion.V2MountRokkon.V23Gorai;
 
 sealed class FlameAndSulphur(BossModule module) : Components.GenericAOEs(module)
 {

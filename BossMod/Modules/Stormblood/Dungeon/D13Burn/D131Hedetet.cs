@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Dungeon.D13TheBurn.D131Hedetet;
+﻿namespace BossMod.Stormblood.Dungeon.D13TheBurn.D131Hedetet;
 
 public enum OID : uint
 {

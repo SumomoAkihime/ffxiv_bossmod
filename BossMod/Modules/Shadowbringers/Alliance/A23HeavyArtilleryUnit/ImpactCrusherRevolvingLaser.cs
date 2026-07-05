@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A23HeavyArtilleryUnit;
+﻿namespace BossMod.Shadowbringers.Alliance.A23HeavyArtilleryUnit;
 
 sealed class ManeuverImpactCrusherRevolvingLaser(BossModule module) : Components.GenericAOEs(module)
 {

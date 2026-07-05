@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
+﻿namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
 
 sealed class ValorousAscension(BossModule module) : Components.CastCounterMulti(module, [(uint)AID.ValorousAscension1,
 (uint)AID.ValorousAscension2, (uint)AID.ValorousAscension3]);

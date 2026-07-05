@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M05SDancingGreen;
+﻿namespace BossMod.Dawntrail.Savage.M05SDancingGreen;
 
 sealed class BackUpDance(BossModule module) : Components.GenericBaitAway(module, damageType: AIHints.PredictedDamageType.Raidwide)
 {

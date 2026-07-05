@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Quest.MSQ.TakingAStand;
+﻿namespace BossMod.Dawntrail.Quest.MSQ.TakingAStand;
 
 public enum OID : uint
 {

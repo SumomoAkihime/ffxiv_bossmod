@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Extreme.Ex6GuardianArkveld;
+﻿namespace BossMod.Dawntrail.Extreme.Ex6GuardianArkveld;
 
 sealed class WyvernsRadianceCleave(BossModule module) : Components.GenericAOEs(module)
 {

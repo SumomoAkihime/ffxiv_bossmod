@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.Dungeon.D11LapisManalis.D113Cagnazzo;
+﻿namespace BossMod.Endwalker.Dungeon.D11LapisManalis.D113Cagnazzo;
 
 public enum OID : uint
 {

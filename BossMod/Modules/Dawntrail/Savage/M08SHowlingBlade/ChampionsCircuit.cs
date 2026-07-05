@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M08SHowlingBlade;
+﻿namespace BossMod.Dawntrail.Savage.M08SHowlingBlade;
 
 sealed class GleamingBarrage(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GleamingBarrage, GleamingBeam.Rect);
 

@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Alliance.A11Prishe;
+﻿namespace BossMod.Dawntrail.Alliance.A11Prishe;
 
 sealed class Explosion(BossModule module) : Components.GenericAOEs(module, (uint)AID.Explosion)
 {

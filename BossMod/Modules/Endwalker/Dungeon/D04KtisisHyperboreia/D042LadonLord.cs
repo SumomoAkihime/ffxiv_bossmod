@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.Dungeon.D04KtisisHyperboreia.D042LadonLord;
+﻿namespace BossMod.Endwalker.Dungeon.D04KtisisHyperboreia.D042LadonLord;
 
 public enum OID : uint
 {

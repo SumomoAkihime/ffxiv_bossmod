@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.Alliance.A32Llymlaen;
+﻿namespace BossMod.Endwalker.Alliance.A32Llymlaen;
 
 sealed class ToTheLast(BossModule module) : Components.GenericAOEs(module)
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Foray.Hydatos.Tristitia;
+﻿namespace BossMod.Stormblood.Foray.Hydatos.Tristitia;
 
 public enum OID : uint
 {

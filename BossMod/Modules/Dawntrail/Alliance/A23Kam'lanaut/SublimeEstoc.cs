@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Alliance.A23Kamlanaut;
+﻿namespace BossMod.Dawntrail.Alliance.A23Kamlanaut;
 
 sealed class SublimeEstoc(BossModule module) : Components.GenericAOEs(module)
 {

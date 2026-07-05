@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Quest.MSQ.AFatherFirst;
+﻿namespace BossMod.Dawntrail.Quest.MSQ.AFatherFirst;
 
 public enum OID : uint
 {

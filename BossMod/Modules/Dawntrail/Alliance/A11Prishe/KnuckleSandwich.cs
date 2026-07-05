@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Alliance.A11Prishe;
+﻿namespace BossMod.Dawntrail.Alliance.A11Prishe;
 
 sealed class KnuckleSandwich(BossModule module) : Components.GenericAOEs(module)
 {

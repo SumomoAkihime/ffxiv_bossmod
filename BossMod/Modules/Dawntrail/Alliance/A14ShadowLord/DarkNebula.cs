@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Alliance.A14ShadowLord;
+﻿namespace BossMod.Dawntrail.Alliance.A14ShadowLord;
 
 sealed class DarkNebula(BossModule module) : Components.GenericKnockback(module)
 {

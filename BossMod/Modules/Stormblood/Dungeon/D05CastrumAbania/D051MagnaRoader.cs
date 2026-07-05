@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Dungeon.D05CastrumAbania.D051MagnaRoader;
+﻿namespace BossMod.Stormblood.Dungeon.D05CastrumAbania.D051MagnaRoader;
 
 public enum OID : uint
 {

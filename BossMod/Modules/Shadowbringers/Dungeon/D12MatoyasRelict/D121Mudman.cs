@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D12MatoyasRelict.D121Mudman;
+﻿namespace BossMod.Shadowbringers.Dungeon.D12MatoyasRelict.D121Mudman;
 
 public enum OID : uint
 {

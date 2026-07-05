@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.FATE.Ttokrrone;
+﻿namespace BossMod.Dawntrail.FATE.Ttokrrone;
 
 sealed class DesertTempest(BossModule module) : Components.GenericAOEs(module)
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Dungeon.D11MesoTerminal.D112FourHeadsmen;
+﻿namespace BossMod.Dawntrail.Dungeon.D11MesoTerminal.D112FourHeadsmen;
 
 public enum OID : uint
 {

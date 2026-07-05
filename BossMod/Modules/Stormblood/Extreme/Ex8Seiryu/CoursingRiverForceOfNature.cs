@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Extreme.Ex8Seiryu;
+﻿namespace BossMod.Stormblood.Extreme.Ex8Seiryu;
 
 sealed class CoursingRiverForceOfNature(BossModule module) : Components.GenericKnockback(module)
 {

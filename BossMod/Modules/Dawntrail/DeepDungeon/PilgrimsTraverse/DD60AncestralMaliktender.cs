@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.DeepDungeon.PilgrimsTraverse.DD60AncestralMaliktender;
+﻿namespace BossMod.Endwalker.DeepDungeon.PilgrimsTraverse.DD60AncestralMaliktender;
 
 public enum OID : uint
 {

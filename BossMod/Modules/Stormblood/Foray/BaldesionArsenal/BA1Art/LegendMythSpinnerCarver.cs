@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA1Art;
+﻿namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA1Art;
 
 sealed class LegendMythSpinnerCarver(BossModule module) : Components.GenericAOEs(module)
 {

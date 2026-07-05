@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M07SBruteAbombinator;
+﻿namespace BossMod.Dawntrail.Savage.M07SBruteAbombinator;
 
 sealed class ThornsOfDeath(BossModule module) : BossComponent(module)
 {

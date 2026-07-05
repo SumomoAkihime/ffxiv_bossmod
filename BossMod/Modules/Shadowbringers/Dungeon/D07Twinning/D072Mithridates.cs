@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D07Twinning.D072Mithridates;
+﻿namespace BossMod.Shadowbringers.Dungeon.D07Twinning.D072Mithridates;
 
 public enum OID : uint
 {

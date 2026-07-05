@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M08SHowlingBlade;
+﻿namespace BossMod.Dawntrail.Savage.M08SHowlingBlade;
 
 sealed class MoonbeamsBite(BossModule module) : Components.GenericAOEs(module)
 {

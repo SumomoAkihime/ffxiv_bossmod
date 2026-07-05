@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.Alliance.A32Llymlaen;
+﻿namespace BossMod.Endwalker.Alliance.A32Llymlaen;
 
 sealed class TorrentialTridentLanding(BossModule module) : Components.CastCounter(module, (uint)AID.TorrentialTridentLanding);
 

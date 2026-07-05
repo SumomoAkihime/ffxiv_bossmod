@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Quantum.Q1FinalVerse;
+﻿namespace BossMod.Dawntrail.Quantum.Q1FinalVerse;
 
 [SkipLocalsInit]
 sealed class BoundsOfSinSmallAOE : Components.SimpleAOEs

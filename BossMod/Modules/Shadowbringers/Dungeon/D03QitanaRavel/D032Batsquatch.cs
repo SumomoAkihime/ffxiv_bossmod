@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D03QitanaRavel.D032Batsquatch;
+﻿namespace BossMod.Shadowbringers.Dungeon.D03QitanaRavel.D032Batsquatch;
 
 public enum OID : uint
 {

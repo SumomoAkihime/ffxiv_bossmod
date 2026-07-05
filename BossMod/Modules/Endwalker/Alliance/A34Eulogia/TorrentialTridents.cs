@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.Alliance.A34Eulogia;
+﻿namespace BossMod.Endwalker.Alliance.A34Eulogia;
 
 class TorrentialTrident(BossModule module) : Components.GenericAOEs(module)
 {

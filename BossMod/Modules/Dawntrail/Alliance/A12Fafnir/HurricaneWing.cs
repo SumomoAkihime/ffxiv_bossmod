@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Alliance.A12Fafnir;
+﻿namespace BossMod.Dawntrail.Alliance.A12Fafnir;
 
 sealed class HurricaneWingRaidwide(BossModule module) : Components.CastCounterMulti(module, [(uint)AID.HurricaneWingRaidwideAOE1, (uint)AID.HurricaneWingRaidwideAOE2, (uint)AID.HurricaneWingRaidwideAOE3,
     (uint)AID.HurricaneWingRaidwideAOE4, (uint)AID.HurricaneWingRaidwideAOE5, (uint)AID.HurricaneWingRaidwideAOE6,

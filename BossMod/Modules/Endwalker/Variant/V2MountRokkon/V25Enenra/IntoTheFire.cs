@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.VariantCriterion.V2MountRokkon.V25Enenra;
+﻿namespace BossMod.Endwalker.VariantCriterion.V2MountRokkon.V25Enenra;
 
 sealed class IntoTheFire(BossModule module) : Components.GenericAOEs(module)
 {

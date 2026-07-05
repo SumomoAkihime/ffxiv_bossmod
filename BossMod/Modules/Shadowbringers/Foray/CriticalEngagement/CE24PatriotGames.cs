@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE24PatriotGames;
+﻿namespace BossMod.Shadowbringers.Foray.CriticalEngagement.CE24PatriotGames;
 
 public enum OID : uint
 {

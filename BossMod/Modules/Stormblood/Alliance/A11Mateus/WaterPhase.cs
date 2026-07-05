@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Alliance.A11Mateus;
+﻿namespace BossMod.Stormblood.Alliance.A11Mateus;
 
 class Froth(BossModule module) : Components.GenericAOEs(module)
 {

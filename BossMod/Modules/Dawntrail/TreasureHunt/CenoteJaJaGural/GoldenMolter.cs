@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.TreasureHunt.CenoteJaJaGural.GoldenMolter;
+﻿namespace BossMod.Dawntrail.TreasureHunt.CenoteJaJaGural.GoldenMolter;
 
 public enum OID : uint
 {

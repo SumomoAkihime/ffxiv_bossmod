@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.ForkedTowerBlood.FTB1DemonTablet;
+﻿namespace BossMod.Dawntrail.Foray.ForkedTowerBlood.FTB1DemonTablet;
 
 sealed class PortentousCometeor(BossModule module) : Components.SimpleAOEs(module, (uint)AID.PortentousCometeor, 43f);
 

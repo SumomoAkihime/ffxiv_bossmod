@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.DeepDungeon.EurekaOrthos.DD50ServomechanicalChimera14X;
+﻿namespace BossMod.Endwalker.DeepDungeon.EurekaOrthos.DD50ServomechanicalChimera14X;
 
 public enum OID : uint
 {

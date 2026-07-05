@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A34XunZiMengZi;
+﻿namespace BossMod.Shadowbringers.Alliance.A34XunZiMengZi;
 
 sealed class Energy(BossModule module) : Components.GenericAOEs(module)
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Quest.MSQ.TheFeatOfBrotherhood;
+﻿namespace BossMod.Dawntrail.Quest.MSQ.TheFeatOfBrotherhood;
 
 public enum OID : uint
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Alliance.A14ShadowLord;
+﻿namespace BossMod.Dawntrail.Alliance.A14ShadowLord;
 
 sealed class Implosion(BossModule module) : Components.GenericAOEs(module)
 {

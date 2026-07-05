@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D12MatoyasRelict.D122Nixie;
+﻿namespace BossMod.Shadowbringers.Dungeon.D12MatoyasRelict.D122Nixie;
 
 public enum OID : uint
 {

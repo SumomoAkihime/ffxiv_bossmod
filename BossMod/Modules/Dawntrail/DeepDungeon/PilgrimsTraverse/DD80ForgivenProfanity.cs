@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.DeepDungeon.PilgrimsTraverse.DD80ForgivenProfanity;
+﻿namespace BossMod.Endwalker.DeepDungeon.PilgrimsTraverse.DD80ForgivenProfanity;
 
 public enum OID : uint
 {

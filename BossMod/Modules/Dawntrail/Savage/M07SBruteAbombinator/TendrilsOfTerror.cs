@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M07SBruteAbombinator;
+﻿namespace BossMod.Dawntrail.Savage.M07SBruteAbombinator;
 
 sealed class SinisterSeedsAOE(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SinisterSeeds, 7f);
 sealed class SinisterSeedsSpread(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.SinisterSeedsSpread, 6f);

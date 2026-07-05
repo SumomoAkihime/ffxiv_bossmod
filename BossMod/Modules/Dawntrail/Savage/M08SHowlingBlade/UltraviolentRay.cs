@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M08SHowlingBlade;
+﻿namespace BossMod.Dawntrail.Savage.M08SHowlingBlade;
 
 sealed class UltraviolentRay(BossModule module) : Components.GenericBaitAway(module, (uint)AID.UltraviolentRay, onlyShowOutlines: true, damageType: AIHints.PredictedDamageType.Raidwide)
 {

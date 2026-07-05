@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A31KnaveofHearts;
+﻿namespace BossMod.Shadowbringers.Alliance.A31KnaveofHearts;
 
 sealed class Lunge(BossModule module) : Components.GenericKnockback(module, (uint)AID.Lunge)
 {

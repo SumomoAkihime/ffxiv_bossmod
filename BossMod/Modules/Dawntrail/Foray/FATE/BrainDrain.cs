@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.FATE.BrainDrain;
+﻿namespace BossMod.Dawntrail.Foray.FATE.BrainDrain;
 
 public enum OID : uint
 {

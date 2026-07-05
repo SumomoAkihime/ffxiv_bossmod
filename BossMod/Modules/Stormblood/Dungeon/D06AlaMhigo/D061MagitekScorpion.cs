@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Dungeon.D06AlaMhigo.D061MagitekScorpion;
+﻿namespace BossMod.Stormblood.Dungeon.D06AlaMhigo.D061MagitekScorpion;
 
 public enum OID : uint
 {

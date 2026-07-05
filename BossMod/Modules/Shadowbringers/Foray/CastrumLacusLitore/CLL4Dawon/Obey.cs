@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.CastrumLacusLitore.CLL4Dawon;
+﻿namespace BossMod.Shadowbringers.Foray.CastrumLacusLitore.CLL4Dawon;
 
 sealed class Obey(BossModule module) : Components.GenericAOEs(module)
 {

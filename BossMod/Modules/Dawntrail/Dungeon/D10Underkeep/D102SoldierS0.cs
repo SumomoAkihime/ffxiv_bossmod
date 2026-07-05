@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Dungeon.D10Underkeep.D102SoldierS0;
+﻿namespace BossMod.Dawntrail.Dungeon.D10Underkeep.D102SoldierS0;
 
 public enum OID : uint
 {

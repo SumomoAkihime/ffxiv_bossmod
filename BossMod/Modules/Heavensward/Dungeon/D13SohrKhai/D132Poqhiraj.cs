@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Dungeon.D13SohrKhai.D132Poqhiraj;
+﻿namespace BossMod.Heavensward.Dungeon.D13SohrKhai.D132Poqhiraj;
 
 public enum OID : uint
 {

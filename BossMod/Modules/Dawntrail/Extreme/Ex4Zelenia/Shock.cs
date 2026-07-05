@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
+﻿namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
 
 sealed class Towers1(BossModule module) : Components.GenericTowers(module)
 {

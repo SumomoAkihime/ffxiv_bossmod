@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
+﻿namespace BossMod.Dawntrail.Extreme.Ex4Zelenia;
 
 sealed class EscelonsFall(BossModule module) : Components.GenericBaitAway(module, (uint)AID.EscelonsFall)
 {

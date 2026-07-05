@@ -37,15 +37,17 @@ public sealed class AIHints
         public bool ShouldBeStunned; // if set, AI will stun if possible
         public bool ShouldBeDispelled; // if set, AI will try to cast a dispel action; only relevant for foray content
         public bool StayAtLongRange; // if set, players with ranged attacks don't bother coming closer than max range (TODO: reconsider)
-        public bool Spikes; // if set, autoattacks will be prevented;
+        public bool Spikes; // if set, autoattacks will be prevented
+
         public bool ShouldBeTargeted
         {
-            get => Priority >= 0;
             set
             {
-                if (value && Priority < 0)
-                    Priority = 0;
+                field = value;
+                if (value)
+                    Priority = Math.Max(0, Priority);
             }
+            get;
         }
 
         public void ForcePriority(int priority) => _priority = priority;
@@ -55,7 +57,7 @@ public sealed class AIHints
     {
         Normal,
         Pyretic, // pyretic/acceleration bomb type of effects - no movement, no actions, no casting allowed at activation time
-        PyreticMove, // pyretic-like movement restriction used by upstream autorotation presets
+        PyreticMove, // movement-only pyretic condition - movement is forbidden, actions may still be allowed
         NoMovement, // no movement allowed
         Freezing, // should be moving at activation time
         Misdirection, // temporary misdirection - if current time is greater than activation, use special pathfinding codepath
@@ -180,6 +182,7 @@ public sealed class AIHints
         ForcedTarget = null;
         ForcedFocusTarget = null;
         ForcedMovement = null;
+        SpinDirection = null;
         InteractWithTarget = null;
         ForbiddenZones.Clear();
         GoalZones.Clear();

@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Dungeon.D17BaelsarsWall.D173TheGriffin;
+﻿namespace BossMod.Heavensward.Dungeon.D17BaelsarsWall.D173TheGriffin;
 
 public enum OID : uint
 {

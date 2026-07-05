@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Alliance.A21FaithboundKirin;
+﻿namespace BossMod.Dawntrail.Alliance.A21FaithboundKirin;
 
 sealed class Wringer(BossModule module) : Components.GenericAOEs(module)
 {

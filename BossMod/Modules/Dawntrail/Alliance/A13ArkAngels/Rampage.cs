@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Alliance.A13ArkAngels;
+﻿namespace BossMod.Dawntrail.Alliance.A13ArkAngels;
 
 sealed class Rampage(BossModule module) : Components.GenericAOEs(module)
 {

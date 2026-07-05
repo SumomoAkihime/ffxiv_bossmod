@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.TheDalriada.DAL4DiabloArmament;
+﻿namespace BossMod.Shadowbringers.Foray.TheDalriada.DAL4DiabloArmament;
 
 sealed class RuinousPseudoomen(BossModule module) : Components.GenericAOEs(module)
 {

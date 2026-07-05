@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Dungeon.D07Twinning.D073TheTycoon;
+﻿namespace BossMod.Shadowbringers.Dungeon.D07Twinning.D073TheTycoon;
 
 public enum OID : uint
 {

@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Raid.M04NWickedThunder;
+﻿namespace BossMod.Dawntrail.Raid.M04NWickedThunder;
 
 sealed class WitchHunt(BossModule module) : Components.GenericAOEs(module)
 {

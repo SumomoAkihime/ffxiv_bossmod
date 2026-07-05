@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE103WithExtremePrejudice;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE103WithExtremePrejudice;
 
 public enum OID : uint
 {

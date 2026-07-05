@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Trial.T02ZoraalJaP2;
+﻿namespace BossMod.Dawntrail.Trial.T02ZoraalJaP2;
 
 sealed class ChasmOfVollok(BossModule module) : Components.GenericAOEs(module)
 {

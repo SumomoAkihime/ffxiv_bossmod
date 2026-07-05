@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Alliance.A24TheCompound2P;
+﻿namespace BossMod.Shadowbringers.Alliance.A24TheCompound2P;
 
 sealed class R011Laser(BossModule module) : Components.GenericAOEs(module)
 {

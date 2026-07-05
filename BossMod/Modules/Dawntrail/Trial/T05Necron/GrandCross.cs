@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Trial.T05Necron;
+﻿namespace BossMod.Dawntrail.Trial.T05Necron;
 
 sealed class NeutronRing(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.NeutronRingVisual, (uint)AID.NeutronRing, 2.6d);
 

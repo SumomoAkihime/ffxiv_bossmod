@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M06SSugarRiot;
+﻿namespace BossMod.Dawntrail.Savage.M06SSugarRiot;
 
 sealed class SingleDoubleStyle1(BossModule module) : Components.GenericAOEs(module)
 {

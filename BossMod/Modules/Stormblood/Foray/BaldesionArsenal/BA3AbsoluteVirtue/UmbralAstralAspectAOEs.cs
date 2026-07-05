@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA3AbsoluteVirtue;
+﻿namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA3AbsoluteVirtue;
 
 sealed class BrightDarkAurora(BossModule module) : Components.GenericAOEs(module)
 {

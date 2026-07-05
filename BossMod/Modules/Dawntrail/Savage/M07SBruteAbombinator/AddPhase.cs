@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M07SBruteAbombinator;
+﻿namespace BossMod.Dawntrail.Savage.M07SBruteAbombinator;
 
 sealed class QuarrySwamp(BossModule module) : Components.CastLineOfSightAOE(module, (uint)AID.QuarrySwamp, 60f)
 {
