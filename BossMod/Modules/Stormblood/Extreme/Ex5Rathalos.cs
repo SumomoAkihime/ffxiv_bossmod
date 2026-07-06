@@ -166,13 +166,13 @@ class TargetHints(BossModule module) : BossComponent(module)
 {
     private Actor? _tail;
 
-    public override void OnTargetable(Actor actor)
+    public override void OnActorTargetable(Actor actor)
     {
         if (actor.OID == (uint)OID.WyvernsTail)
             _tail = actor;
     }
 
-    public override void OnUntargetable(Actor actor)
+    public override void OnActorUntargetable(Actor actor)
     {
         if (actor.OID == (uint)OID.WyvernsTail)
             _tail = null;
