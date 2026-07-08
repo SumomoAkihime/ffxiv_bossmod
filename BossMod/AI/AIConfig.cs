@@ -80,5 +80,4 @@ sealed class AIConfig : ConfigNode
     [PropertyDisplay("Echo slash commands to chat")]
     public bool EchoToChat = true;
 
-    public string? AIAutorotPresetName;
 }
