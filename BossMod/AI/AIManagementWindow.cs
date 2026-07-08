@@ -45,8 +45,6 @@ sealed class AIManagementWindow : UIWindow
 
         ImGui.TextUnformatted($"Navi={_manager.Controller.NaviTargetPos}");
 
-        configModified |= ImGui.Checkbox("Forbid actions", ref _config.ForbidActions);
-        ImGui.SameLine();
         configModified |= ImGui.Checkbox("Forbid movement", ref _config.ForbidMovement);
         ImGui.SameLine();
         configModified |= ImGui.Checkbox("Idle while mounted", ref _config.ForbidAIMovementMounted);
@@ -77,14 +75,6 @@ sealed class AIManagementWindow : UIWindow
             ImGui.EndTooltip();
         }
         ImGui.Spacing();
-        configModified |= ImGui.Checkbox("Manual targeting", ref _config.ManualTarget);
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.BeginTooltip();
-            ImGui.Text("Allows manual targeting with an active AI autorotation.");
-            ImGui.EndTooltip();
-        }
-        ImGui.SameLine();
         configModified |= ImGui.Checkbox("Disable loading obstacle maps", ref _config.DisableObstacleMaps);
 
         ImGui.Text("Follow party slot");
@@ -225,44 +215,6 @@ sealed class AIManagementWindow : UIWindow
             ImGui.BeginTooltip();
             ImGui.Text("Minimum time to start moving after movement decision has been made.\nAvoid setting this too high depending on the content.");
             ImGui.EndTooltip();
-        }
-        ImGui.SameLine();
-        ImGui.Text("Autorotation AI preset");
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(250f);
-        ImGui.SetNextWindowSizeConstraints(default, new Vector2(float.MaxValue, ImGui.GetTextLineHeightWithSpacing() * 50f));
-        var aipreset = _config.AIAutorotPresetName;
-        var presets = _manager.Autorot.Database.Presets.AllPresets.ToList();
-
-        var count = presets.Count;
-        List<string> presetNames = new(count + 1);
-        for (var i = 0; i < count; ++i)
-        {
-            presetNames.Add(presets[i].Name);
-        }
-
-        if (aipreset != null)
-        {
-            presetNames.Add("Deactivate");
-        }
-
-        var countnames = presetNames.Count;
-        var selectedIndex = presetNames.IndexOf(aipreset ?? "");
-
-        if (ImGui.Combo("##AI preset", ref selectedIndex, [.. presetNames], countnames))
-        {
-            if (selectedIndex == countnames - 1 && aipreset != null)
-            {
-                _manager.SetAIPreset(null);
-                configModified = true;
-                selectedIndex = -1;
-            }
-            else if (selectedIndex >= 0 && selectedIndex < count)
-            {
-                var selectedPreset = presets[selectedIndex];
-                _manager.SetAIPreset(selectedPreset);
-                configModified = true;
-            }
         }
         if (configModified)
         {

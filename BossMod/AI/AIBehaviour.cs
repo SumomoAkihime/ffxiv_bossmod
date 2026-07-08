@@ -13,11 +13,10 @@ public struct Targeting(AIHints.Enemy target, float preferredRange = 2.6f, Posit
 }
 
 // constantly follow master
-sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot, Preset? aiPreset) : IDisposable
+sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot) : IDisposable
 {
     public WorldState WorldState => autorot.Bossmods.WorldState;
     public float ForceMovementIn = float.MaxValue; // TODO: reconsider
-    public Preset? AIPreset = aiPreset;
     private static readonly AIConfig _config = Service.Config.Get<AIConfig>();
     private readonly NavigationDecision.Context _naviCtx = new();
     private NavigationDecision _naviDecision;
@@ -30,9 +29,7 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot, Prese
     private static readonly SemaphoreSlim _semaphore = new(1, 1);
     private static readonly Random random = new();
 
-    private bool cancel; // used to cancel autorotation AI preset during async
-
-    public void Dispose() => cancel = true;
+    public void Dispose() { }
 
     public async Task Execute(Actor player, Actor master)
     {
@@ -56,32 +53,8 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot, Prese
                 var gazeImminent = autorot.Hints.ForbiddenDirections.Count != 0 && autorot.Hints.ForbiddenDirections.Ref(0).activation <= WorldState.FutureTime(0.5d);
                 var pyreticImminent = autorot.Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Pyretic && autorot.Hints.ImminentSpecialMode.activation <= WorldState.FutureTime(1d);
                 var misdirectionMode = autorot.Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Misdirection && autorot.Hints.ImminentSpecialMode.activation <= WorldState.CurrentTime;
-                var forbidTargeting = _config.ForbidActions || _afkMode || gazeImminent || pyreticImminent;
                 var hadNavi = _naviDecision.Destination != null;
-
                 Targeting target = default;
-                if (!forbidTargeting && AIPreset != null && (!_config.ForbidAIMovementMounted || _config.ForbidAIMovementMounted && player.MountId == default))
-                {
-                    target = SelectPrimaryTarget(player, master);
-                    if (_config.ManualTarget)
-                    {
-                        var t = autorot.WorldState.Actors.Find(player.TargetID);
-                        if (t != null)
-                        {
-                            target.Target = new AIHints.Enemy(t, 100, false);
-                        }
-                        else
-                        {
-                            target = default;
-                        }
-                    }
-                    if (target.Target != null || TargetIsForbidden(player.TargetID))
-                    {
-                        autorot.Hints.ForcedTarget ??= target.Target?.Actor;
-                    }
-
-                    AdjustTargetPositional(player, ref target);
-                }
 
                 var followTarget = _config.FollowTarget;
                 _followMaster = master != player;
@@ -108,100 +81,12 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot, Prese
                     _navStartTime = WorldState.FutureTime(_config.MoveDelay);
                 }
 
-                if (!cancel)
-                    SetAIPresetActive(!forbidTargeting && target.Target != null);
-                UpdateMovement(player, master, gazeImminent || pyreticImminent, misdirectionMode ? autorot.Hints.MisdirectionThreshold : default, !forbidTargeting ? autorot.Hints.ActionsToExecute : null);
+                UpdateMovement(player, master, gazeImminent || pyreticImminent, misdirectionMode ? autorot.Hints.MisdirectionThreshold : default, null);
             }
             finally
             {
                 _semaphore.Release();
             }
-        }
-    }
-
-    private void SetAIPresetActive(bool active)
-    {
-        if (AIPreset == null)
-            return;
-
-        if (active)
-            autorot.Activate(AIPreset);
-        else
-            autorot.Deactivate(AIPreset);
-    }
-
-    // returns null if we're to be idle, otherwise target to attack
-    private Targeting SelectPrimaryTarget(Actor player, Actor master)
-    {
-        // we prefer not to switch targets unnecessarily, so start with current target - it could've been selected manually or by AI on previous frames
-        // if current target is not among valid targets, clear it - this opens way for future target selection heuristics
-        var targetId = autorot.Hints.ForcedTarget?.InstanceID ?? player.TargetID;
-        AIHints.Enemy? target = null;
-        foreach (var e in autorot.Hints.PriorityTargets)
-        {
-            if (e.Actor.InstanceID == targetId) { target = e; break; }
-        }
-
-        // if we don't have a valid target yet, use some heuristics to select some 'ok' target to attack
-        // try assisting master, otherwise (if player is own master, or if master has no valid target) just select closest valid target
-        if (target == null && master != player)
-        {
-            foreach (var t in autorot.Hints.PriorityTargets)
-            {
-                if (master.TargetID == t.Actor.InstanceID) { target = t; break; }
-            }
-        }
-
-        if (target == null)
-        {
-            var bestDistSq = float.MaxValue;
-            foreach (var e in autorot.Hints.PriorityTargets) { var dsq = (e.Actor.Position - player.Position).LengthSq(); if (dsq < bestDistSq) { bestDistSq = dsq; target = e; } }
-        }
-
-        // if the previous line returned no target, there aren't any priority targets at all - give up
-        if (target == null)
-        {
-            return default;
-        }
-
-        // TODO: rethink all this... ai module should set forced target if it wants to switch... figure out positioning and stuff
-        // now give class module a chance to improve targeting
-        // typically it would switch targets for multidotting, or to hit more targets with AOE
-        // in case of ties, it should prefer to return original target - this would prevent useless switches
-        var targeting = new Targeting(target!, player.Role is Role.Melee or Role.Tank ? 2.6f : 24.5f);
-
-        var pos = autorot.Hints.RecommendedPositional;
-        if (pos.Target != null && targeting.Target.Actor == pos.Target)
-        {
-            targeting.PreferredPosition = pos.Pos;
-        }
-
-        return /*autorot.SelectTargetForAI(targeting) ??*/ targeting;
-    }
-
-    private void AdjustTargetPositional(Actor player, ref Targeting targeting)
-    {
-        if (targeting.Target == null || targeting.PreferredPosition == Positional.Any)
-        {
-            return; // nothing to adjust
-        }
-
-        if (targeting.PreferredPosition == Positional.Front)
-        {
-            // 'front' is tank-specific positional; no point doing anything if we're not tanking target
-            if (targeting.Target.Actor.TargetID != player.InstanceID)
-            {
-                targeting.PreferredPosition = Positional.Any;
-            }
-
-            return;
-        }
-
-        // if target-of-target is player, don't try flanking, it's probably impossible... - unless target is currently casting (TODO: reconsider?)
-        // skip if targeting a dummy, they don't rotate
-        if (targeting.Target.Actor.TargetID == player.InstanceID && targeting.Target.Actor.CastInfo == null && targeting.Target.Actor.NameID != 541u)
-        {
-            targeting.PreferredPosition = Positional.Any;
         }
     }
 
@@ -245,7 +130,7 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot, Prese
             {
                 autorot.Hints.GoalZones.Add(AIHints.GoalSingleTarget(master, Positional.Any, _config.FollowTarget && player.InCombat ? _config.MaxDistanceToTarget : _config.MaxDistanceToSlot));
             }
-            else if (_config.FollowTarget && target != null && AIPreset == null)
+            else if (_config.FollowTarget && target != null)
             {
                 var positional = _config.DesiredPositional;
                 var mindist = _config.MinDistance;
@@ -392,6 +277,4 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot, Prese
             }
         }
     }
-
-    private bool TargetIsForbidden(ulong actorId) { foreach (var e in autorot.Hints.ForbiddenTargets) { if (e.Actor.InstanceID == actorId) { return true; } } return false; }
 }

@@ -16,12 +16,11 @@ sealed class AIManager : IDisposable
     private readonly AIManagementWindow _wndAI;
     public int MasterSlot = PartyState.PlayerSlot; // non-zero means corresponding player is master
     public AIBehaviour? Beh;
-    public Preset? AiPreset;
     private bool _autoStartedByVBMAI;
 
     public WorldState WorldState => Autorot.Bossmods.WorldState;
     public float ForceMovementIn => Beh?.ForceMovementIn ?? float.MaxValue;
-    public string GetAIPreset => AiPreset?.Name ?? string.Empty;
+    public string GetAIPreset => string.Empty;
 
     public AIManager(RotationModuleManager autorot, ActionManagerEx amex, MovementOverride movement)
     {
@@ -32,14 +31,7 @@ sealed class AIManager : IDisposable
         Service.CommandManager.AddHandler("/bmrai", new Dalamud.Game.Command.CommandInfo(OnCommand) { HelpMessage = "Toggle AI mode" });
     }
 
-    public void SetAIPreset(Preset? p)
-    {
-        if (AiPreset != null && AiPreset != p)
-            Autorot.Deactivate(AiPreset);
-        AiPreset = p;
-        _config.AIAutorotPresetName = p?.Name;
-        Beh?.AIPreset = p;
-    }
+    public void SetAIPreset(Preset? _) { }
 
     public void Dispose()
     {
@@ -82,8 +74,6 @@ sealed class AIManager : IDisposable
         }
         else
         {
-            if (_autoStartedByVBMAI)
-                DeactivateVBMAIPreset();
             SwitchToIdle();
         }
         return modified;
@@ -102,8 +92,6 @@ sealed class AIManager : IDisposable
         MasterSlot = PartyState.PlayerSlot;
         if (Autorot.IsForceDisabled)
             Autorot.Clear();
-        else if (AiPreset != null)
-            Autorot.Deactivate(AiPreset);
         _autoStartedByVBMAI = false;
         Controller.Clear();
         _wndAI.UpdateTitle();
@@ -114,20 +102,7 @@ sealed class AIManager : IDisposable
         SwitchToIdle();
         _autoStartedByVBMAI = false;
         MasterSlot = WorldState.Party[masterSlot]?.Name == null ? 0 : masterSlot;
-        var allpresets = Autorot.Database.Presets.AllPresets.ToList();
-        var count = allpresets.Count;
-        Preset? preset = null;
-        for (var i = 0; i < count; ++i)
-        {
-            var p = allpresets[i];
-            if (p.Name == _config.AIAutorotPresetName)
-            {
-                preset = p;
-                break;
-            }
-        }
-        SetAIPreset(preset);
-        Beh = new AIBehaviour(Controller, Autorot, AiPreset);
+        Beh = new AIBehaviour(Controller, Autorot);
         _wndAI.UpdateTitle();
     }
 
@@ -151,7 +126,7 @@ sealed class AIManager : IDisposable
         Beh = null;
         MasterSlot = WorldState.Party[masterSlot]?.Name == null ? 0 : masterSlot;
         _autoStartedByVBMAI = true;
-        Beh = new AIBehaviour(Controller, Autorot, null);
+        Beh = new AIBehaviour(Controller, Autorot);
         _wndAI.UpdateTitle();
     }
 
@@ -169,13 +144,6 @@ sealed class AIManager : IDisposable
     {
         var preset = Autorot.Database.Presets.FindPresetByName(VBMAIPresetName, StringComparison.OrdinalIgnoreCase);
         return preset != null && Autorot.Presets.Contains(preset);
-    }
-
-    private void DeactivateVBMAIPreset()
-    {
-        var preset = Autorot.Database.Presets.FindPresetByName(VBMAIPresetName, StringComparison.OrdinalIgnoreCase);
-        if (preset != null)
-            Autorot.Deactivate(preset);
     }
 
     private unsafe int FindPartyMemberSlotFromSender(SeString sender)
@@ -230,11 +198,6 @@ sealed class AIManager : IDisposable
                 break;
             case "UI":
                 configModified = ToggleDebugMenu();
-                break;
-            case "FORBIDACTIONS":
-                var cfgForbidActions = _config.ForbidActions;
-                ToggleForbidActions(messageData);
-                configModified = cfgForbidActions != _config.ForbidActions;
                 break;
             case "FORBIDMOVEMENT":
                 var cfgForbidMovement = _config.ForbidMovement;
@@ -303,20 +266,7 @@ sealed class AIManager : IDisposable
                 configModified = cfgMD != _config.MoveDelay;
                 break;
             case "SETPRESETNAME":
-                if (cmd.Length <= 2)
-                {
-                    if (_config.EchoToChat)
-                    {
-                        Service.ChatGui.Print("Specify an AI autorotation preset name.");
-                    }
-                    return;
-                }
-                else
-                {
-                    var cfgARPreset = _config.AIAutorotPresetName;
-                    ParseAIAutorotationSetCommand(messageData);
-                    configModified = cfgARPreset != _config.AIAutorotPresetName;
-                }
+                ParseAIAutorotationSetCommand();
                 break;
             default:
                 if (_config.EchoToChat)
@@ -449,36 +399,6 @@ sealed class AIManager : IDisposable
             Service.ChatGui.Print($"[BMRAI] AI menu is now {(_config.DrawUI ? "enabled" : "disabled")}");
         }
         return true;
-    }
-
-    private void ToggleForbidActions(string[] messageData)
-    {
-        if (messageData.Length == 1)
-        {
-            _config.ForbidActions = !_config.ForbidActions;
-        }
-        else
-        {
-            switch (messageData[1].ToUpperInvariant())
-            {
-                case "ON":
-                    _config.ForbidActions = true;
-                    break;
-                case "OFF":
-                    _config.ForbidActions = false;
-                    break;
-                default:
-                    if (_config.EchoToChat)
-                    {
-                        Service.ChatGui.Print($"[BMRAI] Unknown forbid actions command: {messageData[1]}");
-                    }
-                    return;
-            }
-        }
-        if (_config.EchoToChat)
-        {
-            Service.ChatGui.Print($"[BMRAI] Forbid actions is now {(_config.ForbidActions ? "enabled" : "disabled")}");
-        }
     }
 
     private void ToggleForbidMovement(string[] messageData)
@@ -795,39 +715,9 @@ sealed class AIManager : IDisposable
         return -1;
     }
 
-    private void ParseAIAutorotationSetCommand(string[] presetName)
+    private void ParseAIAutorotationSetCommand()
     {
-        if (presetName.Length < 2 && _config.EchoToChat)
-        {
-            Service.ChatGui.Print("No valid preset name provided.");
-            return;
-        }
-
-        var userInput = string.Join(" ", presetName.Skip(1)).Trim();
-        if (userInput == "null" || string.IsNullOrWhiteSpace(userInput))
-        {
-            SetAIPreset(null);
-            if (_config.EchoToChat)
-            {
-                Service.ChatGui.Print("Disabled AI autorotation preset.");
-            }
-            return;
-        }
-
-        var preset = Autorot.Database.Presets.AllPresets
-            .FirstOrDefault(p => p.Name.Trim().Equals(userInput, StringComparison.OrdinalIgnoreCase));
-
-        if (preset != null)
-        {
-            if (_config.EchoToChat)
-            {
-                Service.ChatGui.Print($"Changed preset from '{Beh?.AIPreset?.Name ?? "<n/a>"}' to '{preset?.Name ?? "<n/a>"}'");
-            }
-            SetAIPreset(preset);
-        }
-        else if (_config.EchoToChat)
-        {
-            Service.ChatGui.PrintError($"Failed to find preset '{userInput}'");
-        }
+        if (_config.EchoToChat)
+            Service.ChatGui.Print("AI movement no longer uses autorotation presets. Enable VBM AI directly in Autorotation if you want the AI preset.");
     }
 }

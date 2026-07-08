@@ -21,10 +21,8 @@ sealed class AIConfig : ConfigNode
     [PropertyDisplay("Follow party slot")]
     public int FollowSlot = 0;
 
-    [PropertyDisplay("Forbid actions")]
     public bool ForbidActions = false;
 
-    [PropertyDisplay("Manual targeting")]
     public bool ManualTarget = false;
 
     [PropertyDisplay("Forbid movement")]
