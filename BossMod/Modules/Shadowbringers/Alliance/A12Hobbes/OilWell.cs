@@ -20,8 +20,8 @@ class OilWell(BossModule module) : Components.GenericAOEs(module, (uint)AID.OilW
     {
         if (Activation != default && Relevant(actor))
         {
-            var inv = _inverted;
-            hints.AddForbiddenZone(p => inv ? !OnPlatform(p) : OnPlatform(p), Activation);
+            ShapeDistance[] platforms = [.. Platforms.Select(p => (ShapeDistance)new SDCircle(p, 6))];
+            hints.AddForbiddenZone(_inverted ? new SDOutsideOfUnion(platforms) : new SDUnion(platforms), Activation);
         }
     }
 

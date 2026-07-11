@@ -31,7 +31,9 @@ class MarxSmashLR(BossModule module) : Components.GenericAOEs(module)
     }
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
-        => _rotation is { } rotation ? [new(new AOEShapeRect(30, 30), Arena.Center, rotation, _activation)] : [];
+        => _rotation is { } rotation
+            ? new AOEInstance[] { new(new AOEShapeRect(30, 30), Arena.Center, rotation, _activation) }
+            : Array.Empty<AOEInstance>();
 }
 class MarxSmashOutside(BossModule module) : Components.GenericAOEs(module, (uint)AID.MarxSmashOutsideFirst)
 {

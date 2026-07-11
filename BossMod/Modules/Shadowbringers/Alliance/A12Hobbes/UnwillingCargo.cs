@@ -5,7 +5,7 @@ class UnwillingCargoRing(BossModule module) : Components.GenericAOEs(module)
     public bool Active { get; private set; }
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
-        => Active ? [new(new AOEShapeDonut(17.5f, 20), new(-805, -270))] : [];
+        => Active ? new AOEInstance[] { new(new AOEShapeDonut(17.5f, 20), new(-805, -270)) } : Array.Empty<AOEInstance>();
 
     public override void OnMapEffect(byte index, uint state)
     {
@@ -33,6 +33,18 @@ class UnwillingCargo(BossModule module) : Components.GenericKnockback(module, (u
         PinkBlue
     }
     private Pattern _pattern;
+
+    private sealed class CargoUnsafeZone(Pattern pattern) : ShapeDistance
+    {
+        public override bool Contains(in WPos p)
+        {
+            var dir = ExpectedDirection(pattern, p);
+            return dir != default && !(p + dir).InCircle(new WPos(-805, -270), 17.5f);
+        }
+
+        public override float Distance(in WPos p) => Contains(p) ? 0 : 1;
+        public override bool RowIntersectsShape(WPos rowStart, WDir dx, float width, float cushion = default) => true;
+    }
 
     enum Color
     {
@@ -77,7 +89,9 @@ class UnwillingCargo(BossModule module) : Components.GenericKnockback(module, (u
             return [];
 
         var dir = ExpectedDirection(_pattern, actor.Position);
-        return dir != default ? [new(actor.Position, 15, Activation, direction: Angle.FromDirection(dir), kind: Kind.DirForward)] : [];
+        return dir != default
+            ? new Knockback[] { new(actor.Position, 15, Activation, direction: Angle.FromDirection(dir), kind: Kind.DirForward) }
+            : Array.Empty<Knockback>();
     }
 
     public override void OnMapEffect(byte index, uint state)
@@ -119,15 +133,7 @@ class UnwillingCargo(BossModule module) : Components.GenericKnockback(module, (u
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        foreach (var src in ActiveKnockbacks(slot, actor))
-        {
-            var dir = src.Direction.ToDirection() * src.Distance;
-            var pat = _pattern;
-            hints.AddForbiddenZone(p =>
-            {
-                var dir = ExpectedDirection(pat, p);
-                return dir != default && !(p + dir).InCircle(new WPos(-805, -270), 17.5f);
-            }, Activation);
-        }
+        if (!ActiveKnockbacks(slot, actor).IsEmpty)
+            hints.AddForbiddenZone(new CargoUnsafeZone(_pattern), Activation);
     }
 }

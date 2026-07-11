@@ -151,7 +151,9 @@ class DeployDefenses(BossModule module) : Components.GenericAOEs(module, (uint)A
     private Actor? _caster;
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
-        => _caster is { } c && _shield is { } s ? [new(new AOEShapeDonut(6, 80), s.Position, default, Module.CastFinishAt(c.CastInfo))] : [];
+        => _caster is { } c && _shield is { } s
+            ? new AOEInstance[] { new(new AOEShapeDonut(6, 80), s.Position, default, Module.CastFinishAt(c.CastInfo)) }
+            : Array.Empty<AOEInstance>();
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
