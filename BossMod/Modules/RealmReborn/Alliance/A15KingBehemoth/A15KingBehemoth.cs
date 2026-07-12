@@ -25,7 +25,7 @@ class Comet(BossModule module) : BossComponent(module)
 
     public override void OnEventVFX(Actor actor, uint vfxID, ulong targetID)
     {
-        if (vfxID == 298 && Raid.TryFindSlot(actor, out var slot))
+        if (vfxID == 298 && Raid.TryFindSlot(actor.InstanceID, out var slot))
             _comets[slot] = WorldState.FutureTime(12.1f);
     }
 

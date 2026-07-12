@@ -46,13 +46,13 @@ class AstralRealignment(BossModule module) : Components.GenericInvincible(module
 
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.AstralRealignment && Raid.TryFindSlot(actor, out var slot))
+        if ((SID)status.ID == SID.AstralRealignment && Raid.TryFindSlot(actor.InstanceID, out var slot))
             _playerStates.Set(slot);
     }
 
     public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.AstralRealignment && Raid.TryFindSlot(actor, out var slot))
+        if ((SID)status.ID == SID.AstralRealignment && Raid.TryFindSlot(actor.InstanceID, out var slot))
             _playerStates.Clear(slot);
     }
 }

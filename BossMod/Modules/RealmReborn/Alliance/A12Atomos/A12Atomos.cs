@@ -175,16 +175,17 @@ public class A12Atomos(WorldState ws, Actor primary) : BossModule(ws, primary, n
 
     private static ArenaBoundsCustom AtomosBounds()
     {
+        var arenaCenter = new WPos(232.5f, 280);
         WDir[] cutoutShape = [new(-5.2f, 0), new(-2.5f, 2.6f), new(2.5f, 2.6f), new(5.2f, 0)];
         float[] shifts = [0, 35.2f, -35.2f];
-        Shape[] platforms = [.. shifts.Select(z => (Shape)new Rectangle(ArenaCenter + new WDir(0, z), 37.65f, 12.3f))];
+        Shape[] platforms = [.. shifts.Select(z => (Shape)new Rectangle(arenaCenter + new WDir(0, z), 37.65f, 12.3f))];
         List<Shape> cutouts = [];
         foreach (var shift in shifts)
         {
             foreach (var x in new[] { -18.8f, 6.16f })
             {
-                cutouts.Add(new PolygonCustom([.. cutoutShape.Select(d => ArenaCenter + new WDir(x, shift - 12.8f) + d)]));
-                cutouts.Add(new PolygonCustom([.. cutoutShape.Select(d => ArenaCenter + new WDir(x, shift + 12.8f) + d.MirrorZ())]));
+                cutouts.Add(new PolygonCustom([.. cutoutShape.Select(d => arenaCenter + new WDir(x, shift - 12.8f) + d)]));
+                cutouts.Add(new PolygonCustom([.. cutoutShape.Select(d => arenaCenter + new WDir(x, shift + 12.8f) + d.MirrorZ())]));
             }
         }
         return new(platforms, [.. cutouts], MapResolution: 1);
