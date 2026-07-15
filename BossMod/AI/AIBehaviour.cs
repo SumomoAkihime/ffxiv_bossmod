@@ -56,17 +56,12 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot) : IDi
                 var hadNavi = _naviDecision.Destination != null;
                 Targeting target = default;
 
-                var followTarget = _config.FollowTarget;
                 _followMaster = master != player;
 
                 // note: if there are pending knockbacks, don't update navigation decision to avoid fucking up positioning
                 if (player.PendingKnockbacks.Count == 0)
                 {
-                    var actorTarget = autorot.WorldState.Actors.Find(player.TargetID);
-                    var naviDecision = followTarget && actorTarget != null
-                        ? await BuildNavigationDecision(player, actorTarget, target).ConfigureAwait(false)
-                        : await BuildNavigationDecision(player, master, target).ConfigureAwait(false);
-                    _naviDecision = naviDecision;
+                    _naviDecision = await BuildNavigationDecision(player, master, target).ConfigureAwait(false);
 
                     // there is a difference between having a small positive leeway and having a negative one for pathfinding, prefer to keep positive
                     _naviDecision.LeewaySeconds = Math.Max(0, _naviDecision.LeewaySeconds - 0.1f);
@@ -125,32 +120,8 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot) : IDi
         }
         if (_followMaster)
         {
-            var target = autorot.WorldState.Actors.Find(player.TargetID);
-            if ((!_config.FollowTarget || _config.FollowTarget && target == null) && master != player)
-            {
-                autorot.Hints.GoalZones.Add(AIHints.GoalSingleTarget(master, Positional.Any, _config.FollowTarget && player.InCombat ? _config.MaxDistanceToTarget : _config.MaxDistanceToSlot));
-            }
-            else if (_config.FollowTarget && target != null)
-            {
-                var positional = _config.DesiredPositional;
-                var mindist = _config.MinDistance;
-                var maxdist = _config.MaxDistanceToTarget;
-                if (positional is Positional.Rear or Positional.Flank && (target.CastInfo == null && target.NameID != 541u && target.TargetID == player.InstanceID || target.Omnidirectional)) // if player is target, rear/flank is usually impossible unless target is casting
-                {
-                    positional = Positional.Any;
-                }
-
-                autorot.Hints.GoalZones.Add(AIHints.GoalSingleTarget(master, positional, positional != Positional.Any ? 2.6f : maxdist));
-
-                if (mindist != default && target.InstanceID != player.InstanceID && interactTarget == null)
-                {
-                    var hitboxradius = target.HitboxRadius;
-                    var maxAdj = hitboxradius + maxdist;
-                    var min = hitboxradius + mindist;
-                    var max = maxAdj > min ? maxAdj : min + 1f;
-                    autorot.Hints.GoalZones.Add(AIHints.GoalDonut(target.Position, min, max, 2f));
-                }
-            }
+            if (master != player)
+                autorot.Hints.GoalZones.Add(AIHints.GoalSingleTarget(master, Positional.Any, _config.MaxDistanceToSlot));
             return await Task.Run(() => NavigationDecision.Build(_naviCtx, WorldState.CurrentTime, autorot.Hints, player, autorot.Bossmods.WorldState.Client.MoveSpeed, forbiddenZoneCushion: _config.PreferredDistance)).ConfigureAwait(false);
         }
 

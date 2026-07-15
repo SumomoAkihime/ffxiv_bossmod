@@ -40,24 +40,11 @@ sealed class AIConfig : ConfigNode
     [PropertyDisplay("Follow out of combat")]
     public bool FollowOutOfCombat = false;
 
-    [PropertyDisplay("Follow target")]
-    public bool FollowTarget = true;
-
-    [PropertyDisplay("Desired positional when following target")]
-    [PropertyCombo(["Any", "Flank", "Rear", "Front"])]
-    public Positional DesiredPositional = Positional.Any;
-
     [PropertyDisplay("Max distance to slot")]
     public float MaxDistanceToSlot = 1f;
 
     [PropertyDisplay("Distance to master")]
     public float DistanceToMaster = 25f;
-
-    [PropertyDisplay("Max distance to target")]
-    public float MaxDistanceToTarget = 2.6f;
-
-    [PropertyDisplay("Minimum distance to hitbox")]
-    public float MinDistance = default;
 
     [PropertyDisplay("Preferred distance to forbidden zones")]
     public float PreferredDistance = default;

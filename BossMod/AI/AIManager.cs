@@ -224,36 +224,16 @@ sealed class AIManager : IDisposable
                 ToggleFollowModule(messageData);
                 configModified = cfgFollowM != _config.FollowDuringActiveBossModule;
                 break;
-            case "FOLLOWTARGET":
-                var cfgFollowT = _config.FollowTarget;
-                ToggleFollowTarget(messageData);
-                configModified = cfgFollowT != _config.FollowTarget;
-                break;
             case "OBSTACLEMAPS":
                 var cfgOM = _config.DisableObstacleMaps;
                 ToggleObstacleMaps(messageData);
                 configModified = cfgOM != _config.DisableObstacleMaps;
                 break;
 
-            case "POSITIONAL":
-                var cfgPositional = _config.DesiredPositional;
-                HandlePositionalCommand(messageData);
-                configModified = cfgPositional != _config.DesiredPositional;
-                break;
-            case "MAXDISTANCETARGET":
-                var cfgMDT = _config.MaxDistanceToTarget;
-                HandleMaxDistanceTargetCommand(messageData);
-                configModified = cfgMDT != _config.MaxDistanceToTarget;
-                break;
             case "MAXDISTANCESLOT":
                 var cfgMDS = _config.MaxDistanceToSlot;
                 HandleMaxDistanceSlotCommand(messageData);
                 configModified = cfgMDS != _config.MaxDistanceToSlot;
-                break;
-            case "MINDISTANCE":
-                var cfgMinDT = _config.MinDistance;
-                HandleMinDistanceCommand(messageData);
-                configModified = cfgMinDT != _config.MinDistance;
                 break;
             case "PREFDISTANCE":
                 var cfgPrefDS = _config.PreferredDistance;
@@ -531,93 +511,6 @@ sealed class AIManager : IDisposable
         }
     }
 
-    private void ToggleFollowTarget(string[] messageData)
-    {
-        if (messageData.Length == 1)
-        {
-            _config.FollowTarget = !_config.FollowTarget;
-        }
-        else
-        {
-            switch (messageData[1].ToUpperInvariant())
-            {
-                case "ON":
-                    _config.FollowTarget = true;
-                    break;
-                case "OFF":
-                    _config.FollowTarget = false;
-                    break;
-                default:
-                    if (_config.EchoToChat)
-                    {
-                        Service.ChatGui.Print($"[BMRAI] Unknown follow target command: {messageData[1]}");
-                    }
-                    return;
-            }
-        }
-        if (_config.EchoToChat)
-        {
-            Service.ChatGui.Print($"[BMRAI] Following targets is now {(_config.FollowTarget ? "enabled" : "disabled")}");
-        }
-    }
-
-    private void HandlePositionalCommand(string[] messageData)
-    {
-        if (messageData.Length < 2 && _config.EchoToChat)
-        {
-            Service.ChatGui.Print("[BMRAI] Missing positional type.");
-            return;
-        }
-
-        var msg = messageData[1];
-        switch (msg.ToUpperInvariant())
-        {
-            case "ANY":
-                _config.DesiredPositional = Positional.Any;
-                break;
-            case "FLANK":
-                _config.DesiredPositional = Positional.Flank;
-                break;
-            case "REAR":
-                _config.DesiredPositional = Positional.Rear;
-                break;
-            case "FRONT":
-                _config.DesiredPositional = Positional.Front;
-                break;
-            default:
-                if (_config.EchoToChat)
-                {
-                    Service.ChatGui.Print($"[BMRAI] Unknown positional: {msg}");
-                }
-                return;
-        }
-        if (_config.EchoToChat)
-        {
-            Service.ChatGui.Print($"[BMRAI] Desired positional set to {_config.DesiredPositional}");
-        }
-    }
-
-    private void HandleMaxDistanceTargetCommand(string[] messageData)
-    {
-        if (messageData.Length < 2 && _config.EchoToChat)
-        {
-            Service.ChatGui.Print("[BMRAI] Missing distance value.");
-            return;
-        }
-
-        if (!float.TryParse(messageData[1].Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var distance) && _config.EchoToChat)
-        {
-            Service.ChatGui.Print("[BMRAI] Invalid distance value.");
-            return;
-        }
-
-        _config.MaxDistanceToTarget = distance;
-        if (_config.EchoToChat)
-        {
-            Service.ChatGui.Print($"[BMRAI] Max distance to target set to {distance.ToString(System.Globalization.CultureInfo.InvariantCulture)}y");
-        }
-    }
-
     private void HandleMaxDistanceSlotCommand(string[] messageData)
     {
         if (messageData.Length < 2 && _config.EchoToChat)
@@ -636,27 +529,6 @@ sealed class AIManager : IDisposable
         if (_config.EchoToChat)
         {
             Service.ChatGui.Print($"[BMRAI] Max distance to slot set to {distance.ToString(System.Globalization.CultureInfo.InvariantCulture)}y");
-        }
-    }
-
-    private void HandleMinDistanceCommand(string[] messageData)
-    {
-        if (messageData.Length < 2 && _config.EchoToChat)
-        {
-            Service.ChatGui.Print("[BMRAI] Missing distance value.");
-            return;
-        }
-
-        if (!float.TryParse(messageData[1].Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var distance) && _config.EchoToChat)
-        {
-            Service.ChatGui.Print("[BMRAI] Invalid distance value.");
-            return;
-        }
-
-        _config.MinDistance = distance;
-        if (_config.EchoToChat)
-        {
-            Service.ChatGui.Print($"[BMRAI] Min distance to slot set to {distance.ToString(System.Globalization.CultureInfo.InvariantCulture)}y");
         }
     }
 

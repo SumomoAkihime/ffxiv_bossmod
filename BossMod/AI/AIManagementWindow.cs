@@ -11,7 +11,6 @@ sealed class AIManagementWindow : UIWindow
     private readonly EventSubscriptions _subscriptions;
     private const string _title = $"AI: off{_windowID}";
     private const string _windowID = "###AI debug window";
-    private static readonly string[] positionals = Enum.GetNames<Positional>();
 
     public AIManagementWindow(AIManager manager) : base(_windowID, false, new(100f, 100f))
     {
@@ -53,7 +52,7 @@ sealed class AIManagementWindow : UIWindow
         if (ImGui.IsItemHovered())
         {
             ImGui.BeginTooltip();
-            ImGui.Text("Must be enabled for follow target.");
+            ImGui.Text("Must be enabled to follow a party member during combat.");
             ImGui.EndTooltip();
         }
         ImGui.Spacing();
@@ -61,19 +60,11 @@ sealed class AIManagementWindow : UIWindow
         if (ImGui.IsItemHovered())
         {
             ImGui.BeginTooltip();
-            ImGui.Text("Must be enabled for following targets during active boss modules.");
+            ImGui.Text("Must be enabled to follow a party member during active boss modules.");
             ImGui.EndTooltip();
         }
         ImGui.SameLine();
         configModified |= ImGui.Checkbox("Follow out of combat", ref _config.FollowOutOfCombat);
-        ImGui.SameLine();
-        configModified |= ImGui.Checkbox("Follow target", ref _config.FollowTarget);
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.BeginTooltip();
-            ImGui.Text("Follow the target with your distance settings.\nFollow during combat and follow during active boss module need to be activated.");
-            ImGui.EndTooltip();
-        }
         ImGui.Spacing();
         configModified |= ImGui.Checkbox("Disable loading obstacle maps", ref _config.DisableObstacleMaps);
 
@@ -109,37 +100,7 @@ sealed class AIManagementWindow : UIWindow
             ImGui.EndTooltip();
         }
         ImGui.Separator();
-        ImGui.Text("Desired positional");
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(100f);
-        var positionalIndex = (int)_config.DesiredPositional;
-        if (ImGui.Combo("##DesiredPositional", ref positionalIndex, positionals, 4))
-        {
-            _config.DesiredPositional = (Positional)positionalIndex;
-            configModified = true;
-        }
-        ImGui.SameLine();
-        ImGui.Text("Max distance - to targets");
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(100);
-        var maxDistanceTargetStr = _config.MaxDistanceToTarget.ToString(CultureInfo.InvariantCulture);
-        if (ImGui.InputText("##MaxDistanceToTarget", ref maxDistanceTargetStr, 64))
-        {
-            maxDistanceTargetStr = maxDistanceTargetStr.Replace(',', '.');
-            if (float.TryParse(maxDistanceTargetStr, NumberStyles.Float, CultureInfo.InvariantCulture, out var maxDistance))
-            {
-                _config.MaxDistanceToTarget = maxDistance;
-                configModified = true;
-            }
-        }
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.BeginTooltip();
-            ImGui.Text("Maximum distance in yalms to keep away from targets.");
-            ImGui.EndTooltip();
-        }
-        ImGui.SameLine();
-        ImGui.Text("- to slots");
+        ImGui.Text("Max distance to followed ally");
         ImGui.SameLine();
         ImGui.SetNextItemWidth(100f);
         var maxDistanceSlotStr = _config.MaxDistanceToSlot.ToString(CultureInfo.InvariantCulture);
@@ -158,26 +119,6 @@ sealed class AIManagementWindow : UIWindow
             ImGui.Text("Maximum distance in yalms to keep away from followed allies.");
             ImGui.EndTooltip();
         }
-        ImGui.Text("Minimum distance");
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(100f);
-        var minDistanceStr = _config.MinDistance.ToString(CultureInfo.InvariantCulture);
-        if (ImGui.InputText("##MinDistance", ref minDistanceStr, 64))
-        {
-            minDistanceStr = minDistanceStr.Replace(',', '.');
-            if (float.TryParse(minDistanceStr, NumberStyles.Float, CultureInfo.InvariantCulture, out var minDistance))
-            {
-                _config.MinDistance = minDistance;
-                configModified = true;
-            }
-        }
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.BeginTooltip();
-            ImGui.Text("Distance in yalms to keep away from target hitbox.");
-            ImGui.EndTooltip();
-        }
-        ImGui.SameLine();
         ImGui.Text("Pref distance to forbidden zones");
         ImGui.SameLine();
         ImGui.SetNextItemWidth(100f);
