@@ -10,13 +10,17 @@ class A34UltimaP1States : StateMachineBuilder
             .ActivateOnEnter<AuralightAOE>()
             .ActivateOnEnter<AuralightRect>()
             .ActivateOnEnter<GrandCrossAOE>()
+            .ActivateOnEnter<Plummet>()
             .ActivateOnEnter<TimeEruption>()
             .ActivateOnEnter<Eruption2>()
             .ActivateOnEnter<ControlTower2>()
+            .ActivateOnEnter<Towerfall>()
             .ActivateOnEnter<ExtremeEdge1>()
             .ActivateOnEnter<ExtremeEdge2>()
             .ActivateOnEnter<CrushWeapon>()
             .ActivateOnEnter<Searchlight>()
-            .ActivateOnEnter<HallowedBolt>();
+            .ActivateOnEnter<HallowedBolt>()
+            .ActivateOnEnter<PrevailingCurrent>()
+            .ActivateOnEnter<UltimateIllusionArena>();
     }
 }

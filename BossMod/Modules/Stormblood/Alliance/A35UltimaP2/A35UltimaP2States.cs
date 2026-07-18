@@ -11,11 +11,13 @@ class A35UltimaP2States : StateMachineBuilder
             .ActivateOnEnter<Auralight1>()
             .ActivateOnEnter<Auralight2>()
             .ActivateOnEnter<Bombardment>()
-            .ActivateOnEnter<Embrace2>()
+            .ActivateOnEnter<RayOfLight>()
+            .ActivateOnEnter<Penultima>()
+            .ActivateOnEnter<GrandCrossSafe>()
+            .ActivateOnEnter<Embrace>()
+            .ActivateOnEnter<LifeDrain>()
             .ActivateOnEnter<GrandCrossAOE>()
             .ActivateOnEnter<Holy>()
-            .ActivateOnEnter<HolyIVBait>()
-            .ActivateOnEnter<HolyIVSpread>()
             .ActivateOnEnter<Plummet>()
             .ActivateOnEnter<Cataclysm>();
     }

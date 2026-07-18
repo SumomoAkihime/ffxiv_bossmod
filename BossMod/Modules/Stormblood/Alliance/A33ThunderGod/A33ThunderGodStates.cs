@@ -5,6 +5,13 @@ class A33ThunderGodStates : StateMachineBuilder
     public A33ThunderGodStates(BossModule module) : base(module)
     {
         TrivialPhase()
-                .ActivateOnEnter<HallowedBolt>();
+            .ActivateOnEnter<HallowedBolt>()
+            .ActivateOnEnter<TGHolySword>()
+            .ActivateOnEnter<Duskblade>()
+            .ActivateOnEnter<Shadowblade>()
+            .ActivateOnEnter<CrushWeaponTarget>()
+            .ActivateOnEnter<CrushWeaponAOE>()
+            .ActivateOnEnter<HallowedBoltStack>()
+            .ActivateOnEnter<CrushArmor>();
     }
 }

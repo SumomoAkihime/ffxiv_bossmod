@@ -15,6 +15,8 @@ public enum OID : uint
     Ramza = 0x2638, // R0.650, x0 (spawn during fight)
     Ruination = 0x263A, // R3.900, x0 (spawn during fight), Part type
     TheThunderGod = 0x262C, // R0.500, x0 (spawn during fight)
+    TowerfallDirection = 0x1EAA62, // R0.500, x2, EventObj type
+    ControlTower = 0x1EAA63, // R0.500, x2, EventObj type
 }
 
 public enum AID : uint
@@ -26,7 +28,7 @@ public enum AID : uint
     HolyIVSpread = 14491, // Helper->players, 5.5s cast, range 6 circle
     HolyIV4 = 15367, // Boss->self, 5.0s cast, single-target
 
-    AuralightRect = 14487, // Helper->self, 6.0s cast, range 70 width 10 rect
+    AuralightRect = 14487, // Helper->self, 6.0s cast, range 70 width 10 rect, persists for ~6s after cast
     AuralightAOE = 14488, // Helper->self, 6.0s cast, range 20 circle
     AuralightVisual = 14570, // Boss->self, 6.0s cast, single-target
 

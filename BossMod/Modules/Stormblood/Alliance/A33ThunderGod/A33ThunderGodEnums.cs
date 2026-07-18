@@ -6,6 +6,7 @@ public enum OID : uint
     Helper = 0x233C, // R0.500, x39, mixed types
 
     Actor1eaa54 = 0x1EAA54, // R0.500, x0 (spawn during fight), EventObj type
+    DuskbladeTower = 0x1EAA55, // R0.500, x6, EventObj type
     Actor262c = 0x262C, // R0.500, x1
     EphemeralKnight = 0x25D8, // R7.100, x3
     Fran = 0x273E, // R0.595, x1
