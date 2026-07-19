@@ -132,7 +132,7 @@ class UltimateIllusionArena(BossModule module) : BossComponent(module)
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.WIP, Contributors = "The Combat Reborn Team", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 636, NameID = 7909)]
+[ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "The Combat Reborn Team", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 636, NameID = 7909)]
 public class A34UltimaP1(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, DefaultBounds)
 {
     public static readonly WPos ArenaCenter = new(600f, -600f);
