@@ -377,14 +377,17 @@ public class InterceptTetherAOE(BossModule module, uint aid, uint tetherID, floa
         for (var i = 0; i < count; ++i)
         {
             var side = Tethers[i];
+            foreach (var a in Raid.WithoutSlot().Exclude(exclude))
+            {
+                if (a == side.Player)
+                {
+                    break;
+                }
+            }
             var inParty = false;
             foreach (var a in Raid.WithoutSlot())
             {
-                if (a == side.Player && !exclude.Contains(a))
-                {
-                    inParty = true;
-                    break;
-                }
+                if (a == side.Player && !exclude.Contains(a)) { inParty = true; break; }
             }
 
             Arena.AddLine(side.Enemy.Position, side.Player.Position, inParty ? Colors.Safe : default);
@@ -480,11 +483,7 @@ public class InterceptTether(BossModule module, uint aid, uint tetherIDBad = 84u
             var inParty2 = false;
             foreach (var a in Raid.WithoutSlot())
             {
-                if (a == side.Player && !exclude.Contains(a))
-                {
-                    inParty2 = true;
-                    break;
-                }
+                if (a == side.Player && !exclude.Contains(a)) { inParty2 = true; break; }
             }
 
             Arena.AddLine(side.Enemy.Position, side.Player.Position, inParty2 ? Colors.Safe : default);
@@ -656,11 +655,7 @@ public class StretchTetherDuo(BossModule module, float minimumDistance, double a
             var hasPlayer = false;
             for (var ai = 0; ai < ActivationDelayOnActor.Count; ++ai)
             {
-                if (ActivationDelayOnActor[ai].Item1 == player)
-                {
-                    hasPlayer = true;
-                    break;
-                }
+                if (ActivationDelayOnActor[ai].Item1 == player) { hasPlayer = true; break; }
             }
 
             if (!hasPlayer)
@@ -671,11 +666,7 @@ public class StretchTetherDuo(BossModule module, float minimumDistance, double a
             DateTime playerActivation = default;
             for (var ai = 0; ai < ActivationDelayOnActor.Count; ++ai)
             {
-                if (ActivationDelayOnActor[ai].Item1 == player)
-                {
-                    playerActivation = ActivationDelayOnActor[ai].Item2;
-                    break;
-                }
+                if (ActivationDelayOnActor[ai].Item1 == player) { playerActivation = ActivationDelayOnActor[ai].Item2; break; }
             }
 
             CurrentBaits.Add(new(enemy, player, Shape ?? new AOEShapeCircle(default), playerActivation));
@@ -761,11 +752,7 @@ public class StretchTetherDuo(BossModule module, float minimumDistance, double a
         DateTime actorBaitActivation = default;
         for (var bi = 0; bi < ActiveBaits.Count; ++bi)
         {
-            if (ActiveBaits[bi].Target == actor)
-            {
-                actorBaitActivation = ActiveBaits[bi].Activation;
-                break;
-            }
+            if (ActiveBaits[bi].Target == actor) { actorBaitActivation = ActiveBaits[bi].Activation; break; }
         }
 
         var immunity = IsImmune(slot, actorBaitActivation);
@@ -774,11 +761,7 @@ public class StretchTetherDuo(BossModule module, float minimumDistance, double a
         var actorHasTimedBait = false;
         for (var ai = 0; ai < ActivationDelayOnActor.Count; ++ai)
         {
-            if (ActivationDelayOnActor[ai].Item1 == actor && ActivationDelayOnActor[ai].Item2.AddSeconds(-6d) <= WorldState.CurrentTime)
-            {
-                actorHasTimedBait = true;
-                break;
-            }
+            if (ActivationDelayOnActor[ai].Item1 == actor && ActivationDelayOnActor[ai].Item2.AddSeconds(-6d) <= WorldState.CurrentTime) { actorHasTimedBait = true; break; }
         }
 
         if (couldBeImmune && actorHasTimedBait)

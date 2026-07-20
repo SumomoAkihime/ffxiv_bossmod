@@ -252,7 +252,7 @@ public sealed class SMN(RotationModuleManager manager, Actor player) : Castxan<A
 
         if (CrimsonStrikeReady)
         {
-            Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget.Actor, 3));
+            Hints.GoalZones.Add(AIHints.GoalSingleTarget(primaryTarget.Actor, 3));
             PushGCD(AID.CrimsonStrike, BestMeleeTarget);
         }
 
@@ -268,7 +268,7 @@ public sealed class SMN(RotationModuleManager manager, Actor player) : Castxan<A
         }
 
         if (Favor == Favor.Ifrit && strategy.Cyclone.IsEnabled())
-            PushGCD(AID.CrimsonCyclone, ResolveEnemy(strategy.Cyclone) ?? BestAOETarget);
+            PushGCD(AID.CrimsonCyclone, ResolveTargetOverride(strategy.Cyclone) ?? BestAOETarget);
 
         if (SummonLeft <= GCD)
         {

@@ -38,7 +38,7 @@ public abstract class ColumnPlayerGauge : Timeline.ColumnGroup, IToggleableColum
     protected ColumnPlayerGauge(Timeline timeline, StateMachineTree tree, List<int> phaseBranches, Replay replay, Replay.Encounter enc, Replay.Participant player)
         : base(timeline)
     {
-        Name = "Gauge";
+        Name = "G";
         Replay = replay;
         Encounter = enc;
     }

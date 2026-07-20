@@ -323,8 +323,8 @@ public sealed class Definitions : Defs
 
     private void Customize(ActionDefinitions d)
     {
-        d.Spell(AID.FlyingFrenzy)!.AllowExecute = d.Spell(AID.JKick)!.AllowExecute = ActionPredicate.AllowDashToTarget;
+        d.Spell(AID.FlyingFrenzy)!.ForbidExecute = d.Spell(AID.JKick)!.ForbidExecute = ActionDefinitions.DashToTargetCheck;
 
-        d.Spell(AID.Loom)!.AllowExecute = ActionPredicate.AllowDashToPosition;
+        d.Spell(AID.Loom)!.ForbidExecute = ActionDefinitions.DashToPositionCheck;
     }
 }

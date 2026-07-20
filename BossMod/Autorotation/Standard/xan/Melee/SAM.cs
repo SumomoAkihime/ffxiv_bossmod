@@ -199,7 +199,7 @@ public sealed class SAM(RotationModuleManager manager, Actor player) : Attackxan
         NumTenkaTargets = NumNearbyTargets(strategy, 8);
         (BestLineTarget, NumLineTargets) = SelectTarget(strategy, primaryTarget, 10, InLineAOE);
 
-        var dotTarget = ResolveEnemy(strategy.Higanbana) ?? primaryTarget;
+        var dotTarget = ResolveTargetOverride(strategy.Higanbana) ?? primaryTarget;
 
         (BestDotTarget, TargetDotLeft) = SelectDotTarget(strategy, dotTarget, HiganbanaLeft, 2);
 
@@ -279,7 +279,7 @@ public sealed class SAM(RotationModuleManager manager, Actor player) : Attackxan
             _ => GCDPriority.None,
         };
 
-        PushGCD(AID.Enpi, ResolveEnemy(strategy.Enpi) ?? primaryTarget, enpiprio);
+        PushGCD(AID.Enpi, ResolveTargetOverride(strategy.Enpi) ?? primaryTarget, enpiprio);
 
         var pos = GetNextPositional(strategy);
         UpdatePositionals(primaryTarget, ref pos);
@@ -515,7 +515,7 @@ public sealed class SAM(RotationModuleManager manager, Actor player) : Attackxan
 
     private float HiganbanaLeft(Actor? p) => p == null ? float.MaxValue : StatusDetails(p, SID.Higanbana, Player.InstanceID).Left;
 
-    private bool InConeAOE(Actor primary, Actor other) => Hints.TargetInAOECone(other, Player.Position, 8, Player.DirectionTo(primary), 60.Degrees());
+    private bool InConeAOE(Actor primary, Actor other) => AIHints.TargetInAOECone(other, Player.Position, 8, Player.DirectionTo(primary), 60.Degrees());
     private bool InLineAOE(Actor primary, Actor other) => TargetInAOERect(other, Player.Position, Player.DirectionTo(primary), 10, 4);
 }
 

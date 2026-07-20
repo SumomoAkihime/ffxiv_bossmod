@@ -118,16 +118,12 @@ public sealed class BossModuleManager : IDisposable
             {
                 var m = LoadedModules[i];
                 var wasActive = m.StateMachine.ActiveState != null;
-                var actor = m.PrimaryActor;
-
+                bool allowUpdate = !_wipeInProgress && (wasActive || !LoadedModules.Any(other => other.StateMachine.ActiveState != null && other.GetType() == m.GetType()));
                 bool isActive;
-
                 try
                 {
-                    if (!_wipeInProgress)
-                    {
+                    if (allowUpdate)
                         m.Update();
-                    }
                     isActive = m.StateMachine.ActiveState != null;
                 }
                 catch (Exception ex)
@@ -143,6 +139,7 @@ public sealed class BossModuleManager : IDisposable
                     (isActive ? ModuleActivated : ModuleDeactivated).Fire(m);
                 }
 
+                var actor = m.PrimaryActor;
                 // unload module because it is not active and player is out of desired range
                 if (!isActive && (playerPos - actor.PosRot.AsVector3()).LengthSquared() > maxSq && actor.SpawnIndex != -99)
                 {
@@ -155,7 +152,7 @@ public sealed class BossModuleManager : IDisposable
                 }
 
                 // unload module either if it became deactivated or its primary actor disappeared without ever activating
-                if (!isActive && (wasActive || actor.IsDestroyed))
+                if (!isActive && (wasActive || m.PrimaryActor.IsDestroyed))
                 {
                     UnloadModule(i--);
                     continue;
@@ -184,7 +181,7 @@ public sealed class BossModuleManager : IDisposable
 
                 if (!wasActive && isActive)
                 {
-                    Service.Log($"[BMM] Boss module '{m.GetType()}' for actor {actor.InstanceID:X} ({actor.OID:X}) '{actor.Name}' activated");
+                    Service.Log($"[BMM] Boss module '{m.GetType()}' for actor {m.PrimaryActor.InstanceID:X} ({m.PrimaryActor.OID:X}) '{m.PrimaryActor.Name}' activated");
                     anyModuleActivated |= true;
                 }
             }
@@ -298,18 +295,16 @@ public sealed class BossModuleManager : IDisposable
 
     private void OnDirectorUpdate(WorldState.OpDirectorUpdate diru)
     {
-        switch (diru.UpdateID)
+        if (diru.UpdateID == 0x4000_0005)
         {
-            case 0x4000_0005u:
-                _wipeInProgress = true;
-                ForceUnload("wipe");
-                break;
-            // TODO: reverse these; 0005 is referenced in Dalamud as the DutyWipe op, but there are a few different IDs that are always triggered after wipe, including 000F, 0011, 0013
-            // 0006 is Duty Recommenced, but is unsuitable here because it fires after actors are recreated (at least i think it does lol i didnt check)
-            case 0x4000_0011u:
-                _wipeInProgress = false;
-                break;
+            _wipeInProgress = true;
+            ForceUnload("wipe");
         }
+
+        // TODO: reverse these; 0005 is referenced in Dalamud as the DutyWipe op, but there are a few different IDs that are always triggered after wipe, including 000F, 0011, 0013
+        // 0006 is Duty Recommenced, but is unsuitable here because it fires after actors are recreated (at least i think it does lol i didnt check)
+        if (diru.UpdateID == 0x4000_0011)
+            _wipeInProgress = false;
     }
 
     private void OnZoneChange(WorldState.OpZoneChange zc)
@@ -320,18 +315,12 @@ public sealed class BossModuleManager : IDisposable
     public void ForceUnload(string? cause = null)
     {
         if (cause != null)
-        {
             Service.Log($"[BMM] Unload requested with cause: {cause}");
-        }
 
-        var count = LoadedModules.Count;
-        for (var i = count - 1; i >= 0; --i)
+        for (var i = LoadedModules.Count - 1; i >= 0; i--)
         {
-            var m = LoadedModules[i];
-            if (m.StateMachine.ActiveState != null)
-            {
-                ModuleDeactivated.Fire(m);
-            }
+            if (LoadedModules[i].StateMachine.ActiveState != null)
+                ModuleDeactivated.Fire(LoadedModules[i]);
             UnloadModule(i);
         }
     }

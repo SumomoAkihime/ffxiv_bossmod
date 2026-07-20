@@ -237,7 +237,7 @@ public sealed class VeynBRD(RotationModuleManager manager, Actor player) : Rotat
         BloodletterCDElapsed = bloodletterCD.Total == 0 ? BloodletterCDTotal : Math.Min(bloodletterCD.Elapsed, BloodletterCDTotal);
 
         var strategyDOTsOption = strategy.Option(Track.DOTs);
-        var dotTarget = ResolveTarget(strategyDOTsOption.Value) ?? primaryTarget;
+        var dotTarget = ResolveTargetOverride(strategyDOTsOption.Value) ?? primaryTarget;
         TargetCausticLeft = StatusDetails(dotTarget, ExpectedCaustic, Player.InstanceID, 45).Left;
         TargetStormbiteLeft = StatusDetails(dotTarget, ExpectedStormbite, Player.InstanceID, 45).Left;
         TargetDotsLeft = Math.Min(TargetCausticLeft, TargetStormbiteLeft);
@@ -312,16 +312,16 @@ public sealed class VeynBRD(RotationModuleManager manager, Actor player) : Rotat
         // misc gcds
         var strategyAA = strategy.Option(Track.ApexArrow);
         if (ShouldUseApexArrow(strategyAA.As<ApexArrowStrategy>()))
-            QueueGCDAtHostile(BRD.AID.ApexArrow, ResolveTarget(strategyAA.Value) ?? primaryTarget, GCDPriority.ApexArrow, gcdStrategy);
+            QueueGCDAtHostile(BRD.AID.ApexArrow, ResolveTargetOverride(strategyAA.Value) ?? primaryTarget, GCDPriority.ApexArrow, gcdStrategy);
         var strategyBA = strategy.Option(Track.BlastArrow);
         if (CanFitGCD(BlastArrowLeft) && strategyBA.As<OffensiveStrategy>() != OffensiveStrategy.Delay)
-            QueueGCDAtHostile(BRD.AID.BlastArrow, ResolveTarget(strategyBA.Value) ?? primaryTarget, GCDPriority.FlexibleBA, gcdStrategy);
+            QueueGCDAtHostile(BRD.AID.BlastArrow, ResolveTargetOverride(strategyBA.Value) ?? primaryTarget, GCDPriority.FlexibleBA, gcdStrategy);
         var strategyReso = strategy.Option(Track.ResonantArrow);
         if (CanFitGCD(ResonantArrowLeft) && ShouldUseResoEncore(strategyReso.As<OffensiveStrategy>(), ResonantArrowLeft))
-            QueueGCDAtHostile(BRD.AID.ResonantArrow, ResolveTarget(strategyReso.Value) ?? primaryTarget, GCDPriority.FlexibleReso, gcdStrategy);
+            QueueGCDAtHostile(BRD.AID.ResonantArrow, ResolveTargetOverride(strategyReso.Value) ?? primaryTarget, GCDPriority.FlexibleReso, gcdStrategy);
         var strategyEncore = strategy.Option(Track.RadiantEncore);
         if (CanFitGCD(RadiantEncoreLeft) && ShouldUseResoEncore(strategyEncore.As<OffensiveStrategy>(), RadiantEncoreLeft))
-            QueueGCDAtHostile(BRD.AID.RadiantEncore, ResolveTarget(strategyEncore.Value) ?? primaryTarget, GCDPriority.FlexibleEncore, gcdStrategy);
+            QueueGCDAtHostile(BRD.AID.RadiantEncore, ResolveTargetOverride(strategyEncore.Value) ?? primaryTarget, GCDPriority.FlexibleEncore, gcdStrategy);
 
         // songs (can only be used in combat)
         var strategySongs = strategy.Option(Track.Songs);
@@ -346,7 +346,7 @@ public sealed class VeynBRD(RotationModuleManager manager, Actor player) : Rotat
 
         // pp
         if (ActiveSong == Song.WanderersMinuet && Repertoire > 0 && ShouldUsePitchPerfect(strategySongs.As<SongStrategy>(), cdEA, estimatedAnimLockDelay))
-            QueueOGCDAtHostile(BRD.AID.PitchPerfect, ResolveTarget(strategySongs.Value) ?? primaryTarget, OGCDPriority.PitchPerfect, strategySongs.Value.PriorityOverride);
+            QueueOGCDAtHostile(BRD.AID.PitchPerfect, ResolveTargetOverride(strategySongs.Value) ?? primaryTarget, OGCDPriority.PitchPerfect, strategySongs.Value.PriorityOverride);
 
         // ea
         var strategyEA = strategy.Option(Track.EmpyrealArrow);
@@ -354,7 +354,7 @@ public sealed class VeynBRD(RotationModuleManager manager, Actor player) : Rotat
         {
             var basePrio = AllowClippingGCDByEA(cdEA, estimatedAnimLockDelay) ? ActionQueue.Priority.High : ActionQueue.Priority.Low;
             var deltaPrio = ActiveSong == Song.MagesBallad && cdEA > World.Client.AnimationLock + 0.1f ? OGCDPriority.EmpyrealArrowAfterSong : OGCDPriority.EmpyrealArrow; // allow very slight delay of EA by AP
-            QueueOGCDAtHostile(BRD.AID.EmpyrealArrow, ResolveTarget(strategyEA.Value) ?? primaryTarget, deltaPrio, strategyEA.Value.PriorityOverride, basePrio);
+            QueueOGCDAtHostile(BRD.AID.EmpyrealArrow, ResolveTargetOverride(strategyEA.Value) ?? primaryTarget, deltaPrio, strategyEA.Value.PriorityOverride, basePrio);
         }
 
         // bloodletter / rain of death
@@ -365,7 +365,7 @@ public sealed class VeynBRD(RotationModuleManager manager, Actor player) : Rotat
             var useAOE = aoeTargetCount >= 2; // 100*N vs 130/180
             var target = useAOE ? aoeBestTarget : primaryTarget;
             var basePrio = World.Client.CountdownRemaining > 0 ? ActionQueue.Priority.High : BloodletterCDElapsed + GCDLength < BloodletterCDTotal ? ActionQueue.Priority.VeryLow : ActionQueue.Priority.Low;
-            QueueOGCDAtHostile(useAOE ? BRD.AID.RainOfDeath : BestBloodletter, ResolveTarget(strategyBL.Value) ?? target, OGCDPriority.Bloodletter, strategyBL.Value.PriorityOverride, basePrio);
+            QueueOGCDAtHostile(useAOE ? BRD.AID.RainOfDeath : BestBloodletter, ResolveTargetOverride(strategyBL.Value) ?? target, OGCDPriority.Bloodletter, strategyBL.Value.PriorityOverride, basePrio);
         }
 
         // barrage
@@ -376,7 +376,7 @@ public sealed class VeynBRD(RotationModuleManager manager, Actor player) : Rotat
         // sidewinder
         var strategySidewinder = strategy.Option(Track.Sidewinder);
         if (Unlocked(BRD.AID.Sidewinder) && ShouldUseSidewinder(strategySidewinder.As<OffensiveStrategy>()))
-            QueueOGCDAtHostile(BRD.AID.Sidewinder, ResolveTarget(strategySidewinder.Value) ?? primaryTarget, OGCDPriority.Sidewinder, strategySidewinder.Value.PriorityOverride);
+            QueueOGCDAtHostile(BRD.AID.Sidewinder, ResolveTargetOverride(strategySidewinder.Value) ?? primaryTarget, OGCDPriority.Sidewinder, strategySidewinder.Value.PriorityOverride);
 
         // major buffs: RS/BV/RF/potion
         // normally we want to use them as follows:
@@ -425,13 +425,13 @@ public sealed class VeynBRD(RotationModuleManager manager, Actor player) : Rotat
         }
 
         // ai hints for positioning - ladonsbite is the most restrictive generally
-        var goalST = primaryTarget != null ? Hints.GoalSingleTarget(primaryTarget, 3) : null;
+        var goalST = primaryTarget != null ? AIHints.GoalSingleTarget(primaryTarget, 3) : null;
         var goalAOE = primaryTarget != null ? Hints.GoalAOECone(primaryTarget, 12, 45.Degrees()) : null;
         var goal = aoeStrategy switch
         {
             AOEStrategy.SingleTarget => goalST,
             AOEStrategy.ForceAOE => goalAOE,
-            _ => goalST != null && goalAOE != null ? Hints.GoalCombined(goalST, goalAOE, 2) : goalAOE
+            _ => goalST != null && goalAOE != null ? AIHints.GoalCombined(goalST, goalAOE, 2) : goalAOE
         };
         if (goal != null)
             Hints.GoalZones.Add(goal);
@@ -462,9 +462,9 @@ public sealed class VeynBRD(RotationModuleManager manager, Actor player) : Rotat
     private int NumTargetsHitByLadonsbite(Actor primary) => Hints.NumPriorityTargetsInAOECone(Player.Position, 12, (primary.Position - Player.Position).Normalized(), 45.Degrees());
     private int NumTargetsHitByShadowbite(Actor primary) => Hints.NumPriorityTargetsInAOECircle(primary.Position, 4);
     private int NumTargetsHitByRainOfDeath(Actor primary) => Hints.NumPriorityTargetsInAOECircle(primary.Position, 8);
-    private bool IsHitByLadonsbite(Actor primary, Actor check) => Hints.TargetInAOECone(check, Player.Position, 12, (primary.Position - Player.Position).Normalized(), 45.Degrees());
-    private bool IsHitByShadowbite(Actor primary, Actor check) => Hints.TargetInAOECircle(check, primary.Position, 5);
-    private bool IsHitByRainOfDeath(Actor primary, Actor check) => Hints.TargetInAOECircle(check, primary.Position, 8);
+    private bool IsHitByLadonsbite(Actor primary, Actor check) => AIHints.TargetInAOECone(check, Player.Position, 12, (primary.Position - Player.Position).Normalized(), 45.Degrees());
+    private bool IsHitByShadowbite(Actor primary, Actor check) => AIHints.TargetInAOECircle(check, primary.Position, 5);
+    private bool IsHitByRainOfDeath(Actor primary, Actor check) => AIHints.TargetInAOECircle(check, primary.Position, 8);
 
     private (Actor?, int) CheckAOETargeting(AOEStrategy strategy, Actor? primaryTarget, float range, Func<Actor, int> numTargets, Func<Actor, Actor, bool> check) => strategy switch
     {

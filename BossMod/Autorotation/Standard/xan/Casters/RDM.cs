@@ -165,7 +165,7 @@ public sealed class RDM(RotationModuleManager manager, Actor player) : Castxan<A
 
         (BestAOETarget, NumAOETargets) = SelectTarget(strategy, primaryTarget, 25, IsSplashTarget);
         (BestLineTarget, NumLineTargets) = SelectTarget(strategy, primaryTarget, 25, Is25yRectTarget);
-        (BestConeTarget, NumConeTargets) = SelectTarget(strategy, primaryTarget, 8, (primary, other) => Hints.TargetInAOECone(other, Player.Position, 8, Player.DirectionTo(primary), 60.Degrees()));
+        (BestConeTarget, NumConeTargets) = SelectTarget(strategy, primaryTarget, 8, (primary, other) => AIHints.TargetInAOECone(other, Player.Position, 8, Player.DirectionTo(primary), 60.Degrees()));
 
         if (CountdownRemaining > 0)
         {
@@ -180,7 +180,7 @@ public sealed class RDM(RotationModuleManager manager, Actor player) : Castxan<A
             : 20;
 
         if (primaryTarget is { } tar && ManaficLeft <= GCD && (SwordplayStacks > 0 || LowestMana >= comboMana || InMeleeCombo))
-            Hints.GoalZones.Add(Hints.GoalSingleTarget(tar.Actor, 3));
+            Hints.GoalZones.Add(AIHints.GoalSingleTarget(tar.Actor, 3));
 
         GoalZoneSingle(25);
 
@@ -259,10 +259,10 @@ public sealed class RDM(RotationModuleManager manager, Actor player) : Castxan<A
         void doit(GCDPriority p, in Strategy strategy, Enemy? primaryTarget)
         {
             if (NumConeTargets > 2 && Player.DistanceToHitbox(BestConeTarget) <= 8)
-                PushGCD(AID.EnchantedMoulinet, ResolveEnemy(strategy.Melee) ?? BestConeTarget, p);
+                PushGCD(AID.EnchantedMoulinet, ResolveTargetOverride(strategy.Melee) ?? BestConeTarget, p);
 
             if (Player.DistanceToHitbox(primaryTarget) <= 3 || ManaficLeft > GCD)
-                PushGCD(AID.Riposte, ResolveEnemy(strategy.Melee) ?? primaryTarget, p);
+                PushGCD(AID.Riposte, ResolveTargetOverride(strategy.Melee) ?? primaryTarget, p);
         }
 
         if (
@@ -323,7 +323,7 @@ public sealed class RDM(RotationModuleManager manager, Actor player) : Castxan<A
         PushOGCD(AID.Engagement, primaryTarget);
 
         if (strategy.Dash.IsEnabled())
-            PushOGCD(AID.CorpsACorps, ResolveEnemy(strategy.Dash) ?? primaryTarget);
+            PushOGCD(AID.CorpsACorps, ResolveTargetOverride(strategy.Dash) ?? primaryTarget);
 
         if (ThornedFlourish > AnimLock)
             PushOGCD(AID.ViceOfThorns, BestAOETarget);
@@ -367,7 +367,7 @@ public sealed class RDM(RotationModuleManager manager, Actor player) : Castxan<A
         };
 
         if (shouldUse)
-            PushOGCD(AID.Prefulgence, ResolveEnemy(strategy.Prefulgence) ?? BestAOETarget, OGCDPriority.Pref);
+            PushOGCD(AID.Prefulgence, ResolveTargetOverride(strategy.Prefulgence) ?? BestAOETarget, OGCDPriority.Pref);
     }
 
     void SwiftAlign(in Strategy strategy)

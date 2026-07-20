@@ -136,7 +136,7 @@ public sealed class MCH(RotationModuleManager manager, Actor player) : Attackxan
         // TODO: this obviously won't work properly if the next action is a GCD that is cdplanned to hit something else; a consistent solution would be to force a clip with Leg Graze, but that sounds really frustrating for users
         if (Manager.LastCast.Data?.Action.ID is (uint)AID.AutomatonQueen or (uint)AID.RookAutoturret)
         {
-            if (ResolveTarget(strategy.Queen.TrackRaw) is { } target)
+            if (ResolveTargetOverride(strategy.Queen.TrackRaw) is { } target)
             {
                 primaryTarget = Hints.FindEnemy(target);
                 PushOGCD(AID.LegGraze, target);
@@ -162,7 +162,7 @@ public sealed class MCH(RotationModuleManager manager, Actor player) : Attackxan
         else
         {
             var toolOk = strategy.Tools.Value == ToolStrategy.Automatic;
-            var toolTarget = ResolveEnemy(strategy.Tools);
+            var toolTarget = ResolveTargetOverride(strategy.Tools);
 
             if (toolOk)
             {
@@ -354,7 +354,7 @@ public sealed class MCH(RotationModuleManager manager, Actor player) : Attackxan
     private Enemy? GetWildfireTarget(in Strategy strategy, Enemy? primaryTarget)
     {
         var wf = strategy.Wildfire;
-        var wfTarget = ResolveEnemy(wf) ?? primaryTarget;
+        var wfTarget = ResolveTargetOverride(wf) ?? primaryTarget;
 
         if (!Unlocked(AID.Wildfire) || !CanWeave(AID.Wildfire) || wf == WildfireStrategy.Delay)
             return null;
@@ -380,5 +380,5 @@ public sealed class MCH(RotationModuleManager manager, Actor player) : Attackxan
         return OnCooldown(AID.Drill);
     }
 
-    private PositionCheck IsConeAOETarget => (playerTarget, targetToTest) => Hints.TargetInAOECone(targetToTest, Player.Position, 12, Player.DirectionTo(playerTarget), 60.Degrees());
+    private PositionCheck IsConeAOETarget => (playerTarget, targetToTest) => AIHints.TargetInAOECone(targetToTest, Player.Position, 12, Player.DirectionTo(playerTarget), 60.Degrees());
 }

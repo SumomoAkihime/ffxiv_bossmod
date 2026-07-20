@@ -69,7 +69,7 @@ public sealed class TrackAttribute() : Attribute
     public object Action
     {
         set => Actions = [value];
-        get => new();
+        get => Actions[0];
     }
     public object[] Actions
     {
@@ -77,12 +77,12 @@ public sealed class TrackAttribute() : Attribute
             BozjaHolsterID id => BozjaActionID.GetNormal(id),
             var x => ActionID.MakeSpell((Enum)x)
         })];
-        get => [];
+        get => [.. ActionIDs];
     }
     public object Item
     {
         set => ActionIDs = [new(ActionType.Item, (uint)(int)value)];
-        get => new();
+        get => ActionIDs[0];
     }
 
     // fallback values for all options in track
@@ -92,17 +92,6 @@ public sealed class TrackAttribute() : Attribute
     public int MinLevel;
     public int MaxLevel;
     public float DefaultPriority;
-
-    public object OGCDPriority
-    {
-        set => DefaultPriority = ActionQueue.Priority.Low + (int)value;
-        get => new();
-    }
-    public object GCDPriority
-    {
-        set => DefaultPriority = ActionQueue.Priority.High + (int)value;
-        get => new();
-    }
 }
 
 [AttributeUsage(AttributeTargets.Field)]
@@ -136,17 +125,6 @@ public sealed class OptionAttribute() : Attribute
     public float DefaultPriority;
     public StrategyContext Context;
     public uint Color;
-
-    public object OGCDPriority
-    {
-        set => DefaultPriority = ActionQueue.Priority.Low + (int)value;
-        get => new();
-    }
-    public object GCDPriority
-    {
-        set => DefaultPriority = ActionQueue.Priority.High + (int)value;
-        get => new();
-    }
 }
 
 public abstract record class StrategyConfig(

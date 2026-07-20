@@ -305,6 +305,7 @@ public abstract class QuestBattle : ZoneModule
 
         if (Service.PluginInterface == null)
         {
+            //Log($"UIDev detected, skipping initialization");
             _pathfind = new PathfindNoop();
             _meshIsReady = new PathReadyNoop();
         }

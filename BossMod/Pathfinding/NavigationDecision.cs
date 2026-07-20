@@ -1,6 +1,5 @@
 ﻿using System.Buffers;
 using System.Threading;
-using System.Diagnostics;
 
 namespace BossMod.Pathfinding;
 
@@ -26,14 +25,14 @@ public struct NavigationDecision
     public float LeewaySeconds; // can be used for finishing casts / slidecasting etc.
     public float TimeToGoal;
 
-    public long RasterizeTime;
-    public long PathfindTime;
+    public TimeSpan RasterizeTime;
+    public TimeSpan PathfindTime;
 
     public const float ActivationTimeCushion = 1f; // reduce time between now and activation by this value in seconds; increase for more conservativeness
 
     public static NavigationDecision Build(Context ctx, DateTime currentTime, AIHints hints, Actor player, float playerSpeed = 6f, float forbiddenZoneCushion = default)
     {
-        var startTime = Stopwatch.GetTimestamp();
+        var startTime = DateTime.Now;
 
         hints.InitPathfindMap(ctx.Map);
         var pos = player.Position;
@@ -68,14 +67,14 @@ public struct NavigationDecision
             ctx.Map.BuildTeleporterEdges([.. hints.Teleporters]);
         }
 
-        var rasterFinish = Stopwatch.GetTimestamp();
+        var rasterFinish = DateTime.Now;
 
         // execute pathfinding
         ctx.ThetaStar.Start(ctx.Map, pos, 1f / playerSpeed);
         var bestNodeIndex = ctx.ThetaStar.Execute();
         ref var bestNode = ref ctx.ThetaStar.NodeByIndex(bestNodeIndex);
         var waypoints = GetFirstWaypoints(ctx.ThetaStar, ctx.Map, bestNodeIndex, pos);
-        var finishTime = Stopwatch.GetTimestamp();
+        var finishTime = DateTime.Now;
         return new NavigationDecision() { Destination = waypoints.first, NextWaypoint = waypoints.second, LeewaySeconds = bestNode.PathLeeway, TimeToGoal = bestNode.GScore, PathfindTime = finishTime - rasterFinish, RasterizeTime = rasterFinish - startTime };
     }
 
@@ -94,7 +93,7 @@ public struct NavigationDecision
 
         var globalMax = float.NegativeInfinity;
 
-        Parallel.ForEach(partitions, static () => float.NegativeInfinity, (range, _, localMax) =>
+        Parallel.ForEach(partitions, () => float.NegativeInfinity, (range, _, localMax) =>
             {
                 var y1 = range.Item1;
                 var y2 = range.Item2;
@@ -449,7 +448,7 @@ public struct NavigationDecision
         var pixelMaxG = map.PixelMaxG;
         var pixelPriority = map.PixelPriority;
 
-        Parallel.ForEach(rangePartitioner, static () => float.MinValue, (range, loopState, localMax) =>
+        Parallel.ForEach(rangePartitioner, () => float.MinValue, (range, loopState, localMax) =>
             {
                 var ys = range.Item1;
                 var ye = range.Item2;
@@ -550,7 +549,6 @@ public struct NavigationDecision
         var dy = map.LocalZDivRes * resolution * resolution;
         var dx = dy.OrthoL();
         var topLeft = map.Center - (width >> 1) * dx - (height >> 1) * dy;
-        var halfdxdy = dx * 0.5f + dy * 0.5f;
 
         var partitioner = Partitioner.Create(0, height);
         var pixelMaxG = map.PixelMaxG;
@@ -601,7 +599,7 @@ public struct NavigationDecision
                     var tr = cellTopLeft + dx;
                     var bl = cellTopLeft + dy;
                     var br = cellTopLeft + dx + dy;
-                    var center = cellTopLeft + halfdxdy;
+                    var center = cellTopLeft + (dx * 0.5f + dy * 0.5f);
 
                     for (var j = 0; j < count; ++j)
                     {
