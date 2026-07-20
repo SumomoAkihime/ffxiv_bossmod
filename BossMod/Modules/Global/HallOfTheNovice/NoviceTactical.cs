@@ -1,4 +1,4 @@
-namespace BossMod.Global.HallOfTheNovice.NoviceTactical;
+﻿namespace BossMod.Global.HallOfTheNovice.NoviceTactical;
 
 public enum OID : uint
 {
@@ -579,4 +579,3 @@ public class NoviceTactical(WorldState ws, Actor primary) : BossModule(ws, prima
 {
     protected override bool CheckPull() => !PrimaryActor.IsDeadOrDestroyed;
 }
-
