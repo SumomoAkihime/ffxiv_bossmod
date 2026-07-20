@@ -78,12 +78,13 @@ public sealed record class ActionDefinition(ActionID ID)
     public int ExtraCooldownGroup = -1;
     public float Cooldown; // for single charge (if multi-charge action); can be adjusted by a number of factors (TODO: add functor)
     public ActionAspect Aspect; // useful for BLM and BLU
+    public bool RequiresLineOfSight;
     public int MaxChargesBase; // baseline max-charges when action is unlocked
     public readonly List<(int Charges, int Level, uint UnlockLink)> MaxChargesOverride = []; // trait overrides for max-charges (applied in order)
     public bool IsRoleAction; // unlocked conditions are different for these
     public float InstantAnimLock = 0.6f; // animation lock if ability is instant-cast
     public float CastAnimLock = 0.1f; // animation lock if ability is non-instant
-    public ConditionDelegate? ForbidExecute; // optional condition, if it returns true, action is not executed
+    public ConditionDelegate? AllowExecute; // optional condition, if it returns false, action is not executed
     public SmartTargetDelegate? SmartTarget; // optional target transformation for 'smart targeting' feature
     public TransformAngleDelegate? TransformAngle; // optional facing angle transformation
 
@@ -174,10 +175,6 @@ public sealed class ActionDefinitions
     public static readonly ActionID IDSprint = new(ActionType.Spell, 3);
     public static readonly ActionID IDAutoAttack = new(ActionType.Spell, 7);
     public static readonly ActionID IDAutoShot = new(ActionType.Spell, 8);
-    public static readonly ActionID Armslength = new(ActionType.Spell, 7548);
-    public static readonly ActionID Surecast = new(ActionType.Spell, 7559);
-    public static readonly ActionID Esuna = new(ActionType.Spell, 7568);
-    public static readonly ActionID WardensPaean = new(ActionType.Spell, 3561);
     public static readonly ActionID IDPotionStr = new(ActionType.Item, 1049234); // hq grade 3 gemdraught of strength
     public static readonly ActionID IDPotionDex = new(ActionType.Item, 1049235); // hq grade 3 gemdraught of dexterity
     public static readonly ActionID IDPotionVit = new(ActionType.Item, 1049236); // hq grade 3 gemdraught of vitality
@@ -208,10 +205,6 @@ public sealed class ActionDefinitions
     public static readonly ActionDefinitions Instance = new();
 
     public Func<uint, bool>? UnlockCheck;
-
-    public void Dispose()
-    {
-    }
 
     private ActionDefinitions()
     {
@@ -276,98 +269,6 @@ public sealed class ActionDefinitions
     // smart targeting utility: return target (if friendly) or any esunable player (if any) or self (otherwise)
     public static Actor? FindEsunaTarget(WorldState ws) => ws.Party.WithoutSlot().FirstOrDefault(p => p.Statuses.Any(s => Utils.StatusIsRemovable(s.ID)));
     public static Actor? SmartTargetEsunable(WorldState ws, Actor player, Actor? primaryTarget, AIHints hints) => SmartTargetFriendly(primaryTarget) ?? FindEsunaTarget(ws) ?? player;
-
-    public static bool DashToTargetCheck(WorldState ws, Actor player, ActionQueue.Entry action, AIHints hints)
-    {
-        var cfg = Service.Config.Get<ActionTweaksConfig>();
-        var target = action.Target;
-        if (target == null || !cfg.DashSafety)
-            return false;
-
-        // if there are pending knockbacks, god only knows where we would be sent after using a gapcloser
-        // note that once the knockback is actually active and not pending, we can probably cancel it with a dash
-        if (player.PendingKnockbacks.Count > 0)
-            return true;
-
-        var dist = player.DistanceToHitbox(target);
-        var dir = player.AngleTo(target);
-        var src = player.Position;
-
-        // facing target (to dash) would make us fail gaze, directional bait, etc
-        // TODO: only forbid if dash duration is longer than time to deadline?
-        if (hints.ForbiddenDirections.Any(d => dir.AlmostEqual(d.center, d.halfWidth.Rad)))
-            return true;
-
-        // TODO: check against action's animation lock duration instead of constant 0.8?
-        var (mode, deadline, _) = hints.ImminentSpecialMode;
-        if (mode is AIHints.SpecialMode.Pyretic or AIHints.SpecialMode.PyreticMove && deadline <= ws.FutureTime(0.8f))
-            return true;
-
-        return IsDashDangerous(src, src + dir.ToDirection() * MathF.Max(0, dist), hints);
-    }
-
-    public static bool DashToPositionCheck(WorldState _, Actor player, ActionQueue.Entry action, AIHints hints)
-    {
-        var cfg = Service.Config.Get<ActionTweaksConfig>();
-        if (action.TargetPos == default || !cfg.DashSafety || !cfg.DashSafetyExtra)
-            return false;
-
-        if (player.PendingKnockbacks.Count > 0)
-            return true;
-
-        return IsDashDangerous(player.Position, new WPos(action.TargetPos.XZ()), hints);
-    }
-
-    public static ActionDefinition.ConditionDelegate DashFixedDistanceCheck(float range, bool backwards = false)
-        => (ws, player, act, hints) =>
-        {
-            var cfg = Service.Config.Get<ActionTweaksConfig>();
-            if (!cfg.DashSafety || !cfg.DashSafetyExtra)
-                return false;
-
-            if (player.PendingKnockbacks.Count > 0)
-                return true;
-
-            var dir = act.FacingAngle ?? player.Rotation;
-
-            var dest = player.Position + dir.ToDirection() * range * (backwards ? -1 : 1);
-
-            return IsDashDangerous(player.Position, dest, hints);
-        };
-
-    public static ActionDefinition.ConditionDelegate BackdashCheck(float range)
-         => (ws, player, act, hints) =>
-        {
-            var cfg = Service.Config.Get<ActionTweaksConfig>();
-            if (act.Target == null || !cfg.DashSafety || !cfg.DashSafetyExtra)
-                return false;
-
-            if (player.PendingKnockbacks.Count > 0)
-                return true;
-
-            var dir = act.Target.DirectionTo(player).Normalized();
-
-            return IsDashDangerous(player.Position, player.Position + dir * range, hints);
-        };
-
-    // check if dashing to target will put the player inside a forbidden zone
-    public static bool IsDashDangerous(WPos from, WPos to, AIHints hints)
-    {
-        var center = hints.PathfindMapCenter;
-        if (!hints.PathfindMapBounds.Contains(to - center))
-            return true;
-
-        // if arena is a weird shape, try to ensure player won't dash out of it
-        if (from != to && hints.PathfindMapBounds is ArenaBoundsCustom)
-        {
-            var len = (to - from).Length();
-            var distToNearestWall = hints.PathfindMapBounds.IntersectRay(from - center, (to - from).Normalized());
-            if (distToNearestWall >= 0 && distToNearestWall < len)
-                return true;
-        }
-
-        return hints.ForbiddenZones.Any(d => d.shapeDistance.Contains(to));
-    }
 
     public BitMask SpellAllowedClasses(Lumina.Excel.Sheets.Action data)
     {
@@ -485,6 +386,7 @@ public sealed class ActionDefinitions
             UnlockLink = SpellUnlockLink(data),
             AllowedTargets = SpellAllowedTargets(data),
             Range = SpellRange(data, isPhysRanged),
+            RequiresLineOfSight = data.RequiresLineOfSight,
             CastTime = SpellBaseCastTime(data),
             MainCooldownGroup = SpellMainCDGroup(data),
             ExtraCooldownGroup = SpellExtraCDGroup(data),
@@ -522,6 +424,7 @@ public sealed class ActionDefinitions
             AllowedTargets = targets,
             Range = range,
             CastTime = castTime,
+            RequiresLineOfSight = itemAction.Action.Value.RequiresLineOfSight,
             MainCooldownGroup = cdgroup,
             Cooldown = cooldown,
             InstantAnimLock = animLock,
@@ -533,6 +436,7 @@ public sealed class ActionDefinitions
             AllowedTargets = targets,
             Range = range,
             CastTime = castTime,
+            RequiresLineOfSight = itemAction.Action.Value.RequiresLineOfSight,
             MainCooldownGroup = cdgroup,
             Cooldown = cooldown * 0.9f,
             InstantAnimLock = animLock,
@@ -557,7 +461,7 @@ public sealed class ActionDefinitions
         }
 
         if (id == BozjaHolsterID.LostSeraphStrike)
-            _definitions[normalAction].ForbidExecute = DashToTargetCheck;
+            _definitions[normalAction].AllowExecute = ActionPredicate.AllowDashToTarget;
     }
 
     private void RegisterDeepDungeon(ActionID id)

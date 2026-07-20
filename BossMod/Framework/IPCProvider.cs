@@ -1,4 +1,4 @@
-using BossMod.AI;
+﻿using BossMod.AI;
 using BossMod.Autorotation;
 using BossMod.Pathfinding;
 using System.IO;
@@ -13,7 +13,7 @@ sealed class IPCProvider : IDisposable
 
     public IPCProvider(BossModuleManager bossmod, AIHints hints, RotationModuleManager autorotation, ActionManagerEx amex, MovementOverride movement, AIManager ai, ObstacleMapManager obstacles)
     {
-        Register("HasModuleByDataId", (uint dataId) => BossModuleRegistry.FindByOID(dataId) != null);
+        Register("HasModuleByDataId", static (uint dataId) => BossModuleRegistry.FindByOID(dataId) != null);
 
         // Timeline IPC endpoints for external plugin integration (e.g. RotationSolverReborn)
         Register("HasActiveModule", () => bossmod.ActiveModule?.StateMachine.ActiveState != null);
@@ -186,7 +186,7 @@ sealed class IPCProvider : IDisposable
         Register("Hints.ShouldCleansePlayers", () => hints.ShouldCleanse.Raw);
         Register("Hints.InteractWithTargetOID", () => hints.InteractWithTarget?.InstanceID ?? 0ul);
         Register("Hints.RecommendedPositional", () => (int)hints.RecommendedPositional.Pos);
-        Register("AI.PauseMovement", (bool pause) => Service.Config.Get<AIConfig>().ForbidMovement = pause);
+        Register("AI.PauseMovement", static (bool pause) => Service.Config.Get<AIConfig>().ForbidMovement = pause);
         Register("AI.NaviTargetPos", () =>
         {
             var pos = ai.Controller.NaviTargetPos;
@@ -243,12 +243,12 @@ sealed class IPCProvider : IDisposable
         Register("Hints.IsPositionSafe", (Vector3 to) =>
         {
             var player = bossmod.WorldState.Party.Player();
-            return player != null && !ActionDefinitions.IsDashDangerous(player.Position, new WPos(to.X, to.Z), hints);
+            return player != null && ActionPredicate.IsDashSafe(player.Position, new WPos(to.X, to.Z), hints);
         });
 
         // Same as Hints.IsPositionSafe but with an explicit source position, useful when the dash origin differs from the player's current position.
         Register("Hints.IsDashSafe", (Vector3 from, Vector3 to) =>
-            !ActionDefinitions.IsDashDangerous(new WPos(from.X, from.Z), new WPos(to.X, to.Z), hints));
+            ActionPredicate.IsDashSafe(new WPos(from.X, from.Z), new WPos(to.X, to.Z), hints));
 
         // Returns true if dashing forward (or backward) by 'range' yalms from the player's current position/rotation is safe.
         // Mirrors DashFixedDistanceCheck: dest = playerPos + playerRotation * range (negated when backwards=true).
@@ -261,7 +261,7 @@ sealed class IPCProvider : IDisposable
             }
 
             var dest = player.Position + player.Rotation.ToDirection() * range * (backwards ? -1f : 1f);
-            return !ActionDefinitions.IsDashDangerous(player.Position, dest, hints);
+            return ActionPredicate.IsDashSafe(player.Position, dest, hints);
         });
 
         // Returns true if backdashing 'range' yalms directly away from 'enemyPos' is safe.
@@ -276,7 +276,7 @@ sealed class IPCProvider : IDisposable
 
             var dir = (player.Position - new WPos(enemyPos.X, enemyPos.Z)).Normalized();
             var dest = player.Position + dir * range;
-            return !ActionDefinitions.IsDashDangerous(player.Position, dest, hints);
+            return ActionPredicate.IsDashSafe(player.Position, dest, hints);
         });
 
         Register("Configuration", (List<string> args, bool save) => Service.Config.ConsoleCommand(args.AsSpan(), save));
@@ -351,7 +351,7 @@ sealed class IPCProvider : IDisposable
             return true;
         });
 
-        Register("Presets.GetActive", () => autorotation.Presets.Count == 1 ? autorotation.Presets[0].Name : null);
+        Register("Presets.GetActive", () => autorotation.Preset?.Name);
         Register("Presets.SetActive", (string name) =>
         {
             var preset = autorotation.Database.Presets.FindPresetByName(name);
@@ -360,55 +360,34 @@ sealed class IPCProvider : IDisposable
                 return false;
             }
 
-            autorotation.Clear();
-            autorotation.Activate(preset);
+            autorotation.Preset = preset;
             return true;
         });
         Register("Presets.ClearActive", () =>
         {
-            if (autorotation.Presets.Count == 0)
+            if (autorotation.Preset == null)
             {
                 return false;
             }
 
-            autorotation.Clear();
+            autorotation.Preset = null;
             return true;
         });
-        Register("Presets.GetForceDisabled", () => autorotation.IsForceDisabled);
+        Register("Presets.GetForceDisabled", () => autorotation.Preset == RotationModuleManager.ForceDisable);
         Register("Presets.SetForceDisabled", () =>
         {
-            if (autorotation.IsForceDisabled)
+            if (autorotation.Preset == RotationModuleManager.ForceDisable)
             {
                 return false;
             }
 
-            autorotation.SetForceDisabled();
-            return true;
-        });
-        Register("Presets.GetActiveList", () => autorotation.Presets.Select(p => p.Name).ToList());
-        Register("Presets.SetActiveList", (List<string> names) =>
-        {
-            List<Preset> presets = [];
-            foreach (var name in names)
-            {
-                var p = autorotation.Database.Presets.FindPresetByName(name);
-                if (p == null)
-                {
-                    Service.Log($"Presets.SetActiveList: input contained unrecognized preset name {name} - giving up");
-                    return false;
-                }
-                presets.Add(p);
-            }
-
-            autorotation.Clear();
-            foreach (var p in presets)
-                autorotation.Activate(p);
+            autorotation.Preset = RotationModuleManager.ForceDisable;
             return true;
         });
 
         bool addTransientStrategy(string presetName, string moduleTypeName, string trackName, string value, StrategyTarget target = StrategyTarget.Automatic, int targetParam = 0)
         {
-            var mt = Type.GetType(moduleTypeName) ?? typeof(IPCProvider).Assembly.GetType(moduleTypeName);
+            var mt = Type.GetType(moduleTypeName);
             if (mt == null || !RotationModuleRegistry.Modules.TryGetValue(mt, out var md))
             {
                 return false;
@@ -467,7 +446,7 @@ sealed class IPCProvider : IDisposable
 
         Register("Presets.ClearTransientStrategy", (string presetName, string moduleTypeName, string trackName) =>
         {
-            var mt = Type.GetType(moduleTypeName) ?? typeof(IPCProvider).Assembly.GetType(moduleTypeName);
+            var mt = Type.GetType(moduleTypeName);
             if (mt == null || !RotationModuleRegistry.Modules.TryGetValue(mt, out var md))
             {
                 return false;
@@ -496,7 +475,7 @@ sealed class IPCProvider : IDisposable
         });
         Register("Presets.ClearTransientModuleStrategies", (string presetName, string moduleTypeName) =>
         {
-            var mt = Type.GetType(moduleTypeName) ?? typeof(IPCProvider).Assembly.GetType(moduleTypeName);
+            var mt = Type.GetType(moduleTypeName);
             if (mt == null || !RotationModuleRegistry.Modules.TryGetValue(mt, out var md))
             {
                 return false;
@@ -532,7 +511,11 @@ sealed class IPCProvider : IDisposable
             Preset? found = null;
             foreach (var p in autorotation.Database.Presets.AllPresets)
             {
-                if (p.Name.Trim().Equals(name.Trim(), StringComparison.OrdinalIgnoreCase)) { found = p; break; }
+                if (p.Name.Trim().Equals(name.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    found = p;
+                    break;
+                }
             }
 
             ai.SetAIPreset(found);

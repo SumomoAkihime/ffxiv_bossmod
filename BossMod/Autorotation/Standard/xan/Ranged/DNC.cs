@@ -75,12 +75,6 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
 
     private bool HaveTarget(Enemy? primaryTarget) => NumAOETargets > 1 || primaryTarget != null;
 
-    private static float GetApplicationDelay(AID aid) => aid switch
-    {
-        AID.StandardFinish or AID.SingleStandardFinish or AID.DoubleStandardFinish => 0.54f,
-        _ => 0
-    };
-
     public override void Exec(in Strategy strategy, Enemy? primaryTarget)
     {
         SelectPrimaryTarget(strategy, ref primaryTarget, range: 25);
@@ -343,14 +337,14 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
         return TechFinishLeft > AnimLock;
     }
 
-    private bool IsFan4Target(Actor primary, Actor other) => AIHints.TargetInAOECone(other, Player.Position, 15, Player.DirectionTo(primary), 60.Degrees());
+    private bool IsFan4Target(Actor primary, Actor other) => Hints.TargetInAOECone(other, Player.Position, 15, Player.DirectionTo(primary), 60.Degrees());
 
     private Actor? FindDancePartner(in Track<PartnerStrategy> p)
     {
         var partner = p.Value switch
         {
             PartnerStrategy.Automatic => FindAutoPartner(),
-            PartnerStrategy.SelectTarget => ResolveTargetOverride(p.TrackRaw),
+            PartnerStrategy.SelectTarget => ResolveTarget(p.TrackRaw),
             _ => null
         };
 

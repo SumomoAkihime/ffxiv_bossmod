@@ -235,7 +235,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
 
         (BestAOETarget, NumAOETargets) = SelectTargetByHP(strategy, primaryTarget, 25, IsSplashTarget);
 
-        var dotTarget = ResolveTargetOverride(strategy.Thunder) ?? primaryTarget;
+        var dotTarget = ResolveEnemy(strategy.Thunder) ?? primaryTarget;
 
         if (strategy.Thunder.Value is ThunderStrategy.Force or ThunderStrategy.Delay)
         {
@@ -247,7 +247,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
             (BestThunderTarget, TargetThunderLeft) = SelectDotTarget(strategy, dotTarget, GetTargetThunderLeft, 2);
         }
 
-        (BestAOEThunderTarget, NumAOEDotTargets) = SelectTarget(strategy, dotTarget, 25, (primary, other) => DotExpiring(other) && AIHints.TargetInAOECircle(other, primary.Position, 5));
+        (BestAOEThunderTarget, NumAOEDotTargets) = SelectTarget(strategy, dotTarget, 25, (primary, other) => DotExpiring(other) && Hints.TargetInAOECircle(other, primary.Position, 5));
 
         if (CountdownRemaining > 0)
         {
@@ -268,7 +268,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
             return;
         }
 
-        if (!Hints.PriorityTargets.Any())
+        if (!Hints.PriorityTargets.Any(p => Player.DistanceToHitbox(p.Actor) < 40))
         {
             if (ReadyIn(AID.Transpose) == 0)
             {
@@ -295,10 +295,10 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
                 PushGCD(AID.UmbralSoul, Player, GCDPriority.Standard);
         }
 
-        if (primaryTarget == null)
-            return;
-
         GoalZoneSingle(25);
+
+        if (primaryTarget == null || Player.DistanceToHitbox(primaryTarget.Actor) > 50)
+            return;
 
         if (Player.InCombat && World.Actors.FirstOrDefault(x => x.OID == 0x179 && x.OwnerID == Player.InstanceID) is Actor ll)
             Hints.GoalZones.Add(p => p.InCircle(ll.Position, 3) ? 0.5f : 0);
@@ -313,7 +313,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
                 PushGCD((AID)PhantomID.Iainuki, primaryTarget, GCDPriority.Max);
 
             if (ready <= GCD + GCDLength * 2)
-                Hints.GoalZones.Add(AIHints.GoalSingleTarget(primaryTarget.Actor, 8));
+                Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget.Actor, 8));
         }
 
         if (strategy.AutoTimeMage.IsEnabled())

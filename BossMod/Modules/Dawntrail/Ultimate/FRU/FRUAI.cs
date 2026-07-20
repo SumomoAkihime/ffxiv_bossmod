@@ -27,7 +27,7 @@ sealed class FRUAI(RotationModuleManager manager, Actor player) : AIRotationModu
     private readonly PartyRolesConfig _prc = Service.Config.Get<PartyRolesConfig>();
     private readonly FRUConfig _config = Service.Config.Get<FRUConfig>();
 
-    public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    public override void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         if (Bossmods.ActiveModule is FRU module && module.Raid.FindSlot(Player.InstanceID) is var playerSlot && playerSlot >= 0)
         {
@@ -38,9 +38,9 @@ sealed class FRUAI(RotationModuleManager manager, Actor player) : AIRotationModu
     private WPos? CalculateDestination(FRU module, Actor? primaryTarget, StrategyValues.OptionRef strategy, PartyRolesConfig.Assignment assignment) => strategy.As<MovementStrategy>() switch
     {
         MovementStrategy.Pathfind => PathfindPosition(null),
-        MovementStrategy.PathfindMeleeGreed => PathfindPosition(ResolveTargetOverride(strategy.Value) ?? primaryTarget),
+        MovementStrategy.PathfindMeleeGreed => PathfindPosition(ResolveTarget(strategy.Value) ?? primaryTarget),
         MovementStrategy.Explicit => ResolveTargetLocation(strategy.Value),
-        MovementStrategy.ExplicitMelee => ExplicitMeleePosition(ResolveTargetLocation(strategy.Value), ResolveTargetOverride(strategy.Value) ?? primaryTarget),
+        MovementStrategy.ExplicitMelee => ExplicitMeleePosition(ResolveTargetLocation(strategy.Value), ResolveTarget(strategy.Value) ?? primaryTarget),
         MovementStrategy.Prepull => PrepullPosition(module, assignment),
         MovementStrategy.DragToCenter => DragToCenterPosition(module),
         _ => null

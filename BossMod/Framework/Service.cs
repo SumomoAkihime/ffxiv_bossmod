@@ -1,4 +1,4 @@
-using Dalamud.Bindings.ImGui;
+﻿using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
@@ -38,15 +38,15 @@ public sealed class Service
     public static void Log(string msg) => LogHandlerDebug?.Invoke(msg);
     public static void LogVerbose(string msg) => LogHandlerVerbose?.Invoke(msg);
 
-    public static Lumina.GameData? LuminaGameData;
-    public static Lumina.Excel.ExcelSheet<T>? LuminaSheet<T>() where T : struct, Lumina.Excel.IExcelRow<T> => LuminaGameData?.GetExcelSheet<T>();
+    public static Lumina.GameData LuminaGameData = null!;
+    public static Lumina.Excel.ExcelSheet<T>? LuminaSheet<T>() where T : struct, Lumina.Excel.IExcelRow<T> => LuminaGameData.GetExcelSheet<T>(Lumina.Data.Language.English);
     public static T? LuminaRow<T>(uint row) where T : struct, Lumina.Excel.IExcelRow<T> => LuminaSheet<T>()?.GetRowOrDefault(row);
     public static ConcurrentDictionary<Lumina.Text.ReadOnly.ReadOnlySeString, Lumina.Text.ReadOnly.ReadOnlySeString> LuminaRSV = []; // TODO: reconsider
 
     public static WindowSystem? WindowSystem;
 
     public static ImFontPtr IconFont => UiBuilder.IconFont;
-    public static bool IsDev => false;
+
 #pragma warning restore CA2211
 
     public static readonly ConfigRoot Config = new();

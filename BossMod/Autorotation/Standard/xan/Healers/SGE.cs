@@ -116,7 +116,7 @@ public sealed class SGE(RotationModuleManager manager, Actor player) : Castxan<A
         if (ShouldPhlegma(strategy))
         {
             if (ReadyIn(AID.Phlegma) <= GCD && primaryTarget is { } t)
-                Hints.GoalZones.Add(AIHints.GoalSingleTarget(t.Actor, 6));
+                Hints.GoalZones.Add(Hints.GoalSingleTarget(t.Actor, 6));
 
             PushGCD(AID.Phlegma, BestPhlegmaTarget);
         }
@@ -218,7 +218,7 @@ public sealed class SGE(RotationModuleManager manager, Actor player) : Castxan<A
         switch (strategy.Kardia.Value)
         {
             case KardiaStrategy.Specific:
-                return ResolveTargetOverride(strategy.Kardia.TrackRaw);
+                return ResolveTarget(strategy.Kardia.TrackRaw);
             case KardiaStrategy.Manual:
                 return null;
         }

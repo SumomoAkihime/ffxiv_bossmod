@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Dungeon.D13TheBurn.D133MistDragon;
+﻿namespace BossMod.Stormblood.Dungeon.D13TheBurn.D133MistDragon;
 
 public enum OID : uint
 {
@@ -127,7 +127,7 @@ sealed class ColdFog(BossModule module) : Components.GenericAOEs(module)
 abstract class BaitAway(BossModule module) : Components.GenericBaitAway(module)
 {
     protected readonly AOEShapeCircle circle = new(6f);
-    protected readonly AOEShapeCone cone = new(20f, 45f.Degrees());
+    protected readonly AOEShapeCone cone = new(21f, 60f.Degrees());
     protected readonly AOEShapeRect rect = new(40f, 3f);
 
     protected void DrawPositionsInBounds(WPos[] positions)

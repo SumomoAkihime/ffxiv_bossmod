@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace BossMod.Autorotation.MiscAI;
 
-public sealed class NormalMovement : RotationModule
+public sealed class NormalMovement(RotationModuleManager manager, Actor player) : RotationModule(manager, player)
 {
     public enum Track { Destination, Range, Cast, SpecialModes, ForbiddenZoneCushion, DelayMovement }
     public enum DestinationStrategy { None, Pathfind, Explicit }
@@ -14,12 +14,6 @@ public sealed class NormalMovement : RotationModule
     public enum DelayMovementStrategy { None, Short, Long }
 
     public const float GreedTolerance = 0.15f;
-    public static NormalMovement? Instance;
-
-    public NormalMovement(RotationModuleManager manager, Actor player) : base(manager, player)
-    {
-        Instance = this;
-    }
 
     public static RotationModuleDefinition Definition()
     {
@@ -86,7 +80,7 @@ public sealed class NormalMovement : RotationModule
             if (_decisionTask.Exception is { } exception)
                 Service.Log($"exception during pathfind: {exception}");
 
-            _decisionTask = Task.Run(() => NavigationDecision.Build(_navCtx, World.CurrentTime, Hints, Player, speed, forbiddenZoneCushion: cushionSize));
+            _decisionTask = NavigationDecision.BuildAsync(_navCtx, World.CurrentTime, Hints, Player.Position, speed, forbiddenZoneCushion: cushionSize);
         }
 
         return _lastDecision;
@@ -121,7 +115,7 @@ public sealed class NormalMovement : RotationModule
             if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.PyreticMove && Hints.ImminentSpecialMode.activation <= World.FutureTime(1))
                 return;
 
-            if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Freezing && Hints.ImminentSpecialMode.activation <= World.FutureTime(0.5f))
+            if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Freezing && Hints.ImminentSpecialMode.activation <= World.FutureTime(0.5f) && Player.PosRot == Player.PrevPosRot)
                 Hints.WantJump = true;
         }
 
@@ -142,7 +136,7 @@ public sealed class NormalMovement : RotationModule
 
         // fallback so that we can automatically start some quest battles xddd (the RP rotation is a component on the module, which isn't active until we pull, so no goal zone)
         if (Hints.GoalZones.Count == 0 && primaryTarget is { IsAlly: false, IsDead: false } && Player.Statuses.Any(s => RotationModuleManager.TransformationStatuses.Contains(s.ID)))
-            Hints.GoalZones.Add(AIHints.GoalSingleTarget(primaryTarget, 3));
+            Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget, 3));
 
         var isSpinning = Player.Statuses.Any(s => s.ID == 2973);
 
@@ -150,8 +144,8 @@ public sealed class NormalMovement : RotationModule
         if (isSpinning)
         {
             // rect is offset by -1 unit player-relative. we know very well that player-centered shapes make the pathfinder freak the fuck out
-            Hints.AddForbiddenZone(new AOEShapeRect(SpinningLookahead + 2, SpinningLookahead + 2, SpinningLookahead), Player.Position, Player.Rotation, World.FutureTime(2));
-            Hints.AddForbiddenZone(new AOEShapeCone(100, 45.Degrees(), 180.Degrees()), Player.Position, Player.Rotation, DateTime.MaxValue);
+            Hints.AddForbiddenZone(ShapeContains.Rect(Player.Position, Player.Rotation, SpinningLookahead, SpinningLookahead + 2, SpinningLookahead + 2), World.FutureTime(2));
+            Hints.AddForbiddenZone(ShapeContains.Cone(Player.Position, 100, Player.Rotation + 180.Degrees(), 45.Degrees()), DateTime.MaxValue);
         }
 
         var speed = World.Client.MoveSpeed;
@@ -214,7 +208,7 @@ public sealed class NormalMovement : RotationModule
         var rangeStrategy = rangeOpt.As<RangeStrategy>();
         if (rangeStrategy != RangeStrategy.Any && Player.InCombat)
         {
-            var rangeReference = ResolveTargetOverride(rangeOpt.Value) ?? primaryTarget;
+            var rangeReference = ResolveTarget(rangeOpt.Value) ?? primaryTarget;
             if (rangeReference != null)
             {
                 // TODO: instead of hardcoding, is it possible to reuse goal zones for this purpose?
