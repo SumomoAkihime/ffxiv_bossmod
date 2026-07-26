@@ -1,4 +1,4 @@
-namespace BossMod.RealmReborn.Alliance.A16Phlegethon;
+﻿namespace BossMod.RealmReborn.Alliance.A16Phlegethon;
 
 public enum OID : uint
 {
@@ -66,7 +66,7 @@ class AncientFlareVoidzone(BossModule module) : Components.GenericAOEs(module)
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
         => _activation != default
-            ? new AOEInstance[] { new(new AOEShapeCircle(32.45f), Arena.Center, activation: _activation) }
+            ? new AOEInstance[] { new(new AOEShapeCircle(32.45f), A16Phlegethon.ArenaCenter, activation: _activation) }
             : Array.Empty<AOEInstance>();
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -90,7 +90,7 @@ class DynamicArenaBorder(BossModule module) : Components.GenericAOEs(module)
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
         => _active
-            ? new AOEInstance[] { new(new AOEShapeDonut(32.45f, 100), Arena.Center) }
+            ? new AOEInstance[] { new(new AOEShapeDonut(32.45f, 100), A16Phlegethon.ArenaCenter) }
             : Array.Empty<AOEInstance>();
 
     public override void OnActorEAnim(Actor actor, uint state)
@@ -127,9 +127,9 @@ class A16PhlegethonStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 92, NameID = 732)]
-public class A16Phlegethon(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, PhlegBounds)
+public class A16Phlegethon(WorldState ws, Actor primary) : BossModule(ws, primary, PhlegBounds.Center, PhlegBounds)
 {
-    private static readonly WPos ArenaCenter = new(-110, 181.6f);
+    internal static readonly WPos ArenaCenter = new(-110, 181.6f);
     private static readonly ArenaBoundsCustom PhlegBounds = MakeBounds();
 
     private static ArenaBoundsCustom MakeBounds() => new(
