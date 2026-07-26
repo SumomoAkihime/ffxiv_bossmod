@@ -12,8 +12,7 @@ sealed class ArenaChanges(BossModule module) : BossComponent(module)
     {
         if (spell.Action.ID == (uint)AID.BoxSpawn)
         {
-            var pos = caster.Position;
-            Squares.Add(square with { Center = pos });
+            Squares.Add(new Square(caster.Position, 4f));
         }
     }
 

@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.Skirmish.PyromancerSupreme;
+﻿namespace BossMod.Shadowbringers.Foray.Skirmish.PyromancerSupreme;
 
 public enum OID : uint
 {
@@ -61,7 +61,7 @@ sealed class PyromancerSupremeStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.ForayFATE, GroupID = 735, NameID = 1616)]
-public sealed class PyromancerSupreme : SimpleBossModule
+public sealed class PyromancerSupreme : OpenWorldFate
 {
     public PyromancerSupreme(WorldState ws, Actor primary) : base(ws, primary)
     {

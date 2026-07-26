@@ -273,6 +273,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         FiresReply = 700,
         WindsReply = 800,
         PR = 900,
+        FRExpire = 910,
         MeditateForce = 950,
     }
 
@@ -715,7 +716,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         };
 
         if (!CanFitGCD(FiresReplyLeft, 1))
-            prio = GCDPriority.FiresReply;
+            prio = GCDPriority.FRExpire;
 
         PushGCD(AID.FiresReply, ResolveTargetOverride(strategy.FiresReply) ?? BestRangedTarget, prio);
     }

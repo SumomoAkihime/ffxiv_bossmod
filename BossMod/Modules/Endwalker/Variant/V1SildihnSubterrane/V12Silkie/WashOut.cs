@@ -1,4 +1,4 @@
-namespace BossMod.Endwalker.VariantCriterion.V1SildihnSubterrane.V12Silkie;
+﻿namespace BossMod.Endwalker.VariantCriterion.V1SildihnSubterrane.V12Silkie;
 
 sealed class WashOut(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.WashOut, 35f, kind: Kind.DirForward)
 {
@@ -8,7 +8,7 @@ sealed class WashOut(BossModule module) : Components.SimpleKnockbacks(module, (u
     {
         if (Casters.Count != 0)
         {
-            ref var kb = ref Casters.Ref(0);
+            ref readonly var kb = ref Casters.Ref(0);
             var act = kb.Activation;
             if (!IsImmune(slot, act))
             {

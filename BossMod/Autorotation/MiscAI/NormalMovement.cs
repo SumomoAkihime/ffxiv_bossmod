@@ -5,6 +5,13 @@ namespace BossMod.Autorotation.MiscAI;
 
 public sealed class NormalMovement : RotationModule
 {
+
+    enum SID : uint
+    {
+        ThinIce = 911,
+        Spinning = 2973, // alzadaal's legacy, forced march at 3 units/sec, player can steer left and right
+    }
+
     public enum Track { Destination, Range, Cast, SpecialModes, ForbiddenZoneCushion, DelayMovement }
     public enum DestinationStrategy { None, Pathfind, Explicit }
     public enum RangeStrategy { Any, MaxRange, GreedGCDExplicit, GreedLastMomentExplicit, GreedAutomatic }
@@ -144,14 +151,19 @@ public sealed class NormalMovement : RotationModule
         if (Hints.GoalZones.Count == 0 && primaryTarget is { IsAlly: false, IsDead: false } && Player.Statuses.Any(s => RotationModuleManager.TransformationStatuses.Contains(s.ID)))
             Hints.GoalZones.Add(AIHints.GoalSingleTarget(primaryTarget, 3));
 
-        var isSpinning = Player.Statuses.Any(s => s.ID == 2973);
-
+        var isSpinning = Player.FindStatus(SID.Spinning) != null;
         // simulate forward forced movement; this is kind of a hack, but it definitely doesn't belong in modules because it's part of the movement constraint
         if (isSpinning)
         {
             // rect is offset by -1 unit player-relative. we know very well that player-centered shapes make the pathfinder freak the fuck out
             Hints.AddForbiddenZone(new AOEShapeRect(SpinningLookahead + 2, SpinningLookahead + 2, SpinningLookahead), Player.Position, Player.Rotation, World.FutureTime(2));
             Hints.AddForbiddenZone(new AOEShapeCone(100, 45.Degrees(), 180.Degrees()), Player.Position, Player.Rotation, DateTime.MaxValue);
+        }
+
+        if (Player.FindStatus(SID.ThinIce) is { } thinIce)
+        {
+            var distance = thinIce.Extra * 0.1f;
+            Hints.AddForbiddenZone(new SDDonut(Player.Position, 1, distance - 1), World.FutureTime(2));
         }
 
         var speed = World.Client.MoveSpeed;

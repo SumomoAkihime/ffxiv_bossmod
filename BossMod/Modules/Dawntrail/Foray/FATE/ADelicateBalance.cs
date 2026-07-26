@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.FATE.ADelicateBalance;
+﻿namespace BossMod.Dawntrail.Foray.FATE.ADelicateBalance;
 
 public enum OID : uint
 {
@@ -52,7 +52,7 @@ sealed class ADelicateBalanceStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.ForayFATE, GroupID = 1018, NameID = 1968)]
-public sealed class ADelicateBalance(WorldState ws, Actor primary) : SimpleBossModule(ws, primary)
+public sealed class ADelicateBalance(WorldState ws, Actor primary) : OpenWorldFate(ws, primary)
 {
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {

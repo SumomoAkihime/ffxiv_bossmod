@@ -304,7 +304,7 @@ public sealed class Definitions : Defs
     private void Customize(ActionDefinitions d)
     {
         d.Spell(AID.Interject)!.ForbidExecute = (_, _, act, _) => !(act.Target?.CastInfo?.Interruptible ?? false); // don't use interject if target is not casting interruptible spell
-        d.Spell(AID.Reprisal)!.ForbidExecute = (_, player, _, hints) => !hints.PotentialTargets.Any(e => e.Actor.Position.InCircle(player.Position, 5 + e.Actor.HitboxRadius)); // don't use reprisal if no one would be hit; TODO: consider checking only target?..
+        d.Spell(AID.Reprisal)!.ForbidExecute = (_, player, _, hints) => !hints.PotentialTargets.Any(e => e.Actor.Position.InCircle(player.Position, 5 + e.Actor.HitboxRadius) && e.Priority >= AIHints.Enemy.PriorityPointless); // don't use reprisal if no one would be hit
         d.Spell(AID.Shirk)!.SmartTarget = ActionDefinitions.SmartTargetCoTank;
 
         //d.Spell(AID.Repose)!.EffectDuration = 30;
