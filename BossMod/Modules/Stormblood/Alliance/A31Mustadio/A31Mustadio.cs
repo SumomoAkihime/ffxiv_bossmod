@@ -27,8 +27,46 @@ abstract class Handgonne(BossModule module, uint aid) : Components.SimpleAOEs(mo
 class LeftHandgonne(BossModule module) : Handgonne(module, (uint)AID.LeftHandgonne);
 class RightHandgonne(BossModule module) : Handgonne(module, (uint)AID.RightHandgonne);
 
-class SatelliteBeam(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SatelliteBeam, new AOEShapeRect(30, 15)); // Satellite Beam and Compress can both be shown earleir through tether
-class Compress(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Compress, new AOEShapeRect(100, 7.5f));
+abstract class MaintenanceAOE(BossModule module, uint oid, uint tetherID, uint aid, AOEShape shape) : Components.GenericAOEs(module, aid)
+{
+    private readonly List<AOEInstance> _aoes = [];
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
+    {
+        if (source.OID == oid && tether.ID == tetherID)
+        {
+            _aoes.RemoveAll(aoe => aoe.ActorID == source.InstanceID);
+            _aoes.Add(new(shape, source.Position, source.Rotation, WorldState.FutureTime(14.5d), actorID: source.InstanceID));
+        }
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == WatchedAction)
+        {
+            var aoe = new AOEInstance(shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID);
+            var index = _aoes.FindIndex(existing => existing.ActorID == caster.InstanceID);
+            if (index >= 0)
+                _aoes[index] = aoe;
+            else
+                _aoes.Add(aoe);
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        base.OnEventCast(caster, spell);
+        if (spell.Action.ID == WatchedAction)
+            _aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
+    }
+
+    public override void OnActorDestroyed(Actor actor) => _aoes.RemoveAll(aoe => aoe.ActorID == actor.InstanceID);
+}
+
+class SatelliteBeam(BossModule module) : MaintenanceAOE(module, (uint)OID.EarlyTurret, (uint)TetherID.Tether88, (uint)AID.SatelliteBeam, new AOEShapeRect(30f, 15f));
+class Compress(BossModule module) : MaintenanceAOE(module, (uint)OID.IronConstruct, (uint)TetherID.Tether86, (uint)AID.Compress, new AOEShapeRect(100f, 7.5f));
 
 class BallisticSpread(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.BallisticImpact1, 6);
 

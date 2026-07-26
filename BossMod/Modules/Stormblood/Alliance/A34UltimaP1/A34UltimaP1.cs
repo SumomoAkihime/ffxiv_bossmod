@@ -45,7 +45,50 @@ class AuralightRect(BossModule module) : Components.GenericAOEs(module)
         }
     }
 }
-class GrandCrossAOE(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GrandCrossAOE, new AOEShapeCross(60f, 7.5f));
+class GrandCrossAOE(BossModule module) : Components.GenericAOEs(module, (uint)AID.GrandCrossAOE)
+{
+    private static readonly AOEShapeCross _shape = new(60f, 7.5f);
+    private readonly List<AOEInstance> _aoes = [];
+    private DateTime _predictedActivation;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if (actor.OID == (uint)OID.AuraciteShard)
+        {
+            var activation = _predictedActivation != default ? _predictedActivation : WorldState.FutureTime(18.2d);
+            _aoes.Add(new(_shape, actor.Position, actor.Rotation, activation, actorID: actor.InstanceID));
+        }
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.GrandCrossVisual)
+        {
+            _aoes.Clear();
+            _predictedActivation = WorldState.FutureTime(18.2d);
+        }
+        else if (spell.Action.ID == WatchedAction)
+        {
+            var index = _aoes.FindIndex(aoe => aoe.ActorID == caster.InstanceID);
+            var aoe = new AOEInstance(_shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID);
+            if (index >= 0)
+                _aoes[index] = aoe;
+            else
+                _aoes.Add(aoe);
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        base.OnEventCast(caster, spell);
+        if (spell.Action.ID == WatchedAction)
+            _aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
+    }
+
+    public override void OnActorDestroyed(Actor actor) => _aoes.RemoveAll(aoe => aoe.ActorID == actor.InstanceID);
+}
 class Plummet(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Plummet, new AOEShapeRect(15f, 7.5f));
 class TimeEruption(BossModule module) : Components.SimpleAOEGroupsByTimewindow(module, [(uint)AID.TimeEruptionAOEFirst, (uint)AID.TimeEruptionAOESecond], new AOEShapeRect(20f, 10f), expectedNumCasters: 9);
 
