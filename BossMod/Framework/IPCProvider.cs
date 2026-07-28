@@ -544,6 +544,21 @@ sealed class IPCProvider : IDisposable
         Register("ObstacleMap.HasTempMap", obstacles.HasTempMap);
         Register("ObstacleMap.ClearTempMap", obstacles.ClearTempMap);
         Register("ObstacleMap.EvaluateTempMapQuality", obstacles.EvaluateTempMapQuality);
+
+        Register("Plan.GetUpcomingActions", (float lookAheadSeconds) =>
+        {
+            var planner = autorotation.Planner;
+            if (planner == null)
+                return "[]";
+
+            var actions = planner.GetUpcomingPlannedActions(bossmod.WorldState, autorotation.PlayerSlot, lookAheadSeconds);
+            return JsonSerializer.Serialize(actions);
+        });
+
+        var plannedActionsChangedProvider = Service.PluginInterface.GetIpcProvider<object>("BossMod.Plan.ActionsChanged");
+        void OnPlannedActionsChanged() => plannedActionsChangedProvider.SendMessage();
+        autorotation.PlannedActionsChanged += OnPlannedActionsChanged;
+        _disposeActions += () => autorotation.PlannedActionsChanged -= OnPlannedActionsChanged;
     }
 
     public void Dispose() => _disposeActions?.Invoke();

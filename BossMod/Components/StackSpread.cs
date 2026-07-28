@@ -281,7 +281,13 @@ public abstract class GenericStackSpread(BossModule module, bool raidwideOnResol
         // ideally we should provide per-mechanic spread spots, but for simple cases we should try to let melee spread close and healers/rdd spread far from main target...
 
         var spreads = CollectionsMarshal.AsSpan(ActiveSpreads);
+        var stacks = CollectionsMarshal.AsSpan(ActiveStacks);
         var lenSpreads = spreads.Length;
+        var lenStacks = stacks.Length;
+        if (lenStacks == 0 && lenSpreads == 0)
+        {
+            return;
+        }
         var isSpreadTarget = false;
 
         for (var i = 0; i < lenSpreads; ++i)
@@ -296,7 +302,7 @@ public abstract class GenericStackSpread(BossModule module, bool raidwideOnResol
             {
                 isSpreadTarget = true;
 
-                var partyWOS = Raid.WithoutSlot();
+                var partyWOS = Raid.WithoutSlot(includeDead: IncludeDeadTargets);
                 var lenPWOS = partyWOS.Length;
                 var radius = s.Radius;
                 var act = s.Activation;
@@ -319,8 +325,6 @@ public abstract class GenericStackSpread(BossModule module, bool raidwideOnResol
             }
         }
 
-        var stacks = CollectionsMarshal.AsSpan(ActiveStacks);
-        var lenStacks = stacks.Length;
         var isStackTarget = false;
 
         for (var i = 0; i < lenStacks; ++i)
@@ -330,7 +334,7 @@ public abstract class GenericStackSpread(BossModule module, bool raidwideOnResol
             if (s.Target == actor)
             {
                 isStackTarget = true;
-                var partyWOS = Raid.WithSlot();
+                var partyWOS = Raid.WithSlot(includeDead: IncludeDeadTargets);
                 var lenPWOS = partyWOS.Length;
                 var stacksIFzTarget = new List<ShapeDistance>(lenPWOS - 1);
                 var radius = s.Radius;

@@ -23,6 +23,7 @@ public sealed class RotationModuleManager : IDisposable
     public int PlayerSlot; // TODO: reconsider, we rely on too many things in clientstate...
     public readonly AIHints Hints;
     public PlanExecution? Planner { get; private set; }
+    public event Action? PlannedActionsChanged;
     private readonly PartyRolesConfig _prc = Service.Config.Get<PartyRolesConfig>();
     private readonly EventSubscriptions _subscriptions;
     private List<(int index, ActiveModule module)>? _activeModules;
@@ -111,6 +112,7 @@ public sealed class RotationModuleManager : IDisposable
             Service.Log($"[RMM] Changing active plan: '{Planner?.Plan?.Guid}' -> '{expectedPlan?.Guid}'");
             Planner = Bossmods.ActiveModule != null ? new(Bossmods.ActiveModule, expectedPlan) : null;
             DirtyActiveModules(Presets.Count == 0);
+            PlannedActionsChanged?.Invoke();
         }
 
         // rebuild modules if needed
