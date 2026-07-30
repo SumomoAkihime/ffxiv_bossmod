@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Variant.V01NMerchantsTale.V08NYawningMaw;
+﻿namespace BossMod.Dawntrail.Variant.V01NMerchantsTale.V08NYawningMaw;
 
 public enum OID : uint
 {
@@ -55,7 +55,7 @@ sealed class GemHints(BossModule module) : BossComponent(module)
             var count = Gems.Count;
             for (var i = 0; i < count; ++i)
             {
-                Arena.AddCircle(Gems[i].Position, 4f, Colors.Safe);
+                Arena.ZoneCircleOutline(Gems[i].Position, 4f, Colors.Safe);
             }
         }
     }

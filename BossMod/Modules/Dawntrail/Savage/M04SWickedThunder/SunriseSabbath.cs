@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M04SWickedThunder;
+﻿namespace BossMod.Dawntrail.Savage.M04SWickedThunder;
 
 sealed class SunriseSabbath(BossModule module) : BossComponent(module)
 {
@@ -88,7 +88,7 @@ sealed class SunriseSabbathElectronStream(BossModule module) : Components.Generi
         if (!ForbiddenPlayers[pcSlot] && _sabbath != null)
             foreach (var c in Cannons)
                 if (c.positron == _sabbath.Positron[pcSlot])
-                    Arena.AddCircle(c.cannon.Position, 1, Colors.Safe);
+                    Arena.ZoneCircleOutline(c.cannon.Position, 1, Colors.Safe);
     }
 
     public override void OnStatusGain(Actor actor, ref ActorStatus status)

@@ -1,4 +1,4 @@
-namespace BossMod.Components;
+﻿namespace BossMod.Components;
 
 // component for ThinIce mechanic
 // observation: for SID 911 the distance is 0.1 * status extra
@@ -49,7 +49,7 @@ public abstract class ThinIce(BossModule module, float distance, bool createforb
         base.DrawArenaForeground(pcSlot, pc);
         if (Mask[pcSlot])
         {
-            Arena.AddCircle(pc.Position, Distance, Colors.Vulnerable);
+            Arena.ZoneCircleOutline(pc.Position, Distance, Colors.Vulnerable);
         }
     }
 

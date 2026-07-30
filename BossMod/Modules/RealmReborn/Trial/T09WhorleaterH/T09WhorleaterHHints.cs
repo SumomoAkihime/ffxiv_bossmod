@@ -1,4 +1,4 @@
-namespace BossMod.RealmReborn.Trial.T09WhorleaterH;
+﻿namespace BossMod.RealmReborn.Trial.T09WhorleaterH;
 
 class Hints(BossModule module) : BossComponent(module)
 {
@@ -53,6 +53,6 @@ class Hints(BossModule module) : BossComponent(module)
         var converters = Module.Enemies((uint)OID.Converter);
         var converter = converters.Count != 0 ? converters[0] : null;
         if (converter != null && converter.IsTargetable)
-            Arena.AddCircle(converter.Position, 1.4f, Colors.Safe);
+            Arena.ZoneCircleOutline(converter.Position, 1.4f, Colors.Safe);
     }
 }

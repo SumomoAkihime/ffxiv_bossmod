@@ -1,4 +1,4 @@
-namespace BossMod.RealmReborn.Alliance.A15KingBehemoth;
+﻿namespace BossMod.RealmReborn.Alliance.A15KingBehemoth;
 
 public enum OID : uint
 {
@@ -32,7 +32,7 @@ class Comet(BossModule module) : BossComponent(module)
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         if (_comets[pcSlot] > WorldState.CurrentTime)
-            Arena.AddCircle(Module.PrimaryActor.Position, Module.PrimaryActor.HitboxRadius + 2.4f, Colors.Danger);
+            Arena.ZoneCircleOutline(Module.PrimaryActor.Position, Module.PrimaryActor.HitboxRadius + 2.4f, Colors.Danger);
 
         Arena.Actors(Module.Enemies((uint)OID.Comet).Where(e => !e.IsDead), Colors.Object, true);
     }

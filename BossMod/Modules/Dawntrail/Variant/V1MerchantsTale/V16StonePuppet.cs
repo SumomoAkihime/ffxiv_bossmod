@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Variant.V01MerchantsTale.V07StonePuppet;
+﻿namespace BossMod.Dawntrail.Variant.V01MerchantsTale.V07StonePuppet;
 
 public enum OID : uint
 {
@@ -94,7 +94,7 @@ sealed class RockHints(BossModule module) : BossComponent(module)
             var count = rocks.Count;
             for (var i = 0; i < count; ++i)
             {
-                Arena.AddCircle(rocks[i].Position, 4f, Colors.Safe);
+                Arena.ZoneCircleOutline(rocks[i].Position, 4f, Colors.Safe);
             }
         }
     }

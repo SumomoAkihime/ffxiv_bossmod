@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Quest.MSQ.TheWarmthOfTheFamily.Tturuhhetso;
+﻿namespace BossMod.Dawntrail.Quest.MSQ.TheWarmthOfTheFamily.Tturuhhetso;
 
 public enum OID : uint
 {
@@ -143,7 +143,7 @@ sealed class OrbCollecting(BossModule module) : BossComponent(module)
         var orbs = GetOrbs(Module);
         var count = orbs.Count;
         for (var i = 0; i < count; ++i)
-            Arena.AddCircle(orbs[i].Position, 1f, Colors.Safe);
+            Arena.ZoneCircleOutline(orbs[i].Position, 1f, Colors.Safe);
     }
 }
 

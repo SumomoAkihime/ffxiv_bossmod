@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.DeepDungeon.PalaceOfTheDead.DD70Yaquaru;
+﻿namespace BossMod.Heavensward.DeepDungeon.PalaceOfTheDead.DD70Yaquaru;
 
 public enum OID : uint
 {
@@ -64,7 +64,7 @@ class DousePuddle(BossModule module) : BossComponent(module)
     {
         // indicate on minimap how far boss needs to be pulled
         if (BossInPuddle)
-            Arena.AddCircle(Module.PrimaryActor.Position, Module.PrimaryActor.HitboxRadius, Colors.Danger);
+            Arena.ZoneCircleOutline(Module.PrimaryActor.Position, Module.PrimaryActor.HitboxRadius, Colors.Danger);
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)

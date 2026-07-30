@@ -1,4 +1,4 @@
-namespace BossMod.Heavensward.Dungeon.D08FractalContinuum.D082Minotaur;
+﻿namespace BossMod.Heavensward.Dungeon.D08FractalContinuum.D082Minotaur;
 
 public enum OID : uint
 {
@@ -113,7 +113,7 @@ class OneOneOneOneTonzeSwing(BossModule module) : BossComponent(module)
             var incubator = _incubators[i];
             if (incubator.IsTargetable)
             {
-                Arena.AddCircle(incubator.Position, 3f, Colors.Safe);
+                Arena.ZoneCircleOutline(incubator.Position, 3f, Colors.Safe);
             }
         }
     }

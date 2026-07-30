@@ -1,4 +1,4 @@
-namespace BossMod.Global.Quest.FF16Collab.InfernalShadow;
+﻿namespace BossMod.Global.Quest.FF16Collab.InfernalShadow;
 
 class VulcanBurst(BossModule module) : Components.RaidwideCast(module, (uint)AID.VulcanBurstReal, "Time your dodge correctly");
 class Hellfire(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.HellfireVisual, (uint)AID.HellfireRaidwide, 0.6f);
@@ -186,7 +186,7 @@ class BurningStrike(BossModule module) : BossComponent(module)
         if (clive == null)
             return;
         if (clive.IsTargetable)
-            Arena.AddCircle(clive.Position, 1.4f, Colors.Safe);
+            Arena.ZoneCircleOutline(clive.Position, 1.4f, Colors.Safe);
     }
 }
 

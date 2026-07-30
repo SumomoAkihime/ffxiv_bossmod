@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Extreme.Ex6GuardianArkveld;
+﻿namespace BossMod.Dawntrail.Extreme.Ex6GuardianArkveld;
 
 sealed class ClamorousChaseBait(BossModule module) : Components.GenericBaitAway(module, centerAtTarget: true, damageType: AIHints.PredictedDamageType.Tankbuster)
 {
@@ -55,7 +55,7 @@ sealed class ClamorousChaseBait(BossModule module) : Components.GenericBaitAway(
         var spot = GetPositionHint(order[pcSlot]);
         if (spot is WPos s)
         {
-            Arena.AddCircle(s, 2f, Colors.Safe, 2f);
+            Arena.ZoneCircleOutline(s, 2f, Colors.Safe, 2f);
         }
     }
 

@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA4ProtoOzma;
+﻿namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA4ProtoOzma;
 
 sealed class BlackHole(BossModule module) : Components.GenericTowersOpenWorld(module, prioritizeEmpty: true)
 {
@@ -41,7 +41,7 @@ sealed class BlackHole(BossModule module) : Components.GenericTowersOpenWorld(mo
         {
             var t = Towers[i];
             if (t.NumInside(Module) == 0)
-                Arena.AddCircle(t.Position, t.Radius, Colors.Vulnerable, 3f);
+                Arena.ZoneCircleOutline(t.Position, t.Radius, Colors.Vulnerable, 3f);
         }
     }
 

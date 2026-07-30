@@ -115,7 +115,7 @@ class Duskblade(BossModule module) : BossComponent(module)
         foreach (var tower in Module.Enemies((uint)OID.DuskbladeTower))
         {
             var numInside = Module.Raid.WithoutSlot().InRadius(tower.Position, Radius).Count();
-            Arena.AddCircle(tower.Position, Radius, numInside >= 3 ? Colors.Safe : Colors.Danger, 2f);
+            Arena.ZoneCircleOutline(tower.Position, Radius, numInside >= 3 ? Colors.Safe : Colors.Danger, 2f);
         }
     }
 }
@@ -137,7 +137,7 @@ class CrushArmor(BossModule module) : BossComponent(module)
             if (target != null)
             {
                 Arena.AddLine(source.Position, target.Position, Colors.Danger);
-                Arena.AddCircle(target.Position, 1f, Colors.Danger);
+                Arena.ZoneCircleOutline(target.Position, 1f, Colors.Danger);
             }
         }
     }

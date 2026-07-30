@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 
 namespace BossMod.RealmReborn.Alliance.A12Atomos;
 
@@ -114,7 +114,7 @@ class Pad(BossModule module) : BossComponent(module)
                     : Colors.Danger;
             var width = i == myPlatform ? 2 : 1;
 
-            Arena.AddCircle(pad.Position, 4, color, width);
+            Arena.ZoneCircleOutline(pad.Position, 4, color, width);
         }
     }
 

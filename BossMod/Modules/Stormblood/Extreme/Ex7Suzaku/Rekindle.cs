@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Extreme.Ex7Suzaku;
+﻿namespace BossMod.Stormblood.Extreme.Ex7Suzaku;
 
 abstract class Rekindle(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.Spreadmarker, (uint)AID.Rekindle, 6f, 5.1f);
 
@@ -31,7 +31,7 @@ sealed class RekindleP1(BossModule module) : Rekindle(module)
         {
             var b = birds[i];
             if (b.IsDead)
-                Arena.AddCircle(b.Position, 1.12f, Colors.Vulnerable);
+                Arena.ZoneCircleOutline(b.Position, 1.12f, Colors.Vulnerable);
         }
     }
 

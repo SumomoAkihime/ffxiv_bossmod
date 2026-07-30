@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Savage.M05SDancingGreen;
+﻿namespace BossMod.Dawntrail.Savage.M05SDancingGreen;
 
 sealed class WavelengthAlphaBeta(BossModule module) : BossComponent(module)
 {
@@ -81,7 +81,7 @@ sealed class WavelengthAlphaBeta(BossModule module) : BossComponent(module)
                 {
                     continue;
                 }
-                Arena.AddCircle(exp.Actor.Position, 2f, exp.Order == player ? Colors.Safe : default);
+                Arena.ZoneCircleOutline(exp.Actor.Position, 2f, exp.Order == player ? Colors.Safe : default);
             }
         }
     }

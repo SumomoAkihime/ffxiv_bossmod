@@ -174,7 +174,7 @@ class Penultima(BossModule module) : BossComponent(module)
         foreach (var tower in _towers)
         {
             var occupied = Module.Raid.WithoutSlot().InRadius(tower.Position, Radius).Any();
-            Arena.AddCircle(tower.Position, Radius, occupied ? Colors.Safe : Colors.Danger, 2f);
+            Arena.ZoneCircleOutline(tower.Position, Radius, occupied ? Colors.Safe : Colors.Danger, 2f);
         }
     }
 }
@@ -286,7 +286,7 @@ class LifeDrain(BossModule module) : BossComponent(module)
             if (target != null)
             {
                 Arena.AddLine(source.Position, target.Position, Colors.Danger);
-                Arena.AddCircle(target.Position, 1f, Colors.Danger);
+                Arena.ZoneCircleOutline(target.Position, 1f, Colors.Danger);
             }
         }
     }
