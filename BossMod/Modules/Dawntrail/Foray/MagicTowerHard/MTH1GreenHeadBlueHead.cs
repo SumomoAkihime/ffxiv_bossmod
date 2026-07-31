@@ -18,6 +18,7 @@ public enum OID : uint
 
 public enum AID : uint
 {
+    Buffet = 49726,
     StormsBreathVisual = 47631,
     FulgurousFugueVisual = 47632,
     FreezingFugueVisual = 47633,
@@ -95,7 +96,8 @@ public enum IconID : uint
 
 public enum TetherID : uint
 {
-    Mechanic = 411
+    Mechanic = 411,
+    Buffet = 429
 }
 
 static class SafeSpot
@@ -175,6 +177,61 @@ abstract class PredictiveAOEs(BossModule module, string warningText = "GTFO from
             unsafeNow |= aoes[i].Check(actor.Position);
         if (unsafeNow && SafeSpot.Find(actor.Position, aoes) is WPos safe)
             movementHints.Add((actor.Position, safe, Colors.Safe));
+    }
+}
+
+sealed class BuffetAssignments(BossModule module) : BossComponent(module)
+{
+    private static readonly WPos BlueHalf = new(-915f, 700f);
+    private static readonly WPos GreenHalf = new(-885f, 700f);
+    private static readonly uint BlueDim = Color.FromComponents(45, 125, 255, 48).ABGR;
+    private static readonly uint BlueStrong = Color.FromComponents(45, 125, 255, 112).ABGR;
+    private static readonly uint GreenDim = Color.FromComponents(45, 220, 120, 48).ABGR;
+    private static readonly uint GreenStrong = Color.FromComponents(45, 220, 120, 112).ABGR;
+    private readonly Dictionary<ulong, bool> _assignments = [];
+    private DateTime _showUntil;
+
+    private bool Active => WorldState.CurrentTime <= _showUntil;
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (Active && _assignments.TryGetValue(actor.InstanceID, out var blue))
+            hints.Add(blue ? "Blue group: go left" : "Green group: go right", false);
+    }
+
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    {
+        if (!Active)
+            return;
+
+        _assignments.TryGetValue(pc.InstanceID, out var blue);
+        var assigned = _assignments.ContainsKey(pc.InstanceID);
+        Arena.ZoneRect(BlueHalf, default(Angle), 15f, 15f, 15f, assigned && blue ? BlueStrong : BlueDim);
+        Arena.ZoneRect(GreenHalf, default(Angle), 15f, 15f, 15f, assigned && !blue ? GreenStrong : GreenDim);
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID != (uint)AID.Buffet)
+            return;
+
+        if (!Active)
+            _assignments.Clear();
+        var finish = Module.CastFinishAt(spell).AddSeconds(1d);
+        if (finish > _showUntil)
+            _showUntil = finish;
+    }
+
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
+    {
+        if (tether.ID != (uint)TetherID.Buffet)
+            return;
+
+        var target = WorldState.Actors.Find(tether.Target);
+        if (target?.OID == (uint)OID.BlueHeadMechanic)
+            _assignments[source.InstanceID] = true;
+        else if (target?.OID == (uint)OID.GreenHeadMechanic)
+            _assignments[source.InstanceID] = false;
     }
 }
 
@@ -514,7 +571,7 @@ sealed class ElementalSummonAOEs(BossModule module) : PredictiveAOEs(module)
     }
 
     private static readonly AOEShapeCircle Cluster = new(15f);
-    private static readonly AOEShapeCone Wave = new(45f, 45f.Degrees());
+    private static readonly AOEShapeCone Wave = new(45f, 30f.Degrees());
     private readonly Dictionary<ulong, bool> _markerIsGreen = [];
     private readonly List<(Actor Marker, int Sequence)> _pending = [];
     private readonly List<Round> _rounds = [];
@@ -616,6 +673,7 @@ sealed class MTH1GreenHeadBlueHeadStates : StateMachineBuilder
     public MTH1GreenHeadBlueHeadStates(BossModule module) : base(module)
     {
         TrivialPhase()
+            .ActivateOnEnter<BuffetAssignments>()
             .ActivateOnEnter<ThunderfrostTempest>()
             .ActivateOnEnter<Enrage>()
             .ActivateOnEnter<ComboAOEs>()
