@@ -42,19 +42,40 @@ sealed class RedRubyReflection(BossModule module) : Components.GenericAOEs(modul
 {
     private enum WallPattern { None, Cardinals, Offset }
 
-    private static readonly WDir[] CardinalEndpoints = [new(0f, -20f), new(20f, 0f), new(0f, 20f), new(-20f, 0f)];
-    private static readonly WDir[] OffsetEndpoints = [new(-10f, -20f), new(20f, 10f), new(10f, 20f), new(-20f, -10f)];
-    private readonly List<AOEInstance> _aoes = new(4);
-    private readonly List<(Angle Direction, Angle HalfAngle)> _regions = new(4);
+    private static readonly AOEShapeRect Cell = new(5f, 5f, 5f);
+    private static readonly (WDir A, WDir B)[] CardinalWalls =
+    [
+        (new(0f, -20f), new(0f, 20f)),
+        (new(-20f, 0f), new(20f, 0f))
+    ];
+    private static readonly (WDir A, WDir B)[] OffsetWalls =
+    [
+        (new(0f, -20f), new(0f, 20f)),
+        (new(-10f, -10f), new(0f, -10f)),
+        (new(-10f, -10f), new(-10f, 10f)),
+        (new(-20f, 10f), new(-10f, 10f)),
+        (new(0f, 10f), new(10f, 10f)),
+        (new(10f, -10f), new(10f, 10f)),
+        (new(10f, -10f), new(20f, -10f))
+    ];
+    private readonly List<AOEInstance> _aoes = new(16);
+    private readonly List<WPos> _gems = new(3);
     private WallPattern _pattern;
-    private Angle _rotation;
+    private DateTime _activation;
+    private int _offsetTransform;
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        foreach (var ray in ActiveRays())
-            Arena.AddLine(Arena.Center, Arena.Center + 20f * ray.ToDirection(), Colors.Border);
+        for (var offset = -10f; offset <= 10f; offset += 10f)
+        {
+            Arena.AddLine(Arena.Center + new WDir(-20f, offset), Arena.Center + new WDir(20f, offset), Colors.Object);
+            Arena.AddLine(Arena.Center + new WDir(offset, -20f), Arena.Center + new WDir(offset, 20f), Colors.Object);
+        }
+
+        foreach (var wall in ActiveWalls())
+            Arena.AddLine(Arena.Center + wall.A, Arena.Center + wall.B, Colors.Border);
     }
 
     public override void OnActorEAnim(Actor actor, uint state)
@@ -72,9 +93,20 @@ sealed class RedRubyReflection(BossModule module) : Components.GenericAOEs(modul
             return;
 
         _pattern = pattern;
-        _rotation = actor.Rotation;
         _aoes.Clear();
-        _regions.Clear();
+        _gems.Clear();
+        var quarterTurns = ((int)MathF.Round(actor.Rotation.Deg / 90f) % 4 + 4) % 4;
+        _offsetTransform = state == 0x00100020 ? (quarterTurns + 3) & 3 : 4 + quarterTurns;
+        foreach (var gem in Module.Enemies((uint)OID.YellowGem))
+        {
+            if (gem.CastInfo is { } cast && cast.Action.ID == (uint)AID.YellowGemRay1)
+            {
+                _gems.Add(gem.Position);
+                _activation = Module.CastFinishAt(cast, 0.1d);
+            }
+        }
+        if (_gems.Count != 0)
+            RebuildAOEs();
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -82,12 +114,9 @@ sealed class RedRubyReflection(BossModule module) : Components.GenericAOEs(modul
         if (spell.Action.ID != (uint)AID.YellowGemRay1 || _pattern == WallPattern.None)
             return;
 
-        var (direction, halfAngle) = RegionForPosition(caster.Position);
-        if (_regions.Any(r => r.Direction.AlmostEqual(direction, Angle.DegToRad) && r.HalfAngle.AlmostEqual(halfAngle, Angle.DegToRad)))
-            return;
-
-        _regions.Add((direction, halfAngle));
-        _aoes.Add(new(new AOEShapeCone(20f, halfAngle), Arena.Center, direction, Module.CastFinishAt(spell, 0.1d)));
+        _gems.Add(caster.Position);
+        _activation = Module.CastFinishAt(spell, 0.1d);
+        RebuildAOEs();
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -96,58 +125,157 @@ sealed class RedRubyReflection(BossModule module) : Components.GenericAOEs(modul
         {
             _pattern = WallPattern.None;
             _aoes.Clear();
-            _regions.Clear();
+            _gems.Clear();
             ++NumCasts;
         }
     }
 
-    private Angle[] ActiveRays()
+    private (WDir A, WDir B)[] ActiveWalls()
     {
-        var endpoints = _pattern == WallPattern.Cardinals ? CardinalEndpoints : _pattern == WallPattern.Offset ? OffsetEndpoints : [];
-        var rays = new Angle[endpoints.Length];
-        for (var i = 0; i < endpoints.Length; ++i)
-            rays[i] = Angle.FromDirection(endpoints[i]) + _rotation;
-        return rays;
+        if (_pattern == WallPattern.Cardinals)
+            return CardinalWalls;
+        if (_pattern != WallPattern.Offset)
+            return [];
+
+        var walls = new (WDir A, WDir B)[OffsetWalls.Length];
+        for (var i = 0; i < walls.Length; ++i)
+            walls[i] = (Transform(OffsetWalls[i].A, _offsetTransform), Transform(OffsetWalls[i].B, _offsetTransform));
+        return walls;
     }
 
-    private (Angle Direction, Angle HalfAngle) RegionForPosition(WPos position)
+    private void RebuildAOEs()
     {
-        var rays = ActiveRays().Select(r => NormalizePositive(r.Rad)).Order().ToArray();
-        var positionAngle = NormalizePositive(Angle.FromDirection(position - Arena.Center).Rad);
-        for (var i = 0; i < rays.Length; ++i)
+        if (_pattern == WallPattern.Offset)
         {
-            var start = rays[i];
-            var end = i + 1 < rays.Length ? rays[i + 1] : rays[0] + Angle.DoublePI;
-            var adjustedPosition = i == rays.Length - 1 && positionAngle < start ? positionAngle + Angle.DoublePI : positionAngle;
-            if (adjustedPosition >= start && adjustedPosition < end)
+            var bestScore = _gems.Count(g => TouchesWall(g, TransformOffsetWalls(_offsetTransform)));
+            for (var transform = 0; transform < 8; ++transform)
             {
-                var halfAngle = 0.5f * (end - start);
-                return (new(NormalizePositive(start + halfAngle)), new(halfAngle));
+                var walls = TransformOffsetWalls(transform);
+                var score = _gems.Count(g => TouchesWall(g, walls));
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    _offsetTransform = transform;
+                }
             }
         }
-        return default;
+
+        var activeWalls = ActiveWalls();
+        var dangerousCells = 0u;
+        foreach (var gem in _gems)
+        {
+            if (TouchesWall(gem, activeWalls))
+                dangerousCells |= RegionMask(CellIndex(gem), activeWalls);
+        }
+
+        _aoes.Clear();
+        for (var i = 0; i < 16; ++i)
+        {
+            if ((dangerousCells & (1u << i)) != 0)
+                _aoes.Add(new(Cell, CellCenter(i), default, _activation));
+        }
     }
 
-    private static float NormalizePositive(float angle)
+    private (WDir A, WDir B)[] TransformOffsetWalls(int transform)
     {
-        angle %= Angle.DoublePI;
-        return angle < 0f ? angle + Angle.DoublePI : angle;
+        var walls = new (WDir A, WDir B)[OffsetWalls.Length];
+        for (var i = 0; i < walls.Length; ++i)
+            walls[i] = (Transform(OffsetWalls[i].A, transform), Transform(OffsetWalls[i].B, transform));
+        return walls;
+    }
+
+    private bool TouchesWall(WPos position, (WDir A, WDir B)[] walls)
+    {
+        var offset = position - Arena.Center;
+        return walls.Any(w => DistanceToSegmentSq(offset, w.A, w.B) <= 16.1f);
+    }
+
+    private uint RegionMask(int start, (WDir A, WDir B)[] walls)
+    {
+        var result = 0u;
+        var pending = new Stack<int>();
+        pending.Push(start);
+        while (pending.Count != 0)
+        {
+            var cell = pending.Pop();
+            var bit = 1u << cell;
+            if ((result & bit) != 0)
+                continue;
+            result |= bit;
+
+            var row = cell >> 2;
+            var column = cell & 3;
+            if (column > 0 && !CellsSeparated(cell, cell - 1, walls))
+                pending.Push(cell - 1);
+            if (column < 3 && !CellsSeparated(cell, cell + 1, walls))
+                pending.Push(cell + 1);
+            if (row > 0 && !CellsSeparated(cell, cell - 4, walls))
+                pending.Push(cell - 4);
+            if (row < 3 && !CellsSeparated(cell, cell + 4, walls))
+                pending.Push(cell + 4);
+        }
+        return result;
+    }
+
+    private static bool CellsSeparated(int first, int second, (WDir A, WDir B)[] walls)
+    {
+        var midpoint = 0.5f * (CellOffset(first) + CellOffset(second));
+        return walls.Any(w => DistanceToSegmentSq(midpoint, w.A, w.B) < 0.01f);
+    }
+
+    private int CellIndex(WPos position)
+    {
+        var offset = position - Arena.Center;
+        return (CoordinateIndex(offset.Z) << 2) | CoordinateIndex(offset.X);
+    }
+
+    private static int CoordinateIndex(float coordinate) => coordinate switch
+    {
+        < -10f => 0,
+        < 0f => 1,
+        < 10f => 2,
+        _ => 3
+    };
+
+    private WPos CellCenter(int index) => Arena.Center + CellOffset(index);
+
+    private static WDir CellOffset(int index) => new(-15f + 10f * (index & 3), -15f + 10f * (index >> 2));
+
+    private static WDir Transform(WDir offset, int transform)
+    {
+        var x = offset.X;
+        var z = transform >= 4 ? -offset.Z : offset.Z;
+        return (transform & 3) switch
+        {
+            0 => new(x, z),
+            1 => new(-z, x),
+            2 => new(-x, -z),
+            _ => new(z, -x)
+        };
+    }
+
+    private static float DistanceToSegmentSq(WDir point, WDir start, WDir end)
+    {
+        var segment = end - start;
+        var lengthSq = segment.LengthSq();
+        var t = lengthSq > 0f ? Math.Clamp((point - start).Dot(segment) / lengthSq, 0f, 1f) : 0f;
+        return (point - (start + t * segment)).LengthSq();
     }
 }
 
 sealed class StarvingDread(BossModule module) : Components.GenericKnockback(module)
 {
-    private Actor? _firstCaster;
+    private Angle? _firstDirection;
+    private DateTime _firstActivation;
     private Knockback? _second;
 
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
         Knockback? first = null;
-        if (_firstCaster?.CastInfo is { } cast)
+        if (_firstDirection is { } direction)
         {
-            var direction = cast.Rotation;
-            var kind = direction.ToDirection().OrthoL().Dot(actor.Position - _firstCaster.Position) >= 0f ? Kind.DirLeft : Kind.DirRight;
-            first = new(_firstCaster.Position, 15f, Module.CastFinishAt(cast), direction: direction, kind: kind);
+            var kind = direction.ToDirection().OrthoL().Dot(actor.Position - Arena.Center) >= 0f ? Kind.DirLeft : Kind.DirRight;
+            first = new(Arena.Center, 15f, _firstActivation, direction: direction, kind: kind);
         }
 
         if (first != null && _second != null)
@@ -160,7 +288,14 @@ sealed class StarvingDread(BossModule module) : Components.GenericKnockback(modu
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         if (spell.Action.ID == (uint)AID.StarvingDreadFirst)
-            _firstCaster = caster;
+        {
+            var movement = spell.LocXZ - caster.Position;
+            if (movement.LengthSq() > 1f)
+            {
+                _firstDirection = Angle.FromDirection(movement);
+                _firstActivation = Module.CastFinishAt(spell);
+            }
+        }
         else if (spell.Action.ID == (uint)AID.StarvingDreadSecondVisual)
             _second = new(caster.Position, 30f, Module.CastFinishAt(spell, 5d));
     }
@@ -169,7 +304,7 @@ sealed class StarvingDread(BossModule module) : Components.GenericKnockback(modu
     {
         if (spell.Action.ID == (uint)AID.StarvingDreadFirst)
         {
-            _firstCaster = null;
+            _firstDirection = null;
             ++NumCasts;
         }
     }
@@ -211,8 +346,8 @@ sealed class ClawTailCombo(BossModule module) : Components.GenericAOEs(module)
                 _aoes.Add(new(Rear, caster.Position, spell.Rotation + 180f.Degrees(), activation.AddSeconds(3.1d), actorID: caster.InstanceID));
                 break;
             case (uint)AID.TailThenClaw:
-                _aoes.Add(new(Rear, caster.Position, spell.Rotation + 180f.Degrees(), activation, actorID: caster.InstanceID));
-                _aoes.Add(new(Front, caster.Position, spell.Rotation, activation.AddSeconds(3.1d), actorID: caster.InstanceID));
+                _aoes.Add(new(Rear, caster.Position, spell.Rotation, activation, actorID: caster.InstanceID));
+                _aoes.Add(new(Front, caster.Position, spell.Rotation + 180f.Degrees(), activation.AddSeconds(3.1d), actorID: caster.InstanceID));
                 break;
         }
     }
@@ -254,4 +389,4 @@ sealed class CE208CorneredCarbuncleStates : StateMachineBuilder
     GroupType = BossModuleInfo.GroupType.CFC,
     GroupID = 1093,
     NameID = 14791)]
-public sealed class CE208CorneredCarbuncle(WorldState ws, Actor primary) : BossModule(ws, primary, new(238f, 352f), new ArenaBoundsCircle(20f));
+public sealed class CE208CorneredCarbuncle(WorldState ws, Actor primary) : BossModule(ws, primary, new(238f, 352f), new ArenaBoundsSquare(20f));
