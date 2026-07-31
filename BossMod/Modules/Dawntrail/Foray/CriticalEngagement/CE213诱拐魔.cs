@@ -37,7 +37,6 @@ public enum IconID : uint
 
 sealed class GaleBlade(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GaleBlade, new AOEShapeCone(60f, 90f.Degrees()));
 sealed class Shatter(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Shatter, 13f);
-sealed class RippingWind(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RippingWind, new AOEShapeCross(60f, 4f));
 sealed class WindScatter(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WindScatter, new AOEShapeCone(60f, 30f.Degrees()));
 sealed class Heavensfall(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Heavensfall, 15f);
 sealed class CyclonicRing(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CyclonicRing, new AOEShapeDonut(5f, 60f));
@@ -45,7 +44,7 @@ sealed class Hurricane(BossModule module) : Components.RaidwideCastDelay(module,
 
 sealed class MovingGales(BossModule module) : Components.GenericAOEs(module)
 {
-    private static readonly AOEShapeCircle Circle = new(4f);
+    private static readonly AOEShapeCapsule MovementEnvelope = new(4f, 4f);
     private readonly List<AOEInstance> _aoes = [];
     private readonly HashSet<ulong> _selected = [];
 
@@ -55,7 +54,11 @@ sealed class MovingGales(BossModule module) : Components.GenericAOEs(module)
         foreach (var gale in Module.Enemies((uint)OID.Gale))
         {
             if (!gale.IsDeadOrDestroyed)
-                _aoes.Add(new(Circle, gale.Position, color: _selected.Contains(gale.InstanceID) ? Colors.Danger : Colors.AOE));
+            {
+                var movement = gale.LastFrameMovement;
+                var direction = movement != default ? movement.ToAngle() : gale.Rotation;
+                _aoes.Add(new(MovementEnvelope, gale.Position, direction, color: _selected.Contains(gale.InstanceID) ? Colors.Danger : Colors.AOE));
+            }
         }
         return CollectionsMarshal.AsSpan(_aoes);
     }
@@ -70,6 +73,78 @@ sealed class MovingGales(BossModule module) : Components.GenericAOEs(module)
     {
         if (spell.Action.ID == (uint)AID.RippingWindVisual)
             _selected.Remove(caster.InstanceID);
+    }
+}
+
+sealed class RippingWind(BossModule module) : Components.GenericAOEs(module)
+{
+    private const double IconToStop = 4.1d;
+    private const double IconToActivation = 5.0d;
+    private const float InnerAngularSpeed = 8.45f;
+    private const float OuterAngularSpeed = 9.9f;
+    private static readonly AOEShapeCross Cross = new(60f, 4f);
+    private readonly Dictionary<ulong, Prediction> _predictions = [];
+    private readonly List<AOEInstance> _actualAOEs = [];
+    private readonly List<AOEInstance> _activeAOEs = [];
+
+    private readonly record struct Prediction(Actor Gale, int Direction, DateTime StopAt, DateTime Activation);
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        _activeAOEs.Clear();
+        foreach (var prediction in _predictions.Values)
+        {
+            if (prediction.Gale.IsDeadOrDestroyed)
+                continue;
+
+            var origin = PredictedOrigin(prediction);
+            _activeAOEs.Add(new(Cross, origin, default, prediction.Activation, Colors.AOE));
+            _activeAOEs.Add(new(Cross, origin, 45f.Degrees(), prediction.Activation, Colors.AOE));
+        }
+        _activeAOEs.AddRange(_actualAOEs);
+        return CollectionsMarshal.AsSpan(_activeAOEs);
+    }
+
+    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
+    {
+        if (iconID != (uint)IconID.RippingWind || actor.OID != (uint)OID.Gale)
+            return;
+
+        var radial = actor.Position - Arena.Center;
+        var movement = actor.LastFrameMovement != default ? actor.LastFrameMovement : actor.Rotation.ToDirection();
+        var direction = Math.Sign(movement.Cross(radial));
+        if (direction != 0)
+            _predictions[actor.InstanceID] = new(actor, direction, WorldState.FutureTime(IconToStop), WorldState.FutureTime(IconToActivation));
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.RippingWind)
+        {
+            _predictions.Clear();
+            _actualAOEs.Add(new(Cross, spell.LocXZ, spell.Rotation.Round(45f), Module.CastFinishAt(spell), actorID: caster.InstanceID));
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == (uint)AID.RippingWind)
+            _actualAOEs.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
+    }
+
+    public override void OnActorDestroyed(Actor actor)
+    {
+        if (actor.OID == (uint)OID.Gale)
+            _predictions.Remove(actor.InstanceID);
+    }
+
+    private WPos PredictedOrigin(Prediction prediction)
+    {
+        var radial = prediction.Gale.Position - Arena.Center;
+        var angularSpeed = radial.Length() < 16f ? InnerAngularSpeed : OuterAngularSpeed;
+        var remaining = Math.Max(0d, (prediction.StopAt - WorldState.CurrentTime).TotalSeconds);
+        var angle = (radial.ToAngle() + (prediction.Direction * angularSpeed * (float)remaining).Degrees()).Normalized();
+        return Arena.Center + radial.Length() * angle.ToDirection();
     }
 }
 
