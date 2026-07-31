@@ -31,7 +31,92 @@ public enum AID : uint
 
 sealed class EmbrittlingBlade(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.EmbrittlingBladeVisual, (uint)AID.EmbrittlingBlade, 1.44d);
 sealed class FalseSpellbladeHoly(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.FalseSpellbladeHolyVisual, (uint)AID.FalseSpellbladeHoly, 0.9d);
-sealed class Acclaim(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.AcclaimInitial, (uint)AID.Acclaim], new AOEShapeCone(40f, 45f.Degrees()));
+
+sealed class Acclaim(BossModule module) : Components.GenericAOEs(module)
+{
+    private static readonly AOEShapeCone Cone = new(40f, 45f.Degrees());
+    private readonly List<AOEInstance> _aoes = new(4);
+    private readonly HashSet<ulong> _sequenceGolems = [];
+    private readonly Dictionary<ulong, Angle> _rotationBeforeOrder = new(4);
+    private DateTime _predictionReadyAt;
+    private DateTime _predictionActivation;
+    private bool _predictionPending;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void Update()
+    {
+        if (!_predictionPending || WorldState.CurrentTime < _predictionReadyAt)
+            return;
+
+        _predictionPending = false;
+        _aoes.Clear();
+        foreach (var (instanceID, startingRotation) in _rotationBeforeOrder)
+        {
+            if (WorldState.Actors.Find(instanceID) is not { } golem)
+                continue;
+
+            // Rotating golems have moved at least 5 degrees after 1.1s; stationary ones remain at 0.
+            var rotation = startingRotation.DistanceToAngle(golem.Rotation).Deg < -1f
+                ? startingRotation - 90f.Degrees()
+                : startingRotation;
+            SetAOE(golem, rotation, _predictionActivation);
+        }
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.FourfoldAttackOrder)
+        {
+            _aoes.Clear();
+            _sequenceGolems.Clear();
+            _rotationBeforeOrder.Clear();
+            _predictionPending = false;
+        }
+        else if (spell.Action.ID is (uint)AID.AcclaimInitial or (uint)AID.Acclaim)
+        {
+            if (spell.Action.ID == (uint)AID.AcclaimInitial)
+                _sequenceGolems.Add(caster.InstanceID);
+            else
+                _predictionPending = false;
+            SetAOE(caster, spell.Rotation, Module.CastFinishAt(spell));
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID is (uint)AID.AcclaimInitial or (uint)AID.Acclaim)
+            _aoes.RemoveAll(a => a.ActorID == caster.InstanceID);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID != (uint)AID.AttackOrder)
+            return;
+
+        _aoes.Clear();
+        _rotationBeforeOrder.Clear();
+        foreach (var instanceID in _sequenceGolems)
+        {
+            if (WorldState.Actors.Find(instanceID) is { } golem)
+                _rotationBeforeOrder[instanceID] = golem.Rotation;
+        }
+        _predictionReadyAt = WorldState.FutureTime(1.1d);
+        _predictionActivation = WorldState.FutureTime(5.2d);
+        _predictionPending = _rotationBeforeOrder.Count != 0;
+    }
+
+    private void SetAOE(Actor caster, Angle rotation, DateTime activation)
+    {
+        var aoe = new AOEInstance(Cone, caster.Position, rotation, activation, actorID: caster.InstanceID);
+        var index = _aoes.FindIndex(a => a.ActorID == caster.InstanceID);
+        if (index >= 0)
+            _aoes[index] = aoe;
+        else
+            _aoes.Add(aoe);
+    }
+}
+
 sealed class OccultAero(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.OccultAero, (uint)AID.OccultAeroIII], new AOEShapeRect(50f, 5f));
 sealed class OccultStoneII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.OccultStoneII, new AOEShapeCone(40f, 30f.Degrees()));
 sealed class OccultTornado(BossModule module) : Components.SimpleAOEs(module, (uint)AID.OccultTornado, 5f);
@@ -54,19 +139,13 @@ sealed class BladeCombination(BossModule module) : Components.GenericAOEs(module
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        var firstOffset = spell.Action.ID switch
-        {
-            (uint)AID.RightLeftCombination => 90f.Degrees(),
-            (uint)AID.LeftRightCombination => -90f.Degrees(),
-            _ => default
-        };
-        if (firstOffset == default)
+        if (spell.Action.ID is not (uint)AID.RightLeftCombination and not (uint)AID.LeftRightCombination)
             return;
 
         _aoes.Clear();
         var activation = Module.CastFinishAt(spell);
-        _aoes.Add(new(Cone, caster.Position, spell.Rotation + firstOffset, activation));
-        _aoes.Add(new(Cone, caster.Position, spell.Rotation - firstOffset, activation.AddSeconds(2.2d)));
+        _aoes.Add(new(Cone, caster.Position, spell.Rotation, activation));
+        _aoes.Add(new(Cone, caster.Position, spell.Rotation + 180f.Degrees(), activation.AddSeconds(2.2d)));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
