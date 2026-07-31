@@ -56,13 +56,37 @@ sealed class Discordance(BossModule module) : Components.RaidwideCast(module, (u
 sealed class ElementalCascadeElements(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.ElementalCascadeFire,
     (uint)AID.ElementalCascadeLightning, (uint)AID.ElementalCascadeLight, (uint)AID.ElementalCascadeIce], new AOEShapeCircle(6.0f));
 sealed class StunningSheen(BossModule module) : Components.CastGaze(module, (uint)AID.StunningSheen);
-sealed class Dissipate(BossModule module) : Components.Voidzone(module, 6.0f, module => module.Enemies((uint)OID.PoisonOrb).Where(z => z.EventState != 7)) {
+sealed class Dissipate(BossModule module) : Components.GenericAOEs(module) {
+    private const float InitialRadius = 1.5f;
+    private const float MaxRadius = 11.5f;
+    private const float GrowthPerSecond = 1.0f;
+    private readonly Dictionary<ulong, (Actor Source, DateTime GrowthStart)> _puddles = [];
+    private readonly List<AOEInstance> _activeAOEs = [];
+
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
-        var aoes = new List<AOEInstance>();
-        foreach (var source in Sources(Module)) {
-            aoes.Add(new(Shape, source.Position, source.Rotation, color: Colors.Danger));
+        _activeAOEs.Clear();
+        foreach (var (source, growthStart) in _puddles.Values) {
+            if (source.EventState == 7) {
+                continue;
+            }
+
+            var elapsed = Math.Max(0.0d, (WorldState.CurrentTime - growthStart).TotalSeconds);
+            var radius = Math.Min(MaxRadius, InitialRadius + GrowthPerSecond * (float)elapsed);
+            _activeAOEs.Add(new(new AOEShapeCircle(radius), source.Position, color: Colors.Danger));
         }
-        return CollectionsMarshal.AsSpan(aoes);
+        return CollectionsMarshal.AsSpan(_activeAOEs);
+    }
+
+    public override void OnActorEAnim(Actor actor, uint state) {
+        if (actor.OID == (uint)OID.PoisonOrb && state == 0x00010002u) {
+            _puddles[actor.InstanceID] = (actor, WorldState.CurrentTime);
+        }
+    }
+
+    public override void OnActorDestroyed(Actor actor) {
+        if (actor.OID == (uint)OID.PoisonOrb) {
+            _puddles.Remove(actor.InstanceID);
+        }
     }
 }
 
@@ -124,16 +148,22 @@ sealed class ManyHeadedBreath(BossModule module) : Components.GenericAOEs(module
     private readonly List<AOEInstance> _aoes = [];
     private readonly List<AOEInstance> _activeAOEs = [];
     private DateTime _firstActivation;
+    private WPos _origin;
+    private Angle _facing;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell) {
         if (spell.Action.ID == (uint)AID.ManyHeadedBreathCast) {
             _aoes.Clear();
             _firstActivation = Module.CastFinishAt(spell, 1.0d);
+            _origin = caster.Position;
+            _facing = caster.Rotation;
         } else if (spell.Action.ID == (uint)AID.ManyHeadedBreathVisual) {
             var activation = _firstActivation != default
                 ? _firstActivation.AddSeconds(HitInterval * _aoes.Count)
                 : Module.CastFinishAt(spell, 8.0d);
-            _aoes.Add(new(Shape, spell.LocXZ, spell.Rotation, activation));
+            var origin = _firstActivation != default ? _origin : spell.LocXZ;
+            var rotation = _firstActivation != default ? SectorRotation(spell.Rotation) : spell.Rotation;
+            _aoes.Add(new(Shape, origin, rotation, activation));
         }
     }
 
@@ -154,6 +184,18 @@ sealed class ManyHeadedBreath(BossModule module) : Components.GenericAOEs(module
             _activeAOEs.Add(aoe);
         }
         return CollectionsMarshal.AsSpan(_activeAOEs);
+    }
+
+    private Angle SectorRotation(Angle preview) {
+        var front = _facing;
+        var left = (_facing + 120.0f.Degrees()).Normalized();
+        var right = (_facing - 120.0f.Degrees()).Normalized();
+        var frontDistance = Math.Abs((preview - front).Normalized().Rad);
+        var leftDistance = Math.Abs((preview - left).Normalized().Rad);
+        var rightDistance = Math.Abs((preview - right).Normalized().Rad);
+        return frontDistance <= leftDistance && frontDistance <= rightDistance
+            ? front
+            : leftDistance <= rightDistance ? left : right;
     }
 }
 
