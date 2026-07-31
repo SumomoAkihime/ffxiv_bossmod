@@ -133,6 +133,10 @@ sealed class DiminutiveDualcast(BossModule module) : Components.GenericAOEs(modu
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
         var aoes = storedAOEs.OrderBy(a => a.Activation).Take(4).ToList();
+        if (aoes.Count == 0) {
+            return [];
+        }
+
         var waveTimer = aoes.MinBy(a => a.Activation).Activation.AddSeconds(0.2f);
 
         foreach (ref var aoe in CollectionsMarshal.AsSpan(aoes)) {
@@ -164,6 +168,10 @@ sealed class TinyMeteor(BossModule module) : Components.GenericAOEs(module, (uin
     }
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
+        if (aoes.Count == 0) {
+            return [];
+        }
+
         var waveTimer = aoes.MinBy(a => a.Activation).Activation.AddSeconds(0.2f);
 
         foreach (ref var aoe in CollectionsMarshal.AsSpan(aoes)) {
@@ -179,6 +187,7 @@ sealed class TinyMeteor(BossModule module) : Components.GenericAOEs(module, (uin
 
 sealed class Comet(BossModule module) : BossComponent(module) {
     private List<ArcaneSphere> arcaneSpheres = [];
+    private ArcaneSphere? NextSphere => arcaneSpheres.Where(a => a.tethers > 0).MaxBy(a => a.tethers);
 
     private class ArcaneSphere {
         public Actor arcaneSphere;
@@ -198,10 +207,13 @@ sealed class Comet(BossModule module) : BossComponent(module) {
 
     public override void OnActorDeath(Actor actor) {
         if (actor.OID == (uint)OID.ArcaneSphereSmall) {
-            var sphere = arcaneSpheres.Find(a => a.arcaneSphere.InstanceID == actor.InstanceID);
-            if (sphere != null) {
-                arcaneSpheres.Remove(sphere);
-            }
+            RemoveSphere(actor);
+        }
+    }
+
+    public override void OnActorDestroyed(Actor actor) {
+        if (actor.OID == (uint)OID.ArcaneSphereSmall) {
+            RemoveSphere(actor);
         }
     }
 
@@ -220,22 +232,20 @@ sealed class Comet(BossModule module) : BossComponent(module) {
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc) {
-        if (arcaneSpheres.Count == 0) {
-            return;
-        }
-
-        var firstArcaneSphere = arcaneSpheres.MaxBy(a => a.tethers);
+        var firstArcaneSphere = NextSphere;
         if (firstArcaneSphere != null) {
             Arena.ZoneCircleOutline(firstArcaneSphere.arcaneSphere.Position, 2.0f, Colors.Safe, 2.0f);
         }
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints) {
-        if (arcaneSpheres.Count == 0) {
-            return;
+        if (NextSphere != null) {
+            hints.Add("Attack the arcane sphere with the green circle around it!", false);
         }
+    }
 
-        hints.Add("Attack the arcane sphere with the green circle around it!", false);
+    private void RemoveSphere(Actor actor) {
+        arcaneSpheres.RemoveAll(a => a.arcaneSphere.InstanceID == actor.InstanceID);
     }
 }
 
@@ -327,6 +337,15 @@ sealed class SphereGrowable(BossModule module) : BossComponent(module) {
     private Actor? orb = null;
     private int startIndex = -1;
     private int direction = 0;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell) {
+        if (spell.Action.ID is (uint)AID.SmallForOne or (uint)AID.AllForOne) {
+            mages.Clear();
+            orb = null;
+            startIndex = -1;
+            direction = 0;
+        }
+    }
 
     public override void OnActorCreated(Actor actor) {
         if (actor.OID == (uint)OID.TinyApprentice) {
@@ -448,13 +467,13 @@ sealed class TinyMageStates : StateMachineBuilder {
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.WIP,
+[ModuleInfo(BossModuleInfo.Maturity.Contributed,
     StatesType = typeof(TinyMageStates),
     ConfigType = null, // replace null with typeof(TinyMageConfig) if applicable
     ObjectIDType = typeof(OID),
-    ActionIDType = null, // replace null with typeof(AID) if applicable
-    StatusIDType = null, // replace null with typeof(SID) if applicable
-    TetherIDType = null, // replace null with typeof(TetherID) if applicable
+    ActionIDType = typeof(AID),
+    StatusIDType = typeof(SID),
+    TetherIDType = typeof(TetherID),
     IconIDType = null, // replace null with typeof(IconID) if applicable
     PrimaryActorOID = (uint)OID.TinyMage,
     Contributors = "Equilius",
