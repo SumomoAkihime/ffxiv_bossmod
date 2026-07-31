@@ -1,10 +1,5 @@
 ﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE209PhantomHydra;
 
-// TODO was made with ARR support
-//  Status: COMPLETED - improvements can be made
-//  1. Improve aoe visual for orbs - we can actually figure out which aoes will resolve first base on which orbs spawn first, but its a lot of work
-//      this change isn't needed if there is a way to not make the map get darker when the lightning ones are going off
-
 public enum OID : uint {
     PhantomHydra = 0x4BC5,
     Helper = 0x233C,
@@ -58,8 +53,8 @@ public enum AID : uint {
 sealed class ElementalCascade(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.ElementalCascade, (uint)AID.ElementalCascade1,
             (uint)AID.ElementalCascade2, (uint)AID.ElementalCascade3, (uint)AID.ElementalCascade4], new AOEShapeCircle(8.0f));
 sealed class Discordance(BossModule module) : Components.RaidwideCast(module, (uint)AID.Discordance);
-sealed class ElementalCascadeElements(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.ElementalCascadeFire, (uint)AID.ElementalCascadePoison,
-    (uint)AID.ElementalCascadeLightning, (uint)AID.ElementalCascadeLight, (uint)AID.ElementalCascadeIce ], new AOEShapeCircle(6.0f));
+sealed class ElementalCascadeElements(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.ElementalCascadeFire,
+    (uint)AID.ElementalCascadeLightning, (uint)AID.ElementalCascadeLight, (uint)AID.ElementalCascadeIce], new AOEShapeCircle(6.0f));
 sealed class StunningSheen(BossModule module) : Components.CastGaze(module, (uint)AID.StunningSheen);
 sealed class Dissipate(BossModule module) : Components.Voidzone(module, 6.0f, module => module.Enemies((uint)OID.PoisonOrb).Where(z => z.EventState != 7)) {
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
@@ -84,71 +79,81 @@ sealed class IceBurst : Components.SimpleAOEs {
 }
 
 sealed class Shock(BossModule module) : Components.GenericAOEs(module) {
-    private List<AOEInstance> aoes = [];
+    private static readonly AOEShapeCircle Circle = new(10.0f);
+    private static readonly AOEShapeDonut InnerRing = new(10.0f, 20.0f);
+    private static readonly AOEShapeDonut OuterRing = new(20.0f, 30.0f);
+    private readonly List<(AOEInstance AOE, uint AID)> _aoes = [];
+    private readonly List<AOEInstance> _activeAOEs = [];
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell) {
-        if (spell.Action.ID == (uint)AID.Shock) {
-            aoes.Add(new(new AOEShapeCircle(10.0f), caster.Position, caster.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID, risky: false));
-        }
-
-        if (spell.Action.ID == (uint)AID.LevinRing) {
-            aoes.Add(new(new AOEShapeDonut(10.0f, 20.0f), caster.Position, caster.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID, risky: false));
-        }
-
-        if (spell.Action.ID == (uint)AID.LevinRing1) {
-            aoes.Add(new(new AOEShapeDonut(20.0f, 30.0f), caster.Position, caster.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID, risky: false));
+        AOEShape? shape = spell.Action.ID switch {
+            (uint)AID.Shock => Circle,
+            (uint)AID.LevinRing => InnerRing,
+            (uint)AID.LevinRing1 => OuterRing,
+            _ => null
+        };
+        if (shape != null) {
+            _aoes.Add((new(shape, caster.Position, caster.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID, risky: false), spell.Action.ID));
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell) {
         if (spell.Action.ID is (uint)AID.Shock or (uint)AID.LevinRing or (uint)AID.LevinRing1) {
-            if (aoes.Count > 0) {
-                aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
+            var index = _aoes.FindIndex(entry => entry.AID == spell.Action.ID && entry.AOE.ActorID == caster.InstanceID);
+            if (index >= 0) {
+                _aoes.RemoveAt(index);
             }
         }
     }
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
-        int show = 0;
-        var incomingAOEs = aoes.OrderBy(a => a.Activation).Take(2).ToList();
-        foreach (ref var aoe in CollectionsMarshal.AsSpan(incomingAOEs)) {
-            aoe.Color = show == 0 ? Colors.Danger : Colors.AOE;
-            aoe.Risky = show == 0;
-            show++;
+        _activeAOEs.Clear();
+        foreach (var entry in _aoes.OrderBy(entry => entry.AOE.Activation).Take(2)) {
+            var aoe = entry.AOE;
+            aoe.Color = _activeAOEs.Count == 0 ? Colors.Danger : Colors.AOE;
+            aoe.Risky = _activeAOEs.Count == 0;
+            _activeAOEs.Add(aoe);
         }
-
-        return CollectionsMarshal.AsSpan(incomingAOEs);
+        return CollectionsMarshal.AsSpan(_activeAOEs);
     }
 }
 
 sealed class ManyHeadedBreath(BossModule module) : Components.GenericAOEs(module) {
-    private List<AOEInstance> aoes = [];
-    private readonly AOEShapeCone shape = new AOEShapeCone(30.0f, 60.0f.Degrees());
+    private const double HitInterval = 2.05d;
+    private static readonly AOEShapeCone Shape = new(30.0f, 60.0f.Degrees());
+    private readonly List<AOEInstance> _aoes = [];
+    private readonly List<AOEInstance> _activeAOEs = [];
+    private DateTime _firstActivation;
 
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell) {
-        if (spell.Action.ID is (uint)AID.ManyHeadedBreathVisual) {
-            aoes.Add(new(shape, spell.LocXZ, spell.Rotation));
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell) {
+        if (spell.Action.ID == (uint)AID.ManyHeadedBreathCast) {
+            _aoes.Clear();
+            _firstActivation = Module.CastFinishAt(spell, 1.0d);
+        } else if (spell.Action.ID == (uint)AID.ManyHeadedBreathVisual) {
+            var activation = _firstActivation != default
+                ? _firstActivation.AddSeconds(HitInterval * _aoes.Count)
+                : Module.CastFinishAt(spell, 8.0d);
+            _aoes.Add(new(Shape, spell.LocXZ, spell.Rotation, activation));
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell) {
         if (spell.Action.ID is (uint)AID.ManyHeadedBreathFront or (uint)AID.ManyHeadedBreathLeft or (uint)AID.ManyHeadedBreathRight) {
-            if (aoes.Count > 0) {
-                aoes.RemoveAt(0);
+            if (_aoes.Count > 0) {
+                _aoes.RemoveAt(0);
             }
         }
     }
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
-        int show = 0;
-        var incomingAOEs = aoes.Take(2).ToList();
-        foreach (ref var aoe in CollectionsMarshal.AsSpan(incomingAOEs)) {
-            aoe.Color = show == 0 ? Colors.Danger : Colors.AOE;
-            aoe.Risky = show == 0;
-            show++;
+        _activeAOEs.Clear();
+        foreach (var pending in _aoes.Take(2)) {
+            var aoe = pending;
+            aoe.Color = _activeAOEs.Count == 0 ? Colors.Danger : Colors.AOE;
+            aoe.Risky = _activeAOEs.Count == 0;
+            _activeAOEs.Add(aoe);
         }
-
-        return CollectionsMarshal.AsSpan(incomingAOEs);
+        return CollectionsMarshal.AsSpan(_activeAOEs);
     }
 }
 
@@ -168,11 +173,11 @@ sealed class PhantomHydraStates : StateMachineBuilder {
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.WIP,
+[ModuleInfo(BossModuleInfo.Maturity.Contributed,
     StatesType = typeof(PhantomHydraStates),
     ConfigType = null, // replace null with typeof(PhantomHydraConfig) if applicable
     ObjectIDType = typeof(OID),
-    ActionIDType = null, // replace null with typeof(AID) if applicable
+    ActionIDType = typeof(AID),
     StatusIDType = null, // replace null with typeof(SID) if applicable
     TetherIDType = null, // replace null with typeof(TetherID) if applicable
     IconIDType = null, // replace null with typeof(IconID) if applicable
