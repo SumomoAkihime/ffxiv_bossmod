@@ -11,6 +11,7 @@ namespace BossMod;
 public abstract class ArenaBounds(float radius, float mapResolution, float scaleFactor = 1f, bool allowObstacleMap = false)
 {
     public readonly float Radius = radius;
+    public readonly float InvRadius = 1 / radius;
     public readonly float MapResolution = mapResolution;
     public readonly float ScaleFactor = scaleFactor;
     public readonly bool AllowObstacleMap = allowObstacleMap;
@@ -674,7 +675,7 @@ public sealed class ArenaBoundsCustom : ArenaBounds
         var vertsCount = 0;
         for (var i = 0; i < count; ++i)
         {
-            vertsCount += parts[i].VerticesCount;
+            vertsCount += parts[i].Vertices.Count;
         }
         return $"{nameof(ArenaBoundsCustom)}, Radius {Radius}, HalfWidth: {HalfWidth}, HalfHeight: {HalfHeight}, MapResolution: {MapResolution}, Pathfinding offset: {offset}, Vertices: {vertsCount}, ScaleFactor: {ScaleFactor}";
     }
