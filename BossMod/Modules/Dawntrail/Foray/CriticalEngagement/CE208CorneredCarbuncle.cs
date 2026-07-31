@@ -33,8 +33,47 @@ public enum AID : uint
     RedRubyLightDamage = 50637 // Helper->self, no cast
 }
 
-sealed class YellowGemRay1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.YellowGemRay1, 4f);
-sealed class YellowGemRay2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.YellowGemRay2, 4f);
+sealed class YellowGemRays(BossModule module) : Components.GenericAOEs(module)
+{
+    private static readonly AOEShapeCircle Shape = new(4f);
+    private readonly List<AOEInstance> _aoes = new(12);
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
+    {
+        if (actor.OID != (uint)OID.YellowGem || id != 9353)
+            return;
+
+        _aoes.RemoveAll(a => a.ActorID == actor.InstanceID);
+        _aoes.Add(new(Shape, actor.Position, actorID: actor.InstanceID));
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.YellowGemVisual)
+        {
+            _aoes.Clear();
+            return;
+        }
+        if (spell.Action.ID is not (uint)AID.YellowGemRay1 and not (uint)AID.YellowGemRay2)
+            return;
+
+        var aoe = new AOEInstance(Shape, caster.Position, activation: Module.CastFinishAt(spell), actorID: caster.InstanceID);
+        var index = _aoes.FindIndex(a => a.ActorID == caster.InstanceID);
+        if (index >= 0)
+            _aoes[index] = aoe;
+        else
+            _aoes.Add(aoe);
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID is (uint)AID.YellowGemRay1 or (uint)AID.YellowGemRay2)
+            _aoes.RemoveAll(a => a.ActorID == caster.InstanceID);
+    }
+}
+
 sealed class RedRubyLight(BossModule module) : Components.RaidwideCast(module, (uint)AID.RedRubyLight);
 sealed class SonicHowl(BossModule module) : Components.RaidwideCast(module, (uint)AID.SonicHowl);
 
@@ -59,7 +98,7 @@ sealed class RedRubyReflection(BossModule module) : Components.GenericAOEs(modul
         (new(10f, -10f), new(20f, -10f))
     ];
     private readonly List<AOEInstance> _aoes = new(16);
-    private readonly List<WPos> _gems = new(3);
+    private readonly Dictionary<ulong, WPos> _gems = new(12);
     private WallPattern _pattern;
     private DateTime _activation;
     private int _offsetTransform;
@@ -68,14 +107,14 @@ sealed class RedRubyReflection(BossModule module) : Components.GenericAOEs(modul
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        for (var offset = -10f; offset <= 10f; offset += 10f)
-        {
-            Arena.AddLine(Arena.Center + new WDir(-20f, offset), Arena.Center + new WDir(20f, offset), Colors.Object);
-            Arena.AddLine(Arena.Center + new WDir(offset, -20f), Arena.Center + new WDir(offset, 20f), Colors.Object);
-        }
-
         foreach (var wall in ActiveWalls())
             Arena.AddLine(Arena.Center + wall.A, Arena.Center + wall.B, Colors.Border);
+    }
+
+    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
+    {
+        if (actor.OID == (uint)OID.YellowGem && id == 9353)
+            _gems[actor.InstanceID] = actor.Position;
     }
 
     public override void OnActorEAnim(Actor actor, uint state)
@@ -94,27 +133,24 @@ sealed class RedRubyReflection(BossModule module) : Components.GenericAOEs(modul
 
         _pattern = pattern;
         _aoes.Clear();
-        _gems.Clear();
+        _activation = WorldState.FutureTime(pattern == WallPattern.Cardinals ? 12d : 15d);
         var quarterTurns = ((int)MathF.Round(actor.Rotation.Deg / 90f) % 4 + 4) % 4;
         _offsetTransform = state == 0x00100020 ? (quarterTurns + 3) & 3 : 4 + quarterTurns;
-        foreach (var gem in Module.Enemies((uint)OID.YellowGem))
-        {
-            if (gem.CastInfo is { } cast && cast.Action.ID == (uint)AID.YellowGemRay1)
-            {
-                _gems.Add(gem.Position);
-                _activation = Module.CastFinishAt(cast, 0.1d);
-            }
-        }
         if (_gems.Count != 0)
             RebuildAOEs();
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
+        if (spell.Action.ID == (uint)AID.YellowGemVisual)
+        {
+            _gems.Clear();
+            return;
+        }
         if (spell.Action.ID != (uint)AID.YellowGemRay1 || _pattern == WallPattern.None)
             return;
 
-        _gems.Add(caster.Position);
+        _gems[caster.InstanceID] = caster.Position;
         _activation = Module.CastFinishAt(spell, 0.1d);
         RebuildAOEs();
     }
@@ -145,24 +181,9 @@ sealed class RedRubyReflection(BossModule module) : Components.GenericAOEs(modul
 
     private void RebuildAOEs()
     {
-        if (_pattern == WallPattern.Offset)
-        {
-            var bestScore = _gems.Count(g => TouchesWall(g, TransformOffsetWalls(_offsetTransform)));
-            for (var transform = 0; transform < 8; ++transform)
-            {
-                var walls = TransformOffsetWalls(transform);
-                var score = _gems.Count(g => TouchesWall(g, walls));
-                if (score > bestScore)
-                {
-                    bestScore = score;
-                    _offsetTransform = transform;
-                }
-            }
-        }
-
         var activeWalls = ActiveWalls();
         var dangerousCells = 0u;
-        foreach (var gem in _gems)
+        foreach (var gem in _gems.Values)
         {
             if (TouchesWall(gem, activeWalls))
                 dangerousCells |= RegionMask(CellIndex(gem), activeWalls);
@@ -174,14 +195,6 @@ sealed class RedRubyReflection(BossModule module) : Components.GenericAOEs(modul
             if ((dangerousCells & (1u << i)) != 0)
                 _aoes.Add(new(Cell, CellCenter(i), default, _activation));
         }
-    }
-
-    private (WDir A, WDir B)[] TransformOffsetWalls(int transform)
-    {
-        var walls = new (WDir A, WDir B)[OffsetWalls.Length];
-        for (var i = 0; i < walls.Length; ++i)
-            walls[i] = (Transform(OffsetWalls[i].A, transform), Transform(OffsetWalls[i].B, transform));
-        return walls;
     }
 
     private bool TouchesWall(WPos position, (WDir A, WDir B)[] walls)
@@ -368,8 +381,7 @@ sealed class CE208CorneredCarbuncleStates : StateMachineBuilder
     public CE208CorneredCarbuncleStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<YellowGemRay1>()
-            .ActivateOnEnter<YellowGemRay2>()
+            .ActivateOnEnter<YellowGemRays>()
             .ActivateOnEnter<RedRubyLight>()
             .ActivateOnEnter<RedRubyReflection>()
             .ActivateOnEnter<StarvingDread>()
