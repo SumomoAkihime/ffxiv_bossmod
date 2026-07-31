@@ -99,12 +99,12 @@ sealed class MTN1GreenHeadBlueHeadStates : StateMachineBuilder
     StatesType = typeof(MTN1GreenHeadBlueHeadStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
-    PrimaryActorOID = (uint)OID.Boss,
+    PrimaryActorOID = (uint)OID.GreenHead,
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,
     GroupType = BossModuleInfo.GroupType.CFC,
     GroupID = 1093,
-    NameID = 14489,
+    NameID = 14490,
     SortOrder = 1)]
 public sealed class MTN1GreenHeadBlueHead(WorldState ws, Actor primary) : BossModule(ws, primary, new(-900f, 700f), new ArenaBoundsSquare(30f))
 {
