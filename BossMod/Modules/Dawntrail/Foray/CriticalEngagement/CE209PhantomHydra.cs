@@ -8,8 +8,6 @@ public enum OID : uint {
     BallOfFire = 0x4BC7, // R1.500, x12
     HolySphere = 0x4BC6, // R1.200, x2
     PoisonOrb = 0x1EBFC7, // R0.500, x0 (spawn during fight), EventObj type
-
-    _Gen_Actor1ea1a1 = 0x1EA1A1, // R2.000, x2, EventObj type
 }
 
 public enum AID : uint {
