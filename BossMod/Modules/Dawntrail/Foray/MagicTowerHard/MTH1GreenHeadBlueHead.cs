@@ -162,13 +162,6 @@ static class SafeSpot
 
 abstract class PredictiveAOEs(BossModule module, string warningText = "GTFO from predicted AOE!") : Components.GenericAOEs(module, warningText: warningText)
 {
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
-    {
-        var aoes = ActiveAOEs(pcSlot, pc);
-        if (aoes.Length != 0 && SafeSpot.Find(pc.Position, aoes) is WPos safe)
-            Arena.ZoneCircleOutline(safe, 1.2f, Colors.Safe, 2f);
-    }
-
     public override void AddMovementHints(int slot, Actor actor, MovementHints movementHints)
     {
         var aoes = ActiveAOEs(slot, actor);
@@ -528,17 +521,6 @@ sealed class HissingResonance(BossModule module) : Components.GenericKnockback(m
         _statuses.TryGetValue(actor.InstanceID, out var status)
         && _fourfold.CircleForKnockback(IsGreen(status)) is FourfoldBlaze.Preview circle
         && _fourfold.DestinationUnsafe(pos, circle);
-
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
-    {
-        base.DrawArenaForeground(pcSlot, pc);
-        if (_statuses.TryGetValue(pc.InstanceID, out var status)
-            && _fourfold.CircleForKnockback(IsGreen(status)) is FourfoldBlaze.Preview circle
-            && _fourfold.FindKnockbackPreparation(pc, circle, Direction(status)) is WPos preparation)
-        {
-            Arena.ZoneCircleOutline(preparation, 1.2f, Colors.Safe, 2f);
-        }
-    }
 
     public override void AddMovementHints(int slot, Actor actor, MovementHints movementHints)
     {

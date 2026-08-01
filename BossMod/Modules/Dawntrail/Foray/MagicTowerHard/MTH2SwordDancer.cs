@@ -97,6 +97,7 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
     private static readonly AOEShapeCircle Circle15 = new(15f);
     private static readonly AOEShapeCircle Circle20 = new(20f);
     private readonly List<AOEInstance> _aoes = [];
+    private readonly List<AOEInstance> _currentSafeAOEs = [];
     private readonly List<AOEInstance> _futureAOEs = [];
     private readonly HashSet<ulong> _activeActors = [];
     private readonly Dictionary<ulong, int> _completedCasts = [];
@@ -107,8 +108,11 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        if (FindFutureSafe(pc.Position) is WPos safe)
-            Arena.ZoneCircleOutline(safe, FutureSafeMarkerRadius, FutureSafeMarkerColor, 2f);
+        BuildSafeStages();
+        if (_currentSafeAOEs.Count != 0 && FindSafe(pc.Position, _currentSafeAOEs) is WPos current)
+            Arena.AddLine(pc.Position, current, Colors.Safe, 2f);
+        if (_futureAOEs.Count != 0 && FindSafe(pc.Position, _futureAOEs) is WPos future)
+            Arena.ZoneCircleOutline(future, FutureSafeMarkerRadius, FutureSafeMarkerColor, 2f);
     }
 
     public override void OnActorModelStateChange(Actor actor, byte modelState, byte animState1, byte animState2)
@@ -225,36 +229,53 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
         _aoes[index] = aoe;
     }
 
-    private WPos? FindFutureSafe(WPos from)
+    private void BuildSafeStages()
     {
+        _currentSafeAOEs.Clear();
         _futureAOEs.Clear();
         if (_predictions.Count != 3 || _predictions.Values.Any(p => p.Timeline == default))
-            return null;
+            return;
 
         var ordered = _predictions.Values.OrderBy(p => p.Timeline).ToList();
         var simultaneous = (ordered[^1].Timeline - ordered[0].Timeline).TotalSeconds < 0.6d;
         if (simultaneous)
         {
-            if (_groupCompletedCasts != 0)
-                return null;
-            foreach (var prediction in ordered)
-                _futureAOEs.Add(new(prediction.Followup, prediction.Origin));
+            if (_groupCompletedCasts == 0)
+            {
+                foreach (var prediction in ordered)
+                {
+                    _currentSafeAOEs.Add(new(prediction.Initial, prediction.Origin));
+                    _futureAOEs.Add(new(prediction.Followup, prediction.Origin));
+                }
+            }
+            else if (_groupCompletedCasts < 6)
+            {
+                foreach (var prediction in ordered)
+                    _currentSafeAOEs.Add(new(prediction.Followup, prediction.Origin));
+            }
         }
         else if (_groupCompletedCasts == 0)
         {
+            _currentSafeAOEs.Add(new(ordered[0].Initial, ordered[0].Origin));
             _futureAOEs.Add(new(ordered[0].Followup, ordered[0].Origin));
             _futureAOEs.Add(new(ordered[1].Initial, ordered[1].Origin));
         }
-        else if (_groupCompletedCasts == 1)
+        else if (_groupCompletedCasts < 3)
         {
+            _currentSafeAOEs.Add(new(ordered[0].Followup, ordered[0].Origin));
+            _currentSafeAOEs.Add(new(ordered[1].Initial, ordered[1].Origin));
             _futureAOEs.Add(new(ordered[1].Followup, ordered[1].Origin));
             _futureAOEs.Add(new(ordered[2].Initial, ordered[2].Origin));
         }
-        else
+        else if (_groupCompletedCasts < 5)
         {
-            return null;
+            _currentSafeAOEs.Add(new(ordered[1].Followup, ordered[1].Origin));
+            _currentSafeAOEs.Add(new(ordered[2].Initial, ordered[2].Origin));
         }
+    }
 
+    private WPos? FindSafe(WPos from, List<AOEInstance> aoes)
+    {
         WPos? best = null;
         var bestDistance = float.MaxValue;
         for (var x = -24f; x <= 24f; x += 1f)
@@ -262,7 +283,7 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
             for (var z = -24f; z <= 24f; z += 1f)
             {
                 var candidate = new WPos(MTH2SwordDancer.ArenaCenter.X + x, MTH2SwordDancer.ArenaCenter.Z + z);
-                if (!Safe(candidate))
+                if (!Safe(candidate, aoes))
                     continue;
 
                 var distance = (candidate - from).LengthSq();
@@ -276,15 +297,15 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
         return best;
     }
 
-    private bool Safe(WPos position)
+    private bool Safe(WPos position, List<AOEInstance> aoes)
     {
         foreach (var offset in MarginChecks)
         {
             var sample = position + offset;
             if (!Arena.InBounds(sample))
                 return false;
-            for (var i = 0; i < _futureAOEs.Count; ++i)
-                if (_futureAOEs[i].Check(sample))
+            for (var i = 0; i < aoes.Count; ++i)
+                if (aoes[i].Check(sample))
                     return false;
         }
         return true;
@@ -547,13 +568,6 @@ sealed class SafeSpotHints(BossModule module) : BossComponent(module)
 {
     private static readonly WDir[] MarginChecks = [default, new(0.75f, 0f), new(-0.75f, 0f), new(0f, 0.75f), new(0f, -0.75f)];
     private readonly List<Components.GenericAOEs.AOEInstance> _active = [];
-
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
-    {
-        Gather(pcSlot, pc);
-        if (_active.Count != 0 && FindSafe(pc.Position) is WPos safe)
-            Arena.ZoneCircleOutline(safe, 1.2f, Colors.Safe, 2f);
-    }
 
     public override void AddMovementHints(int slot, Actor actor, MovementHints movementHints)
     {
