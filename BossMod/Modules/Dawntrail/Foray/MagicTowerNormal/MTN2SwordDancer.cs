@@ -37,7 +37,14 @@ sealed class TurnOuter(BossModule module) : Components.SimpleAOEs(module, (uint)
 sealed class TurnInnerNarrow(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnInnerNarrow, new AOEShapeDonutSector(9f, 14f, 32.5f.Degrees()));
 sealed class TurnaboutOuter(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnaboutOuter, new AOEShapeDonutSector(19f, 24f, 27f.Degrees()));
 sealed class MartialMystique(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MartialMystique, new AOEShapeRect(48f, 48f));
-sealed class SwordDance(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SwordDance, new AOEShapeRect(60f, 10f));
+sealed class SwordDance(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SwordDance, new AOEShapeRect(60f, 10f))
+{
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        Color = Colors.Danger;
+        return base.ActiveAOEs(slot, actor);
+    }
+}
 sealed class Pierce(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Pierce, 5f);
 sealed class Steelsbreath(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.Steelsbreath, 24f);
 
@@ -59,8 +66,8 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
         AOEShape? shape = modelState switch
         {
             7 => Circle,
-            4 => DonutLarge,
-            5 => DonutSmall,
+            4 => DonutSmall,
+            5 => DonutLarge,
             _ => null
         };
         if (shape != null)

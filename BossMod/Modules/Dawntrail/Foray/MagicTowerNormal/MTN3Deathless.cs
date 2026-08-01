@@ -37,15 +37,118 @@ public enum TetherID : uint
 sealed class HailOfHellflares(BossModule module) : Components.RaidwideCast(module, (uint)AID.HailOfHellflares);
 sealed class CorpseMangler(BossModule module) : Components.SingleTargetCast(module, (uint)AID.CorpseMangler);
 sealed class FireIII(BossModule module) : Components.SimpleAOEGroups(module,
-    [(uint)AID.AncientFireIII, (uint)AID.SeveredFireIIIHead, (uint)AID.SeveredFireIIIBoss], 18f);
+    [(uint)AID.AncientFireIII, (uint)AID.SeveredFireIIIHead, (uint)AID.SeveredFireIIIBoss], 18f)
+{
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        Color = Colors.Danger;
+        return base.ActiveAOEs(slot, actor);
+    }
+}
 sealed class BlizzardIII(BossModule module) : Components.SimpleAOEGroups(module,
-    [(uint)AID.AncientBlizzardIII, (uint)AID.SeveredBlizzardIIIHead, (uint)AID.SeveredBlizzardIIIBoss], new AOEShapeCross(45f, 7.5f));
+    [(uint)AID.AncientBlizzardIII, (uint)AID.SeveredBlizzardIIIHead, (uint)AID.SeveredBlizzardIIIBoss], new AOEShapeCross(45f, 7.5f))
+{
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        Color = Colors.Danger;
+        return base.ActiveAOEs(slot, actor);
+    }
+}
 sealed class VacuumWave(BossModule module) : Components.SimpleAOEs(module, (uint)AID.VacuumWave, new AOEShapeCone(30f, 90f.Degrees()));
 sealed class DeathlyRay(BossModule module) : Components.SimpleAOEs(module, (uint)AID.DeathlyRay, new AOEShapeRect(30f, 3f));
-sealed class DarkCurrentLong(BossModule module) : Components.SimpleAOEs(module, (uint)AID.DarkCurrentLong, new AOEShapeRect(60f, 5f));
-sealed class DarkCurrentPulse(BossModule module) : Components.SimpleAOEs(module, (uint)AID.DarkCurrentPulse, new AOEShapeRect(10f, 30f));
 sealed class Thunder(BossModule module) : Components.SimpleAOEGroups(module,
-    [(uint)AID.AncientThunder, (uint)AID.SeveredThunderHead, (uint)AID.SeveredThunderBoss], new AOEShapeCone(60f, 22.5f.Degrees()));
+    [(uint)AID.AncientThunder, (uint)AID.SeveredThunderHead, (uint)AID.SeveredThunderBoss], new AOEShapeCone(60f, 22.5f.Degrees()))
+{
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        Color = Colors.Danger;
+        return base.ActiveAOEs(slot, actor);
+    }
+}
+
+sealed class DarkCurrent(BossModule module) : Components.GenericAOEs(module)
+{
+    private static readonly AOEShapeRect Initial = new(60f, 5f);
+    private static readonly AOEShapeRect Pulse = new(10f, 30f);
+    private readonly List<AOEInstance> _aoes = [];
+    private readonly List<AOEInstance> _active = [];
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        _active.Clear();
+        if (_aoes.Count == 0)
+            return [];
+
+        var imminent = _aoes[0].Activation.AddSeconds(0.2d);
+        foreach (var source in _aoes)
+        {
+            var aoe = source;
+            var danger = aoe.Activation <= imminent;
+            aoe.Color = danger ? Colors.Danger : Colors.AOE;
+            aoe.Risky = danger;
+            _active.Add(aoe);
+        }
+        return CollectionsMarshal.AsSpan(_active);
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.DarkCurrentLong)
+        {
+            _aoes.Clear();
+            var activation = Module.CastFinishAt(spell);
+            _aoes.Add(new(Initial, caster.Position, spell.Rotation, activation));
+            for (var wave = 1; wave <= 2; ++wave)
+            {
+                var distance = 10f * wave;
+                var waveActivation = activation.AddSeconds(2.1d * wave);
+                var leftRotation = spell.Rotation + 90f.Degrees();
+                var rightRotation = spell.Rotation - 90f.Degrees();
+                _aoes.Add(new(Pulse, caster.Position + distance * leftRotation.ToDirection(), leftRotation, waveActivation));
+                _aoes.Add(new(Pulse, caster.Position + distance * rightRotation.ToDirection(), rightRotation, waveActivation));
+            }
+            Sort();
+        }
+        else if (spell.Action.ID == (uint)AID.DarkCurrentPulse)
+        {
+            var index = Find(caster.Position, Pulse);
+            if (index >= 0)
+            {
+                var aoe = _aoes[index];
+                aoe.Origin = caster.Position;
+                aoe.Rotation = spell.Rotation;
+                aoe.Activation = Module.CastFinishAt(spell);
+                _aoes[index] = aoe;
+                Sort();
+            }
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        var shape = spell.Action.ID switch
+        {
+            (uint)AID.DarkCurrentLong => Initial,
+            (uint)AID.DarkCurrentPulse => Pulse,
+            _ => null
+        };
+        if (shape == null)
+            return;
+
+        var index = Find(caster.Position, shape);
+        if (index >= 0)
+            _aoes.RemoveAt(index);
+        ++NumCasts;
+    }
+
+    private int Find(WPos position, AOEShape shape)
+    {
+        var index = _aoes.FindIndex(aoe => ReferenceEquals(aoe.Shape, shape) && (aoe.Origin - position).LengthSq() < 1f);
+        return index >= 0 ? index : _aoes.FindIndex(aoe => ReferenceEquals(aoe.Shape, shape));
+    }
+
+    private void Sort() => _aoes.Sort((left, right) => left.Activation.CompareTo(right.Activation));
+}
 
 sealed class SeveredElementPreview(BossModule module) : Components.GenericAOEs(module)
 {
@@ -68,7 +171,7 @@ sealed class SeveredElementPreview(BossModule module) : Components.GenericAOEs(m
                 _ => null
             };
             if (shape != null && !source.IsDestroyed)
-                _aoes.Add(new(shape, source.Position, source.Rotation, risky: false, actorID: source.InstanceID));
+                _aoes.Add(new(shape, source.Position, source.Rotation, color: Colors.AOE, risky: false, actorID: source.InstanceID));
         }
         return CollectionsMarshal.AsSpan(_aoes);
     }
@@ -97,8 +200,7 @@ sealed class MTN3DeathlessStates : StateMachineBuilder
             .ActivateOnEnter<BlizzardIII>()
             .ActivateOnEnter<VacuumWave>()
             .ActivateOnEnter<DeathlyRay>()
-            .ActivateOnEnter<DarkCurrentLong>()
-            .ActivateOnEnter<DarkCurrentPulse>()
+            .ActivateOnEnter<DarkCurrent>()
             .ActivateOnEnter<Thunder>()
             .ActivateOnEnter<SeveredElementPreview>();
     }

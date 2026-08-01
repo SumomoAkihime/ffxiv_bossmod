@@ -47,6 +47,9 @@ public enum AID : uint
     Crossblaze = 47685, // Helper->self, range 35 cross, width 10
     Blazeloop = 47686, // Helper->self, range 5-60 donut
     BlazeFollowing = 47689,
+    BlazeCircleBlue = 50706, // Helper->location, range 5 circle
+    BlazeCircleGreen = 50707, // Helper->location, range 5 circle
+    BlazeCircleFollowing = 50708, // Helper->location, range 5 circle
 
     ArcaneRevelation = 47719,
     GreenArcaneBeacon = 47721, // matrix->self, 60x5 rect
@@ -108,9 +111,9 @@ static class SafeSpot
     {
         WPos? best = null;
         var bestDistance = float.MaxValue;
-        for (var x = -28f; x <= 28f; x += 1f)
+        for (var x = -18f; x <= 18f; x += 1f)
         {
-            for (var z = -28f; z <= 28f; z += 1f)
+            for (var z = -18f; z <= 18f; z += 1f)
             {
                 var candidate = new WPos(MTH1GreenHeadBlueHead.ArenaCenter.X + x, MTH1GreenHeadBlueHead.ArenaCenter.Z + z);
                 if (!Safe(candidate, aoes))
@@ -153,8 +156,8 @@ static class SafeSpot
     }
 
     public static bool InBounds(WPos position) =>
-        MathF.Abs(position.X - MTH1GreenHeadBlueHead.ArenaCenter.X) <= 28.5f
-        && MathF.Abs(position.Z - MTH1GreenHeadBlueHead.ArenaCenter.Z) <= 28.5f;
+        MathF.Abs(position.X - MTH1GreenHeadBlueHead.ArenaCenter.X) <= 18.5f
+        && MathF.Abs(position.Z - MTH1GreenHeadBlueHead.ArenaCenter.Z) <= 18.5f;
 }
 
 abstract class PredictiveAOEs(BossModule module, string warningText = "GTFO from predicted AOE!") : Components.GenericAOEs(module, warningText: warningText)
@@ -182,8 +185,8 @@ abstract class PredictiveAOEs(BossModule module, string warningText = "GTFO from
 
 sealed class BuffetAssignments(BossModule module) : BossComponent(module)
 {
-    private static readonly WPos BlueHalf = new(-915f, 700f);
-    private static readonly WPos GreenHalf = new(-885f, 700f);
+    private static readonly WPos BlueHalf = new(-910f, 700f);
+    private static readonly WPos GreenHalf = new(-890f, 700f);
     private static readonly uint BlueDim = Color.FromComponents(45, 125, 255, 48).ABGR;
     private static readonly uint BlueStrong = Color.FromComponents(45, 125, 255, 112).ABGR;
     private static readonly uint GreenDim = Color.FromComponents(45, 220, 120, 48).ABGR;
@@ -206,8 +209,8 @@ sealed class BuffetAssignments(BossModule module) : BossComponent(module)
 
         _assignments.TryGetValue(pc.InstanceID, out var blue);
         var assigned = _assignments.ContainsKey(pc.InstanceID);
-        Arena.ZoneRect(BlueHalf, default(Angle), 15f, 15f, 15f, assigned && blue ? BlueStrong : BlueDim);
-        Arena.ZoneRect(GreenHalf, default(Angle), 15f, 15f, 15f, assigned && !blue ? GreenStrong : GreenDim);
+        Arena.ZoneRect(BlueHalf, default(Angle), 10f, 10f, 10f, assigned && blue ? BlueStrong : BlueDim);
+        Arena.ZoneRect(GreenHalf, default(Angle), 10f, 10f, 10f, assigned && !blue ? GreenStrong : GreenDim);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -293,12 +296,13 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
         public AOEInstance AOE => new(Shape, Origin, activation: Activation);
     }
 
+    private static readonly AOEShapeCircle Circle = new(5f);
     private static readonly AOEShapeCross Cross = new(35f, 5f);
     private static readonly AOEShapeDonut Donut = new(5f, 60f);
     private Pattern? _greenPattern;
     private Pattern? _bluePattern;
     private readonly List<Preview> _previews = [];
-    private readonly AOEInstance[] _active = new AOEInstance[1];
+    private readonly AOEInstance[] _active = new AOEInstance[2];
 
     public Preview? Current => _previews.Count != 0 ? _previews[0] : null;
     public Preview? Following => _previews.Count > 1 ? _previews[1] : null;
@@ -307,8 +311,15 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
     {
         if (_previews.Count == 0)
             return [];
-        _active[0] = _previews[0].AOE;
-        return _active;
+        var count = Math.Min(2, _previews.Count);
+        for (var i = 0; i < count; ++i)
+        {
+            var aoe = _previews[i].AOE;
+            aoe.Color = i == 0 ? Colors.Danger : Colors.AOE;
+            aoe.Risky = i == 0;
+            _active[i] = aoe;
+        }
+        return _active.AsSpan(0, count);
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
@@ -332,9 +343,9 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
         var followingAOE = following.AOE;
         WPos? best = null;
         var bestDistance = float.MaxValue;
-        for (var x = -28f; x <= 28f; x += 1f)
+        for (var x = -18f; x <= 18f; x += 1f)
         {
-            for (var z = -28f; z <= 28f; z += 1f)
+            for (var z = -18f; z <= 18f; z += 1f)
             {
                 var candidate = new WPos(MTH1GreenHeadBlueHead.ArenaCenter.X + x, MTH1GreenHeadBlueHead.ArenaCenter.Z + z);
                 var destination = candidate + 20f * direction;
@@ -358,6 +369,19 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         var id = spell.Action.ID;
+        if (id is (uint)AID.Crossblaze or (uint)AID.Blazeloop)
+        {
+            var shapeType = id == (uint)AID.Crossblaze ? typeof(AOEShapeCross) : typeof(AOEShapeDonut);
+            var index = Find(shapeType, spell.LocXZ);
+            if (index >= 0)
+            {
+                var preview = _previews[index];
+                _previews[index] = preview with { Activation = Module.CastFinishAt(spell) };
+                _previews.Sort((left, right) => left.Activation.CompareTo(right.Activation));
+            }
+            return;
+        }
+
         if (TryPattern(id, out var first, out var second))
         {
             var pattern = new Pattern(first, second);
@@ -378,7 +402,9 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
         if (patternForHead == null || patternForHead.Next >= patternForHead.Shapes.Length)
             return;
 
-        _previews.Add(new(patternForHead.Shapes[patternForHead.Next++], spell.LocXZ, Module.CastFinishAt(spell), green));
+        var activation = Module.CastFinishAt(spell);
+        _previews.Add(new(Circle, spell.LocXZ, activation, green));
+        _previews.Add(new(patternForHead.Shapes[patternForHead.Next++], spell.LocXZ, activation.AddSeconds(2.05d), green));
         _previews.Sort((left, right) => left.Activation.CompareTo(right.Activation));
     }
 
@@ -386,6 +412,7 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
     {
         var shapeType = spell.Action.ID switch
         {
+            (uint)AID.BlazeCircleBlue or (uint)AID.BlazeCircleGreen or (uint)AID.BlazeCircleFollowing => typeof(AOEShapeCircle),
             (uint)AID.Crossblaze => typeof(AOEShapeCross),
             (uint)AID.Blazeloop => typeof(AOEShapeDonut),
             _ => null
@@ -393,12 +420,16 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
         if (shapeType == null)
             return;
 
-        var index = _previews.FindIndex(preview => preview.Shape.GetType() == shapeType && (preview.Origin - caster.Position).LengthSq() < 1f);
-        if (index < 0)
-            index = _previews.FindIndex(preview => preview.Shape.GetType() == shapeType);
+        var index = Find(shapeType, caster.Position);
         if (index >= 0)
             _previews.RemoveAt(index);
         ++NumCasts;
+    }
+
+    private int Find(Type shapeType, WPos position)
+    {
+        var index = _previews.FindIndex(preview => preview.Shape.GetType() == shapeType && (preview.Origin - position).LengthSq() < 1f);
+        return index >= 0 ? index : _previews.FindIndex(preview => preview.Shape.GetType() == shapeType);
     }
 
     private static bool TryPattern(uint aid, out AOEShape first, out AOEShape second)
@@ -697,7 +728,7 @@ sealed class MTH1GreenHeadBlueHeadStates : StateMachineBuilder
     GroupID = 1114,
     NameID = 14490,
     SortOrder = 1)]
-public sealed class MTH1GreenHeadBlueHead(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, new ArenaBoundsSquare(30f))
+public sealed class MTH1GreenHeadBlueHead(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, new ArenaBoundsSquare(20f))
 {
     public static readonly WPos ArenaCenter = new(-900f, 700f);
 

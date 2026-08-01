@@ -55,7 +55,14 @@ sealed class TurnOuter(BossModule module) : Components.SimpleAOEs(module, (uint)
 sealed class TurnMiddleNarrow(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnMiddleNarrow, new AOEShapeDonutSector(14f, 19f, 28.5f.Degrees()));
 sealed class TurnOuterNarrow(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnOuterNarrow, new AOEShapeDonutSector(19f, 24f, 27f.Degrees()));
 sealed class MartialMystique(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MartialMystique, new AOEShapeRect(48f, 48f));
-sealed class SwordDance(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SwordDance, new AOEShapeRect(60f, 10f));
+sealed class SwordDance(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SwordDance, new AOEShapeRect(60f, 10f))
+{
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        Color = Colors.Danger;
+        return base.ActiveAOEs(slot, actor);
+    }
+}
 sealed class Pierce(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Pierce, 5f);
 
 static class LeapingLiftTiming
