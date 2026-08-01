@@ -633,4 +633,3 @@ class V02LoneSwordmasterStates : StateMachineBuilder
 
 [ModuleInfo(GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1084, NameID = 14323)]
 public class V02LoneSwordmaster(WorldState ws, Actor primary) : BossModule(ws, primary, new(170, -815), new ArenaBoundsSquare(20));
-

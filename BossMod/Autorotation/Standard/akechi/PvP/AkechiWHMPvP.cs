@@ -133,7 +133,7 @@ public sealed class AkechiWHMPvP(RotationModuleManager manager, Actor player) : 
                 StatusDetails(Player, SID.MiracleOfNaturePvP, Player.InstanceID, 5).Left);
 
             //self only
-            //TODO: add party stuff? 
+            //TODO: add party stuff?
             if (IsReady(AID.AquaveilPvP) && strategy.Option(Track.Aquaveil).As<AquaveilStrategy>() switch
             {
                 AquaveilStrategy.Auto => Player.PendingHPRatio < 1.0f && EnemiesTargetingPlayer >= 2,

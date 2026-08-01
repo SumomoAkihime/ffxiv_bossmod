@@ -279,7 +279,7 @@ public sealed class MiniArena(WPos center, ArenaBounds bounds)
         {
             var offset = center - _center;
             var bounds = _bounds.ShapeSimplified;
-            if ((bounds.ClosestPointOnBoundary(offset) - offset).LengthSq() >= radius * radius) // circle is farther than it's radius away from boundary 
+            if ((bounds.ClosestPointOnBoundary(offset) - offset).LengthSq() >= radius * radius) // circle is farther than its radius away from boundary
             {
                 if (bounds.Contains(offset)) // no need for clipping if circle is fully inside polygon
                 {
@@ -402,7 +402,7 @@ public sealed class MiniArena(WPos center, ArenaBounds bounds)
         {
             var offset = center - _center;
             var bounds = _bounds.ShapeSimplified;
-            if ((bounds.ClosestPointOnBoundary(offset) - offset).LengthSq() >= radius * radius) // circle is farther than it's radius away from boundary 
+            if ((bounds.ClosestPointOnBoundary(offset) - offset).LengthSq() >= radius * radius) // circle is farther than its radius away from boundary
             {
                 if (bounds.Contains(offset)) // no need for clipping if circle is fully inside polygon
                 {
