@@ -44,6 +44,11 @@ public enum AID : uint
     Steelsbreath = 50360 // Helper->self, knockback 26
 }
 
+public enum SID : uint
+{
+    LeapingLiftIndicator = 2056
+}
+
 sealed class SwordStorm(BossModule module) : Components.RaidwideCast(module, (uint)AID.SwordStorm);
 sealed class RushShort(BossModule module) : Components.ChargeAOEs(module, (uint)AID.RushShort, 3.5f);
 sealed class RushLong(BossModule module) : Components.ChargeAOEs(module, (uint)AID.RushLong, 3.5f);
@@ -220,17 +225,24 @@ sealed class Steelsforge(BossModule module) : Components.GenericAOEs(module)
 {
     private static readonly AOEShapeCircle Shape = new(13f);
     private readonly List<AOEInstance> _aoes = [];
+    private readonly List<WPos> _steelWarnings = [];
     private DateTime _firstKnockback;
     private int _jumpCount;
     private bool _collecting;
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
+    public override void Update()
+    {
+        _aoes.RemoveAll(aoe => WorldState.CurrentTime > aoe.Activation.AddSeconds(1d));
+    }
+
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         if (spell.Action.ID == (uint)AID.LeapingLift)
         {
             _aoes.Clear();
+            _steelWarnings.Clear();
             _firstKnockback = default;
             _jumpCount = 0;
             _collecting = true;
@@ -252,25 +264,44 @@ sealed class Steelsforge(BossModule module) : Components.GenericAOEs(module)
     {
         if (spell.Action.ID == (uint)AID.Steelsforge)
         {
-            var index = ClosestAOE(caster.Position);
+            var index = MatchingAOE(caster);
             if (index >= 0)
                 _aoes.RemoveAt(index);
-            ++NumCasts;
         }
+    }
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        if (!_collecting || actor.OID != (uint)OID.Sword || status.ID != (uint)SID.LeapingLiftIndicator || status.Extra != 1173)
+            return;
+
+        if (_steelWarnings.All(position => (position - actor.Position).LengthSq() >= 1f))
+            _steelWarnings.Add(actor.Position);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         var id = spell.Action.ID;
+        if (id == (uint)AID.Steelsforge)
+        {
+            var index = MatchingAOE(caster);
+            if (index >= 0)
+                _aoes.RemoveAt(index);
+            ++NumCasts;
+            return;
+        }
+
         if (!_collecting || (id is not (uint)AID.LeapingLiftJump and not (uint)AID.LeapingLiftJumpLast))
             return;
 
         if (_firstKnockback == default)
             _firstKnockback = WorldState.FutureTime(LeapingLiftTiming.FirstKnockbackDelay);
-        if (_jumpCount is 1 or 3)
+        var warningIndex = ClosestSteelWarning(caster.Position);
+        if (warningIndex >= 0 && _jumpCount < LeapingLiftTiming.KnockbackOffsets.Length)
         {
             var activation = _firstKnockback.AddSeconds(LeapingLiftTiming.KnockbackOffsets[_jumpCount] - LeapingLiftTiming.ForgeAdvance);
             _aoes.Add(new(Shape, caster.Position, activation: activation));
+            _steelWarnings.RemoveAt(warningIndex);
         }
         ++_jumpCount;
         if (id == (uint)AID.LeapingLiftJumpLast)
@@ -284,6 +315,28 @@ sealed class Steelsforge(BossModule module) : Components.GenericAOEs(module)
         for (var i = 0; i < _aoes.Count; ++i)
         {
             var distance = (_aoes[i].Origin - position).LengthSq();
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                bestIndex = i;
+            }
+        }
+        return bestIndex;
+    }
+
+    private int MatchingAOE(Actor caster)
+    {
+        var actorIndex = _aoes.FindIndex(aoe => aoe.ActorID == caster.InstanceID);
+        return actorIndex >= 0 ? actorIndex : ClosestAOE(caster.Position);
+    }
+
+    private int ClosestSteelWarning(WPos position)
+    {
+        var bestIndex = -1;
+        var bestDistance = 1f;
+        for (var i = 0; i < _steelWarnings.Count; ++i)
+        {
+            var distance = (_steelWarnings[i] - position).LengthSq();
             if (distance < bestDistance)
             {
                 bestDistance = distance;
@@ -477,6 +530,7 @@ sealed class MTH2SwordDancerStates : StateMachineBuilder
     StatesType = typeof(MTH2SwordDancerStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
+    StatusIDType = typeof(SID),
     PrimaryActorOID = (uint)OID.Boss,
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,

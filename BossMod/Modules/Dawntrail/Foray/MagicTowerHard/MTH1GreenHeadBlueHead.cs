@@ -522,7 +522,7 @@ sealed class ArcaneRevelationAOEs(BossModule module) : PredictiveAOEs(module)
         public readonly List<AOEInstance> AOEs = [];
     }
 
-    private static readonly AOEShapeRect Matrix = new(60f, 2.5f);
+    private static readonly AOEShapeRect Matrix = new(60f, 2.5f, 60f);
     private static readonly AOEShapeRect TerrorsWide = new(40f, 10f);
     private static readonly AOEShapeRect TerrorsNarrow = new(40f, 5f);
     private static readonly AOEShapeDonut Donut = new(20f, 60f);
