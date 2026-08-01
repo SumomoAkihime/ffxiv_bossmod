@@ -349,12 +349,21 @@ sealed class Steelsforge(BossModule module) : Components.GenericAOEs(module)
 
 sealed class LeapingLiftKnockback(BossModule module) : Components.GenericKnockback(module, (uint)AID.Steelsbreath)
 {
+    private const float NextSourceMarkerRadius = 2f;
+    private static readonly uint NextSourceMarkerColor = Color.FromComponents(64, 192, 255).ABGR;
     private readonly List<Knockback> _sources = [];
     private DateTime _firstActivation;
     private bool _collecting;
 
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor) =>
         _sources.Count != 0 ? CollectionsMarshal.AsSpan(_sources)[..1] : [];
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        base.DrawArenaForeground(pcSlot, pc);
+        if (_sources.Count > 1)
+            Arena.ZoneCircleOutline(_sources[1].Origin, NextSourceMarkerRadius, NextSourceMarkerColor, 2f);
+    }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
