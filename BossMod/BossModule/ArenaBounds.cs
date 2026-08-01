@@ -250,7 +250,7 @@ public abstract class ArenaBounds(float radius, float mapResolution, float scale
         var points = CurveApprox.Circle(radius, MaxApproxError);
         var len = points.Length;
         var offset = center - ArenaCenter;
-        List<WDir> pointsO = [with(len)];
+        List<WDir> pointsO = new(len);
         for (var i = 0; i < len; ++i)
         {
             pointsO.Add(points[i] + offset);
