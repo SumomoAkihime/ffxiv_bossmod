@@ -1,4 +1,4 @@
-namespace BossMod.Modules.Dawntrail.Foray.FATE.Dehumidifier;
+﻿namespace BossMod.Modules.Dawntrail.Foray.FATE.Dehumidifier;
 
 public enum OID : uint {
     Boss = 0x46B8,

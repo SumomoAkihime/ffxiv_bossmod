@@ -1,4 +1,4 @@
-namespace BossMod.Modules.Dawntrail.Foray.FATE.GaintBird;
+﻿namespace BossMod.Modules.Dawntrail.Foray.FATE.GaintBird;
 
 public enum OID : uint {
     Boss = 0x46C1,

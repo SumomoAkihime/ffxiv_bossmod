@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.FATE.Lifereaper;
+﻿namespace BossMod.Dawntrail.Foray.FATE.Lifereaper;
 
 public enum OID : uint {
     Boss = 0x4772, // R3.500, x1

@@ -1,4 +1,4 @@
-namespace BossMod.Modules.Dawntrail.Foray.FATE.MadMudarch;
+﻿namespace BossMod.Modules.Dawntrail.Foray.FATE.MadMudarch;
 
 public enum OID : uint {
     Boss = 0x46BD,
