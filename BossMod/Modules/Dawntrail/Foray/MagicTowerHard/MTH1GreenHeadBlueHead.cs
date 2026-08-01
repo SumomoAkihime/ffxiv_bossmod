@@ -42,8 +42,8 @@ public enum AID : uint
     CrossblazeBlazeloop = 47673,
     CrossblazeAndRepeat = 47675,
     BlazeloopCrossblaze = 47678,
-    BlazeFirstBlue = 47683,
-    BlazeFirstGreen = 47684,
+    BlazeSequenceFirst = 47683,
+    BlazeSequenceSecond = 47684,
     Crossblaze = 47685, // Helper->self, range 35 cross, width 10
     Blazeloop = 47686, // Helper->self, range 5-60 donut
     BlazeFollowing = 47689,
@@ -289,9 +289,11 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
     {
         public readonly AOEShape[] Shapes = [first, second];
         public int Next;
+
+        public void Reset() => Next = 0;
     }
 
-    public readonly record struct Preview(AOEShape Shape, WPos Origin, DateTime Activation, bool Green)
+    public readonly record struct Preview(AOEShape Shape, WPos Origin, DateTime Activation, bool Green, int Sequence)
     {
         public AOEInstance AOE => new(Shape, Origin, activation: Activation);
     }
@@ -301,11 +303,23 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
     private static readonly AOEShapeDonut Donut = new(5f, 60f);
     private Pattern? _greenPattern;
     private Pattern? _bluePattern;
+    private bool _firstGreen;
+    private Preview? _resolvedGreenCircle;
+    private Preview? _resolvedBlueCircle;
     private readonly List<Preview> _previews = [];
     private readonly AOEInstance[] _active = new AOEInstance[2];
 
     public Preview? Current => _previews.Count != 0 ? _previews[0] : null;
-    public Preview? Following => _previews.Count > 1 ? _previews[1] : null;
+
+    public Preview? CircleForKnockback(bool green)
+    {
+        var resolved = green ? _resolvedGreenCircle : _resolvedBlueCircle;
+        if (resolved is Preview recent && WorldState.CurrentTime <= recent.Activation.AddSeconds(1d))
+            return recent;
+
+        var index = _previews.FindIndex(preview => preview.Green == green && preview.Shape is AOEShapeCircle);
+        return index >= 0 ? _previews[index] : null;
+    }
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
@@ -334,13 +348,17 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
             base.AddMovementHints(slot, actor, movementHints);
     }
 
-    public WPos? FindKnockbackPreparation(Actor actor, WDir direction)
+    public WPos? FindKnockbackPreparation(Actor actor, Preview circle, WDir direction)
     {
-        if (Current is not Preview current || Following is not Preview following)
+        if (FollowingShape(circle) is not Preview following)
             return null;
 
-        var currentAOE = current.AOE;
+        var currentAOE = circle.AOE;
         var followingAOE = following.AOE;
+        var earlierAOEs = _previews
+            .Where(preview => preview.Activation <= circle.Activation && preview != circle)
+            .Select(preview => preview.AOE)
+            .ToArray();
         WPos? best = null;
         var bestDistance = float.MaxValue;
         for (var x = -18f; x <= 18f; x += 1f)
@@ -348,8 +366,10 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
             for (var z = -18f; z <= 18f; z += 1f)
             {
                 var candidate = new WPos(MTH1GreenHeadBlueHead.ArenaCenter.X + x, MTH1GreenHeadBlueHead.ArenaCenter.Z + z);
-                var destination = candidate + 20f * direction;
-                if (!SafeSpot.Safe(candidate, currentAOE) || !SafeSpot.Safe(destination, followingAOE))
+                var destination = candidate + 10f * direction;
+                if (!SafeSpot.Safe(candidate, currentAOE)
+                    || !SafeSpot.Safe(candidate, earlierAOEs)
+                    || !SafeSpot.Safe(destination, followingAOE))
                     continue;
 
                 var distance = (candidate - actor.Position).LengthSq();
@@ -363,8 +383,8 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
         return best;
     }
 
-    public bool DestinationUnsafe(WPos destination) =>
-        !SafeSpot.InBounds(destination) || Following is Preview following && following.AOE.Check(destination);
+    public bool DestinationUnsafe(WPos destination, Preview circle) =>
+        !SafeSpot.InBounds(destination) || FollowingShape(circle) is Preview following && following.AOE.Check(destination);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
@@ -395,17 +415,37 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
         var green = caster.OID == (uint)OID.GreenHeadMechanic;
         if (!green && caster.OID != (uint)OID.BlueHeadMechanic)
             return;
-        if (id is not ((uint)AID.BlazeFirstBlue) and not ((uint)AID.BlazeFirstGreen) and not ((uint)AID.BlazeFollowing))
+        if (id is not ((uint)AID.BlazeSequenceFirst) and not ((uint)AID.BlazeSequenceSecond) and not ((uint)AID.BlazeFollowing))
             return;
+
+        if (id == (uint)AID.BlazeSequenceFirst)
+        {
+            _greenPattern?.Reset();
+            _bluePattern?.Reset();
+            _previews.Clear();
+            _resolvedGreenCircle = null;
+            _resolvedBlueCircle = null;
+            _firstGreen = green;
+        }
 
         var patternForHead = green ? _greenPattern : _bluePattern;
         if (patternForHead == null || patternForHead.Next >= patternForHead.Shapes.Length)
             return;
 
+        var sequence = id switch
+        {
+            (uint)AID.BlazeSequenceFirst => 1,
+            (uint)AID.BlazeSequenceSecond => 2,
+            _ => green == _firstGreen ? 3 : 4
+        };
         var activation = Module.CastFinishAt(spell);
-        _previews.Add(new(Circle, spell.LocXZ, activation, green));
-        _previews.Add(new(patternForHead.Shapes[patternForHead.Next++], spell.LocXZ, activation.AddSeconds(2.05d), green));
-        _previews.Sort((left, right) => left.Activation.CompareTo(right.Activation));
+        _previews.Add(new(Circle, spell.LocXZ, activation, green, sequence));
+        _previews.Add(new(patternForHead.Shapes[patternForHead.Next++], spell.LocXZ, activation.AddSeconds(2.05d), green, sequence));
+        _previews.Sort((left, right) =>
+        {
+            var activationOrder = left.Activation.CompareTo(right.Activation);
+            return activationOrder != 0 ? activationOrder : left.Sequence.CompareTo(right.Sequence);
+        });
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -422,7 +462,16 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
 
         var index = Find(shapeType, caster.Position);
         if (index >= 0)
+        {
+            if (_previews[index].Shape is AOEShapeCircle)
+            {
+                if (_previews[index].Green)
+                    _resolvedGreenCircle = _previews[index];
+                else
+                    _resolvedBlueCircle = _previews[index];
+            }
             _previews.RemoveAt(index);
+        }
         ++NumCasts;
     }
 
@@ -430,6 +479,15 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
     {
         var index = _previews.FindIndex(preview => preview.Shape.GetType() == shapeType && (preview.Origin - position).LengthSq() < 1f);
         return index >= 0 ? index : _previews.FindIndex(preview => preview.Shape.GetType() == shapeType);
+    }
+
+    private Preview? FollowingShape(Preview circle)
+    {
+        var index = _previews.FindIndex(preview =>
+            preview.Sequence == circle.Sequence
+            && preview.Green == circle.Green
+            && preview.Shape is not AOEShapeCircle);
+        return index >= 0 ? _previews[index] : null;
     }
 
     private static bool TryPattern(uint aid, out AOEShape first, out AOEShape second)
@@ -457,25 +515,26 @@ sealed class HissingResonance(BossModule module) : Components.GenericKnockback(m
 
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
-        if (!_statuses.TryGetValue(actor.InstanceID, out var status) || _fourfold.Current is not FourfoldBlaze.Preview current)
-            return [];
-        if (current.Green != IsGreen(status))
+        if (!_statuses.TryGetValue(actor.InstanceID, out var status)
+            || _fourfold.CircleForKnockback(IsGreen(status)) is not FourfoldBlaze.Preview circle)
             return [];
 
         var direction = Direction(status);
-        _source[0] = new(MTH1GreenHeadBlueHead.ArenaCenter, 20f, current.Activation, direction: Angle.FromDirection(direction), kind: Kind.DirForward);
+        _source[0] = new(MTH1GreenHeadBlueHead.ArenaCenter, 10f, circle.Activation.AddSeconds(0.4d), direction: Angle.FromDirection(direction), kind: Kind.DirForward);
         return _source;
     }
 
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => _fourfold.DestinationUnsafe(pos);
+    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) =>
+        _statuses.TryGetValue(actor.InstanceID, out var status)
+        && _fourfold.CircleForKnockback(IsGreen(status)) is FourfoldBlaze.Preview circle
+        && _fourfold.DestinationUnsafe(pos, circle);
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         base.DrawArenaForeground(pcSlot, pc);
         if (_statuses.TryGetValue(pc.InstanceID, out var status)
-            && _fourfold.Current is FourfoldBlaze.Preview current
-            && current.Green == IsGreen(status)
-            && _fourfold.FindKnockbackPreparation(pc, Direction(status)) is WPos preparation)
+            && _fourfold.CircleForKnockback(IsGreen(status)) is FourfoldBlaze.Preview circle
+            && _fourfold.FindKnockbackPreparation(pc, circle, Direction(status)) is WPos preparation)
         {
             Arena.ZoneCircleOutline(preparation, 1.2f, Colors.Safe, 2f);
         }
@@ -484,9 +543,8 @@ sealed class HissingResonance(BossModule module) : Components.GenericKnockback(m
     public override void AddMovementHints(int slot, Actor actor, MovementHints movementHints)
     {
         if (_statuses.TryGetValue(actor.InstanceID, out var status)
-            && _fourfold.Current is FourfoldBlaze.Preview current
-            && current.Green == IsGreen(status)
-            && _fourfold.FindKnockbackPreparation(actor, Direction(status)) is WPos preparation
+            && _fourfold.CircleForKnockback(IsGreen(status)) is FourfoldBlaze.Preview circle
+            && _fourfold.FindKnockbackPreparation(actor, circle, Direction(status)) is WPos preparation
             && (preparation - actor.Position).LengthSq() > 2.25f)
         {
             movementHints.Add((actor.Position, preparation, Colors.Safe));
