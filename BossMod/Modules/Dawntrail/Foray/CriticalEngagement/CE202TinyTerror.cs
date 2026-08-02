@@ -754,7 +754,7 @@ sealed class OrbPairTimeline(BossModule module) : BossComponent(module) {
 sealed class FlareCombo(BossModule module) : Components.GenericAOEs(module) {
     private static readonly AOEShapeCircle Shape = new(18.0f);
     private readonly OrbPairTimeline timeline = module.FindComponent<OrbPairTimeline>()!;
-    private readonly List<AOEInstance> displayed = [with(2)];
+    private readonly List<AOEInstance> displayed = new(2);
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
         displayed.Clear();

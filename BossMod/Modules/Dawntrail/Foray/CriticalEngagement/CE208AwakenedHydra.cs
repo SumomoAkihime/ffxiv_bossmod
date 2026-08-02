@@ -72,8 +72,8 @@ sealed class ToxinPools(BossModule module) : Components.GenericAOEs(module)
     private static float CurrentRadius(DateTime now, DateTime createdAt)
         => MathF.Min(MaxRadius, InitialRadius + (float)(now - createdAt).TotalSeconds * GrowthPerSecond);
 
-    private readonly List<Pool> _pools = [with(4)];
-    private readonly List<AOEInstance> _active = [with(4)];
+    private readonly List<Pool> _pools = new(4);
+    private readonly List<AOEInstance> _active = new(4);
     private readonly HashSet<uint> _seenGlobalSequences = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
@@ -184,9 +184,9 @@ sealed class MultipleBreathsSequence(BossModule module) : Components.GenericAOEs
     private const double FirstFollowupDelay = 1.03d;
     private const double FollowupInterval = 2.06d;
     private const double RiskWindow = 2.2d;
-    private readonly List<Angle> _recorded = [with(6)];
-    private readonly List<BreathStep> _steps = [with(6)];
-    private readonly List<AOEInstance> _displayed = [with(6)];
+    private readonly List<Angle> _recorded = new(6);
+    private readonly List<BreathStep> _steps = new(6);
+    private readonly List<AOEInstance> _displayed = new(6);
     private bool _recording;
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)

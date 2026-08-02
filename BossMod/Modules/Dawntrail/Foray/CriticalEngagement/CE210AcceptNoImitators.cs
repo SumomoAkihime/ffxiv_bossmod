@@ -234,7 +234,7 @@ sealed class ChargeDashes(BossModule module) : Components.GenericAOEs(module)
     private const float MinDashStep = 0.25f; // ~100y/s at 100Hz replay / ~1.7y per 60Hz frame; walks stay well below
     private const double DashLifetime = 0.4d;
     private readonly List<AOEInstance> _segments = [];
-    private readonly List<AOEInstance> _displayed = [with(32)];
+    private readonly List<AOEInstance> _displayed = new(32);
     private WPos _lastPosition;
     private bool _hasLast;
 

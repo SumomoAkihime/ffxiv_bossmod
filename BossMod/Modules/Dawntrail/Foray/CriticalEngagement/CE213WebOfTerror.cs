@@ -110,8 +110,8 @@ sealed class ArachnidFunnel(BossModule module) : Components.GenericAOEs(module)
     private sealed record CastCharge(ulong CasterID, ulong TargetID, WPos FallbackDestination, DateTime Activation);
 
     private CastCharge? _cast;
-    private readonly List<AOEInstance> _aftershocks = [with(2)];
-    private readonly List<AOEInstance> _displayed = [with(3)];
+    private readonly List<AOEInstance> _aftershocks = new(2);
+    private readonly List<AOEInstance> _displayed = new(3);
     private readonly HashSet<uint> _seenGlobalSequences = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)

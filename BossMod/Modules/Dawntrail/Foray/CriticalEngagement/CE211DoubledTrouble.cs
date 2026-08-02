@@ -121,9 +121,9 @@ sealed class DashingCuts(BossModule module) : Components.GenericAOEs(module)
     private readonly record struct ResolvedCharge(uint ActionID, ulong ActorID, DateTime Activation, DateTime ExpiresAt);
     private readonly record struct EventKey(uint GlobalSequence, uint ActionID, ulong ActorID);
 
-    private readonly List<PendingCharge> _pending = [with(4)];
-    private readonly List<AOEInstance> _displayed = [with(4)];
-    private readonly List<ResolvedCharge> _resolved = [with(4)];
+    private readonly List<PendingCharge> _pending = new(4);
+    private readonly List<AOEInstance> _displayed = new(4);
+    private readonly List<ResolvedCharge> _resolved = new(4);
     private readonly Dictionary<EventKey, DateTime> _seenEvents = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
@@ -295,7 +295,7 @@ sealed class MaliciousWeavePulls(BossModule module) : Components.SimpleKnockback
 sealed class HairShearsPulls(BossModule module) : Components.GenericKnockback(module)
 {
     private static readonly AOEShapeRect Shape = new(60f, 2f, 60f, 90f.Degrees());
-    private readonly List<Knockback> _pulls = [with(8)];
+    private readonly List<Knockback> _pulls = new(8);
     private readonly HashSet<uint> _seenGlobalSequences = [];
 
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)

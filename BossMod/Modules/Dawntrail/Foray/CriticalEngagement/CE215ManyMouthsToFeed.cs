@@ -96,8 +96,8 @@ sealed class VenomSpread(BossModule module) : Components.GenericAOEs(module)
     private const float RadiusStep = 2.5f;
     private const double FirstDelayAfterVenom = 2.45d;
     private const double PulseInterval = 1.07d;
-    private readonly List<Spread> _spreads = [with(4)];
-    private readonly List<AOEInstance> _displayed = [with(4)];
+    private readonly List<Spread> _spreads = new(4);
+    private readonly List<AOEInstance> _displayed = new(4);
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {

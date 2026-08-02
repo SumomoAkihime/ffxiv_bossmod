@@ -39,7 +39,7 @@ sealed class FreefallSequence(BossModule module) : Components.GenericAOEs(module
 {
     private static readonly AOEShapeCircle Shape = new(12f);
     private static readonly double[] ResolveOffsets = [0.23d, 3.06d, 5.84d];
-    private readonly List<AOEInstance> _aoes = [with(3)];
+    private readonly List<AOEInstance> _aoes = new(3);
     private readonly HashSet<uint> _seenGlobalSequences = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)

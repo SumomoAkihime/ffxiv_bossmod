@@ -37,8 +37,8 @@ sealed class DragonsBreathSequence(BossModule module) : Components.GenericAOEs(m
 
     private static readonly AOEShapeCone Shape = new(30f, 60f.Degrees());
     private static readonly Angle Step = 120f.Degrees();
-    private readonly List<Pending> _pending = [with(3)];
-    private readonly List<AOEInstance> _displayed = [with(2)];
+    private readonly List<Pending> _pending = new(3);
+    private readonly List<AOEInstance> _displayed = new(2);
     private readonly HashSet<uint> _seenGlobalSequences = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
@@ -108,8 +108,8 @@ sealed class Duobreath(BossModule module) : Components.GenericAOEs(module)
     private static readonly AOEShapeCone Shape = new(40f, 90f.Degrees());
     private static readonly Angle Opposite = 180f.Degrees();
     private const double FollowupDelay = 3.175d;
-    private readonly List<Pending> _pending = [with(2)];
-    private readonly List<AOEInstance> _displayed = [with(2)];
+    private readonly List<Pending> _pending = new(2);
+    private readonly List<AOEInstance> _displayed = new(2);
     private readonly HashSet<uint> _seenGlobalSequences = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
@@ -177,8 +177,8 @@ sealed class IceBreathSequence(BossModule module) : Components.GenericAOEs(modul
 
     private static readonly AOEShapeCone Shape = new(30f, 60f.Degrees());
     private static readonly Angle Step = 120f.Degrees();
-    private readonly List<Pending> _pending = [with(3)];
-    private readonly List<AOEInstance> _displayed = [with(2)];
+    private readonly List<Pending> _pending = new(3);
+    private readonly List<AOEInstance> _displayed = new(2);
     private readonly HashSet<uint> _seenGlobalSequences = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)

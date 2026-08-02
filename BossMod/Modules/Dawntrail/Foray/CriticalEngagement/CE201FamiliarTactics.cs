@@ -48,7 +48,7 @@ sealed class UnbowedSpirit(BossModule module) : Components.GenericAOEs(module)
     private static readonly AOEShapeCircle AIShape = new(5.5f);
     private const float PredictionLength = 8f;
     private readonly List<Actor> _blades = module.Enemies((uint)OID.AlabasterBlade);
-    private readonly List<AOEInstance> _active = [with(8)];
+    private readonly List<AOEInstance> _active = new(8);
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
@@ -110,9 +110,9 @@ sealed class BladePatterns(BossModule module) : Components.GenericAOEs(module)
 
     private readonly record struct ResolvedCast(uint ActionID, ulong ActorID, DateTime Activation, DateTime ExpiresAt);
 
-    private readonly List<PendingAOE> _pending = [with(16)];
-    private readonly List<AOEInstance> _displayed = [with(8)];
-    private readonly List<ResolvedCast> _resolved = [with(8)];
+    private readonly List<PendingAOE> _pending = new(16);
+    private readonly List<AOEInstance> _displayed = new(8);
+    private readonly List<ResolvedCast> _resolved = new(8);
     private readonly HashSet<uint> _seenGlobalSequences = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)

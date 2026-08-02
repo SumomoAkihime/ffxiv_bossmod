@@ -81,7 +81,7 @@ sealed class MovingNecrohaze(BossModule module) : Components.GenericAOEs(module)
     private static readonly AOEShapeCircle Shape = new(5.5f);
     private const double PulseLifetime = 0.9d;
     private readonly Dictionary<ulong, DateTime> _active = [];
-    private readonly List<AOEInstance> _displayed = [with(8)];
+    private readonly List<AOEInstance> _displayed = new(8);
     private readonly HashSet<EventKey> _seenEvents = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)

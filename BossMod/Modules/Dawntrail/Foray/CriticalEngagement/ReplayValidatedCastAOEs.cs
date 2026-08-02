@@ -22,9 +22,9 @@ abstract class ReplayValidatedCastAOEs(BossModule module) : Components.GenericAO
     private readonly record struct ResolvedCast(uint ActionID, ulong ActorID, DateTime Activation, DateTime ExpiresAt);
     private readonly record struct EventKey(uint GlobalSequence, uint ActionID, ulong ActorID);
 
-    private readonly List<PendingAOE> _pending = [with(16)];
-    private readonly List<AOEInstance> _displayed = [with(16)];
-    private readonly List<ResolvedCast> _resolved = [with(16)];
+    private readonly List<PendingAOE> _pending = new(16);
+    private readonly List<AOEInstance> _displayed = new(16);
+    private readonly List<ResolvedCast> _resolved = new(16);
     private readonly Dictionary<EventKey, DateTime> _seenEvents = [];
 
     protected abstract AOEConfig? ConfigFor(uint actionID);
@@ -250,8 +250,8 @@ abstract class ReplayValidatedOppositeAOEs(BossModule module) : Components.Gener
     private const double EventResolveTolerance = 0.5d;
     private const double EventDedupWindow = 2d;
     private readonly record struct EventKey(uint GlobalSequence, uint ActionID, ulong ActorID);
-    private readonly List<Sequence> _sequences = [with(4)];
-    private readonly List<AOEInstance> _displayed = [with(4)];
+    private readonly List<Sequence> _sequences = new(4);
+    private readonly List<AOEInstance> _displayed = new(4);
     private readonly Dictionary<EventKey, DateTime> _seenEvents = [];
 
     protected abstract SequenceConfig? ConfigFor(uint firstActionID);

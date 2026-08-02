@@ -38,7 +38,7 @@ sealed class Uplift(BossModule module) : Components.SimpleAOEs(module, (uint)AID
 sealed class OctupleSwipe(BossModule module) : Components.GenericAOEs(module)
 {
     private static readonly AOEShapeCone Shape = new(40f, 45f.Degrees());
-    private readonly List<AOEInstance> _aoes = [with(8)];
+    private readonly List<AOEInstance> _aoes = new(8);
     private readonly HashSet<uint> _seenGlobalSequences = [];
     private DateTime _firstActivation;
 

@@ -35,7 +35,7 @@ sealed class NobleBlaster(BossModule module) : Components.SimpleAOEs(module, (ui
 sealed class ThunderboltPuddle(BossModule module) : Components.GenericAOEs(module) {
     private static readonly AOEShapeCircle Shape = new(10f);
     private readonly List<AOEInstance> _aoes = [];
-    private readonly List<AOEInstance> _displayed = [with(9)];
+    private readonly List<AOEInstance> _displayed = new(9);
     private readonly HashSet<uint> _seenGlobalSequences = [];
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell) {

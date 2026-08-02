@@ -92,7 +92,7 @@ sealed class RubyReflection(BossModule module) : Components.GenericAOEs(module)
 {
     private static readonly AOEShapeRect Short = new(20f, 10f);
     private static readonly AOEShapeRect Long = new(40f, 20f);
-    private readonly List<AOEInstance> _displayed = [with(3)];
+    private readonly List<AOEInstance> _displayed = new(3);
     private DateTime _activation;
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
@@ -154,7 +154,7 @@ sealed class CircularKnockback(BossModule module) : Components.GenericKnockback(
     private const float SafeHalfWidth = 23.5f;
     private const double HitDelay = 6.0d;
     private readonly List<Knockback> _casters = [];
-    private readonly List<Knockback> _displayed = [with(4)];
+    private readonly List<Knockback> _displayed = new(4);
 
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
@@ -238,7 +238,7 @@ sealed class KnockAside(BossModule module) : Components.GenericKnockback(module)
 
     private readonly List<AsideSource> _sources = [];
     private readonly List<(WPos AsidePos, DateTime Activation, ulong ActorID)> _pendingAside = [];
-    private readonly List<Knockback> _displayed = [with(4)];
+    private readonly List<Knockback> _displayed = new(4);
 
     // Exposes the lateral push displacement (15y * direction) that will resolve before the given
     // circular-knockback activation and has not yet been applied, so CircularKnockback can offset

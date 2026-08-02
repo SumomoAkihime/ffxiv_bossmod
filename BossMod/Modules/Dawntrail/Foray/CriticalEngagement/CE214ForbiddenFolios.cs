@@ -103,7 +103,7 @@ sealed class CoverToCoverSequence(BossModule module) : Components.GenericAOEs(mo
 {
     private static readonly AOEShapeCone Shape = new(30f, 90f.Degrees());
     private const double SecondResolveDelay = 4.2d;
-    private readonly List<AOEInstance> _displayed = [with(2)];
+    private readonly List<AOEInstance> _displayed = new(2);
     private AOEInstance? _first;
     private AOEInstance? _second;
 
@@ -197,8 +197,8 @@ sealed class HorizontalRule(BossModule module) : Components.GenericAOEs(module)
     private static readonly AOEShapeRect Shape = new(50f, 6f);
     private const double EventResolveTolerance = 0.5d;
     private const double ExpireDelay = 2d;
-    private readonly List<AOEInstance> _pending = [with(16)];
-    private readonly List<AOEInstance> _displayed = [with(16)];
+    private readonly List<AOEInstance> _pending = new(16);
+    private readonly List<AOEInstance> _displayed = new(16);
     private readonly HashSet<uint> _seenGlobalSequences = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
@@ -285,8 +285,8 @@ sealed class KnowledgeSectors(BossModule module) : Components.GenericAOEs(module
 
     private static readonly AOEShapeCone Sector120 = new(25f, 60f.Degrees());
     private static readonly AOEShapeCone Sector180 = new(25f, 90f.Degrees());
-    private readonly List<PendingSector> _pending = [with(6)];
-    private readonly List<AOEInstance> _displayed = [with(6)];
+    private readonly List<PendingSector> _pending = new(6);
+    private readonly List<AOEInstance> _displayed = new(6);
     private readonly HashSet<uint> _seenGlobalSequences = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)

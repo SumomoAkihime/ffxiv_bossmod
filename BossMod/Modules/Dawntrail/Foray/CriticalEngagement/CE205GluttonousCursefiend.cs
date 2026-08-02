@@ -101,7 +101,7 @@ sealed class AlgolDrawIn(BossModule module) : Components.GenericKnockback(module
     private static readonly AOEShapeCone ShortCone = new(30f, 15f.Degrees());
     // slightly wider than the drawn cones so the AI keeps a margin from the sweep edge
     private static readonly AOEShapeCone HintCone = new(30f, 22.5f.Degrees());
-    private readonly List<Knockback> _active = [with(2)];
+    private readonly List<Knockback> _active = new(2);
     private Knockback? _normal;
     private Knockback? _spinning;
     private Angle _spinInitialDirection;

@@ -79,7 +79,7 @@ sealed class KidnapperAOEs(BossModule module) : ReplayValidatedCastAOEs(module)
 sealed class HurricaneHazards(BossModule module) : Components.GenericAOEs(module)
 {
     private static readonly AOEShapeCircle Shape = new(4.5f);
-    private readonly List<AOEInstance> _displayed = [with(8)];
+    private readonly List<AOEInstance> _displayed = new(8);
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
@@ -100,7 +100,7 @@ sealed class HurricaneKnockbacks(BossModule module) : Components.GenericKnockbac
     // the player is already being knocked. Use a wider preview radius so the arrow appears as the
     // moving storm approaches; the separate HurricaneHazards circle still marks the lethal body.
     private static readonly AOEShapeCircle Shape = new(10f);
-    private readonly List<Knockback> _displayed = [with(8)];
+    private readonly List<Knockback> _displayed = new(8);
 
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
@@ -126,7 +126,7 @@ sealed class GustKnockback(BossModule module) : Components.GenericKnockback(modu
     // Replay event timing is consistently about 0.60s after the helper cast finishes. Using the
     // old 1.05s estimate scheduled the safe-edge constraint roughly 0.4s after the real knockback.
     private const double HitDelay = 0.60d;
-    private readonly List<Knockback> _casters = [with(2)];
+    private readonly List<Knockback> _casters = new(2);
 
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
