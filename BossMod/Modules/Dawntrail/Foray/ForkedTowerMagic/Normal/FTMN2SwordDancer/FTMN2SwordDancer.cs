@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.MagicTowerNormal.MTN2SwordDancer;
+﻿namespace BossMod.Dawntrail.Foray.ForkedTowerMagic.Normal.FTMN2SwordDancer;
 
 public enum OID : uint
 {
@@ -155,9 +155,9 @@ sealed class Surgeswords(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-sealed class MTN2SwordDancerStates : StateMachineBuilder
+sealed class SwordDancerStates : StateMachineBuilder
 {
-    public MTN2SwordDancerStates(BossModule module) : base(module)
+    public SwordDancerStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<SwordStorm>()
@@ -177,7 +177,7 @@ sealed class MTN2SwordDancerStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed,
-    StatesType = typeof(MTN2SwordDancerStates),
+    StatesType = typeof(SwordDancerStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
     PrimaryActorOID = (uint)OID.Boss,
@@ -187,4 +187,4 @@ sealed class MTN2SwordDancerStates : StateMachineBuilder
     GroupID = 1093,
     NameID = 14820,
     SortOrder = 2)]
-public sealed class MTN2SwordDancer(WorldState ws, Actor primary) : BossModule(ws, primary, new(600f, 704f), new ArenaBoundsCircle(25f));
+public sealed class SwordDancer(WorldState ws, Actor primary) : BossModule(ws, primary, new(600f, 704f), new ArenaBoundsCircle(25f));

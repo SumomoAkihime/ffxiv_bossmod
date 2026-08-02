@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.MagicTowerHard.MTH1GreenHeadBlueHead;
+﻿namespace BossMod.Dawntrail.Foray.ForkedTowerMagic.Extreme.FTME1TwoHeadedAevis;
 
 public enum OID : uint
 {
@@ -115,7 +115,7 @@ static class SafeSpot
         {
             for (var z = -18f; z <= 18f; z += 1f)
             {
-                var candidate = new WPos(MTH1GreenHeadBlueHead.ArenaCenter.X + x, MTH1GreenHeadBlueHead.ArenaCenter.Z + z);
+                var candidate = new WPos(TwoHeadedAevis.ArenaCenter.X + x, TwoHeadedAevis.ArenaCenter.Z + z);
                 if (!Safe(candidate, aoes))
                     continue;
 
@@ -156,8 +156,8 @@ static class SafeSpot
     }
 
     public static bool InBounds(WPos position) =>
-        MathF.Abs(position.X - MTH1GreenHeadBlueHead.ArenaCenter.X) <= 18.5f
-        && MathF.Abs(position.Z - MTH1GreenHeadBlueHead.ArenaCenter.Z) <= 18.5f;
+        MathF.Abs(position.X - TwoHeadedAevis.ArenaCenter.X) <= 18.5f
+        && MathF.Abs(position.Z - TwoHeadedAevis.ArenaCenter.Z) <= 18.5f;
 }
 
 abstract class PredictiveAOEs(BossModule module, string warningText = "GTFO from predicted AOE!") : Components.GenericAOEs(module, warningText: warningText)
@@ -358,7 +358,7 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
         {
             for (var z = -18f; z <= 18f; z += 1f)
             {
-                var candidate = new WPos(MTH1GreenHeadBlueHead.ArenaCenter.X + x, MTH1GreenHeadBlueHead.ArenaCenter.Z + z);
+                var candidate = new WPos(TwoHeadedAevis.ArenaCenter.X + x, TwoHeadedAevis.ArenaCenter.Z + z);
                 var destination = candidate + 10f * direction;
                 if (!SafeSpot.Safe(candidate, currentAOE)
                     || !SafeSpot.Safe(candidate, earlierAOEs)
@@ -513,7 +513,7 @@ sealed class HissingResonance(BossModule module) : Components.GenericKnockback(m
             return [];
 
         var direction = Direction(status);
-        _source[0] = new(MTH1GreenHeadBlueHead.ArenaCenter, 10f, circle.Activation.AddSeconds(0.4d), direction: Angle.FromDirection(direction), kind: Kind.DirForward);
+        _source[0] = new(TwoHeadedAevis.ArenaCenter, 10f, circle.Activation.AddSeconds(0.4d), direction: Angle.FromDirection(direction), kind: Kind.DirForward);
         return _source;
     }
 
@@ -739,9 +739,9 @@ sealed class Archaeofury(BossModule module) : Components.UniformStackSpread(modu
 sealed class ThunderfrostTempest(BossModule module) : Components.RaidwideCast(module, (uint)AID.ThunderfrostTempest);
 sealed class Enrage(BossModule module) : Components.RaidwideCast(module, (uint)AID.Enrage);
 
-sealed class MTH1GreenHeadBlueHeadStates : StateMachineBuilder
+sealed class TwoHeadedAevisStates : StateMachineBuilder
 {
-    public MTH1GreenHeadBlueHeadStates(BossModule module) : base(module)
+    public TwoHeadedAevisStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<BuffetAssignments>()
@@ -758,7 +758,7 @@ sealed class MTH1GreenHeadBlueHeadStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed,
-    StatesType = typeof(MTH1GreenHeadBlueHeadStates),
+    StatesType = typeof(TwoHeadedAevisStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
     PrimaryActorOID = (uint)OID.GreenHead,
@@ -768,7 +768,7 @@ sealed class MTH1GreenHeadBlueHeadStates : StateMachineBuilder
     GroupID = 1114,
     NameID = 14490,
     SortOrder = 1)]
-public sealed class MTH1GreenHeadBlueHead(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, new ArenaBoundsSquare(20f))
+public sealed class TwoHeadedAevis(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, new ArenaBoundsSquare(20f))
 {
     public static readonly WPos ArenaCenter = new(-900f, 700f);
 

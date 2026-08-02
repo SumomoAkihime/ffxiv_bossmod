@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.MagicTowerNormal.MTN4Catalogue;
+﻿namespace BossMod.Dawntrail.Foray.ForkedTowerMagic.Normal.FTMN4Index;
 
 public enum OID : uint
 {
@@ -61,9 +61,9 @@ sealed class ArenaChanges(BossModule module) : BossComponent(module)
             return;
 
         if (state == 0x00020001)
-            SetBounds(MTN4Catalogue.ExpandedBounds);
+            SetBounds(Index.ExpandedBounds);
         else if (state == 0x00080004)
-            SetBounds(MTN4Catalogue.InitialBounds);
+            SetBounds(Index.InitialBounds);
     }
 
     private void SetBounds(ArenaBoundsCustom bounds)
@@ -98,7 +98,7 @@ sealed class ElementalPlatforms(BossModule module) : Components.GenericAOEs(modu
 
             if (!_activations.TryGetValue(ballOID, out var activation))
             {
-                var start = Angle.FromDirection(ball.Position - MTN4Catalogue.ArenaCenter);
+                var start = Angle.FromDirection(ball.Position - Index.ArenaCenter);
                 var clockwise1 = ClockwiseDistance(start, marker.Rotation);
                 var clockwise2 = ClockwiseDistance(start, marker.Rotation + 180f.Degrees());
                 var travel = Math.Min(clockwise1, clockwise2);
@@ -127,7 +127,7 @@ sealed class ElementalPlatforms(BossModule module) : Components.GenericAOEs(modu
 
     private void AddPlatform(Angle rotation, DateTime activation)
     {
-        var center = MTN4Catalogue.ArenaCenter + 15.5f * rotation.ToDirection();
+        var center = Index.ArenaCenter + 15.5f * rotation.ToDirection();
         _aoes.Add(new(Platform, center, rotation, activation));
     }
 
@@ -214,9 +214,9 @@ sealed class Shockwave(BossModule module) : Components.GenericKnockback(module)
     }
 }
 
-sealed class MTN4CatalogueStates : StateMachineBuilder
+sealed class IndexStates : StateMachineBuilder
 {
-    public MTN4CatalogueStates(BossModule module) : base(module)
+    public IndexStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<Flare>()
@@ -235,7 +235,7 @@ sealed class MTN4CatalogueStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed,
-    StatesType = typeof(MTN4CatalogueStates),
+    StatesType = typeof(IndexStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
     PrimaryActorOID = (uint)OID.Boss,
@@ -245,7 +245,7 @@ sealed class MTN4CatalogueStates : StateMachineBuilder
     GroupID = 1093,
     NameID = 14717,
     SortOrder = 4)]
-public sealed class MTN4Catalogue(WorldState ws, Actor primary) : BossModule(ws, primary, InitialBounds.Center, InitialBounds)
+public sealed class Index(WorldState ws, Actor primary) : BossModule(ws, primary, InitialBounds.Center, InitialBounds)
 {
     public static readonly WPos ArenaCenter = new(0f, -628f);
     public static readonly ArenaBoundsCustom InitialBounds = BuildBounds([0f.Degrees(), 120f.Degrees(), -120f.Degrees()]);

@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.MagicTowerHard.MTH2SwordDancer;
+﻿namespace BossMod.Dawntrail.Foray.ForkedTowerMagic.Extreme.FTME2SwordDancer;
 
 public enum OID : uint
 {
@@ -95,7 +95,7 @@ sealed class SwordDance(BossModule module) : Components.GenericAOEs(module)
         var order = _sequenceOrder.GetValueOrDefault(caster.InstanceID, _resolved);
         if ((uint)order < _orderedDirections.Length)
             _orderedDirections[order] = spell.Rotation;
-        _aoes.Add(new(Shape, MTH2SwordDancer.ArenaCenter, spell.Rotation, Module.CastFinishAt(spell), Colors.Danger, actorID: caster.InstanceID));
+        _aoes.Add(new(Shape, SwordDancer.ArenaCenter, spell.Rotation, Module.CastFinishAt(spell), Colors.Danger, actorID: caster.InstanceID));
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
@@ -136,7 +136,7 @@ sealed class SwordDance(BossModule module) : Components.GenericAOEs(module)
 
     private void DrawFirstLineExclusive(Angle direction)
     {
-        var center = MTH2SwordDancer.ArenaCenter;
+        var center = SwordDancer.ArenaCenter;
         var first = new Rectangle(center, 10f, 60f, direction);
         Shape[] otherLines =
         [
@@ -369,8 +369,8 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
         var dangers = new Shape[aoes.Count];
         for (var i = 0; i < aoes.Count; ++i)
             dangers[i] = ToConservativeDanger(aoes[i]);
-        var safeRegion = new AOEShapeCustom([new Circle(MTH2SwordDancer.ArenaCenter, 25f - SafeMargin)], dangers, origin: MTH2SwordDancer.ArenaCenter);
-        safeRegion.Draw(Arena, MTH2SwordDancer.ArenaCenter, color: color);
+        var safeRegion = new AOEShapeCustom([new Circle(SwordDancer.ArenaCenter, 25f - SafeMargin)], dangers, origin: SwordDancer.ArenaCenter);
+        safeRegion.Draw(Arena, SwordDancer.ArenaCenter, color: color);
     }
 
     private static Shape ToConservativeDanger(AOEInstance aoe) => aoe.Shape switch
@@ -671,7 +671,7 @@ sealed class SafeSpotHints(BossModule module) : BossComponent(module)
         {
             for (var z = -24f; z <= 24f; z += 1f)
             {
-                var candidate = new WPos(MTH2SwordDancer.ArenaCenter.X + x, MTH2SwordDancer.ArenaCenter.Z + z);
+                var candidate = new WPos(SwordDancer.ArenaCenter.X + x, SwordDancer.ArenaCenter.Z + z);
                 if (!Safe(candidate))
                     continue;
 
@@ -701,9 +701,9 @@ sealed class SafeSpotHints(BossModule module) : BossComponent(module)
     }
 }
 
-sealed class MTH2SwordDancerStates : StateMachineBuilder
+sealed class SwordDancerStates : StateMachineBuilder
 {
-    public MTH2SwordDancerStates(BossModule module) : base(module)
+    public SwordDancerStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<SwordStorm>()
@@ -728,7 +728,7 @@ sealed class MTH2SwordDancerStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed,
-    StatesType = typeof(MTH2SwordDancerStates),
+    StatesType = typeof(SwordDancerStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
     StatusIDType = typeof(SID),
@@ -739,7 +739,7 @@ sealed class MTH2SwordDancerStates : StateMachineBuilder
     GroupID = 1114,
     NameID = 14820,
     SortOrder = 2)]
-public sealed class MTH2SwordDancer(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, new ArenaBoundsCircle(25f))
+public sealed class SwordDancer(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, new ArenaBoundsCircle(25f))
 {
     public static readonly WPos ArenaCenter = new(600f, 704f);
 }

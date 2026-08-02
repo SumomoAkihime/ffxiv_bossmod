@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.MagicTowerNormal.MTN1GreenHeadBlueHead;
+﻿namespace BossMod.Dawntrail.Foray.ForkedTowerMagic.Normal.FTMN1TwoHeadedAevis;
 
 public enum OID : uint
 {
@@ -148,9 +148,9 @@ sealed class HissingReprise(BossModule module) : Components.GenericKnockback(mod
     }
 }
 
-sealed class MTN1GreenHeadBlueHeadStates : StateMachineBuilder
+sealed class TwoHeadedAevisStates : StateMachineBuilder
 {
-    public MTN1GreenHeadBlueHeadStates(BossModule module) : base(module)
+    public TwoHeadedAevisStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<ThunderfrostTempest>()
@@ -165,7 +165,7 @@ sealed class MTN1GreenHeadBlueHeadStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed,
-    StatesType = typeof(MTN1GreenHeadBlueHeadStates),
+    StatesType = typeof(TwoHeadedAevisStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
     PrimaryActorOID = (uint)OID.GreenHead,
@@ -175,7 +175,7 @@ sealed class MTN1GreenHeadBlueHeadStates : StateMachineBuilder
     GroupID = 1093,
     NameID = 14490,
     SortOrder = 1)]
-public sealed class MTN1GreenHeadBlueHead(WorldState ws, Actor primary) : BossModule(ws, primary, new(-900f, 700f), new ArenaBoundsSquare(20f))
+public sealed class TwoHeadedAevis(WorldState ws, Actor primary) : BossModule(ws, primary, new(-900f, 700f), new ArenaBoundsSquare(20f))
 {
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {

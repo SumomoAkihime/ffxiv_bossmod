@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.MagicTowerNormal.MTN3Deathless;
+﻿namespace BossMod.Dawntrail.Foray.ForkedTowerMagic.Normal.FTMN3Necrophobia;
 
 public enum OID : uint
 {
@@ -189,9 +189,9 @@ sealed class SeveredElementPreview(BossModule module) : Components.GenericAOEs(m
     }
 }
 
-sealed class MTN3DeathlessStates : StateMachineBuilder
+sealed class NecrophobiaStates : StateMachineBuilder
 {
-    public MTN3DeathlessStates(BossModule module) : base(module)
+    public NecrophobiaStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<HailOfHellflares>()
@@ -207,7 +207,7 @@ sealed class MTN3DeathlessStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed,
-    StatesType = typeof(MTN3DeathlessStates),
+    StatesType = typeof(NecrophobiaStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
     PrimaryActorOID = (uint)OID.Boss,
@@ -217,4 +217,4 @@ sealed class MTN3DeathlessStates : StateMachineBuilder
     GroupID = 1093,
     NameID = 14503,
     SortOrder = 3)]
-public sealed class MTN3Deathless(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 800f), new ArenaBoundsCircle(25f));
+public sealed class Necrophobia(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 800f), new ArenaBoundsCircle(25f));
