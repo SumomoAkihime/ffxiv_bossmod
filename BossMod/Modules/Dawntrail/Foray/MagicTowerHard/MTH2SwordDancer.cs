@@ -38,7 +38,11 @@ public enum AID : uint
     SteelsbreathVisual = 49660,
     Steelsforge = 49661, // Helper->self, range 13 circle
     SwordDanceVisual = 49667,
-    SwordDance = 49672, // Helper->self, 60x20 rect
+    SwordDanceSequence1 = 49668, // Helper->self, first sequence signal
+    SwordDanceSequence2 = 49669, // Helper->self, second sequence signal
+    SwordDanceSequence3 = 49670, // Helper->self, third sequence signal
+    SwordDanceSequence4 = 49671, // Helper->self, fourth sequence signal
+    SwordDance = 49672, // Helper->self, 120x20 rect
     Surgeswords = 49674, // RushSword->self, 30x6 rect
     SwordStorm = 49675, // Boss->self, raidwide
     Steelsbreath = 50360 // Helper->self, knockback 26
@@ -60,12 +64,97 @@ sealed class TurnOuter(BossModule module) : Components.SimpleAOEs(module, (uint)
 sealed class TurnMiddleNarrow(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnMiddleNarrow, new AOEShapeDonutSector(14f, 19f, 28.5f.Degrees()));
 sealed class TurnOuterNarrow(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnOuterNarrow, new AOEShapeDonutSector(19f, 24f, 27f.Degrees()));
 sealed class MartialMystique(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MartialMystique, new AOEShapeRect(48f, 48f));
-sealed class SwordDance(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SwordDance, new AOEShapeRect(60f, 10f))
+sealed class SwordDance(BossModule module) : Components.GenericAOEs(module)
 {
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    private static readonly AOEShapeRect Shape = new(60f, 10f, 60f);
+    private readonly List<AOEInstance> _aoes = [];
+    private readonly Angle?[] _orderedDirections = new Angle?[4];
+    private readonly Dictionary<ulong, byte> _sequenceMasks = [];
+    private readonly Dictionary<ulong, int> _sequenceOrder = [];
+    private int _resolved;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
-        Color = Colors.Danger;
-        return base.ActiveAOEs(slot, actor);
+        if (_resolved is > 0 and < 4 && _orderedDirections[0] is Angle direction)
+            DrawFirstLineExclusive(direction);
+        base.DrawArenaBackground(pcSlot, pc);
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.SwordDanceVisual)
+        {
+            Reset();
+            return;
+        }
+        if (spell.Action.ID != (uint)AID.SwordDance)
+            return;
+
+        var order = _sequenceOrder.GetValueOrDefault(caster.InstanceID, _resolved);
+        if ((uint)order < _orderedDirections.Length)
+            _orderedDirections[order] = spell.Rotation;
+        _aoes.Add(new(Shape, MTH2SwordDancer.ArenaCenter, spell.Rotation, Module.CastFinishAt(spell), Colors.Danger, actorID: caster.InstanceID));
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID != (uint)AID.SwordDance)
+            return;
+
+        _aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
+        ++_resolved;
+        ++NumCasts;
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        var bit = spell.Action.ID switch
+        {
+            (uint)AID.SwordDanceSequence1 => 1,
+            (uint)AID.SwordDanceSequence2 => 2,
+            (uint)AID.SwordDanceSequence3 => 4,
+            (uint)AID.SwordDanceSequence4 => 8,
+            _ => 0
+        };
+        if (bit == 0)
+            return;
+
+        var mask = (byte)(_sequenceMasks.GetValueOrDefault(caster.InstanceID) | bit);
+        _sequenceMasks[caster.InstanceID] = mask;
+        var order = mask switch
+        {
+            0x0F => 0,
+            0x0B => 1,
+            0x04 => 2,
+            _ => -1
+        };
+        if (order >= 0)
+            _sequenceOrder[caster.InstanceID] = order;
+    }
+
+    private void DrawFirstLineExclusive(Angle direction)
+    {
+        var center = MTH2SwordDancer.ArenaCenter;
+        var first = new Rectangle(center, 10f, 60f, direction);
+        Shape[] otherLines =
+        [
+            new Rectangle(center, 10f, 60f, direction + 45f.Degrees()),
+            new Rectangle(center, 10f, 60f, direction + 90f.Degrees()),
+            new Rectangle(center, 10f, 60f, direction + 135f.Degrees())
+        ];
+        var safeRegion = new AOEShapeCustom([first], otherLines, origin: center);
+        safeRegion.Draw(Arena, center, color: Colors.SafeFromAOE);
+    }
+
+    private void Reset()
+    {
+        _aoes.Clear();
+        Array.Clear(_orderedDirections);
+        _sequenceMasks.Clear();
+        _sequenceOrder.Clear();
+        _resolved = 0;
     }
 }
 sealed class Pierce(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Pierce, 5f);
