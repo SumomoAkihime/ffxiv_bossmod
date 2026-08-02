@@ -145,7 +145,7 @@ sealed class SwordDance(BossModule module) : Components.GenericAOEs(module)
             new Rectangle(center, 10f, 60f, direction + 135f.Degrees())
         ];
         var safeRegion = new AOEShapeCustom([first], otherLines, origin: center);
-        safeRegion.Draw(Arena, center, color: Colors.SafeFromAOE);
+        safeRegion.Draw(Arena, center, default(Angle), color: Colors.SafeFromAOE);
     }
 
     private void Reset()
@@ -370,7 +370,7 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
         for (var i = 0; i < aoes.Count; ++i)
             dangers[i] = ToConservativeDanger(aoes[i]);
         var safeRegion = new AOEShapeCustom([new Circle(SwordDancer.ArenaCenter, 25f - SafeMargin)], dangers, origin: SwordDancer.ArenaCenter);
-        safeRegion.Draw(Arena, SwordDancer.ArenaCenter, color: color);
+        safeRegion.Draw(Arena, SwordDancer.ArenaCenter, default(Angle), color: color);
     }
 
     private static Shape ToConservativeDanger(AOEInstance aoe) => aoe.Shape switch
