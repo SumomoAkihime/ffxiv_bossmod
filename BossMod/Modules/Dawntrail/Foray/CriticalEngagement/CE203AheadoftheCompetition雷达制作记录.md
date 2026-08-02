@@ -8,8 +8,8 @@
 - 区域：`Zone 1346`
 - CFC/GroupID：`1093`
 - 主怪：魔许德拉，`OID 0x4BC5`，`NameID 14523`
-- 现有模块：`CE209PhantomHydra.cs`
-- 结论：用户称呼中的 CE214 与上游文件 CE209 是编号差异，不新建重复模块。
+- 对应源码：`CE203AheadoftheCompetition.cs`
+- 结论：用户称呼中的 CE214 与结构化身份对应的上游 CE203 是编号差异，不新建重复模块。
 
 ## 场地与实体
 

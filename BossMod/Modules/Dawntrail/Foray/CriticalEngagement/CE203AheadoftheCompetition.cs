@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE209PhantomHydra;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE203AheadoftheCompetition;
 
 public enum OID : uint {
     PhantomHydra = 0x4BC5,
@@ -198,8 +198,8 @@ sealed class ManyHeadedBreath(BossModule module) : Components.GenericAOEs(module
 }
 
 [SkipLocalsInit]
-sealed class PhantomHydraStates : StateMachineBuilder {
-    public PhantomHydraStates(BossModule module) : base(module) {
+sealed class AheadoftheCompetitionStates : StateMachineBuilder {
+    public AheadoftheCompetitionStates(BossModule module) : base(module) {
         TrivialPhase()
             .ActivateOnEnter<ElementalCascade>()
             .ActivateOnEnter<Discordance>()
@@ -214,7 +214,7 @@ sealed class PhantomHydraStates : StateMachineBuilder {
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed,
-    StatesType = typeof(PhantomHydraStates),
+    StatesType = typeof(AheadoftheCompetitionStates),
     ConfigType = null, // replace null with typeof(PhantomHydraConfig) if applicable
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
@@ -231,4 +231,4 @@ sealed class PhantomHydraStates : StateMachineBuilder {
     SortOrder = 1,
     PlanLevel = 0)]
 [SkipLocalsInit]
-public sealed class PhantomHydra(WorldState ws, Actor primary) : BossModule(ws, primary, new(-82.000f, 485.000f), new ArenaBoundsCircle(20f));
+public sealed class AheadoftheCompetition(WorldState ws, Actor primary) : BossModule(ws, primary, new(-82.000f, 485.000f), new ArenaBoundsCircle(20f));

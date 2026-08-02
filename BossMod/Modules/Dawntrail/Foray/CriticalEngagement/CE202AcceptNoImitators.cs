@@ -1,4 +1,4 @@
-﻿namespace BossMod.Foray.CriticalEngagement.CE206Metamorph;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE202AcceptNoImitators;
 
 // TODO was made with ARR support
 //  Status:
@@ -313,8 +313,8 @@ sealed class ShapeshiftingSupercell(BossModule module) : Components.GenericAOEs(
 }
 
 [SkipLocalsInit]
-sealed class MetamorphStates : StateMachineBuilder {
-    public MetamorphStates(BossModule module) : base(module) {
+sealed class AcceptNoImitatorsStates : StateMachineBuilder {
+    public AcceptNoImitatorsStates(BossModule module) : base(module) {
         TrivialPhase()
             .ActivateOnEnter<BlackenedRain>()
             .ActivateOnEnter<TongueOfFlame>()
@@ -332,7 +332,7 @@ sealed class MetamorphStates : StateMachineBuilder {
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.WIP,
-    StatesType = typeof(MetamorphStates),
+    StatesType = typeof(AcceptNoImitatorsStates),
     ConfigType = null, // replace null with typeof(MetamorphConfig) if applicable
     ObjectIDType = typeof(OID),
     ActionIDType = null, // replace null with typeof(AID) if applicable
@@ -349,4 +349,4 @@ sealed class MetamorphStates : StateMachineBuilder {
     SortOrder = 1,
     PlanLevel = 0)]
 [SkipLocalsInit]
-public sealed class Metamorph(WorldState ws, Actor primary) : BossModule(ws, primary, new(499.000f, -310.000f), new ArenaBoundsCircle(25f));
+public sealed class AcceptNoImitators(WorldState ws, Actor primary) : BossModule(ws, primary, new(499.000f, -310.000f), new ArenaBoundsCircle(25f));

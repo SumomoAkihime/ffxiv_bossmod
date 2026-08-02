@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE203PhantomNecromancer;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE206DarkArtistry;
 
 public enum OID : uint {
     PhantomNecromancer = 0x4BC1,
@@ -107,8 +107,8 @@ sealed class LongDeadExplorer(BossModule module) : Components.GenericAOEs(module
 }
 
 [SkipLocalsInit]
-sealed class PhantomNecromancerStates : StateMachineBuilder {
-    public PhantomNecromancerStates(BossModule module) : base(module) {
+sealed class DarkArtistryStates : StateMachineBuilder {
+    public DarkArtistryStates(BossModule module) : base(module) {
         TrivialPhase()
             .ActivateOnEnter<DarkII>()
             .ActivateOnEnter<DarkFlare>()
@@ -119,7 +119,7 @@ sealed class PhantomNecromancerStates : StateMachineBuilder {
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.WIP,
-    StatesType = typeof(PhantomNecromancerStates),
+    StatesType = typeof(DarkArtistryStates),
     ConfigType = null, // replace null with typeof(PhantomNecromancerConfig) if applicable
     ObjectIDType = typeof(OID),
     ActionIDType = null, // replace null with typeof(AID) if applicable
@@ -136,4 +136,4 @@ sealed class PhantomNecromancerStates : StateMachineBuilder {
     SortOrder = 1,
     PlanLevel = 0)]
 [SkipLocalsInit]
-public sealed class PhantomNecromancer(WorldState ws, Actor primary) : BossModule(ws, primary, new(224.000f, -860.000f), new ArenaBoundsSquare(20f));
+public sealed class DarkArtistry(WorldState ws, Actor primary) : BossModule(ws, primary, new(224.000f, -860.000f), new ArenaBoundsSquare(20f));

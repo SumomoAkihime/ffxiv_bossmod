@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE202TinyTerror;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE214TinyTerror;
 
 public enum OID : uint {
     TinyMage = 0x4C6D,

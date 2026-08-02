@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE208CorneredCarbuncle;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE201ABeastUnleashed;
 
 public enum OID : uint
 {
@@ -376,9 +376,9 @@ sealed class ClawTailCombo(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-sealed class CE208CorneredCarbuncleStates : StateMachineBuilder
+sealed class ABeastUnleashedStates : StateMachineBuilder
 {
-    public CE208CorneredCarbuncleStates(BossModule module) : base(module)
+    public ABeastUnleashedStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<YellowGemRays>()
@@ -392,7 +392,7 @@ sealed class CE208CorneredCarbuncleStates : StateMachineBuilder
 
 // Temporary module; remove when upstream adds an encounter for OID 0x4C4F.
 [ModuleInfo(BossModuleInfo.Maturity.Contributed,
-    StatesType = typeof(CE208CorneredCarbuncleStates),
+    StatesType = typeof(ABeastUnleashedStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
     PrimaryActorOID = (uint)OID.Boss,
@@ -401,4 +401,4 @@ sealed class CE208CorneredCarbuncleStates : StateMachineBuilder
     GroupType = BossModuleInfo.GroupType.CFC,
     GroupID = 1093,
     NameID = 14791)]
-public sealed class CE208CorneredCarbuncle(WorldState ws, Actor primary) : BossModule(ws, primary, new(238f, 352f), new ArenaBoundsSquare(20f));
+public sealed class ABeastUnleashed(WorldState ws, Actor primary) : BossModule(ws, primary, new(238f, 352f), new ArenaBoundsSquare(20f));

@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE207ElmGigas;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE208FamiliarTactics;
 
 // TODO was made with ARR support
 //  Status: COMPLETED
@@ -107,8 +107,8 @@ sealed class InspiritedImpact(BossModule module) : Components.GenericAOEs(module
 }
 
 [SkipLocalsInit]
-sealed class ElmGigasStates : StateMachineBuilder {
-    public ElmGigasStates(BossModule module) : base(module) {
+sealed class FamiliarTacticsStates : StateMachineBuilder {
+    public FamiliarTacticsStates(BossModule module) : base(module) {
         TrivialPhase()
             .ActivateOnEnter<AncientAeroIII>()
             .ActivateOnEnter<SpinningSweep>()
@@ -123,7 +123,7 @@ sealed class ElmGigasStates : StateMachineBuilder {
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.WIP,
-    StatesType = typeof(ElmGigasStates),
+    StatesType = typeof(FamiliarTacticsStates),
     ConfigType = null, // replace null with typeof(ElmGigasConfig) if applicable
     ObjectIDType = typeof(OID),
     ActionIDType = null, // replace null with typeof(AID) if applicable
@@ -140,4 +140,4 @@ sealed class ElmGigasStates : StateMachineBuilder {
     SortOrder = 1,
     PlanLevel = 0)]
 [SkipLocalsInit]
-public sealed class ElmGigas(WorldState ws, Actor primary) : BossModule(ws, primary, new(-390.000f, 700.000f), new ArenaBoundsCircle(30f));
+public sealed class FamiliarTactics(WorldState ws, Actor primary) : BossModule(ws, primary, new(-390.000f, 700.000f), new ArenaBoundsCircle(30f));

@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE213诱拐魔;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE211LostontheWind;
 
 public enum OID : uint
 {
@@ -171,9 +171,9 @@ sealed class Gust(BossModule module) : Components.GenericKnockback(module)
     }
 }
 
-sealed class CE213诱拐魔States : StateMachineBuilder
+sealed class LostontheWindStates : StateMachineBuilder
 {
-    public CE213诱拐魔States(BossModule module) : base(module)
+    public LostontheWindStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<GaleBlade>()
@@ -190,7 +190,7 @@ sealed class CE213诱拐魔States : StateMachineBuilder
 
 // Temporary module; remove when upstream adds an encounter for OID 0x4BE1.
 [ModuleInfo(BossModuleInfo.Maturity.Contributed,
-    StatesType = typeof(CE213诱拐魔States),
+    StatesType = typeof(LostontheWindStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
     IconIDType = typeof(IconID),
@@ -200,4 +200,4 @@ sealed class CE213诱拐魔States : StateMachineBuilder
     GroupType = BossModuleInfo.GroupType.CFC,
     GroupID = 1093,
     NameID = 14505)]
-public sealed class CE213诱拐魔(WorldState ws, Actor primary) : BossModule(ws, primary, new(-150f, -860f), new ArenaBoundsCircle(30f));
+public sealed class LostontheWind(WorldState ws, Actor primary) : BossModule(ws, primary, new(-150f, -860f), new ArenaBoundsCircle(30f));

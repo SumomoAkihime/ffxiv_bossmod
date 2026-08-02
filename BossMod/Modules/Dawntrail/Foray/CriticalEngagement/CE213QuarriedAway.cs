@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE203雪石膏之剑;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE213QuarriedAway;
 
 public enum OID : uint
 {
@@ -160,9 +160,9 @@ sealed class BladeCombination(BossModule module) : Components.GenericAOEs(module
     }
 }
 
-sealed class CE203雪石膏之剑States : StateMachineBuilder
+sealed class QuarriedAwayStates : StateMachineBuilder
 {
-    public CE203雪石膏之剑States(BossModule module) : base(module)
+    public QuarriedAwayStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<EmbrittlingBlade>()
@@ -177,7 +177,7 @@ sealed class CE203雪石膏之剑States : StateMachineBuilder
 
 // Keep this contributed implementation while the upstream same-ID module is WIP.
 [ModuleInfo(BossModuleInfo.Maturity.Contributed,
-    StatesType = typeof(CE203雪石膏之剑States),
+    StatesType = typeof(QuarriedAwayStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
     PrimaryActorOID = (uint)OID.Boss,
@@ -186,4 +186,4 @@ sealed class CE203雪石膏之剑States : StateMachineBuilder
     GroupType = BossModuleInfo.GroupType.CFC,
     GroupID = 1093,
     NameID = 14509)]
-public sealed class CE203雪石膏之剑(WorldState ws, Actor primary) : BossModule(ws, primary, new(-519f, -641f), new ArenaBoundsCircle(25f));
+public sealed class QuarriedAway(WorldState ws, Actor primary) : BossModule(ws, primary, new(-519f, -641f), new ArenaBoundsCircle(25f));
