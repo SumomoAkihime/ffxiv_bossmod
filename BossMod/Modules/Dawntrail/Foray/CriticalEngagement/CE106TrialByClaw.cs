@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE106TrialByClaw;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE106TrialByClaw;
 
 public enum OID : uint
 {

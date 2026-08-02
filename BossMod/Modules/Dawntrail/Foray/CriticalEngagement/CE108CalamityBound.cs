@@ -1,4 +1,4 @@
-namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE108CalamityBound;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE108CalamityBound;
 
 public enum OID : uint
 {

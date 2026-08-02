@@ -98,7 +98,9 @@ class StormWave(BossModule module) : Components.Exaflare(module, new AOEShapeRec
                 ref var aoe = ref futureAOEs[i];
                 var origin = aoe.Item1;
                 var rotation = aoe.Item3;
-                _aoes[i] = new(Shape, origin, rotation, aoe.Item2, FutureColor, shapeDistance: Shape.Distance(origin, rotation));
+                // Future steps are useful visual markers, but treating the whole wave train as
+                // dangerous at once sends navigation on a long detour around the arena.
+                _aoes[i] = new(Shape, origin, rotation, aoe.Item2, FutureColor, risky: false, shapeDistance: Shape.Distance(origin, rotation));
             }
 
             for (var i = 0; i < imminentLen; ++i) {
@@ -106,8 +108,9 @@ class StormWave(BossModule module) : Components.Exaflare(module, new AOEShapeRec
                 var origin = aoe.Item1;
                 var rotation = aoe.Item3;
                 var line = Lines[i];
-                var color = (waves.Find(w => w.RightLine == line || w.LeftLine == line)?.waveStart ?? true) ? ImminentColor : FutureColor;
-                _aoes[futureLen + i] = new(Shape, origin, rotation, aoe.Item2, color, shapeDistance: Shape.Distance(origin, rotation));
+                var risky = waves.Find(w => w.RightLine == line || w.LeftLine == line)?.waveStart ?? true;
+                var color = risky ? ImminentColor : FutureColor;
+                _aoes[futureLen + i] = new(Shape, origin, rotation, aoe.Item2, color, risky: risky, shapeDistance: Shape.Distance(origin, rotation));
             }
             lastCount = linesCount;
             lastVersion = currentVersion;
@@ -127,21 +130,21 @@ sealed class ArchKelpieStates : StateMachineBuilder {
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.WIP,
+[ModuleInfo(BossModuleInfo.Maturity.Contributed,
     StatesType = typeof(ArchKelpieStates),
     ConfigType = null, // replace null with typeof(ArchKelpieConfig) if applicable
     ObjectIDType = typeof(OID),
-    ActionIDType = null, // replace null with typeof(AID) if applicable
+    ActionIDType = typeof(AID),
     StatusIDType = null, // replace null with typeof(SID) if applicable
     TetherIDType = null, // replace null with typeof(TetherID) if applicable
     IconIDType = null, // replace null with typeof(IconID) if applicable
     PrimaryActorOID = (uint)OID.ArchKelpie,
-    Contributors = "",
+    Contributors = "KanoNoUta",
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,
-    GroupType = BossModuleInfo.GroupType.CFC,
+    GroupType = BossModuleInfo.GroupType.ForayFATE,
     GroupID = 1093u,
-    NameID = 14728u,
+    NameID = 2077u,
     SortOrder = 1,
     PlanLevel = 0)]
 [SkipLocalsInit]

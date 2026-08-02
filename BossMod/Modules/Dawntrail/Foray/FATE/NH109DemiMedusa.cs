@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.FATE.NH109DemiMedusa;
+﻿namespace BossMod.Dawntrail.Foray.FATE;
 
 public enum OID : uint {
     DemiMedusa = 0x4C6A,
@@ -42,21 +42,21 @@ sealed class DemiMedusaStates : StateMachineBuilder {
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.WIP,
+[ModuleInfo(BossModuleInfo.Maturity.Contributed,
     StatesType = typeof(DemiMedusaStates),
     ConfigType = null, // replace null with typeof(DemiMedusaConfig) if applicable
     ObjectIDType = typeof(OID),
-    ActionIDType = null, // replace null with typeof(AID) if applicable
+    ActionIDType = typeof(AID),
     StatusIDType = null, // replace null with typeof(SID) if applicable
     TetherIDType = null, // replace null with typeof(TetherID) if applicable
     IconIDType = null, // replace null with typeof(IconID) if applicable
     PrimaryActorOID = (uint)OID.DemiMedusa,
-    Contributors = "",
+    Contributors = "KanoNoUta",
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,
-    GroupType = BossModuleInfo.GroupType.CFC,
+    GroupType = BossModuleInfo.GroupType.ForayFATE,
     GroupID = 1093u,
-    NameID = 14736u,
+    NameID = 2083u,
     SortOrder = 1,
     PlanLevel = 0)]
 [SkipLocalsInit]
