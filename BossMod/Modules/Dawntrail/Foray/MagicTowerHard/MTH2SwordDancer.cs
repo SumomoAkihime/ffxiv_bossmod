@@ -87,9 +87,8 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
         public DateTime Timeline;
     }
 
-    private const float FutureSafeMarkerRadius = 1.2f;
-    private static readonly uint FutureSafeMarkerColor = Color.FromComponents(64, 192, 255).ABGR;
-    private static readonly WDir[] MarginChecks = [default, new(0.75f, 0f), new(-0.75f, 0f), new(0f, 0.75f), new(0f, -0.75f)];
+    private const float SafeMargin = 0.75f;
+    private static readonly uint FutureSafeColor = Color.FromComponents(64, 192, 255, 64).ABGR;
     private static readonly AOEShapeDonut Donut10 = new(10f, 60f);
     private static readonly AOEShapeDonut Donut15 = new(15f, 60f);
     private static readonly AOEShapeDonut Donut20 = new(20f, 60f);
@@ -106,13 +105,12 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
         BuildSafeStages();
-        if (_currentSafeAOEs.Count != 0 && FindSafe(pc.Position, _currentSafeAOEs) is WPos current)
-            Arena.AddLine(pc.Position, current, Colors.Safe, 2f);
-        if (_futureAOEs.Count != 0 && FindSafe(pc.Position, _futureAOEs) is WPos future)
-            Arena.ZoneCircleOutline(future, FutureSafeMarkerRadius, FutureSafeMarkerColor, 2f);
+        DrawSafeRegion(_futureAOEs, FutureSafeColor);
+        DrawSafeRegion(_currentSafeAOEs, Colors.SafeFromAOE);
+        base.DrawArenaBackground(pcSlot, pc);
     }
 
     public override void OnActorModelStateChange(Actor actor, byte modelState, byte animState1, byte animState2)
@@ -274,42 +272,24 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
         }
     }
 
-    private WPos? FindSafe(WPos from, List<AOEInstance> aoes)
+    private void DrawSafeRegion(List<AOEInstance> aoes, uint color)
     {
-        WPos? best = null;
-        var bestDistance = float.MaxValue;
-        for (var x = -24f; x <= 24f; x += 1f)
-        {
-            for (var z = -24f; z <= 24f; z += 1f)
-            {
-                var candidate = new WPos(MTH2SwordDancer.ArenaCenter.X + x, MTH2SwordDancer.ArenaCenter.Z + z);
-                if (!Safe(candidate, aoes))
-                    continue;
+        if (aoes.Count == 0)
+            return;
 
-                var distance = (candidate - from).LengthSq();
-                if (distance < bestDistance)
-                {
-                    best = candidate;
-                    bestDistance = distance;
-                }
-            }
-        }
-        return best;
+        var dangers = new Shape[aoes.Count];
+        for (var i = 0; i < aoes.Count; ++i)
+            dangers[i] = ToConservativeDanger(aoes[i]);
+        var safeRegion = new AOEShapeCustom([new Circle(MTH2SwordDancer.ArenaCenter, 25f - SafeMargin)], dangers, origin: MTH2SwordDancer.ArenaCenter);
+        safeRegion.Draw(Arena, MTH2SwordDancer.ArenaCenter, color: color);
     }
 
-    private bool Safe(WPos position, List<AOEInstance> aoes)
+    private static Shape ToConservativeDanger(AOEInstance aoe) => aoe.Shape switch
     {
-        foreach (var offset in MarginChecks)
-        {
-            var sample = position + offset;
-            if (!Arena.InBounds(sample))
-                return false;
-            for (var i = 0; i < aoes.Count; ++i)
-                if (aoes[i].Check(sample))
-                    return false;
-        }
-        return true;
-    }
+        AOEShapeCircle circle => new Circle(aoe.Origin, circle.Radius + SafeMargin),
+        AOEShapeDonut donut => new Donut(aoe.Origin, MathF.Max(0f, donut.InnerRadius - SafeMargin), donut.OuterRadius + SafeMargin),
+        _ => throw new ArgumentOutOfRangeException(nameof(aoe))
+    };
 }
 
 sealed class Surgeswords(BossModule module) : Components.GenericAOEs(module)
