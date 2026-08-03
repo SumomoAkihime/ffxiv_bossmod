@@ -18,10 +18,6 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
     private const float TinyDen = 1e-9f;
     private const float TinyLen2 = 1e-12f;
 
-    private static readonly bool HasAVX512 = Vector512.IsHardwareAccelerated && Avx512F.IsSupported;
-    private static readonly bool HasAVX2 = Vector256.IsHardwareAccelerated && Avx2.IsSupported;
-    private static readonly bool HasFMA = Fma.IsSupported;
-
     private readonly struct E
     {
         public readonly float y0, y1; // inclusive bottom, exclusive top
@@ -37,14 +33,14 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
                 y0 = ay;
                 y1 = by;
                 x0 = ax;
-                k = (bx - ax) / Math.Max(by - ay, Eps);
+                k = (bx - ax) / (by - ay);
             }
             else
             {
                 y0 = by;
                 y1 = ay;
                 x0 = bx;
-                k = (ax - bx) / Math.Max(ay - by, Eps);
+                k = (ax - bx) / (ay - by);
             }
 
             minX = Math.Min(ax, bx);
@@ -58,11 +54,12 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         public readonly float y = ay, minX = Math.Min(ax, bx), maxX = Math.Max(ax, bx);
     }
 
-    private readonly struct SectorGeometry
+    private readonly ref struct SectorGeometry
     {
         public readonly float ox, oz, fx, fz;
         public readonly float radius, radiusSq, cosHalfAngle;
         public readonly float leftX, leftZ, rightX, rightZ;
+        public readonly float minX, minZ, maxX, maxZ;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public SectorGeometry(float ox, float oz, float fx, float fz, float radius, float halfAngle)
@@ -79,15 +76,42 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             leftZ = oz + (fx * sin + fz * cos) * this.radius;
             rightX = ox + (fx * cos + fz * sin) * this.radius;
             rightZ = oz + (-fx * sin + fz * cos) * this.radius;
+
+            // Exact AABB of the circular sector: origin + arc endpoints + any cardinal arc extrema contained by the angular interval.
+            var loX = Math.Min(ox, Math.Min(leftX, rightX));
+            var hiX = Math.Max(ox, Math.Max(leftX, rightX));
+            var loZ = Math.Min(oz, Math.Min(leftZ, rightZ));
+            var hiZ = Math.Max(oz, Math.Max(leftZ, rightZ));
+            if (fx >= cos)
+            {
+                hiX = ox + this.radius;
+            }
+            if (-fx >= cos)
+            {
+                loX = ox - this.radius;
+            }
+            if (fz >= cos)
+            {
+                hiZ = oz + this.radius;
+            }
+            if (-fz >= cos)
+            {
+                loZ = oz - this.radius;
+            }
+            minX = loX;
+            minZ = loZ;
+            maxX = hiX;
+            maxZ = hiZ;
         }
     }
 
-    private readonly struct AnnularSectorGeometry
+    private readonly ref struct AnnularSectorGeometry
     {
         public readonly float cx, cz, fx, fz;
         public readonly float inner, outer, innerSq, outerSq, cosHalfAngle;
         public readonly float leftInnerX, leftInnerZ, leftOuterX, leftOuterZ;
         public readonly float rightInnerX, rightInnerZ, rightOuterX, rightOuterZ;
+        public readonly float minX, minZ, maxX, maxZ;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public AnnularSectorGeometry(float cx, float cz, float fx, float fz, float innerRadius, float outerRadius, float halfAngle)
@@ -101,7 +125,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             innerSq = inner * inner;
             outerSq = outer * outer;
 
-            var (sin, cos) = MathF.SinCos(halfAngle);
+            var (sin, cos) = ((float, float))Math.SinCos(halfAngle);
             cosHalfAngle = cos;
             var leftDirX = fx * cos - fz * sin;
             var leftDirZ = fx * sin + fz * cos;
@@ -115,6 +139,68 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             rightInnerZ = cz + rightDirZ * inner;
             rightOuterX = cx + rightDirX * outer;
             rightOuterZ = cz + rightDirZ * outer;
+
+            var loX = Math.Min(cx, Math.Min(leftOuterX, rightOuterX));
+            var hiX = Math.Max(cx, Math.Max(leftOuterX, rightOuterX));
+            var loZ = Math.Min(cz, Math.Min(leftOuterZ, rightOuterZ));
+            var hiZ = Math.Max(cz, Math.Max(leftOuterZ, rightOuterZ));
+            if (fx >= cos)
+            {
+                hiX = cx + outer;
+            }
+            if (-fx >= cos)
+            {
+                loX = cx - outer;
+            }
+            if (fz >= cos)
+            {
+                hiZ = cz + outer;
+            }
+            if (-fz >= cos)
+            {
+                loZ = cz - outer;
+            }
+            minX = loX;
+            minZ = loZ;
+            maxX = hiX;
+            maxZ = hiZ;
+        }
+    }
+
+    private readonly ref struct TriangleGeometry
+    {
+        public readonly float ax, ay, bx, by, cx, cy;
+        public readonly float minX, minY, maxX, maxY;
+        public readonly float e0x, e0y, e0InvLen2; // c -> a
+        public readonly float e1x, e1y, e1InvLen2; // a -> b
+        public readonly float e2x, e2y, e2InvLen2; // b -> c
+        public readonly float area2;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public TriangleGeometry(in WDir a, in WDir b, in WDir c)
+        {
+            ax = a.X;
+            ay = a.Z;
+            bx = b.X;
+            by = b.Z;
+            cx = c.X;
+            cy = c.Z;
+
+            minX = Math.Min(ax, Math.Min(bx, cx));
+            minY = Math.Min(ay, Math.Min(by, cy));
+            maxX = Math.Max(ax, Math.Max(bx, cx));
+            maxY = Math.Max(ay, Math.Max(by, cy));
+
+            e0x = ax - cx;
+            e0y = ay - cy;
+            e0InvLen2 = 1f / Math.Max(e0x * e0x + e0y * e0y, TinyLen2);
+            e1x = bx - ax;
+            e1y = by - ay;
+            e1InvLen2 = 1f / Math.Max(e1x * e1x + e1y * e1y, TinyLen2);
+            e2x = cx - bx;
+            e2y = cy - by;
+            e2InvLen2 = 1f / Math.Max(e2x * e2x + e2y * e2y, TinyLen2);
+            area2 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
         }
     }
 
@@ -133,10 +219,12 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
     private int _total;
 
     // horizontals & row indexing
-    private readonly H[] _hEdges;
+    private readonly H[] _hEdges; // grouped contiguously by row
     private readonly int[] _hRowOffsets; // rows+1
-    private readonly int[] _hRowIdx; // indices into _hEdges
     private readonly int[] _rowOffsets; // rows+1 (into SoA)
+    private readonly int[] _rowEndingStarts; // first carry-in edge whose source ends in this row
+    private readonly int[] _rowNewStarts; // first edge whose source starts in this row
+    private readonly int[] _rowSingleStarts; // first edge fully contained in this row
     private readonly int[] _rowEnds; // actual (unpadded) end of every row
 
     private readonly float[] _rowMinX;
@@ -152,8 +240,116 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
     private bool _disposed;
 
+    // Allocation-free SIMD iterator used by the shape-classification paths. Most
+    // candidate rows contain only a small subset of edges whose X bounds overlap
+    // the query shape; reject the rest 8/16 at a time before running expensive
+    // segment geometry.
+    private ref struct XOverlapEnumerator
+    {
+        private readonly float* _minX;
+        private readonly float* _maxX;
+        private readonly int _end;
+        private readonly float _queryMinX;
+        private readonly float _queryMaxX;
+        private readonly Vector512<float> _queryMin512;
+        private readonly Vector512<float> _queryMax512;
+        private readonly Vector256<float> _queryMin256;
+        private readonly Vector256<float> _queryMax256;
+        private readonly byte _width;
+        private int _next;
+        private int _blockBase;
+        private ulong _mask;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public XOverlapEnumerator(float* minX, float* maxX, int start, int end, float queryMinX, float queryMaxX)
+        {
+            _minX = minX;
+            _maxX = maxX;
+            _next = start;
+            _end = end;
+            _queryMinX = queryMinX;
+            _queryMaxX = queryMaxX;
+            _blockBase = 0;
+            _mask = 0ul;
+
+            var count = end - start;
+            if (count >= 16 && Avx512F.IsSupported)
+            {
+                _width = 16;
+                _queryMin512 = Vector512.Create(queryMinX);
+                _queryMax512 = Vector512.Create(queryMaxX);
+                _queryMin256 = Avx2.IsSupported ? Vector256.Create(queryMinX) : default;
+                _queryMax256 = Avx2.IsSupported ? Vector256.Create(queryMaxX) : default;
+            }
+            else if (count >= 8 && Avx2.IsSupported)
+            {
+                _width = 8;
+                _queryMin512 = default;
+                _queryMax512 = default;
+                _queryMin256 = Vector256.Create(queryMinX);
+                _queryMax256 = Vector256.Create(queryMaxX);
+            }
+            else
+            {
+                _width = 1;
+                _queryMin512 = default;
+                _queryMax512 = default;
+                _queryMin256 = default;
+                _queryMax256 = default;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNext(out int index)
+        {
+            while (true)
+            {
+                if (_mask != 0ul)
+                {
+                    var lane = BitOperations.TrailingZeroCount(_mask);
+                    _mask &= _mask - 1;
+                    index = _blockBase + lane;
+                    return true;
+                }
+
+                if (_width == 16 && _next + 16 <= _end)
+                {
+                    _blockBase = _next;
+                    _next += 16;
+                    var overlap = Vector512.GreaterThanOrEqual(Load512(_maxX, _blockBase), _queryMin512)
+                        & Vector512.LessThanOrEqual(Load512(_minX, _blockBase), _queryMax512);
+                    _mask = overlap.ExtractMostSignificantBits();
+                    continue;
+                }
+
+                if (_width >= 8 && Avx2.IsSupported && _next + 8 <= _end)
+                {
+                    _blockBase = _next;
+                    _next += 8;
+                    var overlap = Vector256.GreaterThanOrEqual(Load256(_maxX, _blockBase), _queryMin256)
+                        & Vector256.LessThanOrEqual(Load256(_minX, _blockBase), _queryMax256);
+                    _mask = overlap.ExtractMostSignificantBits();
+                    continue;
+                }
+
+                while (_next < _end)
+                {
+                    var i = _next++;
+                    if (_maxX[i] >= _queryMinX && _minX[i] <= _queryMaxX)
+                    {
+                        index = i;
+                        return true;
+                    }
+                }
+
+                index = -1;
+                return false;
+            }
+        }
+    }
+
     private PolygonBoundaryIndex2D(float* y0, float* y1, float* x0, float* k, float* b, float* minX, float* maxX, float* dx, float* dy, float* invLen2, int total,
-        int[] rowOffsets, int[] rowEnds, H[] hEdges, int[] hRowOffsets, int[] hRowIdx, int rows, float minY, float cellH, float invCellH,
+        int[] rowOffsets, int[] rowEndingStarts, int[] rowNewStarts, int[] rowSingleStarts, int[] rowEnds, H[] hEdges, int[] hRowOffsets, int rows, float minY, float cellH, float invCellH,
         float bbMinX, float bbMinY, float bbMaxX, float bbMaxY, float[] rowMinX, float[] rowMaxX, WDir[] contourSamples, void* rawBlock)
     {
         _y0 = y0;
@@ -168,10 +364,12 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         _invLen2 = invLen2;
         _total = total;
         _rowOffsets = rowOffsets;
+        _rowEndingStarts = rowEndingStarts;
+        _rowNewStarts = rowNewStarts;
+        _rowSingleStarts = rowSingleStarts;
         _rowEnds = rowEnds;
         _hEdges = hEdges;
         _hRowOffsets = hRowOffsets;
-        _hRowIdx = hRowIdx;
         _rows = rows;
         _minY = minY;
         _cellH = cellH;
@@ -276,11 +474,12 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         }
 
         var edges = CollectionsMarshal.AsSpan(eList);
-        H[] hEdgesArr = [.. hList];
+        var hEdges = CollectionsMarshal.AsSpan(hList);
 
         // Rowing
         var lenEdges = edges.Length;
-        var nEdges = Math.Max(lenEdges, 1);
+        var lenH = hEdges.Length;
+        var nEdges = Math.Max(lenEdges + lenH, 1);
         var rows = Math.Clamp((int)MathF.Round(MathF.Sqrt(nEdges) * 0.9f) + 8, minRows, maxRows);
 
         var height = Math.Max(bbMaxY - bbMinY, Eps);
@@ -288,16 +487,19 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         var invCellH = 1f / cellH;
 
         var counts = new int[rows];
+        var countDeltas = new int[rows + 1];
+        var newCounts = new int[rows];
+        var endingCarryCounts = new int[rows];
+        var singleCounts = new int[rows];
         var hCounts = new int[rows];
 
-        // non-horiz counts
+        // Count row copies with a difference array. This avoids walking every spanned row once here and then again while materializing the SoA.
         for (var idx = 0; idx < lenEdges; ++idx)
         {
             ref readonly var e = ref edges[idx];
-            var y0 = e.y0;
             var y1 = MathF.BitDecrement(e.y1); // top-exclusive
-            var r0 = (int)MathF.Floor((y0 - bbMinY) * invCellH);
-            var r1 = (int)MathF.Floor((y1 - bbMinY) * invCellH);
+            var r0 = (int)((e.y0 - bbMinY) * invCellH);
+            var r1 = (int)((y1 - bbMinY) * invCellH);
             if (r0 < 0)
             {
                 r0 = 0;
@@ -306,20 +508,32 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             {
                 r1 = rows - 1;
             }
-            for (var r = r0; r <= r1; ++r)
+
+            ++countDeltas[r0];
+            --countDeltas[r1 + 1];
+            ++newCounts[r0];
+            if (r0 == r1)
             {
-                ++counts[r];
+                ++singleCounts[r0];
+            }
+            else
+            {
+                ++endingCarryCounts[r1];
             }
         }
 
+        var activeCount = 0;
+        for (var r = 0; r < rows; ++r)
+        {
+            activeCount += countDeltas[r];
+            counts[r] = activeCount;
+        }
+
         // horizontal counts
-        var hEdges = hEdgesArr;
-        var lenH = hEdges.Length;
         for (int idx = 0, hN = lenH; idx < hN; ++idx)
         {
             ref readonly var hEdge = ref hEdges[idx];
-            var y = hEdge.y;
-            var r = (int)MathF.Floor((y - bbMinY) * invCellH);
+            var r = (int)((hEdge.y - bbMinY) * invCellH);
             if (r < 0)
             {
                 r = 0;
@@ -330,20 +544,26 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             }
             ++hCounts[r];
         }
-        // decide SIMD pad width
-        var padWidth = HasAVX512 ? 16 : HasAVX2 ? 8 : 1;
+
+        // Use JIT-recognized hardware predicates directly so unsupported paths are removed
+        var padWidth = Avx512F.IsSupported ? 16 : Avx2.IsSupported ? 8 : 1;
 
         // prefix sums with padding
         var rowOffsets = new int[rows + 1]; // padded offsets
+        var rowEndingStarts = new int[rows]; // continuing carry-in edges precede ending carry-in edges
+        var rowNewStarts = new int[rows]; // carry-in edges precede edges starting in this row
+        var rowSingleStarts = new int[rows]; // multi-row starts precede single-row edges
         var rowEnds = new int[rows]; // actual ends, excluding SIMD padding
-        var paddedCounts = new int[rows];
         var total = 0;
         for (var r = 0; r < rows; ++r)
         {
             rowOffsets[r] = total;
             var c = counts[r];
+            var carry = c - newCounts[r];
             var pc = padWidth == 1 ? c : RoundUp(c, padWidth);
-            paddedCounts[r] = pc;
+            rowEndingStarts[r] = total + carry - endingCarryCounts[r];
+            rowNewStarts[r] = total + carry;
+            rowSingleStarts[r] = total + c - singleCounts[r];
             rowEnds[r] = total + c;
             total += pc;
         }
@@ -358,7 +578,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             hTotal += hCounts[r];
         }
         hRowOffsets[rows] = hTotal;
-        var hRowIdx = new int[hTotal];
+        var hEdgesByRow = new H[hTotal];
 
         // single aligned block allocation for all arrays
         const int Fields = 10; // y0, y1, x0, k, b, minX, maxX, dx, dy, invLen2
@@ -383,9 +603,18 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             invL2Ptr = (float*)(basePtr + stride * 9);
         }
 
-        // fill rows
-        var wpos = rows <= 2048 ? stackalloc int[rows] : new int[rows];
-        rowOffsets.AsSpan(0, rows).CopyTo(wpos);
+        // Row order is:
+        // continuing carry-in, ending carry-in, multi-row starts, single-row edges.
+        // This keeps starts contiguous for ascending scans and gives descending
+        // closest-point scans two compact ranges containing only edges ending here.
+        var carryWpos = rows <= 2048 ? stackalloc int[rows] : new int[rows];
+        var endingWpos = rows <= 2048 ? stackalloc int[rows] : new int[rows];
+        var newWpos = rows <= 2048 ? stackalloc int[rows] : new int[rows];
+        var singleWpos = rows <= 2048 ? stackalloc int[rows] : new int[rows];
+        rowOffsets.AsSpan(0, rows).CopyTo(carryWpos);
+        rowEndingStarts.AsSpan().CopyTo(endingWpos);
+        rowNewStarts.AsSpan().CopyTo(newWpos);
+        rowSingleStarts.AsSpan().CopyTo(singleWpos);
 
         // per-row conservative X bounds (init here, update while filling)
         var rowMinX = new float[rows];
@@ -398,8 +627,8 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             ref readonly var e = ref edges[idx];
             var y0 = e.y0;
             var y1TopExcl = MathF.BitDecrement(e.y1);
-            var r0 = (int)MathF.Floor((y0 - bbMinY) * invCellH);
-            var r1 = (int)MathF.Floor((y1TopExcl - bbMinY) * invCellH);
+            var r0 = (int)((y0 - bbMinY) * invCellH);
+            var r1 = (int)((y1TopExcl - bbMinY) * invCellH);
             if (r0 < 0)
             {
                 r0 = 0;
@@ -425,7 +654,9 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
                 var ek = e.k;
                 var ey1 = e.y1;
 
-                var w = wpos[r]++;
+                var w = r == r0
+                    ? (r == r1 ? singleWpos[r]++ : newWpos[r]++)
+                    : (r == r1 ? endingWpos[r]++ : carryWpos[r]++);
                 y0Ptr[w] = ey0;
                 y1Ptr[w] = ey1;
                 x0Ptr[w] = ex0;
@@ -461,7 +692,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         {
             var start = rowOffsets[r];
             var endActual = start + counts[r];
-            var endPad = start + paddedCounts[r];
+            var endPad = rowOffsets[r + 1];
             for (var i = endActual; i < endPad; ++i)
             {
                 y0Ptr[i] = float.NaN; // makes span/den comparisons false
@@ -475,13 +706,13 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             }
         }
 
-        // horizontals: fill row indices + update row bounds
+        // horizontals: fill row-contiguous storage + update row bounds
         var hwpos = rows <= 2048 ? stackalloc int[rows] : new int[rows];
         hRowOffsets.AsSpan(0, rows).CopyTo(hwpos);
         for (int idx = 0, hN = lenH; idx < hN; ++idx)
         {
             ref readonly var hEdge = ref hEdges[idx];
-            var r = (int)MathF.Floor((hEdge.y - bbMinY) * invCellH);
+            var r = (int)((hEdge.y - bbMinY) * invCellH);
             if (r < 0)
             {
                 r = 0;
@@ -490,7 +721,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             {
                 r = rows - 1;
             }
-            hRowIdx[hwpos[r]++] = idx;
+            hEdgesByRow[hwpos[r]++] = hEdge;
 
             // include horizontals into per-row X hull
             if (hEdge.minX < rowMinX[r])
@@ -503,12 +734,24 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             }
         }
 
+        // Point and horizontal-ray queries only need edges at one Y. Keep each row slice ordered so dense horizontal rows can be narrowed by binary search.
+        var horizontalComparer = Comparer<H>.Create(static (a, b) => a.y.CompareTo(b.y));
+        for (var r = 0; r < rows; ++r)
+        {
+            var start = hRowOffsets[r];
+            var count = hRowOffsets[r + 1] - start;
+            if (count > 1)
+            {
+                Array.Sort(hEdgesByRow, start, count, horizontalComparer);
+            }
+        }
+
         return new PolygonBoundaryIndex2D(y0Ptr, y1Ptr, x0Ptr, kPtr, bPtr, minXPtr, maxXPtr, dxPtr, dyPtr, invL2Ptr, total,
-            rowOffsets, rowEnds, hEdges, hRowOffsets, hRowIdx, rows, bbMinY, cellH, invCellH,
+            rowOffsets, rowEndingStarts, rowNewStarts, rowSingleStarts, rowEnds, hEdgesByRow, hRowOffsets, rows, bbMinY, cellH, invCellH,
             bbMinX, bbMinY, bbMaxX, bbMaxY, rowMinX, rowMaxX, [.. contourSamples], rawBlock);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static int RoundUp(int v, int m) => (v + (m - 1)) / m * m;
+        static int RoundUp(int v, int m) => (v + m - 1) & -m;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void AccumulateContourBounds(ReadOnlySpan<WDir> contour, ref float bbMinX, ref float bbMinY, ref float bbMaxX, ref float bbMaxY)
@@ -575,8 +818,32 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private int ClampRow(float y)
     {
-        var r = (int)MathF.Floor((y - _minY) * _invCellH);
+        var r = (int)((y - _minY) * _invCellH);
         return r < 0 ? 0 : r >= _rows ? _rows - 1 : r;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int FirstHorizontalAtOrAbove(int start, int end, float y)
+    {
+        // Binary search only when it can amortize its branchy setup.
+        if (end - start < 8)
+        {
+            return start;
+        }
+
+        while (start < end)
+        {
+            var mid = (int)(((uint)start + (uint)end) >> 1);
+            if (_hEdges[mid].y < y)
+            {
+                start = mid + 1;
+            }
+            else
+            {
+                end = mid;
+            }
+        }
+        return start;
     }
 
     public bool Contains(in WDir p)
@@ -589,20 +856,27 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         }
 
         var row = ClampRow(py);
-
-        int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
-        for (var i = hs; i < he; ++i)
-        {
-            ref readonly var h = ref _hEdges[_hRowIdx[i]];
-            if (Math.Abs(py - h.y) <= Eps && px >= h.minX - Eps && px <= h.maxX + Eps)
-            {
-                return true;
-            }
-        }
-
         if (px < _rowMinX[row] - Eps || px > _rowMaxX[row] + Eps)
         {
             return false;
+        }
+
+        int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
+        var minHorizontalY = py - Eps;
+        var maxHorizontalY = py + Eps;
+        hs = FirstHorizontalAtOrAbove(hs, he, minHorizontalY);
+        for (var i = hs; i < he; ++i)
+        {
+            ref readonly var h = ref _hEdges[i];
+            var hy = h.y;
+            if (hy > maxHorizontalY)
+            {
+                break;
+            }
+            if (hy >= minHorizontalY && px >= h.minX - Eps && px <= h.maxX + Eps)
+            {
+                return true;
+            }
         }
 
         int es = _rowOffsets[row], ee = _rowOffsets[row + 1];
@@ -613,17 +887,16 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
         var parity = 0;
 
-        if (HasAVX512)
+        if (Avx512F.IsSupported)
         {
             var v_py = Vector512.Create(py);
             var v_px = Vector512.Create(px);
             var v_eps = Vector512.Create(Eps);
-            var v_eps2 = Vector512.Create(Eps2);
 
             var i0 = es;
             for (; i0 + 16 <= ee; i0 += 16)
             {
-                parity ^= ContainsBlock512(i0, v_py, v_px, v_eps, v_eps2);
+                parity ^= ContainsBlock512(i0, v_py, v_px, v_eps);
                 if ((parity & 2) != 0)
                 {
                     return true;
@@ -632,17 +905,16 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             }
             return (parity & 1) != 0;
         }
-        else if (HasAVX2)
+        else if (Avx2.IsSupported)
         {
             var v_py = Vector256.Create(py);
             var v_px = Vector256.Create(px);
             var eps = Vector256.Create(Eps);
-            var eps2 = Vector256.Create(Eps2);
 
             var i0 = es;
             for (; i0 + 8 <= ee; i0 += 8)
             {
-                parity ^= ContainsBlock256(i0, v_py, v_px, eps, eps2);
+                parity ^= ContainsBlock256(i0, v_py, v_px, eps);
                 if ((parity & 2) != 0)
                 {
                     return true;
@@ -669,7 +941,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
                 var x = _k[i] * py + _b[i];
 
                 var dx = px - x;
-                if (dx * dx <= Eps2)
+                if (Math.Abs(dx) <= Eps)
                 {
                     if (px >= _minX[i] - Eps && px <= _maxX[i] + Eps)
                     {
@@ -746,26 +1018,31 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             var t0 = Math.Max(0f, tmin);
 
             int es = _rowOffsets[row], ee = _rowOffsets[row + 1];
-            for (var i = es; i < ee; ++i)
+            if (Avx512F.IsSupported)
             {
-                float y0 = _y0[i], y1 = _y1[i];
-                if (oz < y0 - Eps || oz >= y1 - Eps)
-                {
-                    continue;
-                }
-                var x = _k[i] * oz + _b[i];
-                var t = (x - ox) * invDx;
-                if (t >= t0 && t <= tmax && t < best && x >= _minX[i] - Eps && x <= _maxX[i] + Eps)
-                {
-                    best = t;
-                }
+                KernelHorizontalRay512(es, ee, ox, oz, invDx, t0, tmax, ref best);
+            }
+            else if (Avx2.IsSupported)
+            {
+                KernelHorizontalRay256(es, ee, ox, oz, invDx, t0, tmax, ref best);
+            }
+            else
+            {
+                KernelHorizontalRayScalar(es, _rowEnds[row], ox, oz, invDx, t0, tmax, ref best);
             }
 
             int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
+            var minHorizontalY = oz - Eps;
+            var maxHorizontalY = oz + Eps;
+            hs = FirstHorizontalAtOrAbove(hs, he, minHorizontalY);
             for (var k = hs; k < he; ++k)
             {
-                ref readonly var h = ref _hEdges[_hRowIdx[k]];
-                if (Math.Abs(oz - h.y) > Eps)
+                ref readonly var h = ref _hEdges[k];
+                if (h.y > maxHorizontalY)
+                {
+                    break;
+                }
+                if (h.y < minHorizontalY)
                 {
                     continue;
                 }
@@ -798,8 +1075,8 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         var rowCur = ClampRow(yStart);
         var step = dz > 0f ? 1 : -1;
 
-        // Next grid boundary from yStart
-        var rowEdge = (int)MathF.Floor((yStart - _minY) * _invCellH);
+        // Set up a DDA in parameter space. Row boundaries are uniformly spaced, so avoid recomputing y-to-t and both endpoint x values in every row
+        var rowEdge = (int)((yStart - _minY) * _invCellH);
         if (rowEdge < 0)
         {
             rowEdge = 0;
@@ -809,19 +1086,22 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             rowEdge = _rows - 1;
         }
         var nextY = dz > 0f ? (_minY + (rowEdge + 1) * cellH) : (_minY + rowEdge * cellH);
+        var xEnter = ox + dx * t0m;
 
         var bestT = float.MaxValue;
         var hit = false;
-        var curYEnter = yStart;
+
+        // Once a row has passed the X-hull cull and all of its active edges have been tested, subsequent contiguous rows only need edges first encountered
+        // in the traversal direction. Reset after a culled row: an edge may have started inside that gap and must be picked up by the next full active-set scan
+        var activeSetComplete = false;
+        var rowTMin = t0m;
         while ((uint)rowCur < (uint)_rows)
         {
             var tBoundary = (nextY - oz) * invDz;
+            var xExit = ox + dx * tBoundary;
             var rowTMax = Math.Min(tmax, bestT);
 
             // row-level x-range cull
-            // ray x at row enter/exit
-            var xEnter = ox + dx * ((curYEnter - oz) * invDz);
-            var xExit = ox + dx * ((nextY - oz) * invDz);
             var rxMin = Math.Min(xEnter, xExit) - 2e-6f; // expand a touch to be conservative
             var rxMax = Math.Max(xEnter, xExit) + 2e-6f;
 
@@ -832,31 +1112,42 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             // if disjoint, skip this row entirely
             if (!(rxMax < pxMin || rxMin > pxMax))
             {
-                int es = _rowOffsets[rowCur], ee = _rowOffsets[rowCur + 1];
                 var prevBest = bestT;
-                if (HasAVX512)
+                if (!activeSetComplete)
                 {
-                    KernelRay512(es, ee, ox, oz, dx, dz, t0m, rowTMax, ref bestT);
+                    KernelRayDispatch(_rowOffsets[rowCur], _rowOffsets[rowCur + 1], ox, oz, dx, dz, t0m, rowTMax, ref bestT);
                 }
-                else if (HasAVX2)
+                else if (step > 0)
                 {
-                    KernelRay256(es, ee, ox, oz, dx, dz, t0m, rowTMax, ref bestT);
+                    KernelRayDispatch(_rowNewStarts[rowCur], _rowEnds[rowCur], ox, oz, dx, dz, t0m, rowTMax, ref bestT);
                 }
                 else
                 {
-                    KernelRayScalar(es, ee, ox, oz, dx, dz, t0m, rowTMax, ref bestT);
+                    KernelRayDispatch(_rowEndingStarts[rowCur], _rowNewStarts[rowCur], ox, oz, dx, dz, t0m, rowTMax, ref bestT);
+                    KernelRayDispatch(_rowSingleStarts[rowCur], _rowEnds[rowCur], ox, oz, dx, dz, t0m, Math.Min(rowTMax, bestT), ref bestT);
                 }
+                activeSetComplete = true;
+
                 if (bestT < prevBest)
                 {
                     hit = true;
                     rowTMax = Math.Min(rowTMax, bestT);
                 }
 
-                // horizontals (use t from y only)
+                // Horizontals are sorted by Y inside each row. Narrow the scan to the ray's active parameter interval instead of walking the whole row
                 int hs = _hRowOffsets[rowCur], he = _hRowOffsets[rowCur + 1];
+                var yAtLimit = oz + dz * rowTMax;
+                var horizontalMinY = Math.Min(oz + dz * rowTMin, yAtLimit) - Eps;
+                var horizontalMaxY = Math.Max(oz + dz * rowTMin, yAtLimit) + Eps;
+                hs = FirstHorizontalAtOrAbove(hs, he, horizontalMinY);
                 for (var k = hs; k < he; ++k)
                 {
-                    ref readonly var h = ref _hEdges[_hRowIdx[k]];
+                    ref readonly var h = ref _hEdges[k];
+                    if (h.y > horizontalMaxY)
+                    {
+                        break;
+                    }
+
                     var t = (h.y - oz) * invDz;
                     if (t < t0m || t > rowTMax)
                     {
@@ -877,6 +1168,10 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
                     break;
                 }
             }
+            else
+            {
+                activeSetComplete = false;
+            }
 
             // stop after row that reaches AABB exit
             if (tBoundary >= tmax - 1e-6f)
@@ -886,7 +1181,8 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
             // advance
             rowCur += step;
-            curYEnter = nextY;
+            rowTMin = tBoundary;
+            xEnter = xExit;
             nextY += step * cellH;
         }
 
@@ -912,10 +1208,21 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             return vDist * vDist;
         }
 
-        void ProcessRow(int row, float vDistSq)
+        void ProcessEdges(int es, int ee)
+            => KernelClosestDispatch(es, ee, px, py, ref bestSq, ref bestX, ref bestY);
+
+        // direction: 0 = initial row, +1 = ascending, -1 = descending
+        // After the initial row, only edges first encountered in that direction are evaluated; long edges are not projected once per copied row
+        void ProcessRow(int row, float vDistSq, int direction)
         {
-            int es = _rowOffsets[row], ee = _rowOffsets[row + 1];
-            if (es == ee && _hRowOffsets[row] == _hRowOffsets[row + 1])
+            int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
+            var hasEdges = direction switch
+            {
+                > 0 => _rowNewStarts[row] < _rowEnds[row],
+                < 0 => _rowEndingStarts[row] < _rowNewStarts[row] || _rowSingleStarts[row] < _rowEnds[row],
+                _ => _rowOffsets[row] < _rowEnds[row]
+            };
+            if (!hasEdges && hs == he)
             {
                 return;
             }
@@ -923,36 +1230,67 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             var rMinX = _rowMinX[row];
             var rMaxX = _rowMaxX[row];
             var hDist = Math.Max(0f, Math.Max(rMinX - px, px - rMaxX));
-
-            if (vDistSq + hDist * hDist < bestSq)
+            if (vDistSq + hDist * hDist >= bestSq)
             {
-                if (HasAVX512)
-                {
-                    KernelClosest512(es, ee, px, py, ref bestSq, ref bestX, ref bestY);
-                }
-                else if (HasAVX2)
-                {
-                    KernelClosest256(es, ee, px, py, ref bestSq, ref bestX, ref bestY);
-                }
-                else
-                {
-                    KernelClosestScalar(es, ee, px, py, ref bestSq, ref bestX, ref bestY);
-                }
+                return;
             }
 
-            int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
-            for (var h = hs; h < he; ++h)
+            if (direction > 0)
             {
-                ref readonly var e = ref _hEdges[_hRowIdx[h]];
-                var cx = Math.Min(Math.Max(px, e.minX), e.maxX);
-                var dxp = cx - px;
-                var dyp = e.y - py;
-                var d2 = dxp * dxp + dyp * dyp;
-                if (d2 < bestSq)
+                ProcessEdges(_rowNewStarts[row], _rowEnds[row]);
+            }
+            else if (direction < 0)
+            {
+                ProcessEdges(_rowEndingStarts[row], _rowNewStarts[row]);
+                ProcessEdges(_rowSingleStarts[row], _rowEnds[row]);
+            }
+            else
+            {
+                // Preserve the padded, aligned initial-row fast path.
+                ProcessEdges(_rowOffsets[row], _rowOffsets[row + 1]);
+            }
+
+            // Horizontals are Y-sorted. Once a finite best distance exists, avoid scanning edges whose vertical distance alone cannot improve it
+            if (he - hs >= 8 && float.IsFinite(bestSq))
+            {
+                var maxDeltaY = MathF.Sqrt(bestSq);
+                hs = FirstHorizontalAtOrAbove(hs, he, py - maxDeltaY);
+                var horizontalMaxY = py + maxDeltaY;
+                for (var h = hs; h < he; ++h)
                 {
-                    bestSq = d2;
-                    bestX = cx;
-                    bestY = e.y;
+                    ref readonly var edge = ref _hEdges[h];
+                    if (edge.y > horizontalMaxY)
+                    {
+                        break;
+                    }
+                    var cx = Math.Min(Math.Max(px, edge.minX), edge.maxX);
+                    var dxp = cx - px;
+                    var dyp = edge.y - py;
+                    var d2 = dxp * dxp + dyp * dyp;
+                    if (d2 < bestSq)
+                    {
+                        bestSq = d2;
+                        bestX = cx;
+                        bestY = edge.y;
+                        horizontalMaxY = py + MathF.Sqrt(bestSq);
+                    }
+                }
+            }
+            else
+            {
+                for (var h = hs; h < he; ++h)
+                {
+                    ref readonly var edge = ref _hEdges[h];
+                    var cx = Math.Min(Math.Max(px, edge.minX), edge.maxX);
+                    var dxp = cx - px;
+                    var dyp = edge.y - py;
+                    var d2 = dxp * dxp + dyp * dyp;
+                    if (d2 < bestSq)
+                    {
+                        bestSq = d2;
+                        bestX = cx;
+                        bestY = edge.y;
+                    }
                 }
             }
         }
@@ -962,7 +1300,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         {
             var minY = minY0 + row0 * cellH;
             var maxY = minY + cellH;
-            ProcessRow(row0, VDistSq(py, minY, maxY));
+            ProcessRow(row0, VDistSq(py, minY, maxY), 0);
         }
 
         var maxRow = _rows - 1;
@@ -978,7 +1316,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
                 var vDistSq = VDistSq(py, rMinY, rMaxY);
                 if (vDistSq < bestSq)
                 {
-                    ProcessRow(rn, vDistSq);
+                    ProcessRow(rn, vDistSq, -1);
                     progressed = true;
                 }
             }
@@ -991,7 +1329,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
                 var vDistSq = VDistSq(py, rMinY, rMaxY);
                 if (vDistSq < bestSq)
                 {
-                    ProcessRow(rp, vDistSq);
+                    ProcessRow(rp, vDistSq, +1);
                     progressed = true;
                 }
             }
@@ -1098,92 +1436,242 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         return outPts;
     }
 
-    public void AddForbiddenDirections(Actor actor, WPos center, RelSimplifiedComplexPolygon polygon, AIHints hints, DateTime act, float forbiddenDist)
+    public void AddForbiddenDirections(in WDir centerOffset, Angle offset, RelSimplifiedComplexPolygon polygon, AIHints hints, DateTime act, float forbiddenDist)
     {
-        var origin = actor.Position - center;
-        var angs = CollectUniqueAngles(origin, polygon);
-        var count = angs.Count;
-        if (count == 0)
+        var parts = CollectionsMarshal.AsSpan(polygon.Parts);
+        var blocked = new List<(double start, double end)>(Math.Max(8, parts.Length * 4));
+        var fullCircle = false;
+        var radius = forbiddenDist + Eps;
+
+        var lenP = parts.Length;
+        for (var i = 0; !fullCircle && i < lenP; ++i)
         {
+            var part = parts[i];
+            CollectForbiddenDirectionIntervals(part.Exterior, centerOffset, radius, blocked, ref fullCircle);
+
+            var holes = part.HoleStarts.Count;
+            for (var h = 0; !fullCircle && h < holes; ++h)
+            {
+                CollectForbiddenDirectionIntervals(part.Interior(h), centerOffset, radius, blocked, ref fullCircle);
+            }
+        }
+
+        if (fullCircle)
+        {
+            // The actor is on (or numerically indistinguishable from) a boundary. Every ray intersects it at t ~= 0.
             return;
         }
-
-        var blocked = new List<(double start, double end)>(count * 2);
-
-        for (var i = 0; i < count; ++i)
-        {
-            var a0 = angs[i];
-            var a1 = (i + 1 < count) ? angs[i + 1] : angs[0] + Math.Tau;
-            CollectBlockedIntervals(origin, a0, a1, forbiddenDist, blocked, 0);
-        }
-
-        var countB = blocked.Count;
-
-        if (countB == 0)
+        if (blocked.Count == 0)
         {
             return;
         }
 
         MergeAngleIntervals(blocked);
-        countB = blocked.Count;
+        MergeCircularAngleSeam(blocked);
+        var countB = blocked.Count;
         for (var i = 0; i < countB; ++i)
         {
-            var block = blocked[i];
-            var start = block.start;
-            var end = block.end;
-            var width = AngleDiffCCW(start, end);
-            if (width <= 1e-7)
+            var interval = blocked[i];
+            var iStart = interval.start;
+            var width = interval.end - iStart;
+            if (width <= 1e-9)
             {
                 continue;
             }
 
-            var centerA = NormalizeAngle(start + 0.5d * width);
+            var centerMath = iStart + 0.5d * width;
+            var (sin, cos) = Math.SinCos(centerMath);
+            var centerDir = new WDir((float)cos, (float)sin);
 
-            hints.ForbiddenDirections.Add(new(new((float)centerA), new(0.5f * (float)width), act));
+            hints.ForbiddenDirections.Add((Angle.FromDirection(centerDir) + offset, new(0.5f * (float)Math.Min(width, Math.Tau)), act));
         }
     }
 
-    private void CollectBlockedIntervals(in WDir origin, double a0, double a1, float forbiddenDist, List<(double start, double end)> blocked, int depth)
+    private static void CollectForbiddenDirectionIntervals(ReadOnlySpan<WDir> contour, in WDir origin, float radius, List<(double start, double end)> blocked, ref bool fullCircle)
     {
-        var d = AngleDiffCCW(a0, a1);
-        if (d <= 1e-9)
-            return;
-
-        var eps = Math.Min(1e-4, 0.2d * d);
-        var left = NormalizeAngle(a0 + eps);
-        var right = NormalizeAngle(a1 - eps);
-        var mid = NormalizeAngle(a0 + 0.5d * d);
-
-        var sL = IsBlocked(origin, left, forbiddenDist);
-        var sM = IsBlocked(origin, mid, forbiddenDist);
-        var sR = IsBlocked(origin, right, forbiddenDist);
-
-        if (sL == sM && sM == sR)
+        var count = contour.Length;
+        if (count < 2)
         {
-            if (sM)
-            {
-                blocked.Add((a0, a1));
-            }
             return;
         }
 
-        if (depth >= 10 || d <= 0.25d * (Math.PI / 180d))
+        var previous = contour[count - 1] - origin;
+        for (var i = 0; i < count; ++i)
         {
-            if (sL || sM || sR)
+            var current = contour[i] - origin;
+            if (CollectForbiddenDirectionInterval(previous.X, previous.Z, current.X, current.Z, radius, blocked))
             {
-                blocked.Add((a0, a1));
+                fullCircle = true;
+                return;
             }
-            return;
+            previous = current;
         }
-
-        var am = a0 + 0.5 * d;
-        CollectBlockedIntervals(origin, a0, am, forbiddenDist, blocked, depth + 1);
-        CollectBlockedIntervals(origin, am, a1, forbiddenDist, blocked, depth + 1);
     }
 
-    private bool IsBlocked(in WDir origin, double angle, float forbiddenDist)
+    // Returns true when the segment passes through the ray origin, in which case every direction intersects at t ~= 0
+    private static bool CollectForbiddenDirectionInterval(float ax, float ay, float bx, float by, float radius, List<(double start, double end)> blocked)
     {
-        return RayAt(origin, angle, out _, out var t) && t <= forbiddenDist;
+        const double originTolerance = 1e-5d;
+        const double angularTolerance = 1e-12d;
+
+        var dax = (double)ax;
+        var day = (double)ay;
+        var dbx = (double)bx;
+        var dby = (double)by;
+        var sdx = dbx - dax;
+        var sdy = dby - day;
+        var segmentLenSq = sdx * sdx + sdy * sdy;
+
+        double distanceSq;
+        if (segmentLenSq <= 1e-24d)
+        {
+            distanceSq = dax * dax + day * day;
+        }
+        else
+        {
+            var t = Math.Clamp(-(dax * sdx + day * sdy) / segmentLenSq, 0d, 1d);
+            var closestX = dax + t * sdx;
+            var closestY = day + t * sdy;
+            distanceSq = closestX * closestX + closestY * closestY;
+        }
+
+        if (distanceSq <= originTolerance * originTolerance)
+        {
+            return true;
+        }
+
+        if (!ClipSegmentToDisk(dax, day, dbx, dby, radius, out var x0, out var y0, out var x1, out var y1))
+        {
+            return false;
+        }
+
+        // Along a segment that does not contain the origin, polar angle is monotonic and its extrema
+        // are the clipped endpoints. There are two circular arcs between those endpoint angles; choose
+        // the one containing an interior point of the clipped segment. This remains stable when the
+        // endpoint directions are almost opposite, where cross-product sign alone can flip.
+        var a0 = NormalizeAngle(Math.Atan2(y0, x0));
+        var a1 = NormalizeAngle(Math.Atan2(y1, x1));
+        var ccwWidth = AngleDiffCCW(a0, a1);
+        if (ccwWidth <= angularTolerance || Math.Tau - ccwWidth <= angularTolerance)
+        {
+            return false; // radial/tangent point: zero-measure direction range
+
+        }
+
+        // Use the farther quarter-point rather than the midpoint: for a segment passing close to the
+        // origin, the midpoint can be almost zero and therefore have a numerically unstable angle.
+        var q0x = 0.75d * x0 + 0.25d * x1;
+        var q0y = 0.75d * y0 + 0.25d * y1;
+        var q1x = 0.25d * x0 + 0.75d * x1;
+        var q1y = 0.25d * y0 + 0.75d * y1;
+        var q0LenSq = q0x * q0x + q0y * q0y;
+        var q1LenSq = q1x * q1x + q1y * q1y;
+        var sampleAngle = q0LenSq >= q1LenSq ? Math.Atan2(q0y, q0x) : Math.Atan2(q1y, q1x);
+        sampleAngle = NormalizeAngle(sampleAngle);
+
+        var sampleFromA0 = AngleDiffCCW(a0, sampleAngle);
+        if (sampleFromA0 <= ccwWidth + angularTolerance)
+        {
+            AddCircularInterval(blocked, a0, ccwWidth);
+        }
+        else
+        {
+            AddCircularInterval(blocked, a1, Math.Tau - ccwWidth);
+        }
+        return false;
+    }
+
+    private static bool ClipSegmentToDisk(double ax, double ay, double bx, double by, double radius, out double x0, out double y0, out double x1, out double y1)
+    {
+        var dx = bx - ax;
+        var dy = by - ay;
+        var qa = dx * dx + dy * dy;
+        var radiusSq = radius * radius;
+
+        if (qa <= 1e-24)
+        {
+            if (ax * ax + ay * ay > radiusSq)
+            {
+                x0 = y0 = x1 = y1 = 0d;
+                return false;
+            }
+            x0 = x1 = ax;
+            y0 = y1 = ay;
+            return true;
+        }
+
+        var qb = 2d * (ax * dx + ay * dy);
+        var qc = ax * ax + ay * ay - radiusSq;
+        var discriminant = qb * qb - 4d * qa * qc;
+        if (discriminant < 0d)
+        {
+            x0 = y0 = x1 = y1 = 0d;
+            return false;
+        }
+
+        var sqrtDiscriminant = Math.Sqrt(Math.Max(0d, discriminant));
+        var inv2A = 0.5d / qa;
+        var root0 = (-qb - sqrtDiscriminant) * inv2A;
+        var root1 = (-qb + sqrtDiscriminant) * inv2A;
+        var t0 = Math.Max(0d, Math.Min(root0, root1));
+        var t1 = Math.Min(1d, Math.Max(root0, root1));
+        if (t1 < t0)
+        {
+            x0 = y0 = x1 = y1 = 0d;
+            return false;
+        }
+
+        x0 = ax + t0 * dx;
+        y0 = ay + t0 * dy;
+        x1 = ax + t1 * dx;
+        y1 = ay + t1 * dy;
+        return true;
+    }
+
+    // Add a CCW interval represented by start + non-negative width, splitting it at the 0/2pi seam.
+    private static void AddCircularInterval(List<(double start, double end)> intervals, double start, double width)
+    {
+        if (width <= 1e-12)
+        {
+            return;
+        }
+        if (width >= Math.Tau - 1e-12)
+        {
+            intervals.Clear();
+            intervals.Add((0d, Math.Tau));
+            return;
+        }
+
+        start = NormalizeAngle(start);
+        var end = start + width;
+        if (end <= Math.Tau)
+        {
+            intervals.Add((start, end));
+        }
+        else
+        {
+            intervals.Add((start, Math.Tau));
+            intervals.Add((0d, end - Math.Tau));
+        }
+    }
+
+    private static void MergeCircularAngleSeam(List<(double start, double end)> intervals)
+    {
+        var count = intervals.Count;
+        if (count < 2)
+        {
+            return;
+        }
+
+        const double mergeTolerance = 1e-7d;
+        var first = intervals[0];
+        var last = intervals[count - 1];
+        if (first.start <= mergeTolerance && last.end >= Math.Tau - mergeTolerance)
+        {
+            // Keep a single unwrapped interval crossing the seam; center conversion uses sin/cos, so >2pi is fine
+            intervals[0] = (last.start, first.end + Math.Tau);
+            intervals.RemoveAt(count - 1);
+        }
     }
 
     public static void MergeAngleIntervals(List<(double start, double end)> intervals)
@@ -1196,13 +1684,11 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
         intervals.Sort(static (x, y) => x.start.CompareTo(y.start));
 
-        var cur = intervals[0];
         var write = 0;
-
+        var cur = intervals[0];
         for (var i = 1; i < count; ++i)
         {
             var next = intervals[i];
-
             if (next.start <= cur.end + 1e-7)
             {
                 if (next.end > cur.end)
@@ -1224,12 +1710,16 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static double NormalizeAngle(double a)
     {
-        a %= Math.Tau;
-        if (a < 0d)
+        if (a is >= Math.Tau or < 0d)
         {
-            a += Math.Tau;
+            a %= Math.Tau;
+            if (a < 0d)
+            {
+                a += Math.Tau;
+            }
         }
         return a;
     }
@@ -1342,14 +1832,17 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         {
             return;
         }
+
         const float eps = 1e-6f;
-        var tmp = new List<(WDir pt, float t)>(countP);
+        var first = pts[0].pt;
+        var a = pts[countP - 1].pt;
+        var b = first;
+        var write = 0;
 
         for (var i = 0; i < countP; ++i)
         {
-            var a = pts[(i - 1 + countP) % countP].pt;
-            var b = pts[i].pt;
-            var c = pts[(i + 1) % countP].pt;
+            var current = pts[i];
+            var c = i + 1 < countP ? pts[i + 1].pt : first;
             var abx = b.X - a.X;
             var abz = b.Z - a.Z;
             var bcx = c.X - b.X;
@@ -1358,12 +1851,17 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             var scale = Math.Abs(abx) + Math.Abs(abz) + Math.Abs(bcx) + Math.Abs(bcz);
             if (cross > eps * scale)
             {
-                tmp.Add(pts[i]); // keep only if not near-collinear
+                pts[write++] = current; // compact in place; avoid a temporary list allocation
             }
+
+            a = b;
+            b = c;
         }
 
-        pts.Clear();
-        pts.AddRange(tmp);
+        if (write < countP)
+        {
+            pts.RemoveRange(write, countP - write);
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1378,74 +1876,56 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void UpdateBestFromMask(Vector256<float> vals, uint mask, ref float best)
+    private static float HorizontalMin(Vector256<float> value)
     {
-        while (mask != 0u)
-        {
-            var i = BitOperations.TrailingZeroCount(mask);
-            var v = vals.GetElement(i);
-            if (v < best)
-            {
-                best = v;
-            }
-            mask &= mask - 1u;
-        }
+        var min = Sse.Min(value.GetLower(), value.GetUpper());
+        min = Sse.Min(min, Sse.Shuffle(min, min, 0b_01_00_11_10));
+        min = Sse.Min(min, Sse.Shuffle(min, min, 0b_10_11_00_01));
+        return min.ToScalar();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void UpdateBestFromMask(Vector512<float> vals, ulong mask, ref float best)
-    {
-        while (mask != 0ul)
-        {
-            var i = BitOperations.TrailingZeroCount(mask);
-            var v = vals.GetElement(i);
-            if (v < best)
-            {
-                best = v;
-            }
-            mask &= mask - 1ul;
-        }
-    }
+    private static float HorizontalMin(Vector512<float> value) => HorizontalMin(Avx.Min(value.GetLower(), value.GetUpper()));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void UpdateClosestFromMask(Vector256<float> d2, Vector256<float> nx, Vector256<float> ny, uint mask,
+    private static void UpdateClosest(Vector256<float> d2, Vector256<float> nx, Vector256<float> ny, Vector256<float> improving,
         ref float bestSq, ref float bestX, ref float bestY)
     {
-        while (mask != 0u)
+        var candidates = Vector256.ConditionalSelect(improving, d2, Vector256.Create(float.PositiveInfinity));
+        var blockBest = HorizontalMin(candidates);
+        if (blockBest >= bestSq)
         {
-            var i = BitOperations.TrailingZeroCount(mask);
-            var di = d2.GetElement(i);
-            if (di < bestSq)
-            {
-                bestSq = di;
-                bestX = nx.GetElement(i);
-                bestY = ny.GetElement(i);
-            }
-            mask &= mask - 1u;
+            return;
         }
+
+        var laneMask = (Vector256.Equals(d2, Vector256.Create(blockBest)) & improving).ExtractMostSignificantBits();
+        var lane = BitOperations.TrailingZeroCount(laneMask);
+        bestSq = blockBest;
+        bestX = nx.GetElement(lane);
+        bestY = ny.GetElement(lane);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void UpdateClosestFromMask(Vector512<float> d2, Vector512<float> nx, Vector512<float> ny, ulong mask,
+    private static void UpdateClosest(Vector512<float> d2, Vector512<float> nx, Vector512<float> ny, Vector512<float> improving,
         ref float bestSq, ref float bestX, ref float bestY)
     {
-        while (mask != 0ul)
+        var candidates = Vector512.ConditionalSelect(improving, d2, Vector512.Create(float.PositiveInfinity));
+        var blockBest = HorizontalMin(candidates);
+        if (blockBest >= bestSq)
         {
-            var i = BitOperations.TrailingZeroCount(mask);
-            var di = d2.GetElement(i);
-            if (di < bestSq)
-            {
-                bestSq = di;
-                bestX = nx.GetElement(i);
-                bestY = ny.GetElement(i);
-            }
-            mask &= mask - 1ul;
+            return;
         }
+
+        var laneMask = (Vector512.Equals(d2, Vector512.Create(blockBest)) & improving).ExtractMostSignificantBits();
+        var lane = BitOperations.TrailingZeroCount(laneMask);
+        bestSq = blockBest;
+        bestX = nx.GetElement(lane);
+        bestY = ny.GetElement(lane);
     }
 
     // SIMD kernels
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private int ContainsBlock512(int idx, Vector512<float> v_py, Vector512<float> v_px, Vector512<float> v_eps, Vector512<float> v_eps2)
+    private int ContainsBlock512(int idx, Vector512<float> v_py, Vector512<float> v_px, Vector512<float> v_eps)
     {
         var y0 = Load512(_y0, idx);
         var y1 = Load512(_y1, idx);
@@ -1457,7 +1937,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         var x = Avx512F.FusedMultiplyAdd(k, v_py, b);
 
         var dx = Avx512F.Subtract(v_px, x);
-        var near = Vector512.LessThanOrEqual(dx * dx, v_eps2) & span;
+        var near = Vector512.LessThanOrEqual(Vector512.Abs(dx), v_eps) & span;
 
         // only load min/max if any near-bit is set.
         if (near.ExtractMostSignificantBits() != 0ul)
@@ -1479,7 +1959,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private int ContainsBlock256(int idx, Vector256<float> v_py, Vector256<float> v_px, Vector256<float> v_eps, Vector256<float> v_eps2)
+    private int ContainsBlock256(int idx, Vector256<float> v_py, Vector256<float> v_px, Vector256<float> v_eps)
     {
         var y0 = Load256(_y0, idx);
         var y1 = Load256(_y1, idx);
@@ -1488,10 +1968,10 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
         var span = Vector256.BitwiseAnd(Vector256.GreaterThanOrEqual(v_py, y0), Vector256.LessThan(v_py, y1));
 
-        var x = HasFMA ? Fma.MultiplyAdd(k, v_py, b) : Avx.Add(Avx.Multiply(k, v_py), b); // k*py + b
+        var x = Fma.IsSupported ? Fma.MultiplyAdd(k, v_py, b) : Avx.Add(Avx.Multiply(k, v_py), b); // k*py + b
 
         var dx = Avx.Subtract(v_px, x);
-        var near = Vector256.BitwiseAnd(Vector256.LessThanOrEqual(Avx.Multiply(dx, dx), v_eps2), span);
+        var near = Vector256.BitwiseAnd(Vector256.LessThanOrEqual(Vector256.Abs(dx), v_eps), span);
 
         // Lazy-load min/max on near bits.
         if (near.ExtractMostSignificantBits() != 0u)
@@ -1512,6 +1992,137 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void KernelHorizontalRay512(int es, int ee, float ox, float oz, float invDx, float tMin, float tMax, ref float best)
+    {
+        var v_ox = Vector512.Create(ox);
+        var v_oz = Vector512.Create(oz);
+        var v_invDx = Vector512.Create(invDx);
+        var v_eps = Vector512.Create(Eps);
+        var v_tMin = Vector512.Create(tMin);
+        var v_tMax = Vector512.Create(Math.Min(tMax, best));
+        var v_inf = Vector512.Create(float.PositiveInfinity);
+
+        for (var i = es; i + 16 <= ee; i += 16)
+        {
+            var y0 = Load512(_y0, i);
+            var y1 = Load512(_y1, i);
+            var span = Vector512.GreaterThanOrEqual(v_oz, y0 - v_eps)
+                & Vector512.LessThan(v_oz, y1 - v_eps);
+
+            var x = Avx512F.FusedMultiplyAdd(Load512(_k, i), v_oz, Load512(_b, i));
+            var t = Avx512F.Multiply(Avx512F.Subtract(x, v_ox), v_invDx);
+            var candidate = span
+                & Vector512.GreaterThanOrEqual(t, v_tMin)
+                & Vector512.LessThanOrEqual(t, v_tMax);
+            if (candidate.ExtractMostSignificantBits() == 0ul)
+            {
+                continue;
+            }
+
+            var valid = candidate
+                & Vector512.GreaterThanOrEqual(x, Load512(_minX, i) - v_eps)
+                & Vector512.LessThanOrEqual(x, Load512(_maxX, i) + v_eps);
+            if (valid.ExtractMostSignificantBits() != 0ul)
+            {
+                var blockBest = HorizontalMin(Vector512.ConditionalSelect(valid, t, v_inf));
+                if (blockBest < best)
+                {
+                    best = blockBest;
+                    v_tMax = Vector512.Create(blockBest);
+                }
+            }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void KernelHorizontalRay256(int es, int ee, float ox, float oz, float invDx, float tMin, float tMax, ref float best)
+    {
+        var v_ox = Vector256.Create(ox);
+        var v_oz = Vector256.Create(oz);
+        var v_invDx = Vector256.Create(invDx);
+        var v_eps = Vector256.Create(Eps);
+        var v_tMin = Vector256.Create(tMin);
+        var v_tMax = Vector256.Create(Math.Min(tMax, best));
+        var v_inf = Vector256.Create(float.PositiveInfinity);
+
+        for (var i = es; i + 8 <= ee; i += 8)
+        {
+            var y0 = Load256(_y0, i);
+            var y1 = Load256(_y1, i);
+            var span = Vector256.GreaterThanOrEqual(v_oz, y0 - v_eps)
+                & Vector256.LessThan(v_oz, y1 - v_eps);
+
+            var k = Load256(_k, i);
+            var b = Load256(_b, i);
+            var x = Fma.IsSupported ? Fma.MultiplyAdd(k, v_oz, b) : Avx.Add(Avx.Multiply(k, v_oz), b);
+            var t = Avx.Multiply(Avx.Subtract(x, v_ox), v_invDx);
+            var candidate = span
+                & Vector256.GreaterThanOrEqual(t, v_tMin)
+                & Vector256.LessThanOrEqual(t, v_tMax);
+            if (candidate.ExtractMostSignificantBits() == 0u)
+            {
+                continue;
+            }
+
+            var valid = candidate
+                & Vector256.GreaterThanOrEqual(x, Avx.Subtract(Load256(_minX, i), v_eps))
+                & Vector256.LessThanOrEqual(x, Avx.Add(Load256(_maxX, i), v_eps));
+            if (valid.ExtractMostSignificantBits() != 0u)
+            {
+                var blockBest = HorizontalMin(Vector256.ConditionalSelect(valid, t, v_inf));
+                if (blockBest < best)
+                {
+                    best = blockBest;
+                    v_tMax = Vector256.Create(blockBest);
+                }
+            }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void KernelHorizontalRayScalar(int es, int ee, float ox, float oz, float invDx, float tMin, float tMax, ref float best)
+    {
+        for (var i = es; i < ee; ++i)
+        {
+            var y0 = _y0[i];
+            if (oz < y0 - Eps || oz >= _y1[i] - Eps)
+            {
+                continue;
+            }
+
+            var x = _k[i] * oz + _b[i];
+            var t = (x - ox) * invDx;
+            if (t >= tMin && t <= tMax && t < best && x >= _minX[i] - Eps && x <= _maxX[i] + Eps)
+            {
+                best = t;
+            }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void KernelRayDispatch(int es, int ee, float ox, float oz, float dx, float dz, float tMin, float tMax, ref float best)
+    {
+        if (es >= ee || tMin > tMax || best <= tMin)
+        {
+            return;
+        }
+
+        var count = ee - es;
+        if (count >= 16 && Avx512F.IsSupported)
+        {
+            KernelRay512(es, ee, ox, oz, dx, dz, tMin, tMax, ref best);
+        }
+        else if (count >= 8 && Avx2.IsSupported)
+        {
+            KernelRay256(es, ee, ox, oz, dx, dz, tMin, tMax, ref best);
+        }
+        else
+        {
+            KernelRayScalar(es, ee, ox, oz, dx, dz, tMin, tMax, ref best);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void KernelRay512(int es, int ee, float ox, float oz, float dx, float dz, float tMin, float tMax, ref float best)
     {
         var v_dx = Vector512.Create(dx);
@@ -1519,10 +2130,12 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         var v_ox = Vector512.Create(ox);
         var v_oz = Vector512.Create(oz);
         var v_tiny = Vector512.Create(TinyDen);
-        var v_one = Vector512<float>.One;
+        var v_eps = Vector512.Create(Eps);
+        var v_invDirLenSq = Vector512.Create(1f / (dx * dx + dz * dz + 1e-20f));
         var v_zero = Vector512<float>.Zero;
         var v_tMin = Vector512.Create(tMin);
-        var v_tMax = Vector512.Create(tMax);
+        var v_tMax = Vector512.Create(Math.Min(tMax, best));
+        var v_inf = Vector512.Create(float.PositiveInfinity);
 
         for (var i = es; i + 16 <= ee; i += 16)
         {
@@ -1533,30 +2146,73 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
             var wox = Avx512F.Subtract(x0, v_ox);
             var woz = Avx512F.Subtract(y0, v_oz);
-
-            // den = dx*dy - dz*dxE
             var den = Avx512F.FusedMultiplySubtract(v_dx, dy, Avx512F.Multiply(v_dz, dxE));
-            var validDen = Vector512.GreaterThan(Vector512.Abs(den), v_tiny);
-            var invDen = Avx512F.Divide(v_one, den);
+            var absDen = Vector512.Abs(den);
+            var validDen = Vector512.GreaterThan(absDen, v_tiny);
+            var denNegative = Vector512.LessThan(den, v_zero);
+            var blockBest = float.PositiveInfinity;
 
-            // t_num = wox*dy - woz*dxE,  u_num = wox*dz - woz*dx
-            var t_num = Avx512F.FusedMultiplySubtract(wox, dy, Avx512F.Multiply(woz, dxE));
-            var u_num = Avx512F.FusedMultiplySubtract(wox, v_dz, Avx512F.Multiply(woz, v_dx));
-            var t = Avx512F.Multiply(t_num, invDen);
-            var u = Avx512F.Multiply(u_num, invDen);
-
-            var valid = validDen
-                & Vector512.GreaterThanOrEqual(t, v_tMin)
-                & Vector512.LessThanOrEqual(t, v_tMax)
-                & Vector512.GreaterThanOrEqual(u, v_zero)
-                & Vector512.LessThan(u, v_one);
-
-            var mask = valid.ExtractMostSignificantBits();
-            if (mask != 0ul)
+            // Non-parallel segment intersections. Test numerator ranges before issuing the expensive vector divide
+            var rawTNum = Avx512F.FusedMultiplySubtract(wox, dy, Avx512F.Multiply(woz, dxE));
+            var tNum = Vector512.ConditionalSelect(denNegative, Avx512F.Subtract(v_zero, rawTNum), rawTNum);
+            var tCandidate = validDen
+                & Vector512.GreaterThanOrEqual(tNum, Avx512F.Multiply(v_tMin, absDen))
+                & Vector512.LessThanOrEqual(tNum, Avx512F.Multiply(v_tMax, absDen));
+            if (tCandidate.ExtractMostSignificantBits() != 0ul)
             {
-                // only touch lanes that hit and satisfy ranges
-                UpdateBestFromMask(t, mask, ref best);
+                var rawUNum = Avx512F.FusedMultiplySubtract(wox, v_dz, Avx512F.Multiply(woz, v_dx));
+                var uNum = Vector512.ConditionalSelect(denNegative, Avx512F.Subtract(v_zero, rawUNum), rawUNum);
+                var valid = tCandidate
+                    & Vector512.GreaterThanOrEqual(uNum, v_zero)
+                    & Vector512.LessThan(uNum, absDen);
+                if (valid.ExtractMostSignificantBits() != 0ul)
+                {
+                    var t = Avx512F.Divide(tNum, absDen);
+                    blockBest = HorizontalMin(Vector512.ConditionalSelect(valid, t, v_inf));
+                }
             }
+
+            // Parallel lanes used to be discarded by SIMD. Handle collinear overlap directly and return the first parameter in the overlap
+            var parallel = Vector512.LessThanOrEqual(absDen, v_tiny);
+            if (parallel.ExtractMostSignificantBits() != 0ul)
+            {
+                var col = Avx512F.FusedMultiplySubtract(wox, v_dz, Avx512F.Multiply(woz, v_dx));
+                var collinear = parallel & Vector512.LessThanOrEqual(Vector512.Abs(col), v_eps);
+                if (collinear.ExtractMostSignificantBits() != 0ul)
+                {
+                    var tA = Avx512F.Multiply(Avx512F.FusedMultiplyAdd(wox, v_dx, Avx512F.Multiply(woz, v_dz)), v_invDirLenSq);
+                    var wbx = Avx512F.Add(wox, dxE);
+                    var wbz = Avx512F.Add(woz, dy);
+                    var tB = Avx512F.Multiply(Avx512F.FusedMultiplyAdd(wbx, v_dx, Avx512F.Multiply(wbz, v_dz)), v_invDirLenSq);
+                    var tLo = Avx512F.Min(tA, tB);
+                    var tHi = Avx512F.Max(tA, tB);
+                    var tOverlap = Avx512F.Max(tLo, v_tMin);
+                    var validOverlap = collinear
+                        & Vector512.LessThanOrEqual(tOverlap, tHi)
+                        & Vector512.LessThanOrEqual(tOverlap, v_tMax);
+                    if (validOverlap.ExtractMostSignificantBits() != 0ul)
+                    {
+                        var parallelBest = HorizontalMin(Vector512.ConditionalSelect(validOverlap, tOverlap, v_inf));
+                        blockBest = Math.Min(blockBest, parallelBest);
+                    }
+                }
+            }
+
+            if (blockBest < best)
+            {
+                best = blockBest;
+                v_tMax = Vector512.Create(blockBest);
+            }
+        }
+
+        var tail = es + ((ee - es) & ~15);
+        if (tail + 8 <= ee && Avx2.IsSupported)
+        {
+            KernelRay256(tail, ee, ox, oz, dx, dz, tMin, Math.Min(tMax, best), ref best);
+        }
+        else if (tail < ee)
+        {
+            KernelRayScalar(tail, ee, ox, oz, dx, dz, tMin, Math.Min(tMax, best), ref best);
         }
     }
 
@@ -1568,10 +2224,12 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         var v_ox = Vector256.Create(ox);
         var v_oz = Vector256.Create(oz);
         var v_tiny = Vector256.Create(TinyDen);
-        var v_one = Vector256<float>.One;
+        var v_eps = Vector256.Create(Eps);
+        var v_invDirLenSq = Vector256.Create(1f / (dx * dx + dz * dz + 1e-20f));
         var v_zero = Vector256<float>.Zero;
         var v_tMin = Vector256.Create(tMin);
-        var v_tMax = Vector256.Create(tMax);
+        var v_tMax = Vector256.Create(Math.Min(tMax, best));
+        var v_inf = Vector256.Create(float.PositiveInfinity);
 
         for (var i = es; i + 8 <= ee; i += 8)
         {
@@ -1582,90 +2240,143 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
             var wox = Avx.Subtract(x0, v_ox);
             var woz = Avx.Subtract(y0, v_oz);
-
             var den = Avx.Subtract(Avx.Multiply(v_dx, dy), Avx.Multiply(v_dz, dxE));
-            var validDen = Vector256.GreaterThan(Vector256.Abs(den), v_tiny);
-            var invDen = Avx.Divide(v_one, den);
+            var absDen = Vector256.Abs(den);
+            var validDen = Vector256.GreaterThan(absDen, v_tiny);
+            var denNegative = Vector256.LessThan(den, v_zero);
+            var blockBest = float.PositiveInfinity;
 
-            // t = (wox*dy - woz*dxE) / den
-            var t = HasFMA ? Fma.MultiplySubtract(wox, dy, Avx.Multiply(woz, dxE)) : Avx.Subtract(Avx.Multiply(wox, dy), Avx.Multiply(woz, dxE));
-            t = Avx.Multiply(t, invDen);
-
-            // early range gate on t to avoid useless u work
-            var tValid = Vector256.BitwiseAnd(
-                Vector256.GreaterThanOrEqual(t, v_tMin),
-                Vector256.LessThanOrEqual(t, v_tMax));
-
-            // u = (wox*dz - woz*dx) / den
-            var u = HasFMA ? Fma.MultiplySubtract(wox, v_dz, Avx.Multiply(woz, v_dx)) : Avx.Subtract(Avx.Multiply(wox, v_dz), Avx.Multiply(woz, v_dx));
-            u = Avx.Multiply(u, invDen);
-
-            var valid = validDen & tValid & Vector256.GreaterThanOrEqual(u, v_zero) & Vector256.LessThan(u, v_one);
-
-            var mask = valid.ExtractMostSignificantBits();
-            if (mask != 0u)
+            var rawTNum = Fma.IsSupported
+                ? Fma.MultiplySubtract(wox, dy, Avx.Multiply(woz, dxE))
+                : Avx.Subtract(Avx.Multiply(wox, dy), Avx.Multiply(woz, dxE));
+            var tNum = Vector256.ConditionalSelect(denNegative, Avx.Subtract(v_zero, rawTNum), rawTNum);
+            var tCandidate = validDen
+                & Vector256.GreaterThanOrEqual(tNum, Avx.Multiply(v_tMin, absDen))
+                & Vector256.LessThanOrEqual(tNum, Avx.Multiply(v_tMax, absDen));
+            if (tCandidate.ExtractMostSignificantBits() != 0u)
             {
-                // only inspect lanes that actually hit
-                UpdateBestFromMask(t, mask, ref best);
+                var rawUNum = Fma.IsSupported
+                    ? Fma.MultiplySubtract(wox, v_dz, Avx.Multiply(woz, v_dx))
+                    : Avx.Subtract(Avx.Multiply(wox, v_dz), Avx.Multiply(woz, v_dx));
+                var uNum = Vector256.ConditionalSelect(denNegative, Avx.Subtract(v_zero, rawUNum), rawUNum);
+                var valid = tCandidate
+                    & Vector256.GreaterThanOrEqual(uNum, v_zero)
+                    & Vector256.LessThan(uNum, absDen);
+                if (valid.ExtractMostSignificantBits() != 0u)
+                {
+                    var t = Avx.Divide(tNum, absDen);
+                    blockBest = HorizontalMin(Vector256.ConditionalSelect(valid, t, v_inf));
+                }
             }
+
+            var parallel = Vector256.LessThanOrEqual(absDen, v_tiny);
+            if (parallel.ExtractMostSignificantBits() != 0u)
+            {
+                var col = Fma.IsSupported ? Fma.MultiplySubtract(wox, v_dz, Avx.Multiply(woz, v_dx)) : Avx.Subtract(Avx.Multiply(wox, v_dz), Avx.Multiply(woz, v_dx));
+                var collinear = parallel & Vector256.LessThanOrEqual(Vector256.Abs(col), v_eps);
+                if (collinear.ExtractMostSignificantBits() != 0u)
+                {
+                    var dotA = Fma.IsSupported ? Fma.MultiplyAdd(wox, v_dx, Avx.Multiply(woz, v_dz)) : Avx.Add(Avx.Multiply(wox, v_dx), Avx.Multiply(woz, v_dz));
+                    var wbx = Avx.Add(wox, dxE);
+                    var wbz = Avx.Add(woz, dy);
+                    var dotB = Fma.IsSupported
+                        ? Fma.MultiplyAdd(wbx, v_dx, Avx.Multiply(wbz, v_dz))
+                        : Avx.Add(Avx.Multiply(wbx, v_dx), Avx.Multiply(wbz, v_dz));
+                    var tA = Avx.Multiply(dotA, v_invDirLenSq);
+                    var tB = Avx.Multiply(dotB, v_invDirLenSq);
+                    var tLo = Avx.Min(tA, tB);
+                    var tHi = Avx.Max(tA, tB);
+                    var tOverlap = Avx.Max(tLo, v_tMin);
+                    var validOverlap = collinear & Vector256.LessThanOrEqual(tOverlap, tHi) & Vector256.LessThanOrEqual(tOverlap, v_tMax);
+                    if (validOverlap.ExtractMostSignificantBits() != 0u)
+                    {
+                        var parallelBest = HorizontalMin(Vector256.ConditionalSelect(validOverlap, tOverlap, v_inf));
+                        blockBest = Math.Min(blockBest, parallelBest);
+                    }
+                }
+            }
+
+            if (blockBest < best)
+            {
+                best = blockBest;
+                v_tMax = Vector256.Create(blockBest);
+            }
+        }
+
+        var tail = es + ((ee - es) & ~7);
+        if (tail < ee)
+        {
+            KernelRayScalar(tail, ee, ox, oz, dx, dz, tMin, Math.Min(tMax, best), ref best);
         }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void KernelRayScalar(int es, int ee, float ox, float oz, float dx, float dz, float tMin, float tMax, ref float best)
     {
+        var invDirLenSq = 1f / (dx * dx + dz * dz + 1e-20f);
         for (var i = es; i < ee; ++i)
         {
             float y0s = _y0[i], eys = _dy[i], x0s = _x0[i], exs = _dx[i];
             float woxs = x0s - ox, wozs = y0s - oz;
             var den = dx * eys - dz * exs;
+            var absDen = Math.Abs(den);
 
-            if (Math.Abs(den) > TinyDen)
+            if (absDen > TinyDen)
             {
-                var invDen = 1f / den;
-                var t = (woxs * eys - wozs * exs) * invDen;
-                if (t < tMin || t > tMax || t >= best)
+                var tNum = woxs * eys - wozs * exs;
+                var uNum = woxs * dz - wozs * dx;
+                if (den < 0f)
+                {
+                    tNum = -tNum;
+                    uNum = -uNum;
+                }
+
+                var activeTMax = Math.Min(tMax, best);
+                if (tNum < tMin * absDen || tNum > activeTMax * absDen
+                    || uNum < 0f || uNum >= (1f - 1e-6f) * absDen)
                 {
                     continue;
                 }
 
-                var u = (woxs * dz - wozs * dx) * invDen;
-                if (u is < 0f or >= (1f - 1e-6f))
-                {
-                    continue;
-                }
-
-                best = t;
+                best = tNum / absDen;
             }
             else
             {
                 var col = woxs * dz - wozs * dx;
                 if (Math.Abs(col) <= Eps)
                 {
-                    var iddd = 1f / (dx * dx + dz * dz + 1e-20f);
-                    var tA = (woxs * dx + wozs * dz) * iddd;
-                    var tB = ((x0s + exs - ox) * dx + (y0s + eys - oz) * dz) * iddd;
-
+                    var tA = (woxs * dx + wozs * dz) * invDirLenSq;
+                    var tB = ((x0s + exs - ox) * dx + (y0s + eys - oz) * dz) * invDirLenSq;
                     if (tA > tB)
                     {
                         (tA, tB) = (tB, tA);
                     }
-                    var cand = float.MaxValue;
-                    if (tA >= tMin && tA <= tMax)
-                    {
-                        cand = tA;
-                    }
-                    else if (tB >= tMin && tB <= tMax)
-                    {
-                        cand = tB;
-                    }
 
-                    if (cand < best)
+                    var cand = Math.Max(tA, tMin);
+                    if (cand <= tB && cand <= tMax && cand < best)
                     {
                         best = cand;
                     }
                 }
             }
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void KernelClosestDispatch(int es, int ee, float px, float py, ref float bestSq, ref float bestX, ref float bestY)
+    {
+        var count = ee - es;
+        if (count >= 16 && Avx512F.IsSupported)
+        {
+            KernelClosest512(es, ee, px, py, ref bestSq, ref bestX, ref bestY);
+        }
+        else if (count >= 8 && Avx2.IsSupported)
+        {
+            KernelClosest256(es, ee, px, py, ref bestSq, ref bestX, ref bestY);
+        }
+        else if (count > 0)
+        {
+            KernelClosestScalar(es, ee, px, py, ref bestSq, ref bestX, ref bestY);
         }
     }
 
@@ -1676,8 +2387,10 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         var v_py = Vector512.Create(py);
         var v_one = Vector512<float>.One;
         var v_zero = Vector512<float>.Zero;
+        var v_bestSq = Vector512.Create(bestSq);
 
-        for (var i = es; i + 16 <= ee; i += 16)
+        var i = es;
+        for (; i + 16 <= ee; i += 16)
         {
             var y0 = Load512(_y0, i);
             var dy = Load512(_dy, i);
@@ -1701,12 +2414,21 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             // d2 = dxp*dxp + dyp*dyp
             var d2 = Avx512F.FusedMultiplyAdd(dxp, dxp, Avx512F.Multiply(dyp, dyp));
 
-            var mask = Vector512.LessThan(d2, Vector512.Create(bestSq)).ExtractMostSignificantBits();
-            if (mask != 0ul)
+            var improving = Vector512.LessThan(d2, v_bestSq);
+            if (improving.ExtractMostSignificantBits() != 0ul)
             {
-                // update best and carry back the lane's (nx, ny)
-                UpdateClosestFromMask(d2, nx, ny, mask, ref bestSq, ref bestX, ref bestY);
+                UpdateClosest(d2, nx, ny, improving, ref bestSq, ref bestX, ref bestY);
+                v_bestSq = Vector512.Create(bestSq);
             }
+        }
+
+        if (i + 8 <= ee && Avx2.IsSupported)
+        {
+            KernelClosest256(i, ee, px, py, ref bestSq, ref bestX, ref bestY);
+        }
+        else if (i < ee)
+        {
+            KernelClosestScalar(i, ee, px, py, ref bestSq, ref bestX, ref bestY);
         }
     }
 
@@ -1717,8 +2439,10 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         var v_py = Vector256.Create(py);
         var v_one = Vector256<float>.One;
         var v_zero = Vector256<float>.Zero;
+        var v_bestSq = Vector256.Create(bestSq);
 
-        for (var i = es; i + 8 <= ee; i += 8)
+        var i = es;
+        for (; i + 8 <= ee; i += 8)
         {
             var y0 = Load256(_y0, i);
             var dy = Load256(_dy, i);
@@ -1730,7 +2454,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             var rely = Avx.Subtract(v_py, y0);
 
             // t = clamp(((relx*dx) + (rely*dy)) * invL2, 0, 1)
-            var tDot = HasFMA ? Fma.MultiplyAdd(relx, dx, Avx.Multiply(rely, dy)) : Avx.Add(Avx.Multiply(relx, dx), Avx.Multiply(rely, dy));
+            var tDot = Fma.IsSupported ? Fma.MultiplyAdd(relx, dx, Avx.Multiply(rely, dy)) : Avx.Add(Avx.Multiply(relx, dx), Avx.Multiply(rely, dy));
             var t = Avx.Multiply(tDot, invL2);
             t = Avx.Min(Avx.Max(t, v_zero), v_one);
 
@@ -1739,14 +2463,19 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
             var dxp = Avx.Subtract(nx, v_px);
             var dyp = Avx.Subtract(ny, v_py);
-            var d2 = HasFMA ? Fma.MultiplyAdd(dxp, dxp, Avx.Multiply(dyp, dyp)) : Avx.Add(Avx.Multiply(dxp, dxp), Avx.Multiply(dyp, dyp));
+            var d2 = Fma.IsSupported ? Fma.MultiplyAdd(dxp, dxp, Avx.Multiply(dyp, dyp)) : Avx.Add(Avx.Multiply(dxp, dxp), Avx.Multiply(dyp, dyp));
 
-            var mask = Vector256.LessThan(d2, Vector256.Create(bestSq)).ExtractMostSignificantBits();
-            if (mask != 0u)
+            var improving = Vector256.LessThan(d2, v_bestSq);
+            if (improving.ExtractMostSignificantBits() != 0u)
             {
-                // update best and carry back the lane's (nx, ny)
-                UpdateClosestFromMask(d2, nx, ny, mask, ref bestSq, ref bestX, ref bestY);
+                UpdateClosest(d2, nx, ny, improving, ref bestSq, ref bestX, ref bestY);
+                v_bestSq = Vector256.Create(bestSq);
             }
+        }
+
+        if (i < ee)
+        {
+            KernelClosestScalar(i, ee, px, py, ref bestSq, ref bestX, ref bestY);
         }
     }
 
@@ -1865,16 +2594,14 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
                 anyOutside = true;
             }
 
-            // A disconnected complex polygon can have one part inside and another outside
-            // without either boundary crossing. It is not wholly inside or wholly outside.
+            // A disconnected complex polygon can have one part inside and another outside without either boundary crossing. It is not wholly inside or wholly outside
             if (anyInside && anyOutside)
             {
                 return PolygonShapeRelation.Intersecting;
             }
         }
 
-        // No boundaries cross, but this polygon (or one of its hole contours) can still be
-        // completely enclosed by the filled area of the query polygon.
+        // No boundaries cross, but this polygon (or one of its hole contours) can still be completely enclosed by the filled area of the query polygon
         var lenS = _contourSamples.Length;
         for (var i = 0; i < lenS; ++i)
         {
@@ -1889,10 +2616,17 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
     public PolygonShapeRelation ClassifyCircle(in WDir center, float radius)
     {
-        var closest = ClosestPointOnBoundary(center);
-        var dx = closest.X - center.X;
-        var dz = closest.Z - center.Z;
+        var centerX = center.X;
+        var centerZ = center.Z;
         var limit = radius + Eps;
+        if (limit >= 0f && (centerX + limit < _bbMinX || centerX - limit > _bbMaxX || centerZ + limit < _bbMinY || centerZ - limit > _bbMaxY))
+        {
+            return PolygonShapeRelation.Outside;
+        }
+
+        var closest = ClosestPointOnBoundary(center);
+        var dx = closest.X - centerX;
+        var dz = closest.Z - centerZ;
         if (dx * dx + dz * dz <= limit * limit)
         {
             return PolygonShapeRelation.Intersecting;
@@ -1932,7 +2666,6 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         }
 
         // An annulus is connected. If no polygon boundary enters it, every point in it has the same classification.
-
         var sampleRadius = 0.5f * (innerRadius + outerRadius);
         var sample = new WDir(centerX + sampleRadius, centerZ);
         return Contains(sample) ? PolygonShapeRelation.Inside : PolygonShapeRelation.Outside;
@@ -1954,7 +2687,6 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         }
 
         // A sector is connected. With no polygon boundary in it, one interior sample classifies the whole shape.
-
         var sampleDistance = 0.5f * radius;
         var sample = new WDir(originX + fx * sampleDistance, originZ + fz * sampleDistance);
         return Contains(sample) ? PolygonShapeRelation.Inside : PolygonShapeRelation.Outside;
@@ -2041,6 +2773,10 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         var orbitRadiusSq = cxOffset * cxOffset + czOffset * czOffset;
 
         var sweep = angularLength.Rad;
+        if (orbitRadiusSq <= TinyLen2)
+        {
+            return ClassifyCircle(origin, radius);
+        }
 
         var orbitRadius = MathF.Sqrt(orbitRadiusSq);
         var originX = origin.X;
@@ -2087,10 +2823,20 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public PolygonShapeRelation ClassifyTriangle(in WDir a, in WDir b, in WDir c)
     {
+        var triangle = new TriangleGeometry(a, b, c);
+        if (triangle.maxX < _bbMinX - Eps || triangle.minX > _bbMaxX + Eps || triangle.maxY < _bbMinY - Eps || triangle.minY > _bbMaxY + Eps)
+        {
+            return PolygonShapeRelation.Outside;
+        }
 
-        Span<WDir> vertices = [a, b, c];
-        var sample = new WDir((a.X + b.X + c.X) / 3f, (a.Z + b.Z + c.Z) / 3f);
-        return ClassifySimplePolygon(vertices, sample);
+        if (BoundaryIntersectsTriangle(triangle))
+        {
+            return PolygonShapeRelation.Intersecting;
+        }
+
+        const float OneThird = 1f / 3f;
+        var sample = new WDir((a.X + b.X + c.X) * OneThird, (a.Z + b.Z + c.Z) * OneThird);
+        return Contains(sample) ? PolygonShapeRelation.Inside : PolygonShapeRelation.Outside;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -2205,14 +2951,11 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
                 continue;
             }
 
-            int es = _rowOffsets[row], ee = _rowEnds[row];
-            for (var i = es; i < ee; ++i)
+            int es = row == row0 ? _rowOffsets[row] : _rowNewStarts[row], ee = _rowEnds[row];
+            var candidates = new XOverlapEnumerator(_minX, _maxX, es, ee, minX, maxX);
+            while (candidates.MoveNext(out var i))
             {
                 var cy = _y0[i];
-                if (_maxX[i] < minX || _minX[i] > maxX)
-                {
-                    continue;
-                }
 
                 var cx = _x0[i];
                 if (SegmentsIntersect(ax, ay, bx, by, cx, cy, cx + _dx[i], cy + _dy[i]))
@@ -2222,9 +2965,14 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             }
 
             int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
+            hs = FirstHorizontalAtOrAbove(hs, he, minY - Eps);
             for (var h = hs; h < he; ++h)
             {
-                ref readonly var edge = ref _hEdges[_hRowIdx[h]];
+                ref readonly var edge = ref _hEdges[h];
+                if (edge.y > maxY + Eps)
+                {
+                    break;
+                }
 
                 var edgeMinX = edge.minX;
                 var edgeMaxX = edge.maxX;
@@ -2276,18 +3024,16 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
         for (var row = row0; row <= row1; ++row)
         {
-            int es = _rowOffsets[row], ee = _rowEnds[row];
-            for (var i = es; i < ee; ++i)
+            if (worldMaxX < _rowMinX[row] || worldMinX > _rowMaxX[row])
+            {
+                continue;
+            }
+
+            int es = row == row0 ? _rowOffsets[row] : _rowNewStarts[row], ee = _rowEnds[row];
+            var candidates = new XOverlapEnumerator(_minX, _maxX, es, ee, worldMinX, worldMaxX);
+            while (candidates.MoveNext(out var i))
             {
                 var ay = _y0[i];
-                if (!IsFirstOverlappingCopy(row, row0, ay))
-                {
-                    continue;
-                }
-                if (_maxX[i] < worldMinX || _minX[i] > worldMaxX)
-                {
-                    continue;
-                }
 
                 var ax = _x0[i];
                 var bx = ax + _dx[i];
@@ -2301,7 +3047,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
             for (var h = hs; h < he; ++h)
             {
-                ref readonly var edge = ref _hEdges[_hRowIdx[h]];
+                ref readonly var edge = ref _hEdges[h];
                 var edgeMinX = edge.minX;
                 var edgeMaxX = edge.maxX;
 
@@ -2342,6 +3088,147 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         return false;
     }
 
+    private bool BoundaryIntersectsTriangle(in TriangleGeometry triangle)
+    {
+        var worldMinX = triangle.minX - Eps;
+        var worldMaxX = triangle.maxX + Eps;
+        if (!TryGetRowRange(triangle.minY, triangle.maxY, out var row0, out var row1))
+        {
+            return false;
+        }
+
+        for (var row = row0; row <= row1; ++row)
+        {
+            if (worldMaxX < _rowMinX[row] || worldMinX > _rowMaxX[row])
+            {
+                continue;
+            }
+
+            int es = row == row0 ? _rowOffsets[row] : _rowNewStarts[row], ee = _rowEnds[row];
+            var candidates = new XOverlapEnumerator(_minX, _maxX, es, ee, worldMinX, worldMaxX);
+            while (candidates.MoveNext(out var i))
+            {
+                var ay = _y0[i];
+                var ax = _x0[i];
+                if (SegmentIntersectsFilledTriangle(ax, ay, ax + _dx[i], ay + _dy[i], triangle))
+                {
+                    return true;
+                }
+            }
+
+            int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
+            for (var h = hs; h < he; ++h)
+            {
+                ref readonly var edge = ref _hEdges[h];
+                var edgeMinX = edge.minX;
+                var edgeMaxX = edge.maxX;
+
+                if (edgeMaxX < worldMinX || edgeMinX > worldMaxX)
+                {
+                    continue;
+                }
+                var edgeY = edge.y;
+
+                if (SegmentIntersectsFilledTriangle(edgeMinX, edgeY, edgeMaxX, edgeY, triangle))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool SegmentIntersectsFilledTriangle(float ax, float ay, float bx, float by, in TriangleGeometry triangle)
+    {
+        if (Math.Max(ax, bx) + Eps < triangle.minX || triangle.maxX + Eps < Math.Min(ax, bx)
+         || Math.Max(ay, by) + Eps < triangle.minY || triangle.maxY + Eps < Math.Min(ay, by))
+        {
+            return false;
+        }
+
+        if (PointInTriangle(ax, ay, triangle) || PointInTriangle(bx, by, triangle))
+        {
+            return true;
+        }
+
+        // same boundary-inclusive semantics as the generic simple-polygon path, but fully unrolled for the fixed three-edge case
+        return SegmentsIntersect(ax, ay, bx, by, triangle.cx, triangle.cy, triangle.ax, triangle.ay)
+           || SegmentsIntersect(ax, ay, bx, by, triangle.ax, triangle.ay, triangle.bx, triangle.by)
+            || SegmentsIntersect(ax, ay, bx, by, triangle.bx, triangle.by, triangle.cx, triangle.cy);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool PointInTriangle(float px, float py, in TriangleGeometry triangle)
+    {
+        var cx = triangle.cx;
+        var cy = triangle.cy;
+        var e0x = triangle.e0x;
+        var e0y = triangle.e0y;
+        var ax = triangle.ax;
+        var ay = triangle.ay;
+        var e1x = triangle.e1x;
+        var e1y = triangle.e1y;
+        var bx = triangle.bx;
+        var by = triangle.by;
+        var e2x = triangle.e2x;
+        var e2y = triangle.e2y;
+
+        // For a non-degenerate triangle, three same-sign edge crosses prove inclusion
+        var c0 = Cross(e0x, e0y, px - cx, py - cy);
+        var c1 = Cross(e1x, e1y, px - ax, py - ay);
+        var c2 = Cross(e2x, e2y, px - bx, py - by);
+        if (Math.Abs(triangle.area2) > TinyDen)
+        {
+            var hasNegative = c0 < 0f || c1 < 0f || c2 < 0f;
+            var hasPositive = c0 > 0f || c1 > 0f || c2 > 0f;
+            if (!(hasNegative && hasPositive))
+            {
+                return true;
+            }
+        }
+
+        return PointSegmentDistanceSqKnownInv(px, py, cx, cy, e0x, e0y, triangle.e0InvLen2) <= Eps2
+            || PointSegmentDistanceSqKnownInv(px, py, ax, ay, e1x, e1y, triangle.e1InvLen2) <= Eps2
+            || PointSegmentDistanceSqKnownInv(px, py, bx, by, e2x, e2y, triangle.e2InvLen2) <= Eps2;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static float PointSegmentDistanceSqKnownInv(float px, float py, float ax, float ay, float dx, float dy, float invLenSq)
+    {
+        var lenSq = dx * dx + dy * dy;
+        if (lenSq <= TinyLen2)
+        {
+            var ex = px - ax;
+            var ey = py - ay;
+            return ex * ex + ey * ey;
+        }
+
+        return PointSegmentDistanceSqKnownInvNonDegenerate(px, py, ax, ay, dx, dy, invLenSq);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static float PointSegmentDistanceSqKnownInvNonDegenerate(float px, float py, float ax, float ay, float dx, float dy, float invLenSq)
+    {
+        var rx = px - ax;
+        var ry = py - ay;
+        var dot = rx * dx + ry * dy;
+        if (dot <= 0f)
+        {
+            return rx * rx + ry * ry;
+        }
+        if (dot * invLenSq >= 1f)
+        {
+            rx -= dx;
+            ry -= dy;
+            return rx * rx + ry * ry;
+        }
+
+        var cross = rx * dy - ry * dx;
+        return cross * cross * invLenSq;
+    }
+
     private static bool PointInSimplePolygon(float px, float py, ReadOnlySpan<WDir> vertices)
     {
         var inside = false;
@@ -2354,7 +3241,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             var prevZ = prev.Z;
             var curX = cur.X;
             var curZ = cur.Z;
-            if (PointSegmentDistanceSq(px, py, prevX, prevZ, curX, curZ) <= Eps2)
+            if (PointWithinDistanceSqOfSegment(px, py, prevX, prevZ, curX, curZ, Eps2))
             {
                 return true;
             }
@@ -2375,30 +3262,27 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
     private bool BoundaryIntersectsDonutSector(float cx, float cz, float fx, float fz, float innerRadius, float outerRadius, float halfAngle)
     {
-        var reach = outerRadius + Eps;
-        var minX = cx - reach;
-        var maxX = cx + reach;
         var sector = new AnnularSectorGeometry(cx, cz, fx, fz, innerRadius, outerRadius, halfAngle);
+        var minX = sector.minX;
+        var maxX = sector.maxX;
 
-        if (!TryGetRowRange(cz - reach, cz + reach, out var row0, out var row1))
+        if (!TryGetRowRange(sector.minZ, sector.maxZ, out var row0, out var row1))
         {
             return false;
         }
 
         for (var row = row0; row <= row1; ++row)
         {
-            int es = _rowOffsets[row], ee = _rowEnds[row];
-            for (var i = es; i < ee; ++i)
+            if (maxX < _rowMinX[row] || minX > _rowMaxX[row])
+            {
+                continue;
+            }
+
+            int es = row == row0 ? _rowOffsets[row] : _rowNewStarts[row], ee = _rowEnds[row];
+            var candidates = new XOverlapEnumerator(_minX, _maxX, es, ee, minX, maxX);
+            while (candidates.MoveNext(out var i))
             {
                 var ay = _y0[i];
-                if (!IsFirstOverlappingCopy(row, row0, ay))
-                {
-                    continue;
-                }
-                if (_maxX[i] < minX || _minX[i] > maxX)
-                {
-                    continue;
-                }
 
                 var ax = _x0[i];
                 var bx = ax + _dx[i];
@@ -2412,7 +3296,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
             for (var h = hs; h < he; ++h)
             {
-                ref readonly var edge = ref _hEdges[_hRowIdx[h]];
+                ref readonly var edge = ref _hEdges[h];
                 var edgeMinX = edge.minX;
                 var edgeMaxX = edge.maxX;
                 if (edgeMaxX < minX || edgeMinX > maxX)
@@ -2439,6 +3323,11 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         var minZ = Math.Min(az, bz) - reach;
         var maxZ = Math.Max(az, bz) + reach;
         var reachSq = reach * reach;
+        var capsuleDx = bx - ax;
+        var capsuleDy = bz - az;
+        var capsuleLen2 = capsuleDx * capsuleDx + capsuleDy * capsuleDy;
+        var capsuleNonDegenerate = capsuleLen2 > TinyLen2;
+        var capsuleInvLen2 = 1f / Math.Max(capsuleLen2, TinyLen2);
 
         if (!TryGetRowRange(minZ, maxZ, out var row0, out var row1))
         {
@@ -2447,24 +3336,24 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
         for (var row = row0; row <= row1; ++row)
         {
-            int es = _rowOffsets[row], ee = _rowEnds[row];
-            for (var i = es; i < ee; ++i)
+            if (maxX < _rowMinX[row] || minX > _rowMaxX[row])
+            {
+                continue;
+            }
+
+            int es = row == row0 ? _rowOffsets[row] : _rowNewStarts[row], ee = _rowEnds[row];
+            var candidates = new XOverlapEnumerator(_minX, _maxX, es, ee, minX, maxX);
+            while (candidates.MoveNext(out var i))
             {
                 var ey0 = _y0[i];
-                if (!IsFirstOverlappingCopy(row, row0, ey0))
-                {
-                    continue;
-                }
-
-                if (_maxX[i] < minX || _minX[i] > maxX)
-                {
-                    continue;
-                }
 
                 var ex0 = _x0[i];
-                var ex1 = ex0 + _dx[i];
-                var ey1 = ey0 + _dy[i];
-                if (SegmentSegmentDistanceSq(ax, az, bx, bz, ex0, ey0, ex1, ey1) <= reachSq)
+                var edgeDx = _dx[i];
+                var edgeDy = _dy[i];
+                var distanceSq = capsuleNonDegenerate
+                    ? SegmentSegmentDistanceSqKnownInvNonDegenerate(ax, az, capsuleDx, capsuleDy, capsuleInvLen2, ex0, ey0, edgeDx, edgeDy, _invLen2[i])
+                    : PointSegmentDistanceSqKnownInvNonDegenerate(ax, az, ex0, ey0, edgeDx, edgeDy, _invLen2[i]);
+                if (distanceSq <= reachSq)
                 {
                     return true;
                 }
@@ -2473,7 +3362,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
             for (var h = hs; h < he; ++h)
             {
-                ref readonly var edge = ref _hEdges[_hRowIdx[h]];
+                ref readonly var edge = ref _hEdges[h];
                 var edgeMinX = edge.minX;
                 var edgeMaxX = edge.maxX;
                 if (edgeMaxX < minX || edgeMinX > maxX)
@@ -2482,8 +3371,10 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
                 }
 
                 var edgeY = edge.y;
+                var edgeDx = edgeMaxX - edgeMinX;
+                var edgeInvLen2 = 1f / Math.Max(edgeDx * edgeDx, TinyLen2);
 
-                if (SegmentSegmentDistanceSq(ax, az, bx, bz, edgeMinX, edgeY, edgeMaxX, edgeY) <= reachSq)
+                if (SegmentSegmentDistanceSqKnownInv(ax, az, capsuleDx, capsuleDy, capsuleInvLen2, edgeMinX, edgeY, edgeDx, 0f, edgeInvLen2) <= reachSq)
                 {
                     return true;
                 }
@@ -2496,38 +3387,40 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
     private bool BoundaryIntersectsArcCapsule(float startX, float startZ, float endX, float endZ, float cx, float cz, float midX, float midZ, float innerRadius, float outerRadius,
         float halfAngle, float capsuleRadius)
     {
-        var reach = outerRadius + Eps;
-        var minX = cx - reach;
-        var maxX = cx + reach;
         var capReach = capsuleRadius + Eps;
         var capReachSq = capReach * capReach;
         var sector = new AnnularSectorGeometry(cx, cz, midX, midZ, innerRadius, outerRadius, halfAngle);
+        var minX = Math.Min(sector.minX, Math.Min(startX, endX) - capReach);
+        var maxX = Math.Max(sector.maxX, Math.Max(startX, endX) + capReach);
+        var minZ = Math.Min(sector.minZ, Math.Min(startZ, endZ) - capReach);
+        var maxZ = Math.Max(sector.maxZ, Math.Max(startZ, endZ) + capReach);
 
-        if (!TryGetRowRange(cz - reach, cz + reach, out var row0, out var row1))
+        if (!TryGetRowRange(minZ, maxZ, out var row0, out var row1))
         {
             return false;
         }
 
         for (var row = row0; row <= row1; ++row)
         {
-            int es = _rowOffsets[row], ee = _rowEnds[row];
-            for (var i = es; i < ee; ++i)
+            if (maxX < _rowMinX[row] || minX > _rowMaxX[row])
+            {
+                continue;
+            }
+
+            int es = row == row0 ? _rowOffsets[row] : _rowNewStarts[row], ee = _rowEnds[row];
+            var candidates = new XOverlapEnumerator(_minX, _maxX, es, ee, minX, maxX);
+            while (candidates.MoveNext(out var i))
             {
                 var ay = _y0[i];
-                if (!IsFirstOverlappingCopy(row, row0, ay))
-                {
-                    continue;
-                }
-
-                if (_maxX[i] < minX || _minX[i] > maxX)
-                {
-                    continue;
-                }
 
                 var ax = _x0[i];
-                var bx = ax + _dx[i];
-                var by = ay + _dy[i];
-                if (PointSegmentDistanceSq(startX, startZ, ax, ay, bx, by) <= capReachSq || PointSegmentDistanceSq(endX, endZ, ax, ay, bx, by) <= capReachSq
+                var edgeDx = _dx[i];
+                var edgeDy = _dy[i];
+                var bx = ax + edgeDx;
+                var by = ay + edgeDy;
+                var edgeInvLen2 = _invLen2[i];
+                if (PointSegmentDistanceSqKnownInvNonDegenerate(startX, startZ, ax, ay, edgeDx, edgeDy, edgeInvLen2) <= capReachSq
+                    || PointSegmentDistanceSqKnownInvNonDegenerate(endX, endZ, ax, ay, edgeDx, edgeDy, edgeInvLen2) <= capReachSq
                     || SegmentIntersectsAnnularSector(ax, ay, bx, by, sector))
                 {
                     return true;
@@ -2537,7 +3430,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
             for (var h = hs; h < he; ++h)
             {
-                ref readonly var edge = ref _hEdges[_hRowIdx[h]];
+                ref readonly var edge = ref _hEdges[h];
                 var edgeMinX = edge.minX;
                 var edgeMaxX = edge.maxX;
                 if (edgeMaxX < minX || edgeMinX > maxX)
@@ -2576,19 +3469,16 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
         for (var row = row0; row <= row1; ++row)
         {
-            int es = _rowOffsets[row], ee = _rowEnds[row];
-            for (var i = es; i < ee; ++i)
+            if (worldMaxX < _rowMinX[row] || worldMinX > _rowMaxX[row])
+            {
+                continue;
+            }
+
+            int es = row == row0 ? _rowOffsets[row] : _rowNewStarts[row], ee = _rowEnds[row];
+            var candidates = new XOverlapEnumerator(_minX, _maxX, es, ee, worldMinX, worldMaxX);
+            while (candidates.MoveNext(out var i))
             {
                 var ay = _y0[i];
-                if (!IsFirstOverlappingCopy(row, row0, ay))
-                {
-                    continue;
-                }
-
-                if (_maxX[i] < worldMinX || _minX[i] > worldMaxX)
-                {
-                    continue;
-                }
 
                 var ax = _x0[i];
                 var bx = ax + _dx[i];
@@ -2602,7 +3492,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
             for (var h = hs; h < he; ++h)
             {
-                ref readonly var edge = ref _hEdges[_hRowIdx[h]];
+                ref readonly var edge = ref _hEdges[h];
                 var edgeMinX = edge.minX;
                 var edgeMaxX = edge.maxX;
                 if (edgeMaxX < worldMinX || edgeMinX > worldMaxX)
@@ -2636,23 +3526,21 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
         for (var row = row0; row <= row1; ++row)
         {
-            int es = _rowOffsets[row], ee = _rowEnds[row];
-            for (var i = es; i < ee; ++i)
+            if (maxX < _rowMinX[row] || minX > _rowMaxX[row])
+            {
+                continue;
+            }
+
+            int es = row == row0 ? _rowOffsets[row] : _rowNewStarts[row], ee = _rowEnds[row];
+            var candidates = new XOverlapEnumerator(_minX, _maxX, es, ee, minX, maxX);
+            while (candidates.MoveNext(out var i))
             {
                 var ay = _y0[i];
-                if (!IsFirstOverlappingCopy(row, row0, ay))
-                {
-                    continue;
-                }
-                if (_maxX[i] < minX || _minX[i] > maxX)
-                {
-                    continue;
-                }
 
                 var ax = _x0[i];
-                var bx = ax + _dx[i];
-                var by = ay + _dy[i];
-                if (SegmentDistanceRangeOverlapsAnnulus(ax, ay, bx, by, cx, cz, innerSq, outerSq))
+                var edgeDx = _dx[i];
+                var edgeDy = _dy[i];
+                if (SegmentDistanceRangeOverlapsAnnulusKnownInv(ax, ay, edgeDx, edgeDy, _invLen2[i], cx, cz, innerSq, outerSq))
                 {
                     return true;
                 }
@@ -2661,7 +3549,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
             for (var h = hs; h < he; ++h)
             {
-                ref readonly var edge = ref _hEdges[_hRowIdx[h]];
+                ref readonly var edge = ref _hEdges[h];
                 var edgeMinX = edge.minX;
                 var edgeMaxX = edge.maxX;
 
@@ -2682,30 +3570,27 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
 
     private bool BoundaryIntersectsCone(float ox, float oz, float fx, float fz, float radius, float halfAngle)
     {
-        var reach = radius + Eps;
-        var minX = ox - reach;
-        var maxX = ox + reach;
         var sector = new SectorGeometry(ox, oz, fx, fz, radius, halfAngle);
+        var minX = sector.minX;
+        var maxX = sector.maxX;
 
-        if (!TryGetRowRange(oz - reach, oz + reach, out var row0, out var row1))
+        if (!TryGetRowRange(sector.minZ, sector.maxZ, out var row0, out var row1))
         {
             return false;
         }
 
         for (var row = row0; row <= row1; ++row)
         {
-            int es = _rowOffsets[row], ee = _rowEnds[row];
-            for (var i = es; i < ee; ++i)
+            if (maxX < _rowMinX[row] || minX > _rowMaxX[row])
+            {
+                continue;
+            }
+
+            int es = row == row0 ? _rowOffsets[row] : _rowNewStarts[row], ee = _rowEnds[row];
+            var candidates = new XOverlapEnumerator(_minX, _maxX, es, ee, minX, maxX);
+            while (candidates.MoveNext(out var i))
             {
                 var ay = _y0[i];
-                if (!IsFirstOverlappingCopy(row, row0, ay))
-                {
-                    continue;
-                }
-                if (_maxX[i] < minX || _minX[i] > maxX)
-                {
-                    continue;
-                }
 
                 var ax = _x0[i];
                 var bx = ax + _dx[i];
@@ -2719,7 +3604,7 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             int hs = _hRowOffsets[row], he = _hRowOffsets[row + 1];
             for (var h = hs; h < he; ++h)
             {
-                ref readonly var edge = ref _hEdges[_hRowIdx[h]];
+                ref readonly var edge = ref _hEdges[h];
                 var edgeMinX = edge.minX;
                 var edgeMaxX = edge.maxX;
 
@@ -2736,19 +3621,6 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         }
 
         return false;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool IsFirstOverlappingCopy(int row, int queryRow0, float edgeMinY)
-    {
-        // Non-horizontal edges are duplicated into every row they span. Expensive
-        // shape tests only need one copy: the first row shared by edge and query.
-        var edgeRow0 = (int)((edgeMinY - _minY) * _invCellH);
-        if (edgeRow0 >= _rows)
-        {
-            edgeRow0 = _rows - 1;
-        }
-        return row == Math.Max(queryRow0, edgeRow0);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -2832,6 +3704,23 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
         }
 
         var minSq = PointSegmentDistanceSq(cx, cz, ax, ay, bx, by);
+        return minSq <= outerSq;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool SegmentDistanceRangeOverlapsAnnulusKnownInv(float ax, float ay, float dx, float dy, float invLenSq, float cx, float cz, float innerSq, float outerSq)
+    {
+        var daX = ax - cx;
+        var daY = ay - cz;
+        var dbX = daX + dx;
+        var dbY = daY + dy;
+        var maxSq = Math.Max(daX * daX + daY * daY, dbX * dbX + dbY * dbY);
+        if (maxSq < innerSq)
+        {
+            return false;
+        }
+
+        var minSq = PointSegmentDistanceSqKnownInvNonDegenerate(cx, cz, ax, ay, dx, dy, invLenSq);
         return minSq <= outerSq;
     }
 
@@ -3009,42 +3898,50 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
             return true;
         }
 
-        var projection = dx * fx + dy * fz;
-        var angularLimit = MathF.Sqrt(distanceSq) * cosHalfAngle;
-        return projection >= angularLimit - Eps;
-    }
-
-    private static bool SegmentsIntersect(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy)
-    {
-        if (Math.Max(ax, bx) + Eps < Math.Min(cx, dx) || Math.Max(cx, dx) + Eps < Math.Min(ax, bx) || Math.Max(ay, by) + Eps < Math.Min(cy, dy) || Math.Max(cy, dy) + Eps < Math.Min(ay, by))
+        // projection >= sqrt(distanceSq) * cosHalfAngle - Eps, handle obtuse sectors separately because their cosine is
+        // negative and blindly squaring would reverse part of the predicate
+        var adjustedProjection = dx * fx + dy * fz + Eps;
+        var angularLimitSq = distanceSq * cosHalfAngle * cosHalfAngle;
+        if (cosHalfAngle >= 0f)
         {
-            return false;
+            return adjustedProjection >= 0f && adjustedProjection * adjustedProjection >= angularLimitSq;
         }
 
+        return adjustedProjection >= 0f || adjustedProjection * adjustedProjection <= angularLimitSq;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool SegmentBoundsOverlap(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy)
+        => Math.Max(ax, bx) + Eps >= Math.Min(cx, dx) && Math.Max(cx, dx) + Eps >= Math.Min(ax, bx)
+        && Math.Max(ay, by) + Eps >= Math.Min(cy, dy) && Math.Max(cy, dy) + Eps >= Math.Min(ay, by);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool SegmentsProperlyIntersect(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy)
+    {
         var abX = bx - ax;
         var abY = by - ay;
         var cdX = dx - cx;
         var cdY = dy - cy;
-        var acX = cx - ax;
-        var acY = cy - ay;
-        var adX = dx - ax;
-        var adY = dy - ay;
-        var caX = ax - cx;
-        var caY = ay - cy;
-        var cbX = bx - cx;
-        var cbY = by - cy;
+        var c1 = Cross(abX, abY, cx - ax, cy - ay);
+        var c2 = Cross(abX, abY, dx - ax, dy - ay);
+        var c3 = Cross(cdX, cdY, ax - cx, ay - cy);
+        var c4 = Cross(cdX, cdY, bx - cx, by - cy);
+        return (c1 > 0f && c2 < 0f || c1 < 0f && c2 > 0f) && (c3 > 0f && c4 < 0f || c3 < 0f && c4 > 0f);
+    }
 
-        var c1 = Cross(abX, abY, acX, acY);
-        var c2 = Cross(abX, abY, adX, adY);
-        var c3 = Cross(cdX, cdY, caX, caY);
-        var c4 = Cross(cdX, cdY, cbX, cbY);
-        if ((c1 > 0f && c2 < 0f || c1 < 0f && c2 > 0f) && (c3 > 0f && c4 < 0f || c3 < 0f && c4 > 0f))
+    private static bool SegmentsIntersect(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy)
+    {
+        if (!SegmentBoundsOverlap(ax, ay, bx, by, cx, cy, dx, dy))
+        {
+            return false;
+        }
+        if (SegmentsProperlyIntersect(ax, ay, bx, by, cx, cy, dx, dy))
         {
             return true;
         }
 
-        return PointSegmentDistanceSq(ax, ay, cx, cy, dx, dy) <= Eps2 || PointSegmentDistanceSq(bx, by, cx, cy, dx, dy) <= Eps2
-        || PointSegmentDistanceSq(cx, cy, ax, ay, bx, by) <= Eps2 || PointSegmentDistanceSq(dx, dy, ax, ay, bx, by) <= Eps2;
+        return PointWithinDistanceSqOfSegment(ax, ay, cx, cy, dx, dy, Eps2) || PointWithinDistanceSqOfSegment(bx, by, cx, cy, dx, dy, Eps2)
+            || PointWithinDistanceSqOfSegment(cx, cy, ax, ay, bx, by, Eps2) || PointWithinDistanceSqOfSegment(dx, dy, ax, ay, bx, by, Eps2);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -3052,41 +3949,118 @@ internal sealed unsafe class PolygonBoundaryIndex2D : IDisposable
     {
         var dx = bx - ax;
         var dy = by - ay;
+        var rx = px - ax;
+        var ry = py - ay;
         var lenSq = dx * dx + dy * dy;
         if (lenSq <= TinyLen2)
         {
-            var ex = px - ax;
-            var ey = py - ay;
-            return ex * ex + ey * ey;
+            return rx * rx + ry * ry;
         }
 
-        var t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
-        t = Math.Clamp(t, 0f, 1f);
-        var nx = ax + t * dx;
-        var ny = ay + t * dy;
-        var rx = px - nx;
-        var ry = py - ny;
-        return rx * rx + ry * ry;
+        var dot = rx * dx + ry * dy;
+        if (dot <= 0f)
+        {
+            return rx * rx + ry * ry;
+        }
+        if (dot >= lenSq)
+        {
+            rx -= dx;
+            ry -= dy;
+            return rx * rx + ry * ry;
+        }
+
+        var cross = rx * dy - ry * dx;
+        return cross * cross / lenSq;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool PointWithinDistanceSqOfSegment(float px, float py, float ax, float ay, float bx, float by, float maxDistanceSq)
+    {
+        var dx = bx - ax;
+        var dy = by - ay;
+        var rx = px - ax;
+        var ry = py - ay;
+        var lenSq = dx * dx + dy * dy;
+        if (lenSq <= TinyLen2)
+        {
+            return rx * rx + ry * ry <= maxDistanceSq;
+        }
+
+        var dot = rx * dx + ry * dy;
+        if (dot <= 0f)
+        {
+            return rx * rx + ry * ry <= maxDistanceSq;
+        }
+        if (dot >= lenSq)
+        {
+            rx -= dx;
+            ry -= dy;
+            return rx * rx + ry * ry <= maxDistanceSq;
+        }
+
+        var cross = rx * dy - ry * dx;
+        return cross * cross <= maxDistanceSq * lenSq;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static float SegmentSegmentDistanceSqKnownInvNonDegenerate(float ax, float ay, float adx, float ady, float aInvLenSq,
+        float bx, float by, float bdx, float bdy, float bInvLenSq)
+    {
+        var aex = ax + adx;
+        var aey = ay + ady;
+        var bex = bx + bdx;
+        var bey = by + bdy;
+        if (SegmentBoundsOverlap(ax, ay, aex, aey, bx, by, bex, bey)
+            && SegmentsProperlyIntersect(ax, ay, aex, aey, bx, by, bex, bey))
+        {
+            return 0f;
+        }
+
+        var distanceSq = Math.Min(
+            Math.Min(PointSegmentDistanceSqKnownInvNonDegenerate(ax, ay, bx, by, bdx, bdy, bInvLenSq), PointSegmentDistanceSqKnownInvNonDegenerate(aex, aey, bx, by, bdx, bdy, bInvLenSq)),
+            Math.Min(PointSegmentDistanceSqKnownInvNonDegenerate(bx, by, ax, ay, adx, ady, aInvLenSq), PointSegmentDistanceSqKnownInvNonDegenerate(bex, bey, ax, ay, adx, ady, aInvLenSq)));
+        return distanceSq <= Eps2 ? 0f : distanceSq;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static float SegmentSegmentDistanceSqKnownInv(float ax, float ay, float adx, float ady, float aInvLenSq,
+        float bx, float by, float bdx, float bdy, float bInvLenSq)
+    {
+        var aex = ax + adx;
+        var aey = ay + ady;
+        var bex = bx + bdx;
+        var bey = by + bdy;
+        if (SegmentBoundsOverlap(ax, ay, aex, aey, bx, by, bex, bey)
+            && SegmentsProperlyIntersect(ax, ay, aex, aey, bx, by, bex, bey))
+        {
+            return 0f;
+        }
+
+        var distanceSq = Math.Min(
+            Math.Min(PointSegmentDistanceSqKnownInv(ax, ay, bx, by, bdx, bdy, bInvLenSq), PointSegmentDistanceSqKnownInv(aex, aey, bx, by, bdx, bdy, bInvLenSq)),
+            Math.Min(PointSegmentDistanceSqKnownInv(bx, by, ax, ay, adx, ady, aInvLenSq), PointSegmentDistanceSqKnownInv(bex, bey, ax, ay, adx, ady, aInvLenSq)));
+        return distanceSq <= Eps2 ? 0f : distanceSq;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static float SegmentSegmentDistanceSq(float ax, float ay, float bx, float by,
         float cx, float cy, float dx, float dy)
     {
-        if (SegmentsIntersect(ax, ay, bx, by, cx, cy, dx, dy))
+        if (SegmentBoundsOverlap(ax, ay, bx, by, cx, cy, dx, dy) && SegmentsProperlyIntersect(ax, ay, bx, by, cx, cy, dx, dy))
         {
             return 0f;
         }
 
-        return Math.Min(
+        var distanceSq = Math.Min(
             Math.Min(PointSegmentDistanceSq(ax, ay, cx, cy, dx, dy), PointSegmentDistanceSq(bx, by, cx, cy, dx, dy)),
             Math.Min(PointSegmentDistanceSq(cx, cy, ax, ay, bx, by), PointSegmentDistanceSq(dx, dy, ax, ay, bx, by)));
+        return distanceSq <= Eps2 ? 0f : distanceSq;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Rotate(float x, float z, float angle, out float rotatedX, out float rotatedZ)
     {
-        var (sin, cos) = ((float, float))Math.SinCos(angle);
+        var (sin, cos) = MathF.SinCos(angle);
         rotatedX = x * cos - z * sin;
         rotatedZ = x * sin + z * cos;
     }

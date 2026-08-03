@@ -1,12 +1,14 @@
 ﻿namespace BossMod.Dawntrail.Foray.FATE.NH107PatientKuribu;
 
-public enum OID : uint {
+public enum OID : uint
+{
     PatientKuribu = 0x4D61,
     Helper = 0x233C,
     PatientKuribu1 = 0x4DCC, // R1.000, x0 (spawn during fight)
 }
 
-public enum AID : uint {
+public enum AID : uint
+{
     AutoAttack = 50537, // PatientKuribu->player, no cast, single-target
     Glory = 49915, // PatientKuribu->self, 5.0s cast, range 50 90.000-degree cone
 
@@ -27,7 +29,8 @@ public enum AID : uint {
     LongswordAndSorcery1 = 50120, // PatientKuribu->self, 5.0s cast, range 10-25 donut
 }
 
-public enum SID : uint {
+public enum SID : uint
+{
     EnsorcelledStoneIII = 5375, // PatientKuribu->PatientKuribu, extra=0x0
     EnsorcelledAeroIII = 5374, // PatientKuribu->PatientKuribu, extra=0x0
 }
@@ -42,8 +45,10 @@ sealed class LongswordAndSorcery(BossModule module) : Components.SimpleAOEGroups
     new AOEShapeDonut(10.0f, 25.0f));
 
 [SkipLocalsInit]
-sealed class PatientKuribuStates : StateMachineBuilder {
-    public PatientKuribuStates(BossModule module) : base(module) {
+sealed class PatientKuribuStates : StateMachineBuilder
+{
+    public PatientKuribuStates(BossModule module) : base(module)
+    {
         TrivialPhase()
             .ActivateOnEnter<Glory>()
             .ActivateOnEnter<StoneIII>()
@@ -54,21 +59,21 @@ sealed class PatientKuribuStates : StateMachineBuilder {
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Contributed,
+[ModuleInfo(BossModuleInfo.Maturity.Verified,
     StatesType = typeof(PatientKuribuStates),
     ConfigType = null, // replace null with typeof(PatientKuribuConfig) if applicable
     ObjectIDType = typeof(OID),
-    ActionIDType = typeof(AID),
+    ActionIDType = null, // replace null with typeof(AID) if applicable
     StatusIDType = null, // replace null with typeof(SID) if applicable
     TetherIDType = null, // replace null with typeof(TetherID) if applicable
     IconIDType = null, // replace null with typeof(IconID) if applicable
     PrimaryActorOID = (uint)OID.PatientKuribu,
-    Contributors = "KanoNoUta",
+    Contributors = "",
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,
-    GroupType = BossModuleInfo.GroupType.ForayFATE,
+    GroupType = BossModuleInfo.GroupType.CFC,
     GroupID = 1093u,
-    NameID = 2081u,
+    NameID = 14764u,
     SortOrder = 1,
     PlanLevel = 0)]
 [SkipLocalsInit]

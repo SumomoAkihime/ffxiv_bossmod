@@ -1,6 +1,7 @@
 ﻿namespace BossMod.Dawntrail.Foray.FATE.NH103Cresceregina;
 
-public enum OID : uint {
+public enum OID : uint
+{
     Cresceregina = 0x4D63,
     Helper = 0x233C,
     Cresceregina1 = 0x4EC4, // R0.500, x0 (spawn during fight)
@@ -10,7 +11,8 @@ public enum OID : uint {
     BallOfLevin = 0x4D64, // R2.000, x0 (spawn during fight)
 }
 
-public enum AID : uint {
+public enum AID : uint
+{
     AutoAttack = 50539, // Cresceregina->player, no cast, single-target
     HighCaterwaul = 49499, // Cresceregina->self, 3.0s cast, single-target
     RegalFulguration = 49494, // Cresceregina->self, 5.0s cast, range 40 180.000-degree cone
@@ -29,76 +31,76 @@ public enum AID : uint {
 }
 
 sealed class RegalFulguration(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.RegalFulguration, (uint)AID.RegalFulguration1], new AOEShapeCone(40.0f, 90.0f.Degrees()));
-sealed class Thunderbolt(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Thunderbolt, new AOEShapeCircle(10.0f));
+sealed class Thunderbolt(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Thunderbolt, 10f);
 sealed class NobleBlaster(BossModule module) : Components.SimpleAOEs(module, (uint)AID.NobleBlaster, new AOEShapeRect(50.0f, 2.5f));
 
-sealed class ThunderboltPuddle(BossModule module) : Components.GenericAOEs(module) {
-    private static readonly AOEShapeCircle Shape = new(10f);
-    private readonly List<AOEInstance> _aoes = [];
-    private readonly List<AOEInstance> _displayed = new(9);
-    private readonly HashSet<uint> _seenGlobalSequences = [];
+sealed class ThunderboltPuddle(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly List<AOEInstance> aoes = [];
 
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell) {
-        switch ((AID)spell.Action.ID) {
-            case AID.ThunderboltPuddle:
-            case AID.ThunderboltPuddle1:
-            case AID.ThunderboltPuddle2:
-            case AID.ThunderboltPuddle3:
-            case AID.ThunderboltPuddle4:
-            case AID.ThunderboltPuddle5:
-            case AID.ThunderboltPuddle6:
-            case AID.ThunderboltPuddle7:
-            case AID.ThunderboltPuddle8:
-                if (!_aoes.Any(aoe => aoe.ActorID == caster.InstanceID))
-                    // Start movement one second before the damage packet. The nine circles resolve
-                    // in 0.5s steps; waiting for the raw finish time makes autorotation trail the
-                    // visible sequence by roughly one circle.
-                    _aoes.Add(new(Shape, spell.LocXZ, activation: Module.CastFinishAt(spell, -1f), actorID: caster.InstanceID,
-                        shapeDistance: Shape.Distance(spell.LocXZ, default)));
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        switch (spell.Action.ID)
+        {
+            case (uint)AID.ThunderboltPuddle:
+            case (uint)AID.ThunderboltPuddle1:
+            case (uint)AID.ThunderboltPuddle2:
+            case (uint)AID.ThunderboltPuddle3:
+            case (uint)AID.ThunderboltPuddle4:
+            case (uint)AID.ThunderboltPuddle5:
+            case (uint)AID.ThunderboltPuddle6:
+            case (uint)AID.ThunderboltPuddle7:
+            case (uint)AID.ThunderboltPuddle8:
+                aoes.Add(new(new AOEShapeCircle(10.0f), caster.Position, activation: Module.CastFinishAt(spell)));
                 break;
         }
     }
 
-    public override void OnEventCast(Actor caster, ActorCastEvent spell) {
-        switch ((AID)spell.Action.ID) {
-            case AID.ThunderboltPuddle:
-            case AID.ThunderboltPuddle1:
-            case AID.ThunderboltPuddle2:
-            case AID.ThunderboltPuddle3:
-            case AID.ThunderboltPuddle4:
-            case AID.ThunderboltPuddle5:
-            case AID.ThunderboltPuddle6:
-            case AID.ThunderboltPuddle7:
-            case AID.ThunderboltPuddle8:
-                if (spell.GlobalSequence != 0 && !_seenGlobalSequences.Add(spell.GlobalSequence))
-                    break;
-                ++NumCasts;
-                _aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        switch (spell.Action.ID)
+        {
+            case (uint)AID.ThunderboltPuddle:
+            case (uint)AID.ThunderboltPuddle1:
+            case (uint)AID.ThunderboltPuddle2:
+            case (uint)AID.ThunderboltPuddle3:
+            case (uint)AID.ThunderboltPuddle4:
+            case (uint)AID.ThunderboltPuddle5:
+            case (uint)AID.ThunderboltPuddle6:
+            case (uint)AID.ThunderboltPuddle7:
+            case (uint)AID.ThunderboltPuddle8:
+                if (aoes.Count > 0)
+                {
+                    aoes.RemoveAll(a => a.Origin.AlmostEqual(caster.Position, 0.5f));
+                }
                 break;
         }
     }
 
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
-        _displayed.Clear();
-        _aoes.Sort((a, b) => a.Activation.CompareTo(b.Activation));
-        if (_aoes.Count == 0)
-            return CollectionsMarshal.AsSpan(_displayed);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var show = 0;
 
-        var riskyDeadline = _aoes[0].Activation.AddSeconds(0.2d);
-        // All nine casts start together, so show the complete route immediately. Only the next
-        // circle is risky; later circles are planning markers and must not constrain pathfinding.
-        for (var i = 0; i < _aoes.Count; ++i) {
-            var aoe = _aoes[i];
-            aoe.Risky = aoe.Activation <= riskyDeadline;
-            aoe.Color = aoe.Risky ? Colors.Danger : Colors.AOE;
-            _displayed.Add(aoe);
+        aoes.Sort((a, b) => a.Activation.CompareTo(b.Activation));
+        foreach (ref var aoe in CollectionsMarshal.AsSpan(aoes))
+        {
+            if (show == 3)
+            {
+                break;
+            }
+
+            aoe.Color = Colors.Danger;
+            aoe.Risky = true;
+            show++;
         }
-        return CollectionsMarshal.AsSpan(_displayed);
+
+        return CollectionsMarshal.AsSpan(aoes);
     }
 }
 
 [SkipLocalsInit]
-sealed class CrescereginaStates : StateMachineBuilder {
+sealed class CrescereginaStates : StateMachineBuilder
+{
     public CrescereginaStates(BossModule module) : base(module)
     {
         TrivialPhase()
@@ -109,38 +111,22 @@ sealed class CrescereginaStates : StateMachineBuilder {
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Contributed,
+[ModuleInfo(BossModuleInfo.Maturity.Verified,
     StatesType = typeof(CrescereginaStates),
     ConfigType = null, // replace null with typeof(CrescereginaConfig) if applicable
     ObjectIDType = typeof(OID),
-    ActionIDType = typeof(AID),
+    ActionIDType = null, // replace null with typeof(AID) if applicable
     StatusIDType = null, // replace null with typeof(SID) if applicable
     TetherIDType = null, // replace null with typeof(TetherID) if applicable
     IconIDType = null, // replace null with typeof(IconID) if applicable
     PrimaryActorOID = (uint)OID.Cresceregina,
-    Contributors = "KanoNoUta",
+    Contributors = "Equilius",
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,
-    GroupType = BossModuleInfo.GroupType.ForayFATE,
+    GroupType = BossModuleInfo.GroupType.CFC,
     GroupID = 1093u,
-    NameID = 2084u,
+    NameID = 14785u,
     SortOrder = 1,
     PlanLevel = 0)]
 [SkipLocalsInit]
-public sealed class Cresceregina(WorldState ws, Actor primary) : OpenWorldFate(ws, primary)
-{
-    protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        base.CalculateModuleAIHints(slot, actor, assignment, hints);
-
-        // SimpleBossModule normally keeps the pathfinding map centered on the player for open-world
-        // encounters. Cresceregina's FATE has a fixed 30y arena, so player-centered maps make the
-        // route bend toward a moving point instead of the actual FATE objective.
-        var fate = WorldState.Client.ActiveFate;
-        if (fate.ID == 2084u)
-        {
-            hints.PathfindMapCenter = new(fate.Center.XZ());
-            hints.PathfindMapBounds = new ArenaBoundsCircle(fate.Radius, 1f);
-        }
-    }
-}
+public sealed class Cresceregina(WorldState ws, Actor primary) : OpenWorldFate(ws, primary);

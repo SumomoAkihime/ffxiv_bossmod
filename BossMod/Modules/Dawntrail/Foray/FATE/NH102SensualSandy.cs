@@ -1,13 +1,15 @@
 ﻿namespace BossMod.Dawntrail.Foray.FATE.NH102SensualSandy;
 
-public enum OID : uint {
+public enum OID : uint
+{
     SensualSandy = 0x4D56,
     Helper = 0x233C,
     PoisonCloud = 0x4D57, // R1.700, x0 (spawn during fight)
     LilithLavatera = 0x0, // R0.500, x0 (spawn during fight), None type
 }
 
-public enum AID : uint {
+public enum AID : uint
+{
     AutoAttack = 50535, // SensualSandy->player, no cast, single-target
     PutridBreath = 48944, // SensualSandy->self, 5.0s cast, range 25 130.000-degree cone
     PutridBreath1 = 48952, // SensualSandy->self, 3.0s cast, range 25 130.000-degree cone
@@ -22,39 +24,13 @@ sealed class PutridBreath(BossModule module) : Components.SimpleAOEGroups(module
     new AOEShapeCone(25.0f, 65.0f.Degrees()));
 sealed class WildWildBreath(BossModule module) : Components.SimpleAOEGroups(module,
     [(uint)AID.WildWildBreath, (uint)AID.WildWildWildWildWildBreath, (uint)AID.ExtensibleTendrils], new AOEShapeCross(30.0f, 3.0f));
-// Crosses resolve before the poison clouds. Keep the later circles visible, but do not make them
-// steer AI until the cross has gone off; avoiding both future snapshots at once makes navigation
-// take a huge detour outside the encounter instead of performing the intended two short steps.
-sealed class Burst(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Burst, new AOEShapeCircle(10.0f))
-{
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        var aoes = base.ActiveAOEs(slot, actor);
-        var crossComponent = Module.FindComponent<WildWildBreath>();
-        if (crossComponent == null)
-            return aoes;
-        var crosses = crossComponent.ActiveCasters;
-        if (crosses.Length == 0)
-            return aoes;
-
-        var crossActivation = crosses[0].Activation;
-        for (var i = 0; i < aoes.Length; ++i)
-        {
-            var aoe = Casters[i];
-            if (crossActivation < aoe.Activation)
-            {
-                aoe.Risky = false;
-                aoe.Color = Colors.AOE;
-                Casters[i] = aoe;
-            }
-        }
-        return ActiveCasters;
-    }
-}
+sealed class Burst(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Burst, 10f);
 
 [SkipLocalsInit]
-sealed class SensualSandyStates : StateMachineBuilder {
-    public SensualSandyStates(BossModule module) : base(module) {
+sealed class SensualSandyStates : StateMachineBuilder
+{
+    public SensualSandyStates(BossModule module) : base(module)
+    {
         TrivialPhase()
             .ActivateOnEnter<PutridBreath>()
             .ActivateOnEnter<WildWildBreath>()
@@ -62,21 +38,21 @@ sealed class SensualSandyStates : StateMachineBuilder {
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Contributed,
+[ModuleInfo(BossModuleInfo.Maturity.Verified,
     StatesType = typeof(SensualSandyStates),
     ConfigType = null, // replace null with typeof(SensualSandyConfig) if applicable
     ObjectIDType = typeof(OID),
-    ActionIDType = typeof(AID),
+    ActionIDType = null, // replace null with typeof(AID) if applicable
     StatusIDType = null, // replace null with typeof(SID) if applicable
     TetherIDType = null, // replace null with typeof(TetherID) if applicable
     IconIDType = null, // replace null with typeof(IconID) if applicable
     PrimaryActorOID = (uint)OID.SensualSandy,
-    Contributors = "KanoNoUta",
+    Contributors = "Equilius",
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,
-    GroupType = BossModuleInfo.GroupType.ForayFATE,
+    GroupType = BossModuleInfo.GroupType.CFC,
     GroupID = 1093u,
-    NameID = 2078u,
+    NameID = 14738u,
     SortOrder = 1,
     PlanLevel = 0)]
 [SkipLocalsInit]

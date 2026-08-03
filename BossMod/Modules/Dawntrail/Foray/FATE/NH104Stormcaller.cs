@@ -1,13 +1,18 @@
 ﻿namespace BossMod.Dawntrail.Foray.FATE.NH104Stormcaller;
 
-public enum OID : uint {
+// TODO add a way to figure out where he will jump, this will give an extra second to move out of the way, so not really needed
+// TODO if not possible tell the player to go behind the boss I guess?
+
+public enum OID : uint
+{
     Stormcaller = 0x4BEC,
     Helper = 0x233C,
     Stormcaller1 = 0x4BED, // R1.000, x0 (spawn during fight)
     BitingWind = 0x4C25, // R1.000, x0 (spawn during fight)
 }
 
-public enum AID : uint {
+public enum AID : uint
+{
     AutoAttack = 50854, // Stormcaller->player, no cast, single-target
     Teleport = 45587, // Stormcaller->location, no cast, single-target
     Stormcall = 47580, // Stormcaller->self, 3.0s cast, single-target
@@ -33,60 +38,25 @@ public enum AID : uint {
 sealed class Windage(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Windage, new AOEShapeCircle(7.0f));
 sealed class BitingScratch(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BitingScratch, new AOEShapeCone(40.0f, 45.0f.Degrees()));
 
-// FreefallTeleport supplies the landing point before the boss jumps. Damage is dealt at that
-// same point three times: ~0.23s, ~3.06s and ~5.84s after the teleport cast resolves.
-sealed class FreefallSequence(BossModule module) : Components.GenericAOEs(module)
+// TODO improve colour display
+sealed class FocusedTremor(BossModule module) : Components.ConcentricAOEs(module, _shapes)
 {
-    private static readonly AOEShapeCircle Shape = new(12f);
-    private static readonly double[] ResolveOffsets = [0.23d, 3.06d, 5.84d];
-    private readonly List<AOEInstance> _aoes = new(3);
-    private readonly HashSet<uint> _seenGlobalSequences = [];
-
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
-        => _aoes.Count == 0 ? [] : CollectionsMarshal.AsSpan(_aoes)[..1];
+    private static readonly AOEShape[] _shapes = [new AOEShapeCircle(10f), new AOEShapeDonut(10f, 20f), new AOEShapeDonut(20f, 30f)];
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID != (uint)AID.FreefallTeleport || spell.EventHappened)
-            return;
-
-        _aoes.Clear();
-        _seenGlobalSequences.Clear();
-        foreach (var offset in ResolveOffsets)
-            _aoes.Add(new(Shape, spell.LocXZ, activation: Module.CastFinishAt(spell, offset)));
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if (spell.Action.ID != (uint)AID.Freefall
-            || spell.GlobalSequence != 0 && !_seenGlobalSequences.Add(spell.GlobalSequence))
-            return;
-
-        ++NumCasts;
-        if (_aoes.Count != 0)
-            _aoes.RemoveAt(0);
-    }
-
-    public override void Update()
-    {
-        while (_aoes.Count != 0 && WorldState.CurrentTime > _aoes[0].Activation.AddSeconds(1d))
-            _aoes.RemoveAt(0);
-    }
-}
-
-// TODO improve colour display
-sealed class FocusedTremor(BossModule module) : Components.ConcentricAOEs(module, _shapes) {
-    private static readonly AOEShape[] _shapes = [new AOEShapeCircle(10f), new AOEShapeDonut(10f, 20f), new AOEShapeDonut(20f, 30f)];
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell) {
-        if (spell.Action.ID is (uint)AID.FocusedTremor1 or (uint)AID.FocusedTremor4 or (uint)AID.FocusedTremor7) {
+        if (spell.Action.ID is (uint)AID.FocusedTremor1 or (uint)AID.FocusedTremor4 or (uint)AID.FocusedTremor7)
+        {
             AddSequence(spell.LocXZ, Module.CastFinishAt(spell));
         }
     }
 
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell) {
-        if (Sequences.Count != 0) {
-            var order = spell.Action.ID switch {
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (Sequences.Count != 0)
+        {
+            var order = spell.Action.ID switch
+            {
                 (uint)AID.FocusedTremor1 or (uint)AID.FocusedTremor4 or (uint)AID.FocusedTremor7 => 0,
                 (uint)AID.FocusedTremor2 or (uint)AID.FocusedTremor5 or (uint)AID.FocusedTremor8 => 1,
                 (uint)AID.FocusedTremor3 or (uint)AID.FocusedTremor6 or (uint)AID.FocusedTremor9 => 2,
@@ -98,31 +68,32 @@ sealed class FocusedTremor(BossModule module) : Components.ConcentricAOEs(module
 }
 
 [SkipLocalsInit]
-sealed class StormcallerStates : StateMachineBuilder {
-    public StormcallerStates(BossModule module) : base(module) {
+sealed class StormcallerStates : StateMachineBuilder
+{
+    public StormcallerStates(BossModule module) : base(module)
+    {
         TrivialPhase()
             .ActivateOnEnter<Windage>()
             .ActivateOnEnter<BitingScratch>()
-            .ActivateOnEnter<FreefallSequence>()
             .ActivateOnEnter<FocusedTremor>();
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Contributed,
+[ModuleInfo(BossModuleInfo.Maturity.Verified,
     StatesType = typeof(StormcallerStates),
     ConfigType = null, // replace null with typeof(StormcallerConfig) if applicable
     ObjectIDType = typeof(OID),
-    ActionIDType = typeof(AID),
+    ActionIDType = null, // replace null with typeof(AID) if applicable
     StatusIDType = null, // replace null with typeof(SID) if applicable
     TetherIDType = null, // replace null with typeof(TetherID) if applicable
     IconIDType = null, // replace null with typeof(IconID) if applicable
     PrimaryActorOID = (uint)OID.Stormcaller,
-    Contributors = "KanoNoUta",
+    Contributors = "Equilius",
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,
-    GroupType = BossModuleInfo.GroupType.ForayFATE,
+    GroupType = BossModuleInfo.GroupType.CFC,
     GroupID = 1093u,
-    NameID = 2082u,
+    NameID = 14776u,
     SortOrder = 1,
     PlanLevel = 0)]
 [SkipLocalsInit]
