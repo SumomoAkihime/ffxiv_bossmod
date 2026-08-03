@@ -96,6 +96,9 @@ static class ElementGeometry
 
     public static Shape ForwardRect(WPos origin, Angle rotation, float length, float halfWidth)
         => new Rectangle(origin + 0.5f * length * rotation.ToDirection(), halfWidth + SafeMargin, 0.5f * length, rotation);
+
+    public static Shape CenteredRect(WPos origin, Angle rotation, float halfLength, float halfWidth)
+        => new Rectangle(origin, halfWidth + SafeMargin, halfLength, rotation);
 }
 
 sealed class HailOfHellflares(BossModule module) : Components.RaidwideCast(module, (uint)AID.HailOfHellflares);
@@ -139,8 +142,8 @@ sealed class DeathlyRay(BossModule module) : Components.SimpleAOEs(module, (uint
 
 sealed class DarkCurrent(BossModule module) : Components.GenericAOEs(module)
 {
-    private static readonly AOEShapeRect Initial = new(60f, 5f);
-    private static readonly AOEShapeRect Pulse = new(10f, 30f);
+    private static readonly AOEShapeRect Initial = new(60f, 5f, 60f);
+    private static readonly AOEShapeRect Pulse = new(5f, 30f, 5f);
     private readonly List<AOEInstance> _aoes = [];
     private readonly List<AOEInstance> _active = [];
 
@@ -331,7 +334,7 @@ sealed class ElementSafezones(BossModule module) : Components.GenericAOEs(module
         if (includeBossElement)
             ElementGeometry.AddDangers(result, element, Module.PrimaryActor.Position, Module.PrimaryActor.Rotation);
         if (currentIndex is >= 0 and < 3)
-            result.Add(ElementGeometry.ForwardRect(Necrophobia.ArenaCenter, CurrentDirections[currentIndex.Value], 60f, 5f));
+            result.Add(ElementGeometry.CenteredRect(Necrophobia.ArenaCenter, CurrentDirections[currentIndex.Value], 60f, 5f));
         return result;
     }
 

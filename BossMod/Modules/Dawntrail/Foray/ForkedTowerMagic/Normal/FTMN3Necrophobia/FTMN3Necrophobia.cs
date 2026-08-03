@@ -68,8 +68,8 @@ sealed class Thunder(BossModule module) : Components.SimpleAOEGroups(module,
 
 sealed class DarkCurrent(BossModule module) : Components.GenericAOEs(module)
 {
-    private static readonly AOEShapeRect Initial = new(60f, 5f);
-    private static readonly AOEShapeRect Pulse = new(10f, 30f);
+    private static readonly AOEShapeRect Initial = new(60f, 5f, 60f);
+    private static readonly AOEShapeRect Pulse = new(5f, 30f, 5f);
     private readonly List<AOEInstance> _aoes = [];
     private readonly List<AOEInstance> _active = [];
 
