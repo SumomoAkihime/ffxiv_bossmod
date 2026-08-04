@@ -349,6 +349,8 @@ sealed class ElementSafezones(BossModule module) : Components.GenericAOEs(module
 
 sealed class FertileSoil(BossModule module) : Components.GenericAOEs(module)
 {
+    private static readonly uint FutureSafeColor = Color.FromComponents(64, 192, 255, 64).ABGR;
+
     private sealed class Prediction(Actor head, DateTime activation)
     {
         public readonly Actor Head = head;
@@ -379,14 +381,9 @@ sealed class FertileSoil(BossModule module) : Components.GenericAOEs(module)
     {
         if (_order.Count != 0)
         {
-            var current = _order[0];
-            var rotation = (Necrophobia.ArenaCenter - current.Head.Position).ToAngle();
-            var dangers = new List<Shape>(_elementDangers)
-            {
-                ElementGeometry.ForwardRect(current.Head.Position, rotation, 80f, 15f)
-            };
-            var safeRegion = new AOEShapeCustom([new Circle(Necrophobia.ArenaCenter, 24.5f)], dangers, origin: Necrophobia.ArenaCenter);
-            safeRegion.Draw(Arena, Necrophobia.ArenaCenter, default(Angle), color: Colors.SafeFromAOE);
+            if (CanShowFutureSafe)
+                DrawSafe(_order[1], FutureSafeColor, false);
+            DrawSafe(_order[0], Colors.SafeFromAOE, true);
         }
         base.DrawArenaBackground(pcSlot, pc);
     }
@@ -394,7 +391,7 @@ sealed class FertileSoil(BossModule module) : Components.GenericAOEs(module)
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
         if (_order.Count != 0)
-            hints.Add("绿色为下一次半场攻击的安全区", false);
+            hints.Add(CanShowFutureSafe ? "绿色为当前安全区，青蓝色为下一次安全区" : "绿色为当前安全区", false);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -461,6 +458,17 @@ sealed class FertileSoil(BossModule module) : Components.GenericAOEs(module)
     {
         for (var index = 0; index < _order.Count; ++index)
             _order[index].Activation = _firstActivation.AddSeconds(6d * index);
+    }
+
+    private bool CanShowFutureSafe => _order.Count > 1 && (NumCasts & 1) == 0;
+
+    private void DrawSafe(Prediction prediction, uint color, bool includeElement)
+    {
+        var rotation = (Necrophobia.ArenaCenter - prediction.Head.Position).ToAngle();
+        var dangers = includeElement ? new List<Shape>(_elementDangers) : new List<Shape>();
+        dangers.Add(ElementGeometry.ForwardRect(prediction.Head.Position, rotation, 80f, 15f));
+        var safeRegion = new AOEShapeCustom([new Circle(Necrophobia.ArenaCenter, 24.5f)], dangers, origin: Necrophobia.ArenaCenter);
+        safeRegion.Draw(Arena, Necrophobia.ArenaCenter, default(Angle), color: color);
     }
 }
 
