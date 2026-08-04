@@ -52,7 +52,9 @@ public enum AID : uint
 
 public enum SID : uint
 {
-    ElementOrder = 2552
+    ElementOrder = 2552,
+    SowTerror = 5136,
+    SowPanic = 5137
 }
 
 public enum TetherID : uint
@@ -350,14 +352,15 @@ sealed class ElementSafezones(BossModule module) : Components.GenericAOEs(module
 sealed class FertileSoil(BossModule module) : Components.GenericAOEs(module)
 {
     private static readonly uint FutureSafeColor = Color.FromComponents(64, 192, 255, 64).ABGR;
+    private static readonly uint FutureMarkerColor = Color.FromComponents(64, 192, 255, 255).ABGR;
 
-    private sealed class Prediction(Actor head, DateTime activation)
+    private sealed class Prediction(Actor head, DateTime activation, ushort pattern)
     {
         public readonly Actor Head = head;
+        public readonly ushort Pattern = pattern;
         public DateTime Activation = activation;
     }
 
-    private static readonly AOEShapeRect HalfArena = new(80f, 15f);
     private readonly List<Prediction> _order = [];
     private readonly List<AOEInstance> _active = [];
     private readonly List<Shape> _elementDangers = [];
@@ -367,31 +370,43 @@ sealed class FertileSoil(BossModule module) : Components.GenericAOEs(module)
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         _active.Clear();
-        for (var index = 0; index < Math.Min(2, _order.Count); ++index)
-        {
-            var prediction = _order[index];
-            var rotation = (Necrophobia.ArenaCenter - prediction.Head.Position).ToAngle();
-            _active.Add(new(HalfArena, prediction.Head.Position, rotation, prediction.Activation,
-                index == 0 ? Colors.Danger : Colors.AOE, index == 0, prediction.Head.InstanceID));
-        }
         return CollectionsMarshal.AsSpan(_active);
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
-        if (_order.Count != 0)
+        var status = PlayerSoilStatus(pc);
+        if (_order.Count != 0 && status != 0)
         {
-            if (CanShowFutureSafe)
-                DrawSafe(_order[1], FutureSafeColor, false);
-            DrawSafe(_order[0], Colors.SafeFromAOE, true);
+            if (_order.Count > 1)
+                DrawSafe(_order[1], OppositeStatus(status), FutureSafeColor, false);
+            DrawSafe(_order[0], status, Colors.SafeFromAOE, true);
         }
         base.DrawArenaBackground(pcSlot, pc);
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        if (_order.Count != 0)
+        {
+            var current = _order[0].Head;
+            Arena.Actor(current.Position, (Necrophobia.ArenaCenter - current.Position).ToAngle(), Colors.Danger);
+        }
+        if (_order.Count > 1)
+            Arena.ZoneCircleOutline(_order[1].Head.Position, 2.5f, FutureMarkerColor, 2f);
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
         if (_order.Count != 0)
-            hints.Add(CanShowFutureSafe ? "绿色为当前安全区，青蓝色为下一次安全区" : "绿色为当前安全区", false);
+        {
+            var status = PlayerSoilStatus(actor);
+            hints.Add(status == 0
+                ? "未识别播撒状态，无法计算安全区"
+                : _order.Count > 1
+                    ? "绿色为当前安全区，青蓝色为下一次安全区"
+                    : "绿色为当前安全区", status == 0);
+        }
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -432,7 +447,7 @@ sealed class FertileSoil(BossModule module) : Components.GenericAOEs(module)
 
         if (_firstActivation == default)
             _firstActivation = WorldState.CurrentTime.AddSeconds(13.58d);
-        _order.Add(new(actor, _firstActivation.AddSeconds(6d * _order.Count)));
+        _order.Add(new(actor, _firstActivation.AddSeconds(6d * _order.Count), status.Extra));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -460,15 +475,33 @@ sealed class FertileSoil(BossModule module) : Components.GenericAOEs(module)
             _order[index].Activation = _firstActivation.AddSeconds(6d * index);
     }
 
-    private bool CanShowFutureSafe => _order.Count > 1 && (NumCasts & 1) == 0;
-
-    private void DrawSafe(Prediction prediction, uint color, bool includeElement)
+    private void DrawSafe(Prediction prediction, uint status, uint color, bool includeElement)
     {
         var rotation = (Necrophobia.ArenaCenter - prediction.Head.Position).ToAngle();
+        var left = rotation.ToDirection().OrthoL();
+        var safeLeft = IsSafeLeft(prediction, status);
+        var laneOrigin = prediction.Head.Position + (safeLeft ? 15.25f : -15.25f) * left;
+        var safeLane = ElementGeometry.ForwardRect(laneOrigin, rotation, 80f, 14.75f);
         var dangers = includeElement ? new List<Shape>(_elementDangers) : new List<Shape>();
-        dangers.Add(ElementGeometry.ForwardRect(prediction.Head.Position, rotation, 80f, 15f));
-        var safeRegion = new AOEShapeCustom([new Circle(Necrophobia.ArenaCenter, 24.5f)], dangers, origin: Necrophobia.ArenaCenter);
+        var safeRegion = new AOEShapeCustom([safeLane], dangers, origin: Necrophobia.ArenaCenter);
         safeRegion.Draw(Arena, Necrophobia.ArenaCenter, default(Angle), color: color);
+    }
+
+    private static uint PlayerSoilStatus(Actor actor)
+        => actor.FindStatus((uint)SID.SowTerror) != null
+            ? (uint)SID.SowTerror
+            : actor.FindStatus((uint)SID.SowPanic) != null
+                ? (uint)SID.SowPanic
+                : 0;
+
+    private static uint OppositeStatus(uint status)
+        => status == (uint)SID.SowTerror ? (uint)SID.SowPanic : (uint)SID.SowTerror;
+
+    private static bool IsSafeLeft(Prediction prediction, uint status)
+    {
+        // The correct hit is the opposite sow action; a successful hit flips the player's status.
+        var leftActionStatus = prediction.Pattern == 1117 ? (uint)SID.SowTerror : (uint)SID.SowPanic;
+        return status != leftActionStatus;
     }
 }
 
