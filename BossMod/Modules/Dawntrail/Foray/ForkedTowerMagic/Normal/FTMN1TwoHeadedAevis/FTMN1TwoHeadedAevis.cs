@@ -123,7 +123,7 @@ sealed class HissingReprise(BossModule module) : Components.GenericKnockback(mod
             Arena.Center + new WDir(east ? 20f : -20f, 0f),
             20f,
             _activation,
-            direction: (east ? -90f : 90f).Degrees(),
+            direction: (east ? 90f : -90f).Degrees(),
             kind: Kind.DirForward);
         return _source;
     }

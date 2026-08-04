@@ -86,7 +86,7 @@ sealed class SpinningInhaleRest(BossModule module) : Components.GenericAOEs(modu
     // starting at center with 0deg rotation, fires inhale every -15deg every 0.21s
     // unknown inner radius of donut, use 7.5f boss hitbox?
 
-    private readonly List<AOEInstance> aoes = [with(25)];
+    private readonly List<AOEInstance> aoes = new(25);
     private static readonly AOEShapeCone sector = new(30f, 15f.Degrees());
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
