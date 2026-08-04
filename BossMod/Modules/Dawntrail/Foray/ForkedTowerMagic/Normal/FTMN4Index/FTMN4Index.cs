@@ -248,16 +248,6 @@ sealed class IndexStates : StateMachineBuilder
 public sealed class Index(WorldState ws, Actor primary) : BossModule(ws, primary, InitialBounds.Center, InitialBounds)
 {
     public static readonly WPos ArenaCenter = new(0f, -628f);
-    public static readonly ArenaBoundsCustom InitialBounds = BuildBounds([0f.Degrees(), 120f.Degrees(), -120f.Degrees()]);
-    public static readonly ArenaBoundsCustom ExpandedBounds = BuildBounds([0f.Degrees(), 60f.Degrees(), 120f.Degrees(), 180f.Degrees(), -120f.Degrees(), -60f.Degrees()]);
-
-    private static ArenaBoundsCustom BuildBounds(Angle[] platformAngles)
-    {
-        Shape[] platforms =
-        [
-            new Polygon(ArenaCenter, 11.5f, 6, 30f.Degrees()),
-            .. platformAngles.Select(angle => new Square(ArenaCenter + 15.5f * angle.ToDirection(), 8f, angle))
-        ];
-        return new(platforms, [new Circle(ArenaCenter, 7.5f)], MapResolution: 0.25f);
-    }
+    public static readonly ArenaBoundsCustom InitialBounds = IndexArenaBounds.Initial(ArenaCenter);
+    public static readonly ArenaBoundsCustom ExpandedBounds = IndexArenaBounds.Expanded(ArenaCenter);
 }
