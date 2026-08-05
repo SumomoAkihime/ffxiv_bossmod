@@ -262,7 +262,6 @@ sealed class FourfoldWeapons(BossModule module) : Components.GenericAOEs(module)
 
 sealed class ElementSafePlatforms(BossModule module) : BossComponent(module)
 {
-    private static readonly AOEShapeRect Platform = new(7.5f, 7.5f, 7.5f);
     private readonly HashSet<ulong> _fireSafe = [];
     private readonly HashSet<ulong> _iceSafe = [];
     private readonly HashSet<Element> _resolved = [];
@@ -343,8 +342,8 @@ sealed class ElementSafePlatforms(BossModule module) : BossComponent(module)
 
     private void DrawPlatform(Angle angle)
     {
-        var center = Index.ArenaCenter + 20.5f * angle.ToDirection();
-        Platform.Draw(Arena, center, angle, Colors.SafeFromAOE);
+        IndexArenaBounds.PlatformRegion(Index.ArenaCenter, angle)
+            .Draw(Arena, Index.ArenaCenter, default(Angle), Colors.SafeFromAOE);
     }
 
     private static uint MarkerOID(Element element) => element switch
@@ -374,7 +373,6 @@ sealed class ElementalDance(BossModule module) : Components.GenericAOEs(module)
         public readonly ulong ActorID = actorID;
     }
 
-    private static readonly AOEShapeRect Platform = new(7.5f, 7.5f, 7.5f);
     private readonly List<Prediction> _predictions = [];
     private readonly List<AOEInstance> _aoes = new(8);
     private Element _lastResolved;
@@ -507,15 +505,15 @@ sealed class ElementalDance(BossModule module) : Components.GenericAOEs(module)
 
         void Draw(Angle angle)
         {
-            var center = Index.ArenaCenter + 20.5f * angle.ToDirection();
-            Platform.Draw(Arena, center, angle, Colors.SafeFromAOE);
+            IndexArenaBounds.PlatformRegion(Index.ArenaCenter, angle)
+                .Draw(Arena, Index.ArenaCenter, default(Angle), Colors.SafeFromAOE);
         }
     }
 
     private void AddPlatform(Angle angle, DateTime activation, uint color, bool risky)
     {
-        var center = Index.ArenaCenter + 20.5f * angle.ToDirection();
-        _aoes.Add(new(Platform, center, angle, activation, color, risky));
+        var shape = IndexArenaBounds.PlatformRegion(Index.ArenaCenter, angle);
+        _aoes.Add(new(shape, Index.ArenaCenter, default(Angle), activation, color, risky));
     }
 
     private static Element BallElement(uint oid) => oid switch
