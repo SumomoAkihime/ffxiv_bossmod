@@ -761,8 +761,9 @@ sealed class GroundFire(BossModule module) : Components.GenericAOEs(module)
 
 sealed class AllSlash(BossModule module) : Components.GenericAOEs(module)
 {
-    private sealed class Group(DateTime activation)
+    private sealed class Group(DateTime startedAt, DateTime activation)
     {
+        public readonly DateTime StartedAt = startedAt;
         public readonly DateTime Activation = activation;
         public readonly List<AOEInstance> AOEs = [];
         public bool Resolved;
@@ -823,10 +824,11 @@ sealed class AllSlash(BossModule module) : Components.GenericAOEs(module)
             return;
 
         var activation = Module.CastFinishAt(spell);
-        var group = _groups.FirstOrDefault(group => Math.Abs((group.Activation - activation).TotalSeconds) < 0.5d);
+        var startedAt = WorldState.CurrentTime;
+        var group = _groups.FirstOrDefault(group => Math.Abs((group.StartedAt - startedAt).TotalSeconds) < 0.1d);
         if (group == null)
         {
-            group = new(activation);
+            group = new(startedAt, activation);
             _groups.Add(group);
             _groups.Sort((left, right) => left.Activation.CompareTo(right.Activation));
         }
