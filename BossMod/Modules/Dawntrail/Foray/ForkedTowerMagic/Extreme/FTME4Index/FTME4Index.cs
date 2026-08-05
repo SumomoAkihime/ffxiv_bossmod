@@ -121,7 +121,20 @@ enum Weapon
     Bell
 }
 
-sealed class Flare(BossModule module) : Components.RaidwideCast(module, (uint)AID.FlareVisual);
+sealed class Flare(BossModule module) : Components.RaidwideCastDelay(module,
+    (uint)AID.FlareVisual, (uint)AID.Flare, 0.8d, "全场伤害 1/2");
+
+sealed class FlareFollowup(BossModule module) : Components.RaidwideInstant(module,
+    (uint)AID.Flare, 0.8d, "全场伤害 2/2")
+{
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == (uint)AID.FlareFollowupVisual)
+            Activation = WorldState.FutureTime(0.8d);
+        base.OnEventCast(caster, spell);
+    }
+}
+
 sealed class ElementalControl(BossModule module) : Components.RaidwideCast(module, (uint)AID.ElementalControl);
 sealed class ElementalIntegration(BossModule module) : Components.RaidwideCast(module, (uint)AID.ElementalIntegration);
 sealed class RomeosBallad(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RomeosBallad, 15f);
@@ -919,6 +932,7 @@ sealed class IndexStates : StateMachineBuilder
             .ActivateOnEnter<ElementSafePlatforms>()
             .ActivateOnEnter<ElementalDance>()
             .ActivateOnEnter<Flare>()
+            .ActivateOnEnter<FlareFollowup>()
             .ActivateOnEnter<ElementalControl>()
             .ActivateOnEnter<ElementalIntegration>()
             .ActivateOnEnter<FourfoldWeapons>()
