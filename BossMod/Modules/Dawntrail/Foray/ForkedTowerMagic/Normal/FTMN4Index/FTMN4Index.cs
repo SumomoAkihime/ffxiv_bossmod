@@ -78,10 +78,12 @@ sealed class ElementalPlatforms(BossModule module) : Components.GenericAOEs(modu
     private static readonly uint[] BallOIDs = [(uint)OID.IceBall, (uint)OID.FireBall, (uint)OID.ThunderBall];
     private readonly Dictionary<uint, DateTime> _activations = [];
     private readonly HashSet<uint> _resolved = [];
+    private readonly List<(Angle Rotation, DateTime Activation)> _predictions = new(3);
     private readonly List<AOEInstance> _aoes = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
+        _predictions.Clear();
         _aoes.Clear();
         foreach (var ballOID in BallOIDs)
         {
@@ -105,8 +107,23 @@ sealed class ElementalPlatforms(BossModule module) : Components.GenericAOEs(modu
                 _activations[ballOID] = activation;
             }
 
-            AddPlatform(marker.Rotation, activation);
-            AddPlatform(marker.Rotation + 180f.Degrees(), activation);
+            _predictions.Add((marker.Rotation, activation));
+        }
+
+        if (_predictions.Count == 0)
+            return [];
+
+        var ordered = _predictions.OrderBy(prediction => prediction.Activation).ToList();
+        var currentActivation = ordered[0].Activation;
+        AddGroup(ordered.Where(prediction => Math.Abs((prediction.Activation - currentActivation).TotalSeconds) < 0.75d),
+            currentActivation, Colors.Danger, true);
+
+        var nextIndex = ordered.FindIndex(prediction => (prediction.Activation - currentActivation).TotalSeconds >= 0.75d);
+        if (nextIndex >= 0)
+        {
+            var nextActivation = ordered[nextIndex].Activation;
+            AddGroup(ordered.Where(prediction => Math.Abs((prediction.Activation - nextActivation).TotalSeconds) < 0.75d),
+                nextActivation, Colors.AOE, false);
         }
         return CollectionsMarshal.AsSpan(_aoes);
     }
@@ -124,10 +141,19 @@ sealed class ElementalPlatforms(BossModule module) : Components.GenericAOEs(modu
             _resolved.Add(ballOID);
     }
 
-    private void AddPlatform(Angle rotation, DateTime activation)
+    private void AddGroup(IEnumerable<(Angle Rotation, DateTime Activation)> predictions, DateTime activation, uint color, bool risky)
+    {
+        foreach (var prediction in predictions)
+        {
+            AddPlatform(prediction.Rotation, activation, color, risky);
+            AddPlatform(prediction.Rotation + 180f.Degrees(), activation, color, risky);
+        }
+    }
+
+    private void AddPlatform(Angle rotation, DateTime activation, uint color, bool risky)
     {
         var shape = IndexArenaBounds.PlatformRegion(Index.ArenaCenter, rotation);
-        _aoes.Add(new(shape, Index.ArenaCenter, default(Angle), activation));
+        _aoes.Add(new(shape, Index.ArenaCenter, default(Angle), activation, color, risky));
     }
 
     private static uint MarkerOID(uint ballOID) => ballOID switch
