@@ -442,7 +442,7 @@ sealed class ElementalDance(BossModule module) : Components.GenericAOEs(module)
         var start = Angle.FromDirection(actor.Position - Index.ArenaCenter);
         var travel = Math.Min(ClockwiseDistance(start, marker.Rotation),
             ClockwiseDistance(start, marker.Rotation + 180f.Degrees()));
-        _predictions.Add(new(rotating, WorldState.FutureTime(6.98d + 4.25d * travel), true, actor.InstanceID));
+        _predictions.Add(new(rotating, WorldState.FutureTime(6.25d + 4.25d * travel), true, actor.InstanceID));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
