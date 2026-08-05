@@ -99,6 +99,7 @@ public enum IconID : uint
 {
     AllKnowingTankbuster = 344,
     AllKnowingSpread = 466,
+    ThunderSafe = 670,
     FireSafe = 671,
     IceSafe = 672
 }
@@ -262,8 +263,7 @@ sealed class FourfoldWeapons(BossModule module) : Components.GenericAOEs(module)
 
 sealed class ElementSafePlatforms(BossModule module) : BossComponent(module)
 {
-    private readonly HashSet<ulong> _fireSafe = [];
-    private readonly HashSet<ulong> _iceSafe = [];
+    private readonly Dictionary<ulong, Element> _playerSafeElements = [];
     private readonly HashSet<Element> _resolved = [];
     private readonly HashSet<Element> _pair = [];
     private DateTime _lastPairEvent;
@@ -291,10 +291,15 @@ sealed class ElementSafePlatforms(BossModule module) : BossComponent(module)
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        if (iconID == (uint)IconID.FireSafe)
-            _fireSafe.Add(actor.InstanceID);
-        else if (iconID == (uint)IconID.IceSafe)
-            _iceSafe.Add(actor.InstanceID);
+        var safe = iconID switch
+        {
+            (uint)IconID.ThunderSafe => Element.Thunder,
+            (uint)IconID.FireSafe => Element.Fire,
+            (uint)IconID.IceSafe => Element.Ice,
+            _ => Element.None
+        };
+        if (safe != Element.None)
+            _playerSafeElements[actor.InstanceID] = safe;
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -306,7 +311,7 @@ sealed class ElementSafePlatforms(BossModule module) : BossComponent(module)
             (uint)AID.ThunderPlatforms => Element.Thunder,
             _ => Element.None
         };
-        if (element == Element.None || _fireSafe.Count == 0 && _iceSafe.Count == 0)
+        if (element == Element.None)
             return;
 
         if ((WorldState.CurrentTime - _lastPairEvent).TotalSeconds > 0.5d)
@@ -325,20 +330,12 @@ sealed class ElementSafePlatforms(BossModule module) : BossComponent(module)
 
         if (_resolved.Count == 3)
         {
-            _fireSafe.Clear();
-            _iceSafe.Clear();
+            _playerSafeElements.Clear();
             _resolved.Clear();
         }
     }
 
-    private Element PlayerSafeElement(Actor actor)
-    {
-        if (_fireSafe.Contains(actor.InstanceID))
-            return Element.Fire;
-        if (_iceSafe.Contains(actor.InstanceID))
-            return Element.Ice;
-        return _fireSafe.Count > 0 && _iceSafe.Count > 0 ? Element.Thunder : Element.None;
-    }
+    private Element PlayerSafeElement(Actor actor) => _playerSafeElements.GetValueOrDefault(actor.InstanceID);
 
     private void DrawPlatform(Angle angle)
     {
