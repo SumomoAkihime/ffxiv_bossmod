@@ -556,13 +556,37 @@ sealed class ElementalDance(BossModule module) : Components.GenericAOEs(module)
 
 sealed class Prophecy(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly record struct Prediction(AOEShape Shape, WPos Destination, DateTime Activation);
+    private sealed class Prediction(AOEShape shape, Angle startAngle, WPos destination, DateTime activation)
+    {
+        public readonly AOEShape Shape = shape;
+        public readonly Angle StartAngle = startAngle;
+        public WPos Destination = destination;
+        public readonly DateTime Activation = activation;
+        public bool DirectionConfirmed;
+    }
 
     private static readonly AOEShapeCircle Circle = new(10f);
     private static readonly AOEShapeDonut Donut = new(3f, 15f);
-    private static readonly Angle DestinationOffset = -60f.Degrees();
     private readonly Dictionary<ulong, Prediction> _predictions = [];
     private readonly List<AOEInstance> _aoes = new(3);
+
+    public override void Update()
+    {
+        foreach (var (actorID, prediction) in _predictions)
+        {
+            if (prediction.DirectionConfirmed || WorldState.Actors.Find(actorID) is not Actor actor)
+                continue;
+
+            var currentAngle = Angle.FromDirection(actor.Position - Index.ArenaCenter);
+            var movement = (currentAngle - prediction.StartAngle).Normalized();
+            if (Math.Abs(movement.Deg) < 1f)
+                continue;
+
+            prediction.DirectionConfirmed = true;
+            if (movement.Rad > 0f)
+                prediction.Destination = Destination(prediction.StartAngle, false);
+        }
+    }
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
@@ -587,8 +611,7 @@ sealed class Prophecy(BossModule module) : Components.GenericAOEs(module)
             return;
 
         var startAngle = Angle.FromDirection(actor.Position - Index.ArenaCenter);
-        var destination = Index.ArenaCenter + 15.5f * (startAngle + DestinationOffset).ToDirection();
-        _predictions[actor.InstanceID] = new(shape, destination, WorldState.FutureTime(10d));
+        _predictions[actor.InstanceID] = new(shape, startAngle, Destination(startAngle, true), WorldState.FutureTime(10d));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -602,6 +625,9 @@ sealed class Prophecy(BossModule module) : Components.GenericAOEs(module)
         if (actor.OID == (uint)OID.PropheticPhenomenon)
             _predictions.Remove(actor.InstanceID);
     }
+
+    private static WPos Destination(Angle startAngle, bool clockwise)
+        => Index.ArenaCenter + 15.5f * (startAngle + (clockwise ? -60f : 60f).Degrees()).ToDirection();
 }
 
 sealed class Shockwave(BossModule module) : Components.GenericKnockback(module)
