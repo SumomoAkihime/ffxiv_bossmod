@@ -6,6 +6,7 @@ internal static class IndexArenaBounds
     private const float InnerHexRadius = 7.5f;
     private const float PlatformCenterRadius = 20.5f;
     private const float PlatformHalfSize = 7.5f;
+    private const float BoundsPlatformHalfSize = PlatformHalfSize + 0.05f; // avoid a numerical seam at the hex-platform join
     private const float OuterHexApothem = 12.990381f;
     private const float InnerHexApothem = 6.4951906f;
     private static readonly Angle[] InitialPlatformAngles = [0f.Degrees(), 120f.Degrees(), -120f.Degrees()];
@@ -39,9 +40,9 @@ internal static class IndexArenaBounds
         Shape[] platforms =
         [
             new Polygon(center, OuterHexRadius, 6, 30f.Degrees()),
-            .. platformAngles.Select(angle => new Square(center + PlatformCenterRadius * angle.ToDirection(), PlatformHalfSize, angle))
+            .. platformAngles.Select(angle => new Square(center + PlatformCenterRadius * angle.ToDirection(), BoundsPlatformHalfSize, angle))
         ];
         Shape[] centralHole = [new Polygon(center, InnerHexRadius, 6, 30f.Degrees())];
-        return new(platforms, centralHole, MapResolution: 0.25f);
+        return new(platforms, centralHole, MapResolution: 0.25f, Offset: -0.5f);
     }
 }

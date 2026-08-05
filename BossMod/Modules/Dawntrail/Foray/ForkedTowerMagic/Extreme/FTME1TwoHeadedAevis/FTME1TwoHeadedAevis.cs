@@ -38,10 +38,14 @@ public enum AID : uint
     FulgurousFugue3 = 50727,
     FreezingFugue3 = 50728,
 
-    BlazeloopAndRepeat = 47672,
-    CrossblazeBlazeloop = 47673,
-    CrossblazeAndRepeat = 47675,
-    BlazeloopCrossblaze = 47678,
+    CrossblazeAndRepeatAlt = 47671, // 双重冰焰交错：十字 -> 十字
+    BlazeloopAndRepeat = 47672, // 双重冰焰凝环：月环 -> 月环
+    CrossblazeBlazeloop = 47673, // 冰焰交错凝环：十字 -> 月环
+    BlazeloopCrossblazeAlt = 47674, // 冰焰凝环交错：月环 -> 十字
+    CrossblazeAndRepeat = 47675, // 双重冰焰交错：十字 -> 十字
+    BlazeloopAndRepeatAlt = 47676, // 双重冰焰凝环：月环 -> 月环
+    CrossblazeBlazeloopAlt = 47677, // 冰焰交错凝环：十字 -> 月环
+    BlazeloopCrossblaze = 47678, // 冰焰凝环交错：月环 -> 十字
     BlazeSequenceFirst = 47683,
     BlazeSequenceSecond = 47684,
     Crossblaze = 47685, // Helper->self, range 35 cross, width 10
@@ -487,10 +491,10 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
     {
         (AOEShape First, AOEShape Second)? pattern = aid switch
         {
-            (uint)AID.BlazeloopAndRepeat => (Donut, Donut),
-            (uint)AID.CrossblazeBlazeloop => (Cross, Donut),
-            (uint)AID.CrossblazeAndRepeat => (Cross, Cross),
-            (uint)AID.BlazeloopCrossblaze => (Donut, Cross),
+            (uint)AID.BlazeloopAndRepeat or (uint)AID.BlazeloopAndRepeatAlt => (Donut, Donut),
+            (uint)AID.CrossblazeBlazeloop or (uint)AID.CrossblazeBlazeloopAlt => (Cross, Donut),
+            (uint)AID.CrossblazeAndRepeat or (uint)AID.CrossblazeAndRepeatAlt => (Cross, Cross),
+            (uint)AID.BlazeloopCrossblaze or (uint)AID.BlazeloopCrossblazeAlt => (Donut, Cross),
             _ => null
         };
         (first, second) = pattern ?? (null!, null!);

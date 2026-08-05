@@ -869,30 +869,42 @@ sealed class AllSlash(BossModule module) : Components.GenericAOEs(module)
 
 sealed class IntegrationFirstWave(BossModule module) : BossComponent(module)
 {
+    private const float InterceptRadius = 9f;
+    private const float MarkerRadius = 2f;
+
     private sealed class Wave(DateTime created)
     {
         public readonly DateTime Created = created;
         public readonly List<Actor> Balls = [];
     }
 
-    private static readonly uint MarkerColor = Color.FromComponents(64, 192, 255, 255).ABGR;
     private readonly List<Wave> _waves = new(3);
 
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
-        var wave = _waves.FirstOrDefault(wave => wave.Balls.Any(ball => !ball.IsDestroyed));
+        var wave = CurrentWave();
+        if (wave != null)
+            foreach (var position in InterceptPositions(wave))
+                Arena.ZoneCircle(position, MarkerRadius, Colors.SafeFromAOE);
+        base.DrawArenaBackground(pcSlot, pc);
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var wave = CurrentWave();
         if (wave == null)
             return;
 
-        foreach (var ball in wave.Balls)
-            if (!ball.IsDestroyed)
-                Arena.ZoneCircleOutline(ball.Position, 2f, MarkerColor, 2f);
+        var positions = InterceptPositions(wave);
+        if (positions.Count != 0)
+            hints.AddForbiddenZone(new SDInvertedUnion([.. positions.Select(position => new SDCircle(position, MarkerRadius))]),
+                wave.Created.AddSeconds(6d));
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        if (_waves.Any(wave => wave.Balls.Any(ball => !ball.IsDestroyed)))
-            hints.Add("青蓝圈：当前最先到达的元素球组", false);
+        if (CurrentWave() != null)
+            hints.Add("绿色：当前波次的元素球撞击位置", false);
     }
 
     public override void OnActorCreated(Actor actor)
@@ -914,8 +926,27 @@ sealed class IntegrationFirstWave(BossModule module) : BossComponent(module)
         if (!IsIntegrationBall(actor.OID))
             return;
 
+        RemoveBall(actor.InstanceID);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID is (uint)AID.FireBall or (uint)AID.IceBall or (uint)AID.ThunderBall)
+            RemoveBall(caster.InstanceID);
+    }
+
+    private Wave? CurrentWave()
+        => _waves.FirstOrDefault(wave => wave.Balls.Any(ball => !ball.IsDestroyed));
+
+    private static List<WPos> InterceptPositions(Wave wave)
+        => [.. wave.Balls
+            .Where(ball => !ball.IsDestroyed)
+            .Select(ball => Index.ArenaCenter + InterceptRadius * (ball.Position - Index.ArenaCenter).Normalized())];
+
+    private void RemoveBall(ulong instanceID)
+    {
         foreach (var wave in _waves)
-            wave.Balls.RemoveAll(ball => ball.InstanceID == actor.InstanceID);
+            wave.Balls.RemoveAll(ball => ball.InstanceID == instanceID);
         _waves.RemoveAll(wave => wave.Balls.Count == 0);
     }
 
