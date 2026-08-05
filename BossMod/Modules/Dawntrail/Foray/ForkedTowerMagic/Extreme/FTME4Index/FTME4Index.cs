@@ -556,28 +556,51 @@ sealed class ElementalDance(BossModule module) : Components.GenericAOEs(module)
 
 sealed class Prophecy(BossModule module) : Components.GenericAOEs(module)
 {
+    private readonly record struct Prediction(AOEShape Shape, WPos Destination, DateTime Activation);
+
     private static readonly AOEShapeCircle Circle = new(10f);
     private static readonly AOEShapeDonut Donut = new(3f, 15f);
+    private static readonly Angle DestinationOffset = -60f.Degrees();
+    private readonly Dictionary<ulong, Prediction> _predictions = [];
     private readonly List<AOEInstance> _aoes = new(3);
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         _aoes.Clear();
-        foreach (var phenomenon in Module.Enemies((uint)OID.PropheticPhenomenon))
-        {
-            if (phenomenon.IsDestroyed || phenomenon.FindStatus((uint)SID.ProphecyShape) is not ActorStatus status)
-                continue;
-
-            AOEShape? shape = status.Extra switch
-            {
-                1101 => Circle,
-                1100 => Donut,
-                _ => null
-            };
-            if (shape != null)
-                _aoes.Add(new(shape, phenomenon.Position, activation: status.ExpireAt.AddSeconds(-0.4d), actorID: phenomenon.InstanceID));
-        }
+        foreach (var (actorID, prediction) in _predictions)
+            _aoes.Add(new(prediction.Shape, prediction.Destination, activation: prediction.Activation, actorID: actorID));
         return CollectionsMarshal.AsSpan(_aoes);
+    }
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        if (actor.OID != (uint)OID.PropheticPhenomenon || status.ID != (uint)SID.ProphecyShape || _predictions.ContainsKey(actor.InstanceID))
+            return;
+
+        AOEShape? shape = status.Extra switch
+        {
+            1101 => Circle,
+            1100 => Donut,
+            _ => null
+        };
+        if (shape == null)
+            return;
+
+        var startAngle = Angle.FromDirection(actor.Position - Index.ArenaCenter);
+        var destination = Index.ArenaCenter + 15.5f * (startAngle + DestinationOffset).ToDirection();
+        _predictions[actor.InstanceID] = new(shape, destination, WorldState.FutureTime(10d));
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if ((spell.Action.ID == (uint)AID.Meteor || spell.Action.ID == (uint)AID.Starfall) && _predictions.Remove(caster.InstanceID))
+            ++NumCasts;
+    }
+
+    public override void OnActorDestroyed(Actor actor)
+    {
+        if (actor.OID == (uint)OID.PropheticPhenomenon)
+            _predictions.Remove(actor.InstanceID);
     }
 }
 
