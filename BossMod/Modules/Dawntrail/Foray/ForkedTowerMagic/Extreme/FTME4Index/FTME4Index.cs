@@ -337,7 +337,7 @@ sealed class ElementSafePlatforms(BossModule module) : BossComponent(module)
             return Element.Fire;
         if (_iceSafe.Contains(actor.InstanceID))
             return Element.Ice;
-        return _fireSafe.Count >= 16 && _iceSafe.Count >= 16 ? Element.Thunder : Element.None;
+        return _fireSafe.Count > 0 && _iceSafe.Count > 0 ? Element.Thunder : Element.None;
     }
 
     private void DrawPlatform(Angle angle)
