@@ -75,7 +75,7 @@ sealed class ArenaChanges(BossModule module) : BossComponent(module)
 
 sealed class ElementalPlatforms(BossModule module) : Components.GenericAOEs(module)
 {
-    private static readonly AOEShapeRect Platform = new(8f, 8f, 8f);
+    private static readonly AOEShapeRect Platform = new(7.5f, 7.5f, 7.5f);
     private static readonly uint[] BallOIDs = [(uint)OID.IceBall, (uint)OID.FireBall, (uint)OID.ThunderBall];
     private readonly Dictionary<uint, DateTime> _activations = [];
     private readonly HashSet<uint> _resolved = [];
@@ -127,7 +127,7 @@ sealed class ElementalPlatforms(BossModule module) : Components.GenericAOEs(modu
 
     private void AddPlatform(Angle rotation, DateTime activation)
     {
-        var center = Index.ArenaCenter + 15.5f * rotation.ToDirection();
+        var center = Index.ArenaCenter + 20.5f * rotation.ToDirection();
         _aoes.Add(new(Platform, center, rotation, activation));
     }
 

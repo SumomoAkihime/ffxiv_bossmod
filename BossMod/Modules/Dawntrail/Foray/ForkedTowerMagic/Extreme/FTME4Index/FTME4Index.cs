@@ -262,7 +262,7 @@ sealed class FourfoldWeapons(BossModule module) : Components.GenericAOEs(module)
 
 sealed class ElementSafePlatforms(BossModule module) : BossComponent(module)
 {
-    private static readonly AOEShapeRect Platform = new(8f, 8f, 8f);
+    private static readonly AOEShapeRect Platform = new(7.5f, 7.5f, 7.5f);
     private readonly HashSet<ulong> _fireSafe = [];
     private readonly HashSet<ulong> _iceSafe = [];
     private readonly HashSet<Element> _resolved = [];
@@ -343,7 +343,7 @@ sealed class ElementSafePlatforms(BossModule module) : BossComponent(module)
 
     private void DrawPlatform(Angle angle)
     {
-        var center = Index.ArenaCenter + 15.5f * angle.ToDirection();
+        var center = Index.ArenaCenter + 20.5f * angle.ToDirection();
         Platform.Draw(Arena, center, angle, Colors.SafeFromAOE);
     }
 
@@ -374,7 +374,7 @@ sealed class ElementalDance(BossModule module) : Components.GenericAOEs(module)
         public readonly ulong ActorID = actorID;
     }
 
-    private static readonly AOEShapeRect Platform = new(8f, 8f, 8f);
+    private static readonly AOEShapeRect Platform = new(7.5f, 7.5f, 7.5f);
     private readonly List<Prediction> _predictions = [];
     private readonly List<AOEInstance> _aoes = new(8);
     private Element _lastResolved;
@@ -507,14 +507,14 @@ sealed class ElementalDance(BossModule module) : Components.GenericAOEs(module)
 
         void Draw(Angle angle)
         {
-            var center = Index.ArenaCenter + 15.5f * angle.ToDirection();
+            var center = Index.ArenaCenter + 20.5f * angle.ToDirection();
             Platform.Draw(Arena, center, angle, Colors.SafeFromAOE);
         }
     }
 
     private void AddPlatform(Angle angle, DateTime activation, uint color, bool risky)
     {
-        var center = Index.ArenaCenter + 15.5f * angle.ToDirection();
+        var center = Index.ArenaCenter + 20.5f * angle.ToDirection();
         _aoes.Add(new(Platform, center, angle, activation, color, risky));
     }
 

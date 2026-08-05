@@ -12,8 +12,8 @@ internal static class IndexArenaBounds
     {
         Shape[] platforms =
         [
-            new Polygon(center, 11.5f, 6, 30f.Degrees()),
-            .. platformAngles.Select(angle => new Square(center + 15.5f * angle.ToDirection(), 8f, angle))
+            new Polygon(center, 15f, 6, 30f.Degrees()),
+            .. platformAngles.Select(angle => new Square(center + 20.5f * angle.ToDirection(), 7.5f, angle))
         ];
         Shape[] centralHole = [new Polygon(center, 7.5f, 6, 30f.Degrees())];
         return new(platforms, centralHole, MapResolution: 0.25f);
