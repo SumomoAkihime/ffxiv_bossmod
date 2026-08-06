@@ -50,21 +50,27 @@ sealed class UnbowedSpirit(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<AOEInstance> aoes = [];
     private readonly List<Actor> puddles = [];
-    private readonly AOEShapeCircle shape = new(6.0f); // Slightly bigger as they're constantly moving around the map
+    private bool circular;
 
     public override void OnActorCreated(Actor actor)
     {
         if (actor.OID == (uint)OID.ElmGigasPuddle)
         {
+            if (puddles.Count == 0)
+            {
+                var offset = actor.Position - Arena.Center;
+                circular = MathF.Abs(offset.X % 10.0f) > 1.0f || MathF.Abs(offset.Z % 10.0f) > 1.0f;
+            }
+
             puddles.Add(actor);
         }
     }
 
-    public override void OnActorDestroyed(Actor actor)
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (actor.OID == (uint)OID.ElmGigasPuddle)
+        if ((spell.Action.ID is (uint)AID.InspiritedCrosswinds or (uint)AID.InspiritedCyclone) && puddles.Count > 0)
         {
-            puddles.Remove(actor);
+            puddles.RemoveAt(0);
         }
     }
 
@@ -79,7 +85,17 @@ sealed class UnbowedSpirit(BossModule module) : Components.GenericAOEs(module)
 
         foreach (var puddle in puddles)
         {
-            aoes.Add(new(shape, puddle.Position, puddle.Rotation, color: Colors.Danger));
+            if (circular)
+            {
+                var clockwise = (puddle.Position - Arena.Center).Cross(puddle.Rotation.ToDirection()) > 0.0f;
+                var length = 4.0f / (puddle.Position - Arena.Center).Length();
+                var direction = (clockwise ? -length : length).Radians();
+                aoes.Add(new(new AOEShapeArcCapsule(4.2f, direction, Arena.Center), puddle.Position, puddle.Rotation, color: Colors.Danger));
+            }
+            else
+            {
+                aoes.Add(new(new AOEShapeCapsule(4.2f, 4.0f), puddle.Position, puddle.Rotation, color: Colors.Danger));
+            }
         }
 
         return CollectionsMarshal.AsSpan(aoes);
