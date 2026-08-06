@@ -782,7 +782,7 @@ sealed class AllSlash(BossModule module) : Components.GenericAOEs(module)
         public bool Resolved;
     }
 
-    private static readonly AOEShapeRect Shape = new(15f, 8f, 15f);
+    private static readonly AOEShapeRect Shape = new(15f, 3.75f);
     private readonly List<Group> _groups = new(3);
     private readonly List<AOEInstance> _aoes = new(12);
 
@@ -864,7 +864,8 @@ sealed class AllSlash(BossModule module) : Components.GenericAOEs(module)
     }
 
     private static List<Shape> ToShapes(Group group)
-        => [.. group.AOEs.Select(aoe => (Shape)new Rectangle(aoe.Origin, 8f, 15f, aoe.Rotation))];
+        => [.. group.AOEs.Select(aoe => (Shape)new Rectangle(
+            aoe.Origin + 7.5f * aoe.Rotation.ToDirection(), 3.75f, 7.5f, aoe.Rotation))];
 }
 
 sealed class IntegrationFirstWave(BossModule module) : BossComponent(module)
