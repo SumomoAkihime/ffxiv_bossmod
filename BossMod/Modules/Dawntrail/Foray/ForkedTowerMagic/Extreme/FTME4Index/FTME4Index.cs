@@ -880,23 +880,23 @@ sealed class IntegrationFirstWave(BossModule module) : BossComponent(module)
     }
 
     private readonly List<Wave> _waves = new(3);
+    private readonly Dictionary<ulong, List<uint>> _statusOrder = [];
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
-        var wave = CurrentWave();
+        var (wave, positions) = CurrentGuidance(pc);
         if (wave != null)
-            foreach (var position in InterceptPositions(wave))
+            foreach (var position in positions)
                 Arena.ZoneCircle(position, MarkerRadius, Colors.SafeFromAOE);
         base.DrawArenaBackground(pcSlot, pc);
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var wave = CurrentWave();
+        var (wave, positions) = CurrentGuidance(actor);
         if (wave == null)
             return;
 
-        var positions = InterceptPositions(wave);
         if (positions.Count != 0)
             hints.AddForbiddenZone(new SDInvertedUnion([.. positions.Select(position => new SDCircle(position, MarkerRadius))]),
                 wave.Created.AddSeconds(6d));
@@ -904,8 +904,8 @@ sealed class IntegrationFirstWave(BossModule module) : BossComponent(module)
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        if (CurrentWave() != null)
-            hints.Add("绿色：当前波次的元素球撞击位置", false);
+        if (CurrentGuidance(actor).Wave != null)
+            hints.Add("绿色：当前撞球位置；获得属性耐性后顺时针前往下一处", false);
     }
 
     public override void OnActorCreated(Actor actor)
@@ -922,34 +922,71 @@ sealed class IntegrationFirstWave(BossModule module) : BossComponent(module)
         wave.Balls.Add(actor);
     }
 
-    public override void OnActorDestroyed(Actor actor)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if (!IsIntegrationBall(actor.OID))
+        if (!IsResistance(status.ID) || _waves.Count == 0)
             return;
 
-        RemoveBall(actor.InstanceID);
+        if (!_statusOrder.TryGetValue(actor.InstanceID, out var order))
+            _statusOrder[actor.InstanceID] = order = new(3);
+        if (order.Count < 3 && !order.Contains(status.ID))
+            order.Add(status.ID);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action.ID is (uint)AID.FireBall or (uint)AID.IceBall or (uint)AID.ThunderBall)
-            RemoveBall(caster.InstanceID);
+        if (spell.Action.ID == (uint)AID.ElementAbsorption)
+        {
+            _waves.Clear();
+            _statusOrder.Clear();
+        }
     }
 
-    private Wave? CurrentWave()
-        => _waves.FirstOrDefault(wave => wave.Balls.Any(ball => !ball.IsDestroyed));
+    private (Wave? Wave, List<WPos> Positions) CurrentGuidance(Actor actor)
+    {
+        var order = _statusOrder.GetValueOrDefault(actor.InstanceID);
+        var waveIndex = order?.Count ?? 0;
+        if (waveIndex >= _waves.Count)
+            return (null, []);
+
+        var wave = _waves[waveIndex];
+        if (waveIndex == 0 || order == null)
+            return (wave, InterceptPositions(wave));
+
+        var previous = _waves[waveIndex - 1].Balls.FirstOrDefault(ball => StatusMatchesBall(order[^1], ball.OID));
+        if (previous == null || wave.Balls.Count == 0)
+            return (wave, InterceptPositions(wave));
+
+        var target = wave.Balls.MinBy(ball => ClockwiseDistance(previous, ball));
+        return target != null ? (wave, [InterceptPosition(target)]) : (wave, []);
+    }
 
     private static List<WPos> InterceptPositions(Wave wave)
         => [.. wave.Balls
-            .Where(ball => !ball.IsDestroyed)
-            .Select(ball => Index.ArenaCenter + InterceptRadius * (ball.Position - Index.ArenaCenter).Normalized())];
+            .Select(InterceptPosition)];
 
-    private void RemoveBall(ulong instanceID)
+    private static WPos InterceptPosition(Actor ball)
+        => Index.ArenaCenter + InterceptRadius * (ball.Position - Index.ArenaCenter).Normalized();
+
+    private static float ClockwiseDistance(Actor previous, Actor next)
     {
-        foreach (var wave in _waves)
-            wave.Balls.RemoveAll(ball => ball.InstanceID == instanceID);
-        _waves.RemoveAll(wave => wave.Balls.Count == 0);
+        var previousAngle = Angle.FromDirection(previous.Position - Index.ArenaCenter);
+        var nextAngle = Angle.FromDirection(next.Position - Index.ArenaCenter);
+        var distance = (previousAngle - nextAngle).Normalized().Rad;
+        return distance < 0f ? distance + MathF.Tau : distance;
     }
+
+    private static bool StatusMatchesBall(uint statusID, uint oid)
+        => statusID switch
+        {
+            (uint)SID.FireResistanceDown => oid == (uint)OID.IntegrationFireBall,
+            (uint)SID.IceResistanceDown => oid == (uint)OID.IntegrationIceBall,
+            (uint)SID.ThunderResistanceDown => oid == (uint)OID.IntegrationThunderBall,
+            _ => false
+        };
+
+    private static bool IsResistance(uint statusID)
+        => statusID is (uint)SID.FireResistanceDown or (uint)SID.IceResistanceDown or (uint)SID.ThunderResistanceDown;
 
     private static bool IsIntegrationBall(uint oid)
         => oid is (uint)OID.IntegrationIceBall or (uint)OID.IntegrationFireBall or (uint)OID.IntegrationThunderBall;
