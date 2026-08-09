@@ -217,4 +217,4 @@ sealed class NecrophobiaStates : StateMachineBuilder
     GroupID = 1093,
     NameID = 14503,
     SortOrder = 3)]
-public sealed class Necrophobia(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 800f), new ArenaBoundsCircle(25f));
+public sealed class Necrophobia(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 800f), new ArenaBoundsCircle(24f));
