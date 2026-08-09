@@ -282,9 +282,10 @@ sealed class StormsBreath(BossModule module) : Components.SimpleKnockbacks(modul
 
 sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
 {
-    private sealed class Pattern(AOEShape first, AOEShape second)
+    private sealed class Pattern(AOEShape first, AOEShape second, DateTime assignedAt)
     {
         public readonly AOEShape[] Shapes = [first, second];
+        public readonly DateTime AssignedAt = assignedAt;
         public int Next;
 
         public void Reset() => Next = 0;
@@ -295,6 +296,8 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
         public AOEInstance AOE => new(Shape, Origin, activation: Activation);
     }
 
+    private readonly record struct PendingSequence(bool Green, int Sequence, WPos Origin, DateTime Activation);
+
     private static readonly AOEShapeCircle Circle = new(5f);
     private static readonly AOEShapeCross Cross = new(35f, 5f);
     private static readonly AOEShapeDonut Donut = new(5f, 60f);
@@ -304,6 +307,7 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
     private Preview? _resolvedGreenCircle;
     private Preview? _resolvedBlueCircle;
     private readonly List<Preview> _previews = [];
+    private readonly List<PendingSequence> _pendingSequences = [];
     private readonly AOEInstance[] _active = new AOEInstance[2];
 
     public Preview? Current => _previews.Count != 0 ? _previews[0] : null;
@@ -401,11 +405,17 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
 
         if (TryPattern(id, out var first, out var second))
         {
-            var pattern = new Pattern(first, second);
+            var pattern = new Pattern(first, second, WorldState.CurrentTime);
             if (caster.OID == (uint)OID.GreenHead)
+            {
                 _greenPattern = pattern;
+                ResolvePending(true);
+            }
             else if (caster.OID == (uint)OID.BlueHead)
+            {
                 _bluePattern = pattern;
+                ResolvePending(false);
+            }
             return;
         }
 
@@ -416,18 +426,7 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
             return;
 
         if (id == (uint)AID.BlazeSequenceFirst)
-        {
-            _greenPattern?.Reset();
-            _bluePattern?.Reset();
-            _previews.Clear();
-            _resolvedGreenCircle = null;
-            _resolvedBlueCircle = null;
-            _firstGreen = green;
-        }
-
-        var patternForHead = green ? _greenPattern : _bluePattern;
-        if (patternForHead == null || patternForHead.Next >= patternForHead.Shapes.Length)
-            return;
+            BeginRound(green);
 
         var sequence = id switch
         {
@@ -436,8 +435,61 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
             _ => green == _firstGreen ? 3 : 4
         };
         var activation = Module.CastFinishAt(spell);
-        _previews.Add(new(Circle, spell.LocXZ, activation, green, sequence));
-        _previews.Add(new(patternForHead.Shapes[patternForHead.Next++], spell.LocXZ, activation.AddSeconds(2.05d), green, sequence));
+        AddOrQueue(new(green, sequence, spell.LocXZ, activation));
+    }
+
+    private void BeginRound(bool firstGreen)
+    {
+        // Pattern and sequence casts start together, but either event can arrive first.
+        var freshAfter = WorldState.CurrentTime.AddSeconds(-1d);
+        if (_greenPattern != null && _greenPattern.AssignedAt < freshAfter)
+            _greenPattern = null;
+        if (_bluePattern != null && _bluePattern.AssignedAt < freshAfter)
+            _bluePattern = null;
+        _greenPattern?.Reset();
+        _bluePattern?.Reset();
+        _pendingSequences.Clear();
+        _previews.Clear();
+        _resolvedGreenCircle = null;
+        _resolvedBlueCircle = null;
+        _firstGreen = firstGreen;
+    }
+
+    private void AddOrQueue(PendingSequence pending)
+    {
+        var pattern = pending.Green ? _greenPattern : _bluePattern;
+        if (pattern == null)
+        {
+            _pendingSequences.Add(pending);
+            return;
+        }
+        AddPreview(pattern, pending);
+    }
+
+    private void ResolvePending(bool green)
+    {
+        var pattern = green ? _greenPattern : _bluePattern;
+        if (pattern == null)
+            return;
+        for (var i = 0; i < _pendingSequences.Count;)
+        {
+            if (_pendingSequences[i].Green != green)
+            {
+                ++i;
+                continue;
+            }
+            var pending = _pendingSequences[i];
+            _pendingSequences.RemoveAt(i);
+            AddPreview(pattern, pending);
+        }
+    }
+
+    private void AddPreview(Pattern pattern, PendingSequence pending)
+    {
+        if (pattern.Next >= pattern.Shapes.Length)
+            return;
+        _previews.Add(new(Circle, pending.Origin, pending.Activation, pending.Green, pending.Sequence));
+        _previews.Add(new(pattern.Shapes[pattern.Next++], pending.Origin, pending.Activation.AddSeconds(2.05d), pending.Green, pending.Sequence));
         _previews.Sort((left, right) =>
         {
             var activationOrder = left.Activation.CompareTo(right.Activation);
