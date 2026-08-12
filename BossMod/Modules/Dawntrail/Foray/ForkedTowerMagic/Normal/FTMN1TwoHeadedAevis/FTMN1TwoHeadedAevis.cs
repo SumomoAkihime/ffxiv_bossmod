@@ -31,6 +31,12 @@ public enum AID : uint
     ArcaneBeacon = 49720 // ArcaneMatrix->self, 60x5 rect
 }
 
+public enum SID : uint
+{
+    EasterlyReprise = 5403, // wind from east, pushes west
+    WesterlyReprise = 5404 // wind from west, pushes east
+}
+
 sealed class ThunderfrostTempest(BossModule module) : Components.RaidwideCast(module, (uint)AID.ThunderfrostTempest);
 sealed class PoisonBreath(BossModule module) : Components.SimpleAOEs(module, (uint)AID.PoisonBreath, 18f);
 sealed class StormsBreath(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.StormsBreath, 14f);
@@ -106,42 +112,39 @@ sealed class BlazeSequence(BossModule module) : Components.GenericAOEs(module)
 sealed class HissingReprise(BossModule module) : Components.GenericKnockback(module)
 {
     private readonly Knockback[] _source = new Knockback[1];
-    private readonly Dictionary<ulong, bool> _assignments = [];
-    private DateTime _activation;
+    private readonly Dictionary<ulong, (uint Status, DateTime Activation)> _assignments = [];
 
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
-        if (_activation == default)
+        if (!_assignments.TryGetValue(actor.InstanceID, out var assignment))
             return [];
 
-        if (!_assignments.TryGetValue(actor.InstanceID, out var east))
-        {
-            east = actor.Position.X > Arena.Center.X;
-            _assignments[actor.InstanceID] = east;
-        }
+        var direction = (assignment.Status == (uint)SID.EasterlyReprise ? -90f : 90f).Degrees();
         _source[0] = new(
-            Arena.Center + new WDir(east ? 20f : -20f, 0f),
+            Arena.Center,
             20f,
-            _activation,
-            direction: (east ? 90f : -90f).Degrees(),
+            assignment.Activation,
+            direction: direction,
             kind: Kind.DirForward);
         return _source;
     }
 
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if (spell.Action.ID == (uint)AID.HissingRepriseVisual && _activation == default)
-        {
-            _assignments.Clear();
-            _activation = Module.CastFinishAt(spell, 13.8d);
-        }
+        if (status.ID is (uint)SID.EasterlyReprise or (uint)SID.WesterlyReprise)
+            _assignments[actor.InstanceID] = (status.ID, status.ExpireAt);
+    }
+
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
+    {
+        if (_assignments.GetValueOrDefault(actor.InstanceID).Status == status.ID)
+            _assignments.Remove(actor.InstanceID);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         if (spell.Action.ID is (uint)AID.HissingRepriseEast or (uint)AID.HissingRepriseWest)
         {
-            _activation = default;
             _assignments.Clear();
             ++NumCasts;
         }
@@ -168,6 +171,7 @@ sealed class TwoHeadedAevisStates : StateMachineBuilder
     StatesType = typeof(TwoHeadedAevisStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
+    StatusIDType = typeof(SID),
     PrimaryActorOID = (uint)OID.GreenHead,
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,
