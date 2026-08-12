@@ -57,9 +57,9 @@ sealed class ArenaChanges(BossModule module) : Components.GenericAOEs(module)
 
         void AddAOE(AOEShapeCustom shape, uint color = default, bool invert = false)
         {
-            _aoe = [new(shape, Arena.Center, default, Module.CastFinishAt(spell, 4.2d), color)];
-            ref var aoe = ref _aoe[0];
-            aoe.Shape.InvertForbiddenZone = invert;
+            var instanceShape = shape.Clone();
+            instanceShape.InvertForbiddenZone = invert;
+            _aoe = [new(instanceShape, Arena.Center, default, Module.CastFinishAt(spell, 4.2d), color)];
         }
     }
 
