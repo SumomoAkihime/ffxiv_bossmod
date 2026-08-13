@@ -34,6 +34,55 @@ public enum TetherID : uint
     Thunder = 402
 }
 
+public enum SID : uint
+{
+    ElementOrder = 2552 // Extra 1114/1115/1116 = fire/blizzard/thunder
+}
+
+enum Element
+{
+    None,
+    Fire,
+    Blizzard,
+    Thunder
+}
+
+static class ElementGeometry
+{
+    private const float SafeMargin = 0.5f;
+
+    public static void AddHeadDanger(List<Shape> result, Element element, WPos origin, Angle rotation)
+    {
+        switch (element)
+        {
+            case Element.Fire:
+                result.Add(new Circle(origin, 18f + SafeMargin));
+                break;
+            case Element.Blizzard:
+                result.Add(new Cross(origin, 45f, 7.5f + SafeMargin, rotation));
+                break;
+            case Element.Thunder:
+                result.Add(new Cone(origin, 60f, rotation - 23f.Degrees(), rotation + 23f.Degrees()));
+                break;
+        }
+    }
+
+    public static void AddBossDanger(List<Shape> result, Element element, WPos origin, Angle rotation)
+    {
+        if (element != Element.Thunder)
+        {
+            AddHeadDanger(result, element, origin, rotation);
+            return;
+        }
+
+        for (var index = 0; index < 4; ++index)
+        {
+            var direction = (45f + 90f * index).Degrees();
+            result.Add(new Cone(origin, 60f, direction - 23f.Degrees(), direction + 23f.Degrees()));
+        }
+    }
+}
+
 sealed class HailOfHellflares(BossModule module) : Components.RaidwideCast(module, (uint)AID.HailOfHellflares);
 sealed class CorpseMangler(BossModule module) : Components.SingleTargetCast(module, (uint)AID.CorpseMangler);
 sealed class FireIII(BossModule module) : Components.SimpleAOEGroups(module,
@@ -189,6 +238,79 @@ sealed class SeveredElementPreview(BossModule module) : Components.GenericAOEs(m
     }
 }
 
+sealed class ElementSafezones(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly Dictionary<ulong, (Actor Actor, Element Element)> _heads = [];
+    private Element _current;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => [];
+
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    {
+        if (_current != Element.None)
+        {
+            var dangers = new List<Shape>();
+            foreach (var head in _heads.Values)
+                if (head.Element == _current && !head.Actor.IsDestroyed)
+                    ElementGeometry.AddHeadDanger(dangers, _current, head.Actor.Position, head.Actor.Rotation);
+            ElementGeometry.AddBossDanger(dangers, _current, Module.PrimaryActor.Position, Module.PrimaryActor.Rotation);
+            if (dangers.Count != 0)
+            {
+                var safeRegion = new AOEShapeCustom([new Circle(Necrophobia.ArenaCenter, 23.5f)], dangers, origin: Necrophobia.ArenaCenter);
+                safeRegion.Draw(Arena, Necrophobia.ArenaCenter, default(Angle), color: Colors.SafeFromAOE);
+            }
+        }
+        base.DrawArenaBackground(pcSlot, pc);
+    }
+
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
+    {
+        if (source.OID != (uint)OID.BarrierHead)
+            return;
+
+        var element = tether.ID switch
+        {
+            (uint)TetherID.Fire => Element.Fire,
+            (uint)TetherID.Blizzard => Element.Blizzard,
+            (uint)TetherID.Thunder => Element.Thunder,
+            _ => Element.None
+        };
+        if (element != Element.None)
+            _heads[source.InstanceID] = (source, element);
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        _current = spell.Action.ID switch
+        {
+            (uint)AID.SeveredFireIIIBoss => Element.Fire,
+            (uint)AID.SeveredBlizzardIIIBoss => Element.Blizzard,
+            (uint)AID.SeveredThunderVisual => Element.Thunder,
+            _ => _current
+        };
+    }
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        if (actor.InstanceID != Module.PrimaryActor.InstanceID || status.ID != (uint)SID.ElementOrder)
+            return;
+
+        _current = status.Extra switch
+        {
+            1114 => Element.Fire,
+            1115 => Element.Blizzard,
+            1116 => Element.Thunder,
+            _ => _current
+        };
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID is (uint)AID.SeveredFireIIIBoss or (uint)AID.SeveredBlizzardIIIBoss or (uint)AID.SeveredThunderBoss)
+            _current = Element.None;
+    }
+}
+
 sealed class NecrophobiaStates : StateMachineBuilder
 {
     public NecrophobiaStates(BossModule module) : base(module)
@@ -202,7 +324,8 @@ sealed class NecrophobiaStates : StateMachineBuilder
             .ActivateOnEnter<DeathlyRay>()
             .ActivateOnEnter<DarkCurrent>()
             .ActivateOnEnter<Thunder>()
-            .ActivateOnEnter<SeveredElementPreview>();
+            .ActivateOnEnter<SeveredElementPreview>()
+            .ActivateOnEnter<ElementSafezones>();
     }
 }
 
@@ -210,6 +333,7 @@ sealed class NecrophobiaStates : StateMachineBuilder
     StatesType = typeof(NecrophobiaStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
+    StatusIDType = typeof(SID),
     PrimaryActorOID = (uint)OID.Boss,
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,
@@ -217,4 +341,7 @@ sealed class NecrophobiaStates : StateMachineBuilder
     GroupID = 1093,
     NameID = 14503,
     SortOrder = 3)]
-public sealed class Necrophobia(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 800f), new ArenaBoundsCircle(24f));
+public sealed class Necrophobia(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, new ArenaBoundsCircle(24f))
+{
+    public static readonly WPos ArenaCenter = new(100f, 800f);
+}

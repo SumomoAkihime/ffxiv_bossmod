@@ -5,6 +5,8 @@ public enum OID : uint
     Boss = 0x4C11, // R15.0, visual actor shared by both heads
     GreenHead = 0x4C12, // R15.0
     BlueHead = 0x4C13, // R15.0
+    GreenHeadMechanic = 0x4C14, // R1.0
+    BlueHeadMechanic = 0x4C15, // R1.0
     LightningOrb = 0x4C16, // R2.4
     IceOrb = 0x4C17, // R2.8
     ArcaneMatrix = 0x4B73,
@@ -14,6 +16,7 @@ public enum OID : uint
 public enum AID : uint
 {
     ThunderfrostTempest = 47735, // Boss->self, raidwide
+    Buffet = 49726, // GreenHead/BlueHead->self, group assignment visual
     PoisonBreath = 47617, // Helper->self, range 18 circle
     StormsBreath = 48243, // Helper->self, knockback 14
     TwoTerrors = 50658, // Helper->self, 40x10 rect
@@ -28,13 +31,24 @@ public enum AID : uint
     Blaze1 = 50703, // Helper->self, range 5 circle
     Blaze2 = 50704, // Helper->self, range 5 circle
     Blaze3 = 50705, // Helper->self, range 5 circle
-    ArcaneBeacon = 49720 // ArcaneMatrix->self, 60x5 rect
+    ArcaneBeacon = 49720, // ArcaneMatrix->self, 60x5 rect
+    ArchaeofuryGreen = 47747, // Helper->player, range 6 circle
+    ArchaeofuryBlue = 47748 // Helper->player, range 6 circle
 }
 
 public enum SID : uint
 {
+    EpicHero = 4192, // assigned to green head
+    FatedHero = 4194, // assigned to blue head
+    EpicVillain = 5400, // green head assignment controller
+    FatedVillain = 5401, // blue head assignment controller
     EasterlyReprise = 5403, // wind from east, pushes west
     WesterlyReprise = 5404 // wind from west, pushes east
+}
+
+public enum TetherID : uint
+{
+    Buffet = 429
 }
 
 sealed class ThunderfrostTempest(BossModule module) : Components.RaidwideCast(module, (uint)AID.ThunderfrostTempest);
@@ -44,6 +58,55 @@ sealed class TwoTerrors(BossModule module) : Components.SimpleAOEs(module, (uint
 sealed class ElementalClusters(BossModule module) : Components.SimpleAOEGroups(module,
     [(uint)AID.LightningCluster, (uint)AID.IceCluster, (uint)AID.Shock, (uint)AID.HypothermalCombustion], 15f);
 sealed class ArcaneBeacon(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ArcaneBeacon, new AOEShapeRect(60f, 2.5f));
+sealed class ArchaeofuryGreen(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.ArchaeofuryGreen, 6f);
+sealed class ArchaeofuryBlue(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.ArchaeofuryBlue, 6f);
+
+sealed class BuffetAssignments(BossModule module) : BossComponent(module)
+{
+    private readonly Dictionary<ulong, uint> _assignments = [];
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (_assignments.TryGetValue(actor.InstanceID, out var assignedOID))
+            hints.Add(assignedOID == (uint)OID.BlueHead ? "攻击蓝头" : "攻击绿头", false);
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        if (_assignments.TryGetValue(pc.InstanceID, out var assignedOID))
+        {
+            var assigned = Module.Enemies(assignedOID).FirstOrDefault(actor => !actor.IsDestroyed);
+            if (assigned != null)
+                Arena.Actor(assigned, Colors.Safe);
+        }
+    }
+
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
+    {
+        if (tether.ID != (uint)TetherID.Buffet)
+            return;
+
+        var target = WorldState.Actors.Find(tether.Target);
+        if (target?.OID == (uint)OID.BlueHeadMechanic)
+            _assignments[source.InstanceID] = (uint)OID.BlueHead;
+        else if (target?.OID == (uint)OID.GreenHeadMechanic)
+            _assignments[source.InstanceID] = (uint)OID.GreenHead;
+    }
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        if (status.ID == (uint)SID.EpicHero)
+            _assignments[actor.InstanceID] = (uint)OID.GreenHead;
+        else if (status.ID == (uint)SID.FatedHero)
+            _assignments[actor.InstanceID] = (uint)OID.BlueHead;
+    }
+
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
+    {
+        if (status.ID is (uint)SID.EpicVillain or (uint)SID.FatedVillain)
+            _assignments.Clear();
+    }
+}
 
 sealed class BlazeSequence(BossModule module) : Components.GenericAOEs(module)
 {
@@ -156,6 +219,7 @@ sealed class TwoHeadedAevisStates : StateMachineBuilder
     public TwoHeadedAevisStates(BossModule module) : base(module)
     {
         TrivialPhase()
+            .ActivateOnEnter<BuffetAssignments>()
             .ActivateOnEnter<ThunderfrostTempest>()
             .ActivateOnEnter<PoisonBreath>()
             .ActivateOnEnter<StormsBreath>()
@@ -163,7 +227,9 @@ sealed class TwoHeadedAevisStates : StateMachineBuilder
             .ActivateOnEnter<HissingReprise>()
             .ActivateOnEnter<ElementalClusters>()
             .ActivateOnEnter<BlazeSequence>()
-            .ActivateOnEnter<ArcaneBeacon>();
+            .ActivateOnEnter<ArcaneBeacon>()
+            .ActivateOnEnter<ArchaeofuryGreen>()
+            .ActivateOnEnter<ArchaeofuryBlue>();
     }
 }
 
@@ -172,6 +238,7 @@ sealed class TwoHeadedAevisStates : StateMachineBuilder
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
     StatusIDType = typeof(SID),
+    TetherIDType = typeof(TetherID),
     PrimaryActorOID = (uint)OID.GreenHead,
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,

@@ -18,11 +18,14 @@ public enum AID : uint
     TurnInner = 49575, // Helper->self, range 9-14 90-degree cone
     TurnOuter = 49577, // Helper->self, range 19-24 90-degree cone
     TurnInnerNarrow = 49578, // Helper->self, range 9-14 65-degree cone
+    TurnOuterNarrow = 49580, // Helper->self, range 19-24 54-degree cone
+    TurnaboutInner = 49883, // Helper->self, range 9-14 65-degree cone
     TurnaboutOuter = 49889, // Helper->self, range 19-24 54-degree cone
     MartialMystique = 49585, // Helper->self, 48x96 rect
     SpinCircle = 49592, // Sword->self, range 15 circle
     SpinDonutLarge = 49589, // Sword->self, range 20-60 donut
     SpinDonutSmall = 49590, // Sword->self, range 15-60 donut
+    SwordDanceVisual = 49609, // Boss->self, sequence visual
     SwordDance = 49614, // Helper->self, 60x20 rect
     Pierce = 49595, // Sword->self, range 5 circle
     Steelsbreath = 50359, // Helper->self, knockback 24
@@ -35,14 +38,60 @@ sealed class RushLong(BossModule module) : Components.ChargeAOEs(module, (uint)A
 sealed class TurnInner(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnInner, new AOEShapeDonutSector(9f, 14f, 45f.Degrees()));
 sealed class TurnOuter(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnOuter, new AOEShapeDonutSector(19f, 24f, 45f.Degrees()));
 sealed class TurnInnerNarrow(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnInnerNarrow, new AOEShapeDonutSector(9f, 14f, 32.5f.Degrees()));
+sealed class TurnOuterNarrow(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnOuterNarrow, new AOEShapeDonutSector(19f, 24f, 27f.Degrees()));
+sealed class TurnaboutInner(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnaboutInner, new AOEShapeDonutSector(9f, 14f, 32.5f.Degrees()));
 sealed class TurnaboutOuter(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnaboutOuter, new AOEShapeDonutSector(19f, 24f, 27f.Degrees()));
 sealed class MartialMystique(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MartialMystique, new AOEShapeRect(48f, 48f));
-sealed class SwordDance(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SwordDance, new AOEShapeRect(60f, 10f))
+sealed class SwordDance(BossModule module) : Components.GenericAOEs(module)
 {
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    private static readonly AOEShapeRect Shape = new(60f, 10f, 60f);
+    private readonly List<AOEInstance> _aoes = [];
+    private Angle? _firstDirection;
+    private int _resolved;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
-        Color = Colors.Danger;
-        return base.ActiveAOEs(slot, actor);
+        if (_resolved is > 0 and < 4 && _firstDirection is Angle direction)
+        {
+            var center = SwordDancer.ArenaCenter;
+            var first = new Rectangle(center, 10f, 60f, direction);
+            Shape[] otherLines =
+            [
+                new Rectangle(center, 10f, 60f, direction + 45f.Degrees()),
+                new Rectangle(center, 10f, 60f, direction + 90f.Degrees()),
+                new Rectangle(center, 10f, 60f, direction + 135f.Degrees())
+            ];
+            var safeRegion = new AOEShapeCustom([first], otherLines, origin: center);
+            safeRegion.Draw(Arena, center, default(Angle), color: Colors.SafeFromAOE);
+        }
+        base.DrawArenaBackground(pcSlot, pc);
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.SwordDanceVisual)
+        {
+            _aoes.Clear();
+            _firstDirection = null;
+            _resolved = 0;
+        }
+        else if (spell.Action.ID == (uint)AID.SwordDance)
+        {
+            _firstDirection ??= spell.Rotation;
+            _aoes.Add(new(Shape, SwordDancer.ArenaCenter, spell.Rotation, Module.CastFinishAt(spell), Colors.Danger, actorID: caster.InstanceID));
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.SwordDance)
+        {
+            _aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
+            ++_resolved;
+            ++NumCasts;
+        }
     }
 }
 sealed class Pierce(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Pierce, 5f);
@@ -50,12 +99,33 @@ sealed class Steelsbreath(BossModule module) : Components.SimpleKnockbacks(modul
 
 sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
 {
+    private const float SafeMargin = 0.75f;
+    private static readonly uint FutureSafeColor = Color.FromComponents(64, 192, 255, 64).ABGR;
     private static readonly AOEShapeCircle Circle = new(15f);
     private static readonly AOEShapeDonut DonutLarge = new(20f, 60f);
     private static readonly AOEShapeDonut DonutSmall = new(15f, 60f);
     private readonly List<AOEInstance> _aoes = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    {
+        if (_aoes.Count != 0)
+        {
+            var ordered = _aoes.OrderBy(aoe => aoe.Activation).ToList();
+            var currentActivation = ordered[0].Activation;
+            var current = ordered.Where(aoe => Math.Abs((aoe.Activation - currentActivation).TotalSeconds) < 0.5d).ToList();
+            var nextIndex = ordered.FindIndex(aoe => (aoe.Activation - currentActivation).TotalSeconds >= 0.5d);
+            if (nextIndex >= 0)
+            {
+                var next = ordered[nextIndex];
+                var nextGroup = ordered.Where(aoe => Math.Abs((aoe.Activation - next.Activation).TotalSeconds) < 0.5d).ToList();
+                DrawSafeRegion(nextGroup, FutureSafeColor);
+            }
+            DrawSafeRegion(current, Colors.SafeFromAOE);
+        }
+        base.DrawArenaBackground(pcSlot, pc);
+    }
 
     public override void OnActorModelStateChange(Actor actor, byte modelState, byte animState1, byte animState2)
     {
@@ -106,6 +176,22 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
             aoe.Activation = activation;
             _aoes[index] = aoe;
         }
+    }
+
+    private void DrawSafeRegion(List<AOEInstance> aoes, uint color)
+    {
+        var dangers = new Shape[aoes.Count];
+        for (var i = 0; i < aoes.Count; ++i)
+        {
+            dangers[i] = aoes[i].Shape switch
+            {
+                AOEShapeCircle circle => new Circle(aoes[i].Origin, circle.Radius + SafeMargin),
+                AOEShapeDonut donut => new Donut(aoes[i].Origin, MathF.Max(0f, donut.InnerRadius - SafeMargin), donut.OuterRadius + SafeMargin),
+                _ => throw new ArgumentOutOfRangeException(nameof(aoes))
+            };
+        }
+        var safeRegion = new AOEShapeCustom([new Circle(SwordDancer.ArenaCenter, 25f - SafeMargin)], dangers, origin: SwordDancer.ArenaCenter);
+        safeRegion.Draw(Arena, SwordDancer.ArenaCenter, default(Angle), color: color);
     }
 }
 
@@ -166,6 +252,8 @@ sealed class SwordDancerStates : StateMachineBuilder
             .ActivateOnEnter<TurnInner>()
             .ActivateOnEnter<TurnOuter>()
             .ActivateOnEnter<TurnInnerNarrow>()
+            .ActivateOnEnter<TurnOuterNarrow>()
+            .ActivateOnEnter<TurnaboutInner>()
             .ActivateOnEnter<TurnaboutOuter>()
             .ActivateOnEnter<MartialMystique>()
             .ActivateOnEnter<SpinningSword>()
