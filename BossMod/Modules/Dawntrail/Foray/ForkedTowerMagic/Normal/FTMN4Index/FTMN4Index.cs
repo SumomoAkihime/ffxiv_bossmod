@@ -176,7 +176,7 @@ sealed class ElementalPlatforms(BossModule module) : Components.GenericAOEs(modu
 
 sealed class ExpansionPlatforms(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<(uint MarkerOID, DateTime Activation)> _predictions = new(3);
+    private readonly List<uint> _predictions = new(3);
     private readonly List<AOEInstance> _aoes = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
@@ -185,10 +185,9 @@ sealed class ExpansionPlatforms(BossModule module) : Components.GenericAOEs(modu
         if (_predictions.Count == 0)
             return [];
 
-        var ordered = _predictions.OrderBy(prediction => prediction.Activation).ToList();
-        AddGroup(ordered[0], Colors.Danger, true);
-        if (ordered.Count > 1)
-            AddGroup(ordered[1], Colors.AOE, false);
+        AddGroup(_predictions[0], Colors.Danger, true);
+        if (_predictions.Count > 1)
+            AddGroup(_predictions[1], Colors.AOE, false);
         return CollectionsMarshal.AsSpan(_aoes);
     }
 
@@ -202,7 +201,7 @@ sealed class ExpansionPlatforms(BossModule module) : Components.GenericAOEs(modu
             _ => 0u
         };
         if (markerOID != 0u)
-            _predictions.Add((markerOID, WorldState.FutureTime(6.75d)));
+            _predictions.Add(markerOID);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -217,7 +216,7 @@ sealed class ExpansionPlatforms(BossModule module) : Components.GenericAOEs(modu
         if (markerOID == 0u)
             return;
 
-        var index = _predictions.FindIndex(prediction => prediction.MarkerOID == markerOID);
+        var index = _predictions.IndexOf(markerOID);
         if (index >= 0)
         {
             _predictions.RemoveAt(index);
@@ -225,20 +224,20 @@ sealed class ExpansionPlatforms(BossModule module) : Components.GenericAOEs(modu
         }
     }
 
-    private void AddGroup((uint MarkerOID, DateTime Activation) prediction, uint color, bool risky)
+    private void AddGroup(uint markerOID, uint color, bool risky)
     {
-        var marker = Module.Enemies(prediction.MarkerOID).FirstOrDefault(marker => !marker.IsDestroyed);
+        var marker = Module.Enemies(markerOID).FirstOrDefault(marker => !marker.IsDestroyed);
         if (marker == null)
             return;
 
-        AddPlatform(marker.Rotation, prediction.Activation, color, risky);
-        AddPlatform(marker.Rotation + 180f.Degrees(), prediction.Activation, color, risky);
+        AddPlatform(marker.Rotation, color, risky);
+        AddPlatform(marker.Rotation + 180f.Degrees(), color, risky);
     }
 
-    private void AddPlatform(Angle rotation, DateTime activation, uint color, bool risky)
+    private void AddPlatform(Angle rotation, uint color, bool risky)
     {
         var shape = IndexArenaBounds.PlatformRegion(Index.ArenaCenter, rotation);
-        _aoes.Add(new(shape, Index.ArenaCenter, default(Angle), activation, color, risky));
+        _aoes.Add(new(shape, Index.ArenaCenter, default(Angle), color: color, risky: risky));
     }
 }
 
