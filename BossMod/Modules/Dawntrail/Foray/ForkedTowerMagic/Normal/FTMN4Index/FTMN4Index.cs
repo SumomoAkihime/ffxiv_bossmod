@@ -12,6 +12,9 @@ public enum OID : uint
     FirePlatforms = 0x1EC008,
     IcePlatforms = 0x1EC009,
     ThunderPlatforms = 0x1EC00A,
+    ExpansionFire = 0x1EC00B,
+    ExpansionIce = 0x1EC00C,
+    ExpansionThunder = 0x1EC00D,
     Helper = 0x233C
 }
 
@@ -171,30 +174,117 @@ sealed class ElementalPlatforms(BossModule module) : Components.GenericAOEs(modu
     }
 }
 
-sealed class Prophecy(BossModule module) : Components.GenericAOEs(module)
+sealed class ExpansionPlatforms(BossModule module) : Components.GenericAOEs(module)
 {
-    private static readonly AOEShapeCircle Circle = new(10f);
-    private static readonly AOEShapeDonut Donut = new(3f, 15f);
+    private readonly List<(uint MarkerOID, DateTime Activation)> _predictions = new(3);
     private readonly List<AOEInstance> _aoes = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         _aoes.Clear();
-        foreach (var phenomenon in Module.Enemies((uint)OID.PropheticPhenomenon))
-        {
-            if (phenomenon.IsDestroyed || phenomenon.FindStatus((uint)SID.ProphecyShape) is not ActorStatus status)
-                continue;
+        if (_predictions.Count == 0)
+            return [];
 
-            AOEShape? shape = status.Extra switch
-            {
-                1101 => Circle,
-                1100 => Donut,
-                _ => null
-            };
-            if (shape != null)
-                _aoes.Add(new(shape, phenomenon.Position, activation: status.ExpireAt.AddSeconds(-0.4d), actorID: phenomenon.InstanceID));
-        }
+        var ordered = _predictions.OrderBy(prediction => prediction.Activation).ToList();
+        AddGroup(ordered[0], Colors.Danger, true);
+        if (ordered.Count > 1)
+            AddGroup(ordered[1], Colors.AOE, false);
         return CollectionsMarshal.AsSpan(_aoes);
+    }
+
+    public override void OnActorCreated(Actor actor)
+    {
+        var markerOID = actor.OID switch
+        {
+            (uint)OID.ExpansionFire => (uint)OID.FirePlatforms,
+            (uint)OID.ExpansionIce => (uint)OID.IcePlatforms,
+            (uint)OID.ExpansionThunder => (uint)OID.ThunderPlatforms,
+            _ => 0u
+        };
+        if (markerOID != 0u)
+            _predictions.Add((markerOID, WorldState.FutureTime(6.75d)));
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        var markerOID = spell.Action.ID switch
+        {
+            (uint)AID.FireIV => (uint)OID.FirePlatforms,
+            (uint)AID.BlizzardIV => (uint)OID.IcePlatforms,
+            (uint)AID.ThunderIV => (uint)OID.ThunderPlatforms,
+            _ => 0u
+        };
+        if (markerOID == 0u)
+            return;
+
+        var index = _predictions.FindIndex(prediction => prediction.MarkerOID == markerOID);
+        if (index >= 0)
+        {
+            _predictions.RemoveAt(index);
+            ++NumCasts;
+        }
+    }
+
+    private void AddGroup((uint MarkerOID, DateTime Activation) prediction, uint color, bool risky)
+    {
+        var marker = Module.Enemies(prediction.MarkerOID).FirstOrDefault(marker => !marker.IsDestroyed);
+        if (marker == null)
+            return;
+
+        AddPlatform(marker.Rotation, prediction.Activation, color, risky);
+        AddPlatform(marker.Rotation + 180f.Degrees(), prediction.Activation, color, risky);
+    }
+
+    private void AddPlatform(Angle rotation, DateTime activation, uint color, bool risky)
+    {
+        var shape = IndexArenaBounds.PlatformRegion(Index.ArenaCenter, rotation);
+        _aoes.Add(new(shape, Index.ArenaCenter, default(Angle), activation, color, risky));
+    }
+}
+
+sealed class Prophecy(BossModule module) : Components.GenericAOEs(module)
+{
+    private static readonly AOEShapeCircle Circle = new(10f);
+    private static readonly AOEShapeDonut Donut = new(3f, 15f);
+    private readonly Dictionary<ulong, AOEInstance> _predictions = [];
+    private readonly List<AOEInstance> _aoes = new(3);
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        _aoes.Clear();
+        _aoes.AddRange(_predictions.Values);
+        return CollectionsMarshal.AsSpan(_aoes);
+    }
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        if (actor.OID != (uint)OID.PropheticPhenomenon || status.ID != (uint)SID.ProphecyShape || _predictions.ContainsKey(actor.InstanceID))
+            return;
+
+        AOEShape? shape = status.Extra switch
+        {
+            1101 => Circle,
+            1100 => Donut,
+            _ => null
+        };
+        if (shape == null)
+            return;
+
+        var startAngle = Angle.FromDirection(actor.Position - Index.ArenaCenter);
+        var destination = Index.ArenaCenter + 15.5f * (startAngle + (-60f).Degrees()).ToDirection();
+        _predictions[actor.InstanceID] = new(shape, destination, activation: WorldState.FutureTime(10d), actorID: actor.InstanceID);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if ((spell.Action.ID == (uint)AID.Starfall || spell.Action.ID == (uint)AID.Cleansing) && _predictions.Remove(caster.InstanceID))
+            ++NumCasts;
+    }
+
+    public override void OnActorDestroyed(Actor actor)
+    {
+        if (actor.OID == (uint)OID.PropheticPhenomenon)
+            _predictions.Remove(actor.InstanceID);
     }
 }
 
@@ -255,6 +345,7 @@ sealed class IndexStates : StateMachineBuilder
             .ActivateOnEnter<WindSlash>()
             .ActivateOnEnter<AllConsumingFlames>()
             .ActivateOnEnter<ElementalPlatforms>()
+            .ActivateOnEnter<ExpansionPlatforms>()
             .ActivateOnEnter<Prophecy>();
     }
 }
