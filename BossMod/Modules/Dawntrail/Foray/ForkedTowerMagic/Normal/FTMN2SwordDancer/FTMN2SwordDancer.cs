@@ -55,7 +55,7 @@ sealed class SwordDance(BossModule module) : Components.GenericAOEs(module)
     {
         if (_resolved is > 0 and < 4 && _firstDirection is Angle direction)
         {
-            var center = SwordDancer.ArenaCenter;
+            var center = Arena.Center;
             var first = new Rectangle(center, 10f, 60f, direction);
             Shape[] otherLines =
             [
@@ -80,7 +80,7 @@ sealed class SwordDance(BossModule module) : Components.GenericAOEs(module)
         else if (spell.Action.ID == (uint)AID.SwordDance)
         {
             _firstDirection ??= spell.Rotation;
-            _aoes.Add(new(Shape, SwordDancer.ArenaCenter, spell.Rotation, Module.CastFinishAt(spell), Colors.Danger, actorID: caster.InstanceID));
+            _aoes.Add(new(Shape, Arena.Center, spell.Rotation, Module.CastFinishAt(spell), Colors.Danger, actorID: caster.InstanceID));
         }
     }
 
@@ -190,8 +190,8 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
                 _ => throw new ArgumentOutOfRangeException(nameof(aoes))
             };
         }
-        var safeRegion = new AOEShapeCustom([new Circle(SwordDancer.ArenaCenter, 25f - SafeMargin)], dangers, origin: SwordDancer.ArenaCenter);
-        safeRegion.Draw(Arena, SwordDancer.ArenaCenter, default(Angle), color: color);
+        var safeRegion = new AOEShapeCustom([new Circle(Arena.Center, 25f - SafeMargin)], dangers, origin: Arena.Center);
+        safeRegion.Draw(Arena, Arena.Center, default(Angle), color: color);
     }
 }
 
