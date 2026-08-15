@@ -253,9 +253,9 @@ sealed class ElementSafezones(BossModule module) : Components.GenericAOEs(module
             foreach (var head in _heads.Values)
                 if (head.Element == _current && !head.Actor.IsDestroyed)
                     ElementGeometry.AddHeadDanger(dangers, _current, head.Actor.Position, head.Actor.Rotation);
-            ElementGeometry.AddBossDanger(dangers, _current, Module.PrimaryActor.Position, Module.PrimaryActor.Rotation);
             if (dangers.Count != 0)
             {
+                ElementGeometry.AddBossDanger(dangers, _current, Module.PrimaryActor.Position, Module.PrimaryActor.Rotation);
                 var safeRegion = new AOEShapeCustom([new Circle(Necrophobia.ArenaCenter, 23.5f)], dangers, origin: Necrophobia.ArenaCenter);
                 safeRegion.Draw(Arena, Necrophobia.ArenaCenter, default(Angle), color: Colors.SafeFromAOE);
             }
@@ -285,7 +285,6 @@ sealed class ElementSafezones(BossModule module) : Components.GenericAOEs(module
         {
             (uint)AID.SeveredFireIIIBoss => Element.Fire,
             (uint)AID.SeveredBlizzardIIIBoss => Element.Blizzard,
-            (uint)AID.SeveredThunderVisual => Element.Thunder,
             _ => _current
         };
     }
@@ -307,7 +306,10 @@ sealed class ElementSafezones(BossModule module) : Components.GenericAOEs(module
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         if (spell.Action.ID is (uint)AID.SeveredFireIIIBoss or (uint)AID.SeveredBlizzardIIIBoss or (uint)AID.SeveredThunderBoss)
+        {
             _current = Element.None;
+            _heads.Clear();
+        }
     }
 }
 
@@ -324,7 +326,8 @@ sealed class NecrophobiaStates : StateMachineBuilder
             .ActivateOnEnter<DeathlyRay>()
             .ActivateOnEnter<DarkCurrent>()
             .ActivateOnEnter<Thunder>()
-            .ActivateOnEnter<SeveredElementPreview>();
+            .ActivateOnEnter<SeveredElementPreview>()
+            .ActivateOnEnter<ElementSafezones>();
     }
 }
 
