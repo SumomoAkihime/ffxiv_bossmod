@@ -77,69 +77,78 @@ sealed class TinyThunderIII(BossModule module) : Components.RaidwideCast(module,
 
 sealed class TinyQuake(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> aoes = [];
+    private readonly List<AOEInstance> Casters = [];
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.TinyQuakeIIIInner)
+        AOEShape? shape = (AID)spell.Action.ID switch
         {
-            aoes.Add(new(new AOEShapeCircle(10.0f), caster.Position, caster.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID, risky: false));
-        }
+            AID.TinyQuakeIIIInner => new AOEShapeCircle(10.0f),
+            AID.TinyQuakeIIIMiddle => new AOEShapeDonut(10.0f, 20.0f),
+            AID.TinyQuakeIIIOuter => new AOEShapeDonut(20.0f, 30.0f),
+            _ => null
+        };
 
-        if (spell.Action.ID == (uint)AID.TinyQuakeIIIMiddle)
+        if (shape != null)
         {
-            aoes.Add(new(new AOEShapeDonut(10.0f, 20.0f), caster.Position, caster.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID, risky: false));
-        }
-
-        if (spell.Action.ID == (uint)AID.TinyQuakeIIIOuter)
-        {
-            aoes.Add(new(new AOEShapeDonut(20.0f, 30.0f), caster.Position, caster.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID, risky: false));
+            var origin = spell.LocXZ;
+            var rotation = spell.Rotation;
+            Casters.Add(new(shape, origin, rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID, shapeDistance: shape.Distance(origin, rotation)));
+            SortHelpers.SortAOEByActivation(Casters);
         }
     }
 
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
         if (spell.Action.ID is (uint)AID.TinyQuakeIIIInner or (uint)AID.TinyQuakeIIIMiddle or (uint)AID.TinyQuakeIIIOuter)
         {
-            aoes.Sort((a, b) => a.Activation.CompareTo(b.Activation));
-            if (aoes.Count > 0)
+            if (Casters.Count > 0)
             {
-                aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
+                Casters.RemoveAt(0);
             }
         }
     }
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        int show = 0;
-        var incomingAOEs = aoes.OrderBy(a => a.Activation).Take(2).ToList();
-        foreach (ref var aoe in CollectionsMarshal.AsSpan(incomingAOEs))
+        var count = Casters.Count;
+        if (count == 0)
         {
-            aoe.Color = show == 0 ? Colors.Danger : Colors.AOE;
-            aoe.Risky = show == 0;
-            show++;
+            return [];
         }
 
-        return CollectionsMarshal.AsSpan(incomingAOEs);
+        var max = count > 2 ? 2 : count;
+        var aoes = CollectionsMarshal.AsSpan(Casters);
+
+        for (var i = 0; i < max; i++)
+        {
+            ref var aoe = ref aoes[i];
+            aoe.Color = i == 0 ? Colors.Danger : Colors.AOE;
+            aoe.Risky = i == 0;
+        }
+
+        return aoes[..max];
     }
 }
 
 sealed class DiminutiveDualcast(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> aoes = [];
+    private readonly List<AOEInstance> Casters = [];
+    private readonly AOEShapeCone cone = new(40.0f, 30.0f.Degrees());
+    private readonly AOEShapeCircle circle = new(14.0f);
     public bool middleActive = false; // better control logic for the knockback sphere
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.TinyBlizzardIII)
+        switch (spell.Action.ID)
         {
-            aoes.Add(new(new AOEShapeCone(40.0f, 30.0f.Degrees()), caster.Position, caster.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID));
-        }
-
-        if (spell.Action.ID == (uint)AID.TinyFireIII)
-        {
-            aoes.Add(new(new AOEShapeCircle(14.0f), caster.Position, caster.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID));
-            middleActive = true;
+            case (uint)AID.TinyBlizzardIII:
+                Casters.Add(new(cone, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
+                break;
+            case (uint)AID.TinyFireIII:
+                Casters.Add(new(circle, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
+                middleActive = true;
+                break;
         }
     }
 
@@ -147,12 +156,13 @@ sealed class DiminutiveDualcast(BossModule module) : Components.GenericAOEs(modu
     {
         if (spell.Action.ID is (uint)AID.TinyBlizzardIII or (uint)AID.TinyFireIII)
         {
-            if (aoes.Count > 0)
+            if (Casters.Count > 0)
             {
-                aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
+                Casters.RemoveAt(0);
             }
 
-            if (spell.Action.ID == (uint)AID.TinyFireIII) {
+            if (spell.Action.ID == (uint)AID.TinyFireIII)
+            {
                 middleActive = false;
             }
         }
@@ -160,59 +170,61 @@ sealed class DiminutiveDualcast(BossModule module) : Components.GenericAOEs(modu
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        var incomingAOEs = aoes.OrderBy(a => a.Activation).Take(4).ToList();
-        var waveTimer = incomingAOEs.MinBy(a => a.Activation).Activation.AddSeconds(0.2f);
-
-        foreach (ref var aoe in CollectionsMarshal.AsSpan(incomingAOEs))
+        var count = Casters.Count;
+        if (count == 0)
         {
-            if (aoe.Activation <= waveTimer)
+            return [];
+        }
+
+        var aoes = CollectionsMarshal.AsSpan(Casters);
+        var deadline = aoes[0].Activation.AddSeconds(1.0f);
+        var max = count > 4 ? 4 : count;
+
+        for (var i = 0; i < max; i++)
+        {
+            ref var aoe = ref aoes[i];
+            if (aoe.Activation <= deadline)
             {
                 aoe.Color = Colors.Danger;
-                aoe.Risky = true;
             }
         }
 
-        return CollectionsMarshal.AsSpan(incomingAOEs);
+        return aoes[..max];
     }
 }
 
-sealed class TinyMeteor(BossModule module) : Components.GenericAOEs(module, (uint)AID.TinyMeteor)
+sealed class TinyMeteor(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TinyMeteor, new AOEShapeCircle(6.0f))
 {
-    private readonly List<AOEInstance> aoes = [];
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if (spell.Action.ID == (uint)AID.TinyMeteor)
-        {
-            aoes.Add(new(new AOEShapeCircle(6.0f), caster.Position, caster.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID));
-        }
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if (spell.Action.ID is (uint)AID.TinyMeteor)
-        {
-            if (aoes.Count > 0)
-            {
-                aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
-            }
-        }
-    }
-
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        var waveTimer = aoes.MinBy(a => a.Activation).Activation.AddSeconds(0.2f);
-
-        foreach (ref var aoe in CollectionsMarshal.AsSpan(aoes))
+        var count = Casters.Count;
+        if (count == 0)
         {
-            if (aoe.Activation <= waveTimer)
-            {
-                aoe.Color = Colors.Danger;
-                aoe.Risky = true;
-            }
+            return [];
         }
 
-        return CollectionsMarshal.AsSpan(aoes);
+        var aoes = CollectionsMarshal.AsSpan(Casters);
+        var deadline = aoes[0].Activation.AddSeconds(1.0f);
+
+        var index = 0;
+        while (index < count)
+        {
+            ref var aoe = ref aoes[index];
+            if (aoe.Activation >= deadline)
+            {
+                break;
+            }
+
+            index++;
+        }
+
+        for (var i = 0; i < index; i++)
+        {
+            ref var aoe = ref aoes[i];
+            aoe.Color = Colors.Danger;
+        }
+
+        return aoes;
     }
 }
 
@@ -293,120 +305,164 @@ sealed class Comet(BossModule module) : BossComponent(module)
     }
 }
 
-sealed class FlareHolyMerge(BossModule module) : BossComponent(module) {
+sealed class FlareHolyMerge(BossModule module) : BossComponent(module)
+{
     private static readonly AOEShapeCircle flareShape = new(18.0f);
     private const float holyKnockBackDistance = 15.0f;
-
     private readonly record struct MergeCombination(WPos Origin, float Distance, bool IsFlare, DateTime Activation);
     private readonly List<MergeCombination> mergeCombinations = [];
 
-    public override void OnTethered(Actor source, in ActorTetherInfo tether) {
-        if (tether.ID == (uint)TetherID.FlareHolyMergeTether) {
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
+    {
+        if (tether.ID == (uint)TetherID.FlareHolyMergeTether)
+        {
             var sphere = WorldState.Actors.Find(tether.Target);
-            if (sphere != null) {
+            if (sphere != null)
+            {
                 var midPoint = WPos.Lerp(source.Position, sphere.Position, 0.5f);
                 var distance = (source.Position - sphere.Position).Length();
                 mergeCombinations.Add(new(midPoint, distance, source.OID == (uint)OID.FlareSphere, default));
             }
         }
 
-        if (mergeCombinations.Count == 4) {
-            DateTime activationStart = WorldState.FutureTime(9.1f);
+        if (mergeCombinations.Count == 4)
+        {
+            var activationStart = WorldState.FutureTime(9.1d);
             mergeCombinations.Sort((a, b) => a.Distance.CompareTo(b.Distance));
 
-            for (int i = 0; i < mergeCombinations.Count; i++) {
-                mergeCombinations[i] = mergeCombinations[i] with { Activation = activationStart + TimeSpan.FromSeconds(3.0f * i) };
+            for (var i = 0; i < mergeCombinations.Count; i++)
+            {
+                mergeCombinations[i] = mergeCombinations[i] with { Activation = activationStart + TimeSpan.FromSeconds(3.0d * i) };
             }
         }
     }
 
-    public override void OnEventCast(Actor caster, ActorCastEvent spell) {
-        if (spell.Action.ID is (uint)AID.TinyFlare or (uint)AID.TinyHoly1) {
-            if (mergeCombinations.Count > 0) {
-                mergeCombinations.Sort((a, b) => a.Distance.CompareTo(b.Distance));
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID is (uint)AID.TinyFlare or (uint)AID.TinyHoly1)
+        {
+            if (mergeCombinations.Count > 0)
+            {
                 mergeCombinations.RemoveAt(0);
             }
         }
     }
 
-    public override void DrawArenaForeground(int pcSlot, Actor pc) {
-        if (mergeCombinations.Count == 0) {
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        var count = mergeCombinations.Count;
+        if (count == 0)
+        {
             return;
         }
 
-        var nextCombinations = mergeCombinations.OrderBy(c => c.Distance).Take(2).ToList();
+        var nextCombinations = CollectionsMarshal.AsSpan(mergeCombinations);
+        var max = count > 2 ? 2 : count;
 
-        for (int i = 0; i < nextCombinations.Count; i++) {
-            var combination = nextCombinations[i];
-            if (combination.IsFlare) {
+        for (var i = 0; i < max; i++)
+        {
+            ref var combination = ref nextCombinations[i];
+
+            if (combination.IsFlare)
+            {
                 flareShape.Draw(Arena, combination.Origin, default, i == 0 ? Colors.Danger : Colors.AOE);
             }
 
-            if (!combination.IsFlare) {
+            if (!combination.IsFlare)
+            {
                 var endPoint = Components.GenericKnockback.AwayFromSource(pc.Position, combination.Origin, holyKnockBackDistance);
                 Components.GenericKnockback.DrawKnockback(pc, endPoint, Arena);
             }
         }
     }
 
-    public override void DrawArenaBackground(int pcSlot, Actor pc) {
-        if (mergeCombinations.Count == 0) {
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    {
+        var count = mergeCombinations.Count;
+        if (count == 0)
+        {
             return;
         }
 
-        var nextCombinations = mergeCombinations.OrderBy(c => c.Distance).Take(2).ToList();
+        var nextCombinations = CollectionsMarshal.AsSpan(mergeCombinations);
+        var max = count > 2 ? 2 : count;
 
-        foreach (var combination in nextCombinations) {
-            if (!combination.IsFlare) {
-                Arena.ZoneCircle(combination.Origin, 2.0f, 0xffffff00);
+        for (var i = 0; i < max; i++)
+        {
+            ref var combination = ref nextCombinations[i];
+
+            if (!combination.IsFlare)
+            {
+                Arena.ZoneCircle(combination.Origin, 2.0f, Colors.Other7);
             }
         }
     }
 
-    public override void AddHints(int slot, Actor actor, TextHints hints) {
-        if (mergeCombinations.Count == 0) {
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        var count = mergeCombinations.Count;
+        if (count == 0)
+        {
             return;
         }
 
-        var nextCombinations = mergeCombinations.OrderBy(c => c.Distance).Take(2).ToList();
-        foreach (var combination in nextCombinations) {
-            if (combination.IsFlare && flareShape.Check(actor.Position, combination.Origin, default)) {
+        var nextCombinations = CollectionsMarshal.AsSpan(mergeCombinations);
+        var max = count > 2 ? 2 : count;
+
+        for (var i = 0; i < max; i++)
+        {
+            ref var combination = ref nextCombinations[i];
+
+            if (combination.IsFlare && flareShape.Check(actor.Position, combination.Origin, default))
+            {
                 hints.Add("GTFO from aoe!");
             }
 
-            if (!combination.IsFlare) {
+            if (!combination.IsFlare)
+            {
                 var endPoint = Components.GenericKnockback.AwayFromSource(actor.Position, combination.Origin, holyKnockBackDistance);
-                if (!Arena.InBounds(endPoint)) {
+                if (!Arena.InBounds(endPoint))
+                {
                     hints.Add("About to be knocked into wall!");
                 }
             }
         }
     }
 
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
-        if (mergeCombinations.Count == 0) {
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var count = mergeCombinations.Count;
+        if (count == 0)
+        {
             return;
         }
 
-        var nextCombinations = mergeCombinations.OrderBy(c => c.Distance).Take(2).ToList();
+        var nextCombinations = CollectionsMarshal.AsSpan(mergeCombinations);
+        var max = count > 2 ? 2 : count;
         var knockbackSetup = false;
 
-        for (int i = 0; i < nextCombinations.Count; i++) {
-            var combination = nextCombinations[i];
-            if (combination.IsFlare) {
+        for (var i = 0; i < max; i++)
+        {
+            ref var combination = ref nextCombinations[i];
+            if (combination.IsFlare)
+            {
                 hints.AddForbiddenZone(flareShape, combination.Origin, activation: combination.Activation);
             }
 
             // Safeguard so we don't try and solve both knockbacks at the same time, only happens if it knockback into knockback
-            if (knockbackSetup) {
+            if (knockbackSetup)
+            {
                 return;
             }
 
-            if (!combination.IsFlare) {
+            if (!combination.IsFlare)
+            {
                 var activation = combination.Activation;
                 var circles = new WPos[2];
-                for (var k = 0; k < 2 && nextCombinations.Count == 2; ++k) {
-                    if (nextCombinations[k].IsFlare) {
+                for (var k = 0; k < 2 && max == 2; ++k)
+                {
+                    if (nextCombinations[k].IsFlare)
+                    {
                         circles[k] = nextCombinations[k].Origin;
                     }
                 }
@@ -425,11 +481,11 @@ sealed class SphereGrowable(BossModule module) : BossComponent(module)
     private const float holyKnockBackDistance = 15.0f;
     private readonly List<Actor> mages = [];
     private Actor? orb = null;
+    private DateTime activation = default;
     private int startIndex = -1;
     private int direction = 0;
     private WPos startPosition = default;
-    private DateTime activation = default;
-    private DiminutiveDualcast diminutiveDualcast = module.FindComponent<DiminutiveDualcast>()!;
+    private readonly DiminutiveDualcast diminutiveDualcast = module.FindComponent<DiminutiveDualcast>()!;
 
     public override void OnActorCreated(Actor actor)
     {
@@ -504,7 +560,7 @@ sealed class SphereGrowable(BossModule module) : BossComponent(module)
 
         if (orb.OID == (uint)OID.HolySphereGrow)
         {
-            Arena.ZoneCircle(target.Position, 2.0f, 0xffffff00);
+            Arena.ZoneCircle(target.Position, 2.0f, Colors.Other7);
         }
     }
 
@@ -547,11 +603,13 @@ sealed class SphereGrowable(BossModule module) : BossComponent(module)
         }
 
         // If the sphere is a knockback we should wait until the final set of aoes
-        if (diminutiveDualcast.middleActive == true) {
+        if (diminutiveDualcast.middleActive)
+        {
             return;
         }
 
-        if (orb.OID == (uint)OID.HolySphereGrow) {
+        if (orb.OID == (uint)OID.HolySphereGrow)
+        {
             hints.AddForbiddenZone(new SDKnockbackInCircleAwayFromOrigin(Arena.Center, target.Position, holyKnockBackDistance, 19.0f), activation);
         }
     }
@@ -583,10 +641,10 @@ sealed class SphereGrowable(BossModule module) : BossComponent(module)
                 return null;
             }
 
-            int bestIndex = -1;
-            float bestDot = float.MinValue;
+            var bestIndex = -1;
+            var bestDot = float.MinValue;
 
-            for (int i = 0; i < mages.Count; i++)
+            for (var i = 0; i < mages.Count; i++)
             {
                 if (i == startIndex)
                 {
@@ -642,10 +700,10 @@ sealed class CE214TinyTerrorStates : StateMachineBuilder
     Contributors = "Equilius",
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,
-    GroupType = BossModuleInfo.GroupType.CFC,
+    GroupType = BossModuleInfo.GroupType.CriticalEngagement,
     GroupID = 1093u,
-    NameID = 14795u,
-    SortOrder = 1,
+    NameID = 60u,
+    SortOrder = 12,
     PlanLevel = 0)]
 [SkipLocalsInit]
 public sealed class CE214TinyTerror(WorldState ws, Actor primary) : BossModule(ws, primary, new(152.000f, 716.000f), new ArenaBoundsCircle(20f))
