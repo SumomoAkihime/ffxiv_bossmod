@@ -27,9 +27,15 @@ public enum AID : uint
     SpinDonutSmall = 49590, // Sword->self, range 15-60 donut
     SwordDanceVisual = 49609, // Boss->self, sequence visual
     SwordDance = 49614, // Helper->self, 60x20 rect
+    LeapingLift = 49594, // Boss->self, four-knockback visual
     Pierce = 49595, // Sword->self, range 5 circle
     Steelsbreath = 50359, // Helper->self, knockback 24
     Surgeswords = 49616 // RushSword->self, 30x6 rect
+}
+
+public enum SID : uint
+{
+    LeapingLift = 2056 // Sword, extra 1147 indicates knockback order
 }
 
 sealed class SwordStorm(BossModule module) : Components.RaidwideCast(module, (uint)AID.SwordStorm);
@@ -95,7 +101,86 @@ sealed class SwordDance(BossModule module) : Components.GenericAOEs(module)
     }
 }
 sealed class Pierce(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Pierce, 5f);
-sealed class Steelsbreath(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.Steelsbreath, 24f);
+sealed class Steelsbreath(BossModule module) : Components.GenericKnockback(module, (uint)AID.Steelsbreath)
+{
+    private const float NextSourceMarkerRadius = 2f;
+    private static readonly uint NextSourceMarkerColor = Color.FromComponents(64, 192, 255).ABGR;
+    private readonly List<Knockback> _sources = [];
+
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor) =>
+        _sources.Count != 0 ? CollectionsMarshal.AsSpan(_sources)[..1] : [];
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        base.DrawArenaForeground(pcSlot, pc);
+        if (_sources.Count > 1)
+            Arena.ZoneCircleOutline(_sources[1].Origin, NextSourceMarkerRadius, NextSourceMarkerColor, 2f);
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.LeapingLift)
+        {
+            _sources.Clear();
+            return;
+        }
+        if (spell.Action.ID != (uint)AID.Steelsbreath)
+            return;
+
+        var source = new Knockback(caster.Position, 24f, Module.CastFinishAt(spell), actorID: caster.InstanceID);
+        var index = ClosestSource(caster.Position);
+        if (index >= 0)
+        {
+            _sources[index] = source;
+            if (index != 0)
+            {
+                _sources.RemoveAt(index);
+                _sources.Insert(0, source);
+            }
+        }
+        else
+        {
+            _sources.Insert(0, source);
+        }
+    }
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        if (actor.OID == (uint)OID.Sword && status.ID == (uint)SID.LeapingLift && status.Extra == 1147
+            && _sources.All(source => source.ActorID != actor.InstanceID))
+        {
+            _sources.Add(new(actor.Position, 24f, status.ExpireAt.AddSeconds(-1d), actorID: actor.InstanceID));
+            _sources.Sort((left, right) => left.Activation.CompareTo(right.Activation));
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == (uint)AID.Steelsbreath)
+        {
+            var index = ClosestSource(caster.Position);
+            if (index >= 0)
+                _sources.RemoveAt(index);
+        }
+        base.OnEventCast(caster, spell);
+    }
+
+    private int ClosestSource(WPos position)
+    {
+        var bestIndex = -1;
+        var bestDistance = 1f;
+        for (var i = 0; i < _sources.Count; ++i)
+        {
+            var distance = (_sources[i].Origin - position).LengthSq();
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                bestIndex = i;
+            }
+        }
+        return bestIndex;
+    }
+}
 
 sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
 {
@@ -268,6 +353,7 @@ sealed class SwordDancerStates : StateMachineBuilder
     StatesType = typeof(SwordDancerStates),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
+    StatusIDType = typeof(SID),
     PrimaryActorOID = (uint)OID.Boss,
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,

@@ -56,10 +56,116 @@ sealed class PoisonBreath(BossModule module) : Components.SimpleAOEs(module, (ui
 sealed class StormsBreath(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.StormsBreath, 14f);
 sealed class TwoTerrors(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TwoTerrors, new AOEShapeRect(40f, 5f));
 sealed class ElementalClusters(BossModule module) : Components.SimpleAOEGroups(module,
-    [(uint)AID.LightningCluster, (uint)AID.IceCluster, (uint)AID.Shock, (uint)AID.HypothermalCombustion], 15f);
+    [(uint)AID.LightningCluster, (uint)AID.IceCluster], 15f);
 sealed class ArcaneBeacon(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ArcaneBeacon, new AOEShapeRect(60f, 2.5f));
 sealed class ArchaeofuryGreen(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.ArchaeofuryGreen, 6f);
 sealed class ArchaeofuryBlue(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.ArchaeofuryBlue, 6f);
+
+sealed class ElementalOrbSequence(BossModule module) : Components.GenericAOEs(module)
+{
+    private static readonly AOEShapeCircle Shape = new(15f);
+    private readonly Dictionary<ulong, Actor> _orbs = [];
+    private readonly HashSet<ulong> _firstWave = [];
+    private readonly Dictionary<ulong, DateTime> _activations = [];
+    private readonly List<AOEInstance> _active = [];
+    private bool _firstWaveIdentified;
+    private bool _firstWaveResolved;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        _active.Clear();
+        if (!_firstWaveIdentified)
+            return [];
+
+        foreach (var orb in _orbs.Values)
+        {
+            var current = _firstWaveResolved || _firstWave.Contains(orb.InstanceID);
+            var activation = _activations.GetValueOrDefault(orb.InstanceID);
+            _active.Add(new(Shape, orb.Position,
+                activation: activation == default ? DateTime.MaxValue : activation,
+                color: current ? Colors.Danger : Colors.AOE,
+                risky: current,
+                actorID: orb.InstanceID));
+        }
+        return CollectionsMarshal.AsSpan(_active);
+    }
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if (actor.OID is not ((uint)OID.LightningOrb) and not ((uint)OID.IceOrb))
+            return;
+
+        if (_orbs.Count == 0)
+            Reset();
+        _orbs[actor.InstanceID] = actor;
+    }
+
+    public override void OnActorDestroyed(Actor actor)
+    {
+        if (_orbs.Remove(actor.InstanceID))
+            RemoveFromFirstWave(actor.InstanceID);
+        _activations.Remove(actor.InstanceID);
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        var id = spell.Action.ID;
+        var orbOID = id switch
+        {
+            (uint)AID.LightningCluster => (uint)OID.LightningOrb,
+            (uint)AID.IceCluster => (uint)OID.IceOrb,
+            _ => 0u
+        };
+        if (orbOID != 0)
+        {
+            var activation = Module.CastFinishAt(spell, 2.4d);
+            foreach (var orb in _orbs.Values)
+            {
+                if (orb.OID == orbOID && Shape.Check(spell.LocXZ, orb))
+                {
+                    _firstWave.Add(orb.InstanceID);
+                    _activations[orb.InstanceID] = activation;
+                    _firstWaveIdentified = true;
+                }
+            }
+        }
+        else if (id == (uint)AID.ThunderfrostTempest && _firstWaveIdentified)
+        {
+            var activation = Module.CastFinishAt(spell, 2.7d);
+            foreach (var orb in _orbs.Values)
+                if (!_firstWave.Contains(orb.InstanceID))
+                    _activations[orb.InstanceID] = activation;
+        }
+        else if (id is (uint)AID.Shock or (uint)AID.HypothermalCombustion && _orbs.ContainsKey(caster.InstanceID))
+        {
+            _activations[caster.InstanceID] = Module.CastFinishAt(spell);
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID is (uint)AID.Shock or (uint)AID.HypothermalCombustion && _orbs.Remove(caster.InstanceID))
+        {
+            RemoveFromFirstWave(caster.InstanceID);
+            _activations.Remove(caster.InstanceID);
+            ++NumCasts;
+        }
+    }
+
+    private void RemoveFromFirstWave(ulong instanceID)
+    {
+        if (_firstWave.Remove(instanceID) && _firstWave.Count == 0)
+            _firstWaveResolved = true;
+    }
+
+    private void Reset()
+    {
+        _firstWave.Clear();
+        _activations.Clear();
+        _firstWaveIdentified = false;
+        _firstWaveResolved = false;
+    }
+}
 
 sealed class BuffetAssignments(BossModule module) : BossComponent(module)
 {
@@ -79,6 +185,16 @@ sealed class BuffetAssignments(BossModule module) : BossComponent(module)
             if (assigned != null)
                 Arena.Actor(assigned, Colors.Safe);
         }
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (!_assignments.TryGetValue(actor.InstanceID, out var assignedOID))
+            return;
+
+        foreach (var enemy in hints.PotentialTargets)
+            if (enemy.Actor.OID is (uint)OID.GreenHead or (uint)OID.BlueHead && enemy.Actor.OID != assignedOID)
+                enemy.Priority = AIHints.Enemy.PriorityForbidden;
     }
 
     public override void OnTethered(Actor source, in ActorTetherInfo tether)
@@ -226,6 +342,7 @@ sealed class TwoHeadedAevisStates : StateMachineBuilder
             .ActivateOnEnter<TwoTerrors>()
             .ActivateOnEnter<HissingReprise>()
             .ActivateOnEnter<ElementalClusters>()
+            .ActivateOnEnter<ElementalOrbSequence>()
             .ActivateOnEnter<BlazeSequence>()
             .ActivateOnEnter<ArcaneBeacon>()
             .ActivateOnEnter<ArchaeofuryGreen>()
