@@ -324,8 +324,7 @@ sealed class NecrophobiaStates : StateMachineBuilder
             .ActivateOnEnter<DeathlyRay>()
             .ActivateOnEnter<DarkCurrent>()
             .ActivateOnEnter<Thunder>()
-            .ActivateOnEnter<SeveredElementPreview>()
-            .ActivateOnEnter<ElementSafezones>();
+            .ActivateOnEnter<SeveredElementPreview>();
     }
 }
 

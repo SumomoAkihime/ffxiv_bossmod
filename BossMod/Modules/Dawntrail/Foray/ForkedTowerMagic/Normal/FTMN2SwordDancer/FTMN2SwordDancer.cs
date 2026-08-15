@@ -190,7 +190,7 @@ sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
                 _ => throw new ArgumentOutOfRangeException(nameof(aoes))
             };
         }
-        var safeRegion = new AOEShapeCustom([new Circle(Arena.Center, 25f - SafeMargin)], dangers, origin: Arena.Center);
+        var safeRegion = new AOEShapeCustom([new Circle(Arena.Center, 24f - SafeMargin)], dangers, origin: Arena.Center);
         safeRegion.Draw(Arena, Arena.Center, default(Angle), color: color);
     }
 }
@@ -275,4 +275,4 @@ sealed class SwordDancerStates : StateMachineBuilder
     GroupID = 1093,
     NameID = 14820,
     SortOrder = 2)]
-public sealed class SwordDancer(WorldState ws, Actor primary) : BossModule(ws, primary, new(600f, 704f), new ArenaBoundsCircle(25f));
+public sealed class SwordDancer(WorldState ws, Actor primary) : BossModule(ws, primary, new(600f, 704f), new ArenaBoundsCircle(24f));
