@@ -178,6 +178,8 @@ sealed class ExpansionPlatforms(BossModule module) : Components.GenericAOEs(modu
 {
     private readonly List<uint> _predictions = new(3);
     private readonly List<AOEInstance> _aoes = [];
+    private uint _lastResolvedMarkerOID;
+    private DateTime _lastResolvedAt;
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
@@ -216,9 +218,15 @@ sealed class ExpansionPlatforms(BossModule module) : Components.GenericAOEs(modu
         if (markerOID == 0u)
             return;
 
+        // Both opposite platforms resolve with duplicate same-AID events; consume one queue entry per hit.
+        if (_lastResolvedMarkerOID == markerOID && (WorldState.CurrentTime - _lastResolvedAt).TotalSeconds < 0.5d)
+            return;
+
         var index = _predictions.IndexOf(markerOID);
         if (index >= 0)
         {
+            _lastResolvedMarkerOID = markerOID;
+            _lastResolvedAt = WorldState.CurrentTime;
             _predictions.RemoveAt(index);
             ++NumCasts;
         }
