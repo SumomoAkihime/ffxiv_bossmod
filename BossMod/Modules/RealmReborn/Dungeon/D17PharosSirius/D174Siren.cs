@@ -94,4 +94,41 @@ sealed class D174SirenStates : StateMachineBuilder
     SortOrder = 4,
     PlanLevel = 0)]
 [SkipLocalsInit]
-public sealed class D174Siren(WorldState ws, Actor primary) : BossModule(ws, primary, default, new ArenaBoundsCircle(24f));
+public sealed class D174Siren : BossModule
+{
+    public D174Siren(WorldState ws, Actor primary) : this(ws, primary, BuildArena()) { }
+
+    // Constructor so we can build arena
+    private D174Siren(WorldState ws, Actor primary, (WPos center, ArenaBoundsCustom arena) a) : base(ws, primary, a.center, a.arena) { }
+
+    public static readonly WPos ArenaCenter = new(0f, 0f);
+
+    private static (WPos center, ArenaBoundsCustom arena) BuildArena()
+    {
+        List<Shape> unionShapes =
+        [
+            new Circle(new WPos(0.00f, 0.00f), 25.00f),
+            new Rectangle(new WPos(24.10f, -0.00f), 0.75f, 5.00f, 0.0f.Degrees())
+        ];
+        List<Shape> diffShapes =
+        [
+            new Rectangle(new WPos(17.54f, -17.54f), 1.20f, 0.80f, 134.220f.Degrees()),
+            new Rectangle(new WPos(6.42f, -23.95f), 1.20f, 0.80f, 166.600f.Degrees()),
+            new Rectangle(new WPos(-6.42f, -23.95f), 1.20f, 0.80f, -164.510f.Degrees()),
+            new Rectangle(new WPos(-17.54f, -17.54f), 1.20f, 0.80f, -134.220f.Degrees()),
+            new Rectangle(new WPos(-23.95f, -6.42f), 1.20f, 0.80f, -104.970f.Degrees()),
+            new Rectangle(new WPos(-23.95f, 6.42f), 1.20f, 0.80f, -75.030f.Degrees()),
+            new Rectangle(new WPos(-17.54f, 17.54f), 1.20f, 0.80f, -45.090f.Degrees()),
+            new Rectangle(new WPos(-6.42f, 23.95f), 1.20f, 0.80f, -15.750f.Degrees()),
+            new Rectangle(new WPos(6.42f, 23.95f), 1.20f, 0.80f, 15.000f.Degrees()),
+            new Rectangle(new WPos(17.54f, 17.54f), 1.20f, 0.80f, 45.640f.Degrees()),
+            new Rectangle(new WPos(25.38f, -5.63f), 0.75f, 0.75f, 0.000f.Degrees()),
+            new Rectangle(new WPos(25.38f, 5.63f), 0.75f, 0.75f, 0.000f.Degrees())
+        ];
+
+        ArenaBoundsCustom arena = new([..unionShapes],
+        [..diffShapes]);
+
+        return (ArenaCenter, arena);
+    }
+}

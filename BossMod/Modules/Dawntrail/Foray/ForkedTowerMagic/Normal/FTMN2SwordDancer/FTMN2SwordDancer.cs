@@ -1,364 +1,249 @@
 ﻿namespace BossMod.Dawntrail.Foray.ForkedTowerMagic.Normal.FTMN2SwordDancer;
 
-public enum OID : uint
+sealed class SwordStormCast(BossModule module) : Components.RaidwideCast(module, (uint)AID.SwordStormCast);
+sealed class RushShort1(BossModule module) : Components.ChargeAOEs(module, (uint)AID.Rush1, 3.5f);
+sealed class RushShort2(BossModule module) : Components.ChargeAOEs(module, (uint)AID.Rush2, 3.5f);
+sealed class RushSurgesword(BossModule module) : Components.GenericAOEs(module)
 {
-    Boss = 0x4D76, // R6.0
-    MovingSword = 0x4D77,
-    Sword = 0x4D7A,
-    SpinningSword = 0x4D79,
-    RushSword = 0x4D7C,
-    Helper = 0x233C
-}
-
-public enum AID : uint
-{
-    SwordStorm = 49617, // Boss->self, raidwide
-    RushShort = 50525, // MovingSword->location, width 7 charge
-    RushLong = 50526, // MovingSword->location, width 7 charge
-    TurnInner = 49575, // Helper->self, range 9-14 90-degree cone
-    TurnOuter = 49577, // Helper->self, range 19-24 90-degree cone
-    TurnInnerNarrow = 49578, // Helper->self, range 9-14 65-degree cone
-    TurnOuterNarrow = 49580, // Helper->self, range 19-24 54-degree cone
-    TurnaboutInner = 49883, // Helper->self, range 9-14 65-degree cone
-    TurnaboutOuter = 49889, // Helper->self, range 19-24 54-degree cone
-    MartialMystique = 49585, // Helper->self, 48x96 rect
-    SpinCircle = 49592, // Sword->self, range 15 circle
-    SpinDonutLarge = 49589, // Sword->self, range 20-60 donut
-    SpinDonutSmall = 49590, // Sword->self, range 15-60 donut
-    SwordDanceVisual = 49609, // Boss->self, sequence visual
-    SwordDance = 49614, // Helper->self, 60x20 rect
-    LeapingLift = 49594, // Boss->self, four-knockback visual
-    Pierce = 49595, // Sword->self, range 5 circle
-    Steelsbreath = 50359, // Helper->self, knockback 24
-    Surgeswords = 49616 // RushSword->self, 30x6 rect
-}
-
-public enum SID : uint
-{
-    LeapingLift = 2056 // Sword, extra 1147 indicates knockback order
-}
-
-sealed class SwordStorm(BossModule module) : Components.RaidwideCast(module, (uint)AID.SwordStorm);
-sealed class RushShort(BossModule module) : Components.ChargeAOEs(module, (uint)AID.RushShort, 3.5f);
-sealed class RushLong(BossModule module) : Components.ChargeAOEs(module, (uint)AID.RushLong, 3.5f);
-sealed class TurnInner(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnInner, new AOEShapeDonutSector(9f, 14f, 45f.Degrees()));
-sealed class TurnOuter(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnOuter, new AOEShapeDonutSector(19f, 24f, 45f.Degrees()));
-sealed class TurnInnerNarrow(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnInnerNarrow, new AOEShapeDonutSector(9f, 14f, 32.5f.Degrees()));
-sealed class TurnOuterNarrow(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnOuterNarrow, new AOEShapeDonutSector(19f, 24f, 27f.Degrees()));
-sealed class TurnaboutInner(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnaboutInner, new AOEShapeDonutSector(9f, 14f, 32.5f.Degrees()));
-sealed class TurnaboutOuter(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnaboutOuter, new AOEShapeDonutSector(19f, 24f, 27f.Degrees()));
-sealed class MartialMystique(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MartialMystique, new AOEShapeRect(48f, 48f));
-sealed class SwordDance(BossModule module) : Components.GenericAOEs(module)
-{
-    private static readonly AOEShapeRect Shape = new(60f, 10f, 60f);
+    // hide AOE until knockback done, less clutter
+    private readonly Steelsbreath steelsbreath = module.FindComponent<Steelsbreath>()!;
     private readonly List<AOEInstance> _aoes = [];
-    private Angle? _firstDirection;
-    private int _resolved;
-
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
-
-    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if (_resolved is > 0 and < 4 && _firstDirection is Angle direction)
+        var knockbacks = steelsbreath.ActiveKnockbacks(slot, actor);
+        if (knockbacks.Length != 0)
         {
-            var center = Arena.Center;
-            var first = new Rectangle(center, 10f, 60f, direction);
-            Shape[] otherLines =
-            [
-                new Rectangle(center, 10f, 60f, direction + 45f.Degrees()),
-                new Rectangle(center, 10f, 60f, direction + 90f.Degrees()),
-                new Rectangle(center, 10f, 60f, direction + 135f.Degrees())
-            ];
-            var safeRegion = new AOEShapeCustom([first], otherLines, origin: center);
-            safeRegion.Draw(Arena, center, default(Angle), color: Colors.SafeFromAOE);
+            return [];
         }
-        base.DrawArenaBackground(pcSlot, pc);
+        return CollectionsMarshal.AsSpan(_aoes);
     }
 
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
     {
-        if (spell.Action.ID == (uint)AID.SwordDanceVisual)
+        if (actor.OID == (uint)OID.DancingSwordSurgesword && id == 0x11D6)
         {
-            _aoes.Clear();
-            _firstDirection = null;
-            _resolved = 0;
-        }
-        else if (spell.Action.ID == (uint)AID.SwordDance)
-        {
-            _firstDirection ??= spell.Rotation;
-            _aoes.Add(new(Shape, Arena.Center, spell.Rotation, Module.CastFinishAt(spell), Colors.Danger, actorID: caster.InstanceID));
+
+            _aoes.Add(new(new AOEShapeRect(60f, 3f), actor.Position, actor.Rotation, WorldState.FutureTime(8.2d)));
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.SwordDance)
+        if (spell.Action.ID == (uint)AID.RushSurgesword)
         {
-            _aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
-            ++_resolved;
-            ++NumCasts;
+            _aoes.Clear();
         }
     }
 }
+sealed class TurnInner(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.TurnInner1, (uint)AID.TurnInner2, (uint)AID.TurnaboutInner], new AOEShapeDonutSector(9f, 14f, 45f.Degrees()));
+sealed class TurnOuter(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.TurnOuter1, (uint)AID.TurnOuter2, (uint)AID.TurnaboutOuter], new AOEShapeDonutSector(19f, 24f, 45f.Degrees()));
+sealed class MartialMystique(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MartialMystique, new AOEShapeRect(48f, 48f));
 sealed class Pierce(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Pierce, 5f);
-sealed class Steelsbreath(BossModule module) : Components.GenericKnockback(module, (uint)AID.Steelsbreath)
+sealed class Cyclosword(BossModule module) : Components.GenericAOEs(module)
 {
-    private const float NextSourceMarkerRadius = 2f;
-    private static readonly uint NextSourceMarkerColor = Color.FromComponents(64, 192, 255).ABGR;
-    private readonly List<Knockback> _sources = [];
-
-    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor) =>
-        _sources.Count != 0 ? CollectionsMarshal.AsSpan(_sources)[..1] : [];
-
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    // model state change doesn't trigger each time; if actor does the same AOE later, doesn't happen
+    private readonly List<AOEInstance> _aoes = [];
+    private readonly Dictionary<ulong, AOEShape> _cycloswords = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        base.DrawArenaForeground(pcSlot, pc);
-        if (_sources.Count > 1)
-            Arena.ZoneCircleOutline(_sources[1].Origin, NextSourceMarkerRadius, NextSourceMarkerColor, 2f);
+        return CollectionsMarshal.AsSpan(_aoes);
     }
 
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    public override void OnActorModelStateChange(Actor actor, byte modelState, byte animState1, byte animState2)
     {
-        if (spell.Action.ID == (uint)AID.LeapingLift)
+        if (actor.OID == (uint)OID.DancingSwordCyclosword && animState1 == 1 && animState2 == 0)
         {
-            _sources.Clear();
-            return;
-        }
-        if (spell.Action.ID != (uint)AID.Steelsbreath)
-            return;
-
-        var source = new Knockback(caster.Position, 24f, Module.CastFinishAt(spell), actorID: caster.InstanceID);
-        var index = ClosestSource(caster.Position);
-        if (index >= 0)
-        {
-            _sources[index] = source;
-            if (index != 0)
+            AOEShape? shape = modelState switch
             {
-                _sources.RemoveAt(index);
-                _sources.Insert(0, source);
+                4 => new AOEShapeDonut(15f, 60f),
+                5 => new AOEShapeDonut(20f, 60f),
+                7 => new AOEShapeCircle(15f),
+                31 => new AOEShapeCircle(20f),
+                _ => null
+            };
+
+            if (shape == null)
+            {
+                return;
             }
-        }
-        else
-        {
-            _sources.Insert(0, source);
+
+            _cycloswords[actor.InstanceID] = shape;
         }
     }
 
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if (actor.OID == (uint)OID.Sword && status.ID == (uint)SID.LeapingLift && status.Extra == 1147
-            && _sources.All(source => source.ActorID != actor.InstanceID))
+        if (status.ID == (uint)SID.Cyclosword)
         {
-            _sources.Add(new(actor.Position, 24f, status.ExpireAt.AddSeconds(-1d), actorID: actor.InstanceID));
-            _sources.Sort((left, right) => left.Activation.CompareTo(right.Activation));
-        }
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if (spell.Action.ID == (uint)AID.Steelsbreath)
-        {
-            var index = ClosestSource(caster.Position);
-            if (index >= 0)
-                _sources.RemoveAt(index);
-        }
-        base.OnEventCast(caster, spell);
-    }
-
-    private int ClosestSource(WPos position)
-    {
-        var bestIndex = -1;
-        var bestDistance = 1f;
-        for (var i = 0; i < _sources.Count; ++i)
-        {
-            var distance = (_sources[i].Origin - position).LengthSq();
-            if (distance < bestDistance)
+            if (_cycloswords.TryGetValue(actor.InstanceID, out var shape))
             {
-                bestDistance = distance;
-                bestIndex = i;
+                _aoes.Add(new(shape, actor.Position, default, WorldState.CurrentTime.AddSeconds(8.2d)));
             }
         }
-        return bestIndex;
     }
-}
 
-sealed class SpinningSword(BossModule module) : Components.GenericAOEs(module)
-{
-    private const float SafeMargin = 0.75f;
-    private static readonly uint FutureSafeColor = Color.FromComponents(64, 192, 255, 64).ABGR;
-    private static readonly AOEShapeCircle Circle = new(15f);
-    private static readonly AOEShapeDonut DonutLarge = new(20f, 60f);
-    private static readonly AOEShapeDonut DonutSmall = new(15f, 60f);
-    private readonly List<AOEInstance> _aoes = [];
-
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
-
-    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
         if (_aoes.Count != 0)
         {
-            var ordered = _aoes.OrderBy(aoe => aoe.Activation).ToList();
-            var currentActivation = ordered[0].Activation;
-            var current = ordered.Where(aoe => Math.Abs((aoe.Activation - currentActivation).TotalSeconds) < 0.5d).ToList();
-            var nextIndex = ordered.FindIndex(aoe => (aoe.Activation - currentActivation).TotalSeconds >= 0.5d);
-            if (nextIndex >= 0)
+            switch (spell.Action.ID)
             {
-                var next = ordered[nextIndex];
-                var nextGroup = ordered.Where(aoe => Math.Abs((aoe.Activation - next.Activation).TotalSeconds) < 0.5d).ToList();
-                DrawSafeRegion(nextGroup, FutureSafeColor);
+                case (uint)AID.Spin:
+                case (uint)AID.Spin1:
+                case (uint)AID.Spin2:
+                case (uint)AID.Spin3:
+                    _aoes.RemoveAt(0);
+                    break;
             }
-            DrawSafeRegion(current, Colors.SafeFromAOE);
         }
-        base.DrawArenaBackground(pcSlot, pc);
-    }
-
-    public override void OnActorModelStateChange(Actor actor, byte modelState, byte animState1, byte animState2)
-    {
-        if (actor.OID != (uint)OID.SpinningSword)
-            return;
-
-        _aoes.RemoveAll(aoe => aoe.ActorID == actor.InstanceID);
-        AOEShape? shape = modelState switch
-        {
-            7 => Circle,
-            4 => DonutSmall,
-            5 => DonutLarge,
-            _ => null
-        };
-        if (shape != null)
-            _aoes.Add(new(shape, actor.Position, actor.Rotation, WorldState.FutureTime(13d), actorID: actor.InstanceID));
-    }
-
-    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
-    {
-        if (actor.OID == (uint)OID.SpinningSword && id == 9710)
-            Update(actor, WorldState.FutureTime(9.4d));
-    }
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if (spell.Action.ID is (uint)AID.SpinCircle or (uint)AID.SpinDonutLarge or (uint)AID.SpinDonutSmall)
-            Update(caster, Module.CastFinishAt(spell));
-    }
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if (spell.Action.ID is (uint)AID.SpinCircle or (uint)AID.SpinDonutLarge or (uint)AID.SpinDonutSmall)
-        {
-            _aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
-            ++NumCasts;
-        }
-    }
-
-    private void Update(Actor actor, DateTime activation)
-    {
-        var index = _aoes.FindIndex(aoe => aoe.ActorID == actor.InstanceID);
-        if (index >= 0)
-        {
-            var aoe = _aoes[index];
-            aoe.Origin = actor.Position;
-            aoe.Rotation = actor.Rotation;
-            aoe.Activation = activation;
-            _aoes[index] = aoe;
-        }
-    }
-
-    private void DrawSafeRegion(List<AOEInstance> aoes, uint color)
-    {
-        var dangers = new Shape[aoes.Count];
-        for (var i = 0; i < aoes.Count; ++i)
-        {
-            dangers[i] = aoes[i].Shape switch
-            {
-                AOEShapeCircle circle => new Circle(aoes[i].Origin, circle.Radius + SafeMargin),
-                AOEShapeDonut donut => new Donut(aoes[i].Origin, MathF.Max(0f, donut.InnerRadius - SafeMargin), donut.OuterRadius + SafeMargin),
-                _ => throw new ArgumentOutOfRangeException(nameof(aoes))
-            };
-        }
-        var safeRegion = new AOEShapeCustom([new Circle(Arena.Center, 24f - SafeMargin)], dangers, origin: Arena.Center);
-        safeRegion.Draw(Arena, Arena.Center, default(Angle), color: color);
     }
 }
-
-sealed class Surgeswords(BossModule module) : Components.GenericAOEs(module)
+sealed class SwordDance(BossModule module) : Components.GenericAOEs(module)
 {
-    private static readonly AOEShapeRect Shape = new(30f, 3f);
     private readonly List<AOEInstance> _aoes = [];
-
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
-
-    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if (actor.OID == (uint)OID.RushSword && id == 4566)
+        var count = _aoes.Count;
+        if (count == 0)
+            return [];
+
+        var max = count > 2 ? 2 : count;
+        var aoes = CollectionsMarshal.AsSpan(_aoes);
+
+        ref var aoe = ref aoes[0];
+        aoe.Color = Colors.Danger;
+
+        return aoes[..max];
+    }
+    public override void OnActorEAnim(Actor actor, uint state)
+    {
+        if (actor.OID == (uint)OID.SwordDanceMarker && state == 0x00010002)
         {
-            _aoes.RemoveAll(aoe => aoe.ActorID == actor.InstanceID);
-            _aoes.Add(new(Shape, actor.Position, actor.Rotation, WorldState.FutureTime(8.15d), actorID: actor.InstanceID));
+            // 8.8s between 1st mark and 1st cast
+            // 1s between eanims, 2.4s-ish between actual cast
+            var count = _aoes.Count;
+            var act = WorldState.FutureTime(8.8d + 2.4d * count);
+            _aoes.Add(new(new AOEShapeRect(30f, 10f, 30f), actor.Position, actor.Rotation, act));
         }
     }
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if (spell.Action.ID == (uint)AID.Surgeswords)
-        {
-            var index = _aoes.FindIndex(aoe => aoe.ActorID == caster.InstanceID);
-            if (index >= 0)
-            {
-                var aoe = _aoes[index];
-                aoe.Origin = caster.Position;
-                aoe.Rotation = spell.Rotation;
-                aoe.Activation = Module.CastFinishAt(spell);
-                _aoes[index] = aoe;
-            }
-            else
-            {
-                _aoes.Add(new(Shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID));
-            }
-        }
-    }
-
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.Surgeswords)
+        if (_aoes.Count != 0 && spell.Action.ID == (uint)AID.SwordDance)
         {
-            _aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
-            ++NumCasts;
+            _aoes.RemoveAt(0);
         }
     }
 }
 
-sealed class SwordDancerStates : StateMachineBuilder
+sealed class Steelsbreath(BossModule module) : Components.GenericKnockback(module)
 {
-    public SwordDancerStates(BossModule module) : base(module)
+    // do we need to avoid getting knocked back into RushSurgesword?
+    // only subset; showing all 4 is visually confusing
+    // players can be hit by either Helper->SteelsBreath(50359) or DancingSword->SteelsBreath1(49599), happens at same timestamp
+    private readonly List<Knockback> _knockbacks = [];
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
-        TrivialPhase()
-            .ActivateOnEnter<SwordStorm>()
-            .ActivateOnEnter<RushShort>()
-            .ActivateOnEnter<RushLong>()
-            .ActivateOnEnter<TurnInner>()
-            .ActivateOnEnter<TurnOuter>()
-            .ActivateOnEnter<TurnInnerNarrow>()
-            .ActivateOnEnter<TurnOuterNarrow>()
-            .ActivateOnEnter<TurnaboutInner>()
-            .ActivateOnEnter<TurnaboutOuter>()
-            .ActivateOnEnter<MartialMystique>()
-            .ActivateOnEnter<SpinningSword>()
-            .ActivateOnEnter<SwordDance>()
-            .ActivateOnEnter<Pierce>()
-            .ActivateOnEnter<Steelsbreath>()
-            .ActivateOnEnter<Surgeswords>();
+        var count = _knockbacks.Count;
+        if (count == 0)
+            return [];
+
+        var kbs = CollectionsMarshal.AsSpan(_knockbacks);
+        //var max = count > 2 ? 2 : count;
+        return kbs[..1];
+    }
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        if (status.ID == (uint)SID.LeapingLift && status.Extra == 0x47B)
+        {
+            // 10.7s between 1st status and resolve, status 1.4s between each, resolve 2.5s between each
+            var count = _knockbacks.Count;
+            var act = WorldState.FutureTime(10.7d + 1.1d * count);
+            _knockbacks.Add(new(actor.Position, 24f, act));
+        }
+        base.OnStatusGain(actor, ref status);
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (_knockbacks.Count != 0 && spell.Action.ID == (uint)AID.Steelsbreath)
+        {
+            ++NumCasts;
+            _knockbacks.RemoveAt(0);
+        }
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        // ActorState knockback: annoying case where Direction = 6 (AwayFromSource2) and knockback not removed before 3s expiration time
+        // 3s too long, AI will eat the next knockback into deathwall
+        // replace existing pendingeffect with new one, same values except shorter expiration so AI will move
+        // do replacement outside knockback count check, otherwise AI eats criss cross swords
+        var pendingkbs = actor.PendingKnockbacks;
+        var pcount = pendingkbs.Count;
+        if (pcount != 0)
+        {
+            var pkbs = CollectionsMarshal.AsSpan(pendingkbs);
+            for (var i = 0; i < pcount; i++)
+            {
+                ref var pkb = ref pkbs[i];
+                var timeleft = (pkb.Expiration - WorldState.CurrentTime).TotalSeconds;
+                if (timeleft >= 2.5d)
+                {
+                    var source = WorldState.Actors.Find(pkb.SourceInstanceID);
+                    if (source?.OID is (uint)OID.Helper or (uint)OID.DancingSwordSteelsbreath)
+                    {
+                        var newkb = new PendingEffect(pkb.GlobalSequence, pkb.TargetIndex, pkb.SourceInstanceID, WorldState.FutureTime(1d), true);
+                        pendingkbs.Add(newkb);
+                        pendingkbs.RemoveAt(i);
+                        break;
+                    }
+                }
+            }
+        }
+
+        var kbs = CollectionsMarshal.AsSpan(_knockbacks);
+        var count = kbs.Length;
+        if (count != 0)
+        {
+            ref var kb = ref kbs[0];
+            var act = kb.Activation;
+            var isImmune = IsImmune(slot, act);
+            if (!isImmune)
+            {
+                if (count == 1)
+                {
+                    hints.AddForbiddenZone(new SDKnockbackInCircleAwayFromOrigin(Arena.Center, kb.Origin, 25f, 24f), act);
+                }
+                else
+                {
+                    ref var kb1 = ref kbs[1];
+                    hints.AddForbiddenZone(new SDKnockbackInCircleAwayFromOriginIntoCircle(Arena.Center, kb.Origin, 25f, 24f, kb1.Origin, 7f), act);
+                }
+            }
+        }
     }
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed,
     StatesType = typeof(SwordDancerStates),
+    ConfigType = null, // replace null with typeof(SwordDancerConfig) if applicable
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
     StatusIDType = typeof(SID),
-    PrimaryActorOID = (uint)OID.Boss,
+    TetherIDType = typeof(TetherID),
+    IconIDType = null, // replace null with typeof(IconID) if applicable
+    PrimaryActorOID = (uint)OID.SwordDancer,
+    Contributors = "gynorhino",
     Expansion = BossModuleInfo.Expansion.Dawntrail,
     Category = BossModuleInfo.Category.Foray,
     GroupType = BossModuleInfo.GroupType.CFC,
-    GroupID = 1093,
-    NameID = 14820,
-    SortOrder = 2)]
-public sealed class SwordDancer(WorldState ws, Actor primary) : BossModule(ws, primary, new(600f, 704f), new ArenaBoundsCircle(24f));
+    GroupID = 1093u,
+    NameID = 14820u,
+    SortOrder = 2,
+    PlanLevel = 0)]
+[SkipLocalsInit]
+public sealed class SwordDancer(WorldState ws, Actor primary) : BossModule(ws, primary, new(600f, 704f), new ArenaBoundsCircle(24f))
+{
+    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 24f);
+}

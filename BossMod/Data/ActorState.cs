@@ -818,7 +818,7 @@ public sealed class ActorState : IEnumerable<Actor>
                         for (var j = 0; j < len; ++j)
                         {
                             ref var p = ref pending[j];
-                            if (p.GlobalSequence == prevSeq && p.TargetIndex == prevIdx)
+                            if (p.GlobalSequence == prevSeq && p.TargetIndex == prevIdx && !p.RequiresEffectResult)
                             {
                                 actor.PendingKnockbacks.RemoveAt(j);
                                 goto done;
@@ -839,7 +839,8 @@ public sealed class ActorState : IEnumerable<Actor>
                     var e = effects[i];
                     if (e.Type is >= ActionEffectType.Knockback and <= ActionEffectType.AttractCustom3)
                     {
-                        actor.PendingKnockbacks.Add(new(v.GlobalSequence, v.TargetIndex, v.SourceInstanceID, ws.FutureTime(3d))); // note: sometimes effect can never be applied (eg if source dies shortly after actioneffect), so we need a timeout
+                        var requiresEffectResult = e.Type == ActionEffectType.Knockback && Service.LuminaRow<Lumina.Excel.Sheets.Knockback>(e.Value)?.Direction == 6;
+                        actor.PendingKnockbacks.Add(new(v.GlobalSequence, v.TargetIndex, v.SourceInstanceID, ws.FutureTime(3d), requiresEffectResult)); // note: sometimes effect can never be applied (eg if source dies shortly after actioneffect), so we need a timeout
                         break;
                     }
                 }
