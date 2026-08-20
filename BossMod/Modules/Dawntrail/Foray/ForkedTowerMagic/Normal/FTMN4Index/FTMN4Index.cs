@@ -28,7 +28,8 @@ public enum AID : uint
     BlizzardIV = 48397, // Helper->self, damages both ice platforms
     ThunderIV = 48398, // Helper->self, damages both thunder platforms
     ElementaryChemistry = 48905, // Helper->self, 15x15 rect
-    ShockwaveVisual = 48405, // HolyLance->self, knockback 9
+    ShockwaveVisual = 48405, // HolyLance->self, knockback visual
+    Shockwave = 48406, // Helper->self, range 15 circle, knockback 9
     Iainuki = 48389, // CataloguePhantom->self, range 30 60-degree cone
     WindSlash = 48391, // CataloguePhantom->self, range 30 60-degree cone
     AllConsumingFlames = 48420, // Helper->player, range 6 circle
@@ -47,8 +48,35 @@ public enum IconID : uint
 }
 
 sealed class Flare(BossModule module) : Components.RaidwideCast(module, (uint)AID.Flare);
-sealed class RomeosBallad(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RomeosBallad, 15f);
-sealed class Aim(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Aim, 11f);
+sealed class RomeosBallad(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RomeosBallad, 15f)
+{
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (Module.FindComponent<Shockwave>()?.ActiveKnockbacks(slot, actor).Length == 0 && Module.FindComponent<Prophecy>()?.ActiveAOEs(slot, actor).Length == 0)
+            base.AddHints(slot, actor, hints);
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Module.FindComponent<Shockwave>()?.ActiveKnockbacks(slot, actor).Length == 0 && Module.FindComponent<Prophecy>()?.ActiveAOEs(slot, actor).Length == 0)
+            base.AddAIHints(slot, actor, assignment, hints);
+    }
+}
+
+sealed class Aim(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Aim, 11f)
+{
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (Module.FindComponent<Shockwave>()?.ActiveKnockbacks(slot, actor).Length == 0 && Module.FindComponent<Prophecy>()?.ActiveAOEs(slot, actor).Length == 0)
+            base.AddHints(slot, actor, hints);
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Module.FindComponent<Shockwave>()?.ActiveKnockbacks(slot, actor).Length == 0 && Module.FindComponent<Prophecy>()?.ActiveAOEs(slot, actor).Length == 0)
+            base.AddAIHints(slot, actor, assignment, hints);
+    }
+}
 sealed class OmniElements(BossModule module) : Components.RaidwideCast(module, (uint)AID.OmniElements);
 sealed class ElementaryChemistry(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ElementaryChemistry, new AOEShapeRect(15f, 7.5f));
 sealed class Iainuki(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Iainuki, new AOEShapeCone(30f, 30f.Degrees()));
@@ -295,43 +323,92 @@ sealed class Prophecy(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-sealed class Shockwave(BossModule module) : Components.GenericKnockback(module)
+sealed class Shockwave(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.Shockwave, 9f, shape: new AOEShapeCircle(15f), stopAfterWall: true)
 {
-    private readonly List<Knockback> _sources = new(3);
-    private readonly Knockback[] _nearest = new Knockback[1];
+    private readonly Aim _aim = module.FindComponent<Aim>()!;
+    private readonly RomeosBallad _romeo = module.FindComponent<RomeosBallad>()!;
+    private RelSimplifiedComplexPolygon _polygon;
+    private ArenaBounds? _polygonBounds;
 
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
-        if (_sources.Count == 0)
+        var count = Casters.Count;
+        if (count == 0)
             return [];
 
-        var nearest = _sources[0];
-        var nearestDistance = (actor.Position - nearest.Origin).LengthSq();
-        for (var i = 1; i < _sources.Count; ++i)
+        for (var i = 0; i < count; ++i)
         {
-            var distance = (actor.Position - _sources[i].Origin).LengthSq();
-            if (distance < nearestDistance)
-            {
-                nearest = _sources[i];
-                nearestDistance = distance;
-            }
+            ref var knockback = ref Casters.Ref(i);
+            if (!IsImmune(slot, knockback.Activation) && Shape!.Check(actor.Position, knockback.Origin, default))
+                return new Knockback[1] { knockback };
         }
-        _nearest[0] = nearest;
-        return _nearest;
+        return [];
     }
 
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        if (spell.Action.ID == (uint)AID.ShockwaveVisual)
-            _sources.Add(new(caster.Position, 9f, Module.CastFinishAt(spell), actorID: caster.InstanceID));
+        AddHints(slot, actor, hints, null);
     }
 
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (spell.Action.ID == (uint)AID.ShockwaveVisual)
+        AddHints(slot, actor, null, hints);
+    }
+
+    private void AddHints(int slot, Actor actor, TextHints? textHints, AIHints? aiHints)
+    {
+        var knockbacks = ActiveKnockbacks(slot, actor);
+        if (knockbacks.Length == 0)
+            return;
+
+        var knockback = knockbacks[0];
+        if (!ReferenceEquals(_polygonBounds, Arena.Bounds))
         {
-            _sources.RemoveAll(s => s.ActorID == caster.InstanceID);
-            ++NumCasts;
+            if (Arena.Bounds is not ArenaBoundsCustom bounds)
+                return;
+            _polygon = bounds.Polygon.Offset(-1f);
+            _polygonBounds = Arena.Bounds;
+        }
+
+        var aim = _aim.ActiveAOEs(slot, actor);
+        var romeo = _romeo.ActiveAOEs(slot, actor);
+        if (aim.Length == 0 && romeo.Length == 0)
+        {
+            var distance = new SDKnockbackInComplexPolygonAwayFromOrigin(Arena.Center, knockback.Origin, Distance + (aiHints != null ? 1f : 0f), _polygon);
+            if (textHints != null)
+            {
+                if (distance.Contains(actor.Position))
+                    textHints.Add("About to be knocked into danger!");
+            }
+            else
+            {
+                aiHints?.AddForbiddenZone(distance, knockback.Activation);
+            }
+            return;
+        }
+
+        var aoes = aim.Length != 0 ? aim : romeo;
+        var radius = aim.Length != 0 ? 11f : 15f;
+        var origins = new WPos[aoes.Length];
+        for (var i = 0; i < aoes.Length; ++i)
+            origins[i] = aoes[i].Origin;
+
+        var safeDistance = new SDKnockbackInComplexPolygonAwayFromOriginPlusAOECircles(Arena.Center, knockback.Origin,
+            Distance + (aiHints != null ? 1f : 0f), _polygon, origins, radius + (aiHints != null ? 1f : 0f), origins.Length);
+        if (textHints != null)
+        {
+            if (safeDistance.Contains(actor.Position))
+                textHints.Add("About to be knocked into danger!");
+        }
+        else
+        {
+            for (var i = 0; i < Casters.Count; ++i)
+            {
+                ref var other = ref Casters.Ref(i);
+                if (!other.Origin.AlmostEqual(knockback.Origin, 1f))
+                    aiHints?.AddForbiddenZone(new SDCircle(other.Origin, radius + 1f), knockback.Activation);
+            }
+            aiHints?.AddForbiddenZone(safeDistance, knockback.Activation);
         }
     }
 }
