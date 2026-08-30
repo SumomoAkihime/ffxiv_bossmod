@@ -107,6 +107,12 @@
   <ItemGroup>
     <EmbeddedResource Include="Autorotation\OptionRenames.json" />
     <EmbeddedResource Include="Localization\zh-CN.json" />
+    <EmbeddedResource Include="Framework\Shaders\Compiled\*">
+      <LogicalName>BossMod.Shaders.Compiled.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Framework\Fonts\Compiled\*">
+      <LogicalName>BossMod.Fonts.Compiled.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Include="Pathfinding\ObstacleMaps\*" />
   </ItemGroup>
 
