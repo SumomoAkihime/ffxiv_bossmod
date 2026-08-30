@@ -51,31 +51,49 @@ sealed class Buffet(BossModule module) : BossComponent(module)
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (slot < PartyState.MaxAllianceSize && AssignedBoss[slot] is var assignedSlot && assignedSlot != null && WorldState.Actors.Find(actor.TargetID) is Actor target)
+        if (slot >= AssignedBoss.Length)
+        {
+            return;
+        }
+
+        var assignedBoss = AssignedBoss[slot];
+        var currentTarget = WorldState.Actors.Find(actor.TargetID);
+        if (assignedBoss != null)
         {
             var count = hints.PotentialTargets.Count;
             for (var i = 0; i < count; ++i)
             {
                 var enemy = hints.PotentialTargets[i];
-                if (assignedSlot != null && enemy.Actor != assignedSlot)
+                if (enemy.Actor != assignedBoss)
                 {
                     enemy.Priority = AIHints.Enemy.PriorityInvincible;
                 }
             }
+
             // also ignore forced targeting if current target is a PC
-            if (_config.ForceTargeting && (target == null || target.Type != ActorType.Player))
+            if (_config.ForceTargeting && currentTarget?.Type != ActorType.Player && currentTarget != assignedBoss)
             {
-                if (assignedSlot == null)
+                hints.ForcedTarget = assignedBoss;
+            }
+        }
+        else
+        {
+            Actor? fallback = null;
+            foreach (var enemy in hints.PotentialTargets)
+            {
+                if (enemy.Actor.HPMP.CurHP <= 1u)
                 {
-                    // one boss is dead, target healthier boss
-                    var green = Module.PrimaryActor;
-                    var blue = bossModule.BlueHead();
-                    hints.ForcedTarget = green.HPMP.CurHP > blue?.HPMP.CurHP ? green : blue;
+                    enemy.Priority = AIHints.Enemy.PriorityPointless;
                 }
-                else if (target != assignedSlot)
+                else if (fallback == null || enemy.Actor.HPMP.CurHP > fallback.HPMP.CurHP)
                 {
-                    hints.ForcedTarget = assignedSlot;
+                    fallback = enemy.Actor;
                 }
+            }
+
+            if (_config.ForceTargeting && currentTarget?.Type != ActorType.Player)
+            {
+                hints.ForcedTarget = fallback;
             }
         }
     }
