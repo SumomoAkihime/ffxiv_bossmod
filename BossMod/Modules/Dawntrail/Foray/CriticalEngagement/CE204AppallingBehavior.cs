@@ -78,7 +78,7 @@ sealed class MagicHammer : Components.SimpleAOEs
 // TODO add spell timers depending on cast version
 sealed class EsotericInstruction(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = [with(4)];
+    private readonly List<AOEInstance> _aoes = new(4);
     private readonly AOEShapeCone cone = new(50f, 50f.Degrees());
     private readonly AOEShapeCircle circle = new(30f);
     private bool swap;
@@ -228,7 +228,7 @@ sealed class EsotericInstruction(BossModule module) : Components.GenericAOEs(mod
 
 sealed class Roulette(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> aoes = [with(5)];
+    private readonly List<AOEInstance> aoes = new(5);
     private readonly AOEShapeDonutSector outer = new(12f, 20f, 67.5f.Degrees(), 22.5f.Degrees());
     private readonly AOEShapeDonutSector inner = new(5f, 12f, 60f.Degrees(), -60f.Degrees());
     private readonly AOEShapeCircle circle = new(5f);
