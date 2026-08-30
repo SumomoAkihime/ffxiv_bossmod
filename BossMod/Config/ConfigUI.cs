@@ -1,4 +1,4 @@
-using BossMod.Autorotation;
+﻿using BossMod.Autorotation;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility.Raii;
 using System.IO;
@@ -130,6 +130,8 @@ public sealed class ConfigUI : IDisposable
         ( "followoutofcombat on/off", "Sets following target out of combat to on or off." ),
         ( "followtarget", "Toggles following targets during combat." ),
         ( "followtarget on/off", "Sets following target during combat to on or off." ),
+        ( "manualtarget", "Toggles manual targeting during combat." ),
+        ( "manualtarget on/off", "Sets manual targeting during combat to on or off." ),
         ( "positional X", "Switch to positional when following targets. (any, rear, flank, front)" ),
         ( "maxdistancetarget X", "Sets max distance to target. (default = 2.6)" ),
         ( "maxdistanceslot X", "Sets max distance to slot. (default = 1)" ),
@@ -168,7 +170,7 @@ public sealed class ConfigUI : IDisposable
         ImGui.Separator();
         ImGui.Text(Loc.Tr("AI:"));
         ImGui.Separator();
-        for (var i = 0; i < 30; ++i)
+        for (var i = 0; i < _availableAICommands.Length; ++i)
         {
             ref readonly var text = ref _availableAICommands[i];
             ImGui.Text($"/bmrai {text.Item1}: {Loc.Tr(text.Item2)}");

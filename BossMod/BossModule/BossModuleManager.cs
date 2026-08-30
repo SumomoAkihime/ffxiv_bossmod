@@ -323,5 +323,10 @@ public sealed class BossModuleManager : IDisposable
                 ModuleDeactivated.Fire(LoadedModules[i]);
             UnloadModule(i);
         }
+        for (var i = PendingModules.Count - 1; i >= 0; --i)
+        {
+            PendingModules[i].Dispose();
+            PendingModules.RemoveAt(i);
+        }
     }
 }

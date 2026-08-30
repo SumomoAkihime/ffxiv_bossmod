@@ -1,4 +1,4 @@
-using BossMod.Autorotation;
+﻿using BossMod.Autorotation;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using FFXIVClientStructs.FFXIV.Client.Game.Group;
@@ -224,6 +224,11 @@ sealed class AIManager : IDisposable
                 ToggleFollowModule(messageData);
                 configModified = cfgFollowM != _config.FollowDuringActiveBossModule;
                 break;
+            case "MANUALTARGET":
+                var cfgManualT = _config.ManualTarget;
+                ToggleManualTarget(messageData);
+                configModified = cfgManualT != _config.ManualTarget;
+                break;
             case "OBSTACLEMAPS":
                 var cfgOM = _config.DisableObstacleMaps;
                 ToggleObstacleMaps(messageData);
@@ -269,6 +274,36 @@ sealed class AIManager : IDisposable
     {
         _config.FocusTargetMaster = !_config.FocusTargetMaster;
         return true;
+    }
+
+    private void ToggleManualTarget(string[] messageData)
+    {
+        if (messageData.Length == 1)
+        {
+            _config.ManualTarget = !_config.ManualTarget;
+        }
+        else
+        {
+            switch (messageData[1].ToUpperInvariant())
+            {
+                case "ON":
+                    _config.ManualTarget = true;
+                    break;
+                case "OFF":
+                    _config.ManualTarget = false;
+                    break;
+                default:
+                    if (_config.EchoToChat)
+                    {
+                        Service.ChatGui.Print($"[BMRAI] Unknown manual target command: {messageData[1]}");
+                    }
+                    return;
+            }
+        }
+        if (_config.EchoToChat)
+        {
+            Service.ChatGui.Print($"[BMRAI] Manual targeting is now {(_config.ManualTarget ? "enabled" : "disabled")}");
+        }
     }
 
     private void ToggleObstacleMaps(string[] messageData)

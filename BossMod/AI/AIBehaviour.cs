@@ -33,6 +33,12 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot) : IDi
 
     public async Task Execute(Actor player, Actor master)
     {
+        // Flight breaks the ground-navigation assumptions used by obstacle and AOE avoidance.
+        if (WorldState.Client.Flying)
+        {
+            return;
+        }
+
         if (await _semaphore.WaitAsync(0).ConfigureAwait(false))
         {
             try
