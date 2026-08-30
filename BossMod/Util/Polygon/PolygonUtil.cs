@@ -1,4 +1,4 @@
-namespace BossMod;
+﻿namespace BossMod;
 
 [SkipLocalsInit]
 public static class PolygonUtil

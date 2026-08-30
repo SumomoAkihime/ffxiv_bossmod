@@ -70,6 +70,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
 
         InteropGenerator.Runtime.Resolver.GetInstance.Setup(sigScanner.SearchBase, _gameVersion, new(dalamud.ConfigDirectory.FullName + "/cs.json"));
         FFXIVClientStructs.Interop.Generated.Addresses.Register();
+        Dx11ArenaRenderer.Initialize(_dalamud.UiBuilder.DeviceHandle);
 
         dalamud.Create<Service>();
         Service.LogHandlerDebug = msg => Service.Logger.Debug(msg);
@@ -170,6 +171,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         _zonemod.Dispose();
         _bossmod.Dispose();
         ActionDefinitions.Instance.Dispose();
+        Dx11ArenaRenderer.Shutdown();
         CommandManager.RemoveHandler("/bmr");
         GarbageCollection();
     }

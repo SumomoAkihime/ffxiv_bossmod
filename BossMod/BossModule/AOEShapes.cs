@@ -454,14 +454,6 @@ public sealed class AOEShapeArcCapsule(float radius, Angle angularLength, WPos o
     public override ShapeDistance InvertedDistance(WPos origin, Angle rotation) => new SDInvertedArcCapsule(origin, -(origin - OrbitCenter), AngularLength, Radius);
 }
 
-public enum OperandType
-{
-    Union,
-    Xor,
-    Intersection,
-    Difference
-}
-
 // shapes1 for unions, shapes 2 for shapes for XOR/intersection with shapes1, differences for shapes that get subtracted after previous operations
 // always create a new instance of AOEShapeCustom if something other than the invertforbiddenzone changes
 // if the origin of the AOE can change, edit the origin default value to prevent cache issues

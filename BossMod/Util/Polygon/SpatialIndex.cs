@@ -1,4 +1,4 @@
-namespace BossMod;
+﻿namespace BossMod;
 
 [SkipLocalsInit]
 public readonly struct Edge(float ax, float ay, float dx, float dy)
