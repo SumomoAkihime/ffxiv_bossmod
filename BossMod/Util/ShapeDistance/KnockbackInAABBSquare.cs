@@ -1,4 +1,4 @@
-namespace BossMod;
+﻿namespace BossMod;
 
 [SkipLocalsInit]
 public sealed class SDKnockbackInAABBSquareLeftRightAlongXAxisPlusAOECircles(WPos Center, float Distance, float HalfWidth, WPos[] AOEs, float Radius, int Length) : ShapeDistance
@@ -27,6 +27,64 @@ public sealed class SDKnockbackInAABBSquareLeftRightAlongXAxisPlusAOECircles(WPo
             {
                 return true;
             }
+        }
+        return false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override float Distance(in WPos p) => Contains(p) ? 0f : 1f;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override bool RowIntersectsShape(WPos rowStart, WDir dx, float width, float cushion = default) => true;
+}
+
+[SkipLocalsInit]
+public sealed class SDKnockbackInAABBSquareLeftRightAlongZAxisTowardsGoal(WPos Center, float Distance, float HalfWidth, WPos GoalPos, float GoalRadius) : ShapeDistance
+{
+    private readonly WPos center = Center;
+    private readonly float originZ = Center.Z;
+    private readonly WDir dir1 = new(default, Distance);
+    private readonly WDir dir2 = new(default, -Distance);
+    private readonly float halfWidth = HalfWidth;
+    private readonly WPos goalPos = GoalPos;
+    private readonly float goalRadius = GoalRadius;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override bool Contains(in WPos p)
+    {
+        var dest = p + (p.Z > originZ ? dir1 : dir2);
+        if (!(dest.InSquare(center, halfWidth) && dest.InCircle(goalPos, goalRadius)))
+        {
+            return true;
+        }
+        return false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override float Distance(in WPos p) => Contains(p) ? 0f : 1f;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override bool RowIntersectsShape(WPos rowStart, WDir dx, float width, float cushion = default) => true;
+}
+
+[SkipLocalsInit]
+public sealed class SDKnockbackInAABBSquareLeftRightAlongXAxisTowardsGoal(WPos Center, float Distance, float HalfWidth, WPos GoalPos, float GoalRadius) : ShapeDistance
+{
+    private readonly WPos center = Center;
+    private readonly float originX = Center.X;
+    private readonly WDir dir1 = new(Distance, default);
+    private readonly WDir dir2 = new(-Distance, default);
+    private readonly float halfWidth = HalfWidth;
+    private readonly WPos goalPos = GoalPos;
+    private readonly float goalRadius = GoalRadius;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override bool Contains(in WPos p)
+    {
+        var dest = p + (p.X > originX ? dir1 : dir2);
+        if (!(dest.InSquare(center, halfWidth) && dest.InCircle(goalPos, goalRadius)))
+        {
+            return true;
         }
         return false;
     }
@@ -173,6 +231,29 @@ public sealed class SDKnockbackInAABBSquareFixedDirectionPlusAOECircles(WPos Cen
             }
         }
         return false;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override float Distance(in WPos p) => Contains(p) ? 0f : 1f;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override bool RowIntersectsShape(WPos rowStart, WDir dx, float width, float cushion = default) => true;
+}
+
+[SkipLocalsInit]
+public sealed class SDKnockbackInAABBSquareFixedDirectionIntoCircle(WPos Center, WDir Direction, float HalfWidth, WPos CircleOrigin, float Radius) : ShapeDistance
+{
+    private readonly WPos center = Center;
+    private readonly WDir direction = Direction; // direction includes distance, not normalized
+    private readonly float halfWidth = HalfWidth;
+    private readonly WPos circleOrigin = CircleOrigin;
+    private readonly float radius = Radius;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override bool Contains(in WPos p)
+    {
+        var projected = p + direction;
+        return !projected.InSquare(center, halfWidth) || !projected.InCircle(circleOrigin, radius);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
