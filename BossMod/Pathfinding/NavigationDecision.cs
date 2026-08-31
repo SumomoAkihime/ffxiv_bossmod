@@ -179,19 +179,28 @@ public struct NavigationDecision
         var gFixed = new float[lenZones];
         DateTime clusterEnd = default, globalStart = current, globalEnd = current.AddSeconds(120d);
         float clusterG = default;
+        var validZones = 0;
 
         for (var i = 0; i < lenZones; ++i)
         {
             ref var zone = ref zones[i];
+            var shapeDistance = zone.shapeDistance;
+            if (shapeDistance == null)
+                continue;
+
             var activation = zone.activation.Clamp(globalStart, globalEnd);
             if (activation > clusterEnd)
             {
                 clusterG = ActivationToG(activation, current);
                 clusterEnd = activation.AddSeconds(0.5d);
             }
-            zonesFixed[i] = zone.shapeDistance;
-            gFixed[i] = clusterG;
+            zonesFixed[validZones] = shapeDistance;
+            gFixed[validZones++] = clusterG;
         }
+
+        if (validZones == 0)
+            return;
+        lenZones = validZones;
 
         var width = map.Width;
         var pixelMaxG = map.PixelMaxG;
