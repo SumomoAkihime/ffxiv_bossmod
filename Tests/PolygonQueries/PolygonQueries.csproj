@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <BossModAssembly Condition="'$(BossModAssembly)' == ''">../../BossMod/bin/Release/BossMod.dll</BossModAssembly>
+    <DalamudLibPath Condition="'$(DALAMUD_HOME)' == ''">$(APPDATA)/XIVLauncher/addon/Hooks/dev</DalamudLibPath>
+    <DalamudLibPath Condition="'$(DALAMUD_HOME)' != ''">$(DALAMUD_HOME)</DalamudLibPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BossMod" HintPath="$(BossModAssembly)" />
+    <Reference Include="Lumina" HintPath="$(DalamudLibPath)/Lumina.dll" />
+    <Reference Include="Lumina.Excel" HintPath="$(DalamudLibPath)/Lumina.Excel.dll" />
+  </ItemGroup>
+</Project>

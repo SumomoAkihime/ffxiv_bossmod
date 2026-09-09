@@ -1,5 +1,7 @@
 ﻿using Clipper2Lib;
 
+using System.Threading;
+
 namespace BossMod;
 
 // generic 'simplified' complex polygon that consists of 0 or more non-intersecting polygons with holes (note however that some polygons could be fully inside other polygon's hole)
@@ -14,7 +16,7 @@ public sealed class RelSimplifiedComplexPolygon(List<RelPolygonWithHoles> parts)
     // constructors for simple polygon
     public RelSimplifiedComplexPolygon(List<WDir> simpleVertices) : this([new RelPolygonWithHoles(simpleVertices)]) { }
 
-    internal PolygonBoundaryIndex2D? ExistingPolygonIndex => _polyIndex;
+    internal PolygonBoundaryIndex2D? ExistingPolygonIndex => Volatile.Read(ref _polyIndex);
 
     // build a new polygon by transformation
     public RelSimplifiedComplexPolygon Transform(WDir offset, WDir rotation)
@@ -28,84 +30,99 @@ public sealed class RelSimplifiedComplexPolygon(List<RelPolygonWithHoles> parts)
         return new(transformedParts);
     }
 
-    // note we assume this method will be called before trying to use the index to avoid null checking every time. if the polygon changes it needs to be called again to update.
+    // Explicitly rebuild after changing the polygon; callers must not mutate it during queries.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal PolygonBoundaryIndex2D InitPolygonIndex()
     {
-        return _polyIndex = PolygonBoundaryIndex2D.Build(this);
+        var index = PolygonBoundaryIndex2D.Build(this);
+        Volatile.Write(ref _polyIndex, index);
+        return index;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal PolygonBoundaryIndex2D VerifyPolygonIndexExistance()
     {
-        return _polyIndex ??= PolygonBoundaryIndex2D.Build(this);
+        return Volatile.Read(ref _polyIndex) ?? CreatePolygonIndex();
+    }
+
+    private PolygonBoundaryIndex2D CreatePolygonIndex()
+    {
+        var index = PolygonBoundaryIndex2D.Build(this);
+        var existing = Interlocked.CompareExchange(ref _polyIndex, index, null);
+        if (existing != null)
+        {
+            // Another first query published its index; release only our unpublished allocation.
+            index.Dispose();
+            return existing;
+        }
+        return index;
     }
 
     // point-in-polygon test; point is defined as offset from shape center
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public bool Contains(in WDir p)
     {
-        return _polyIndex!.Contains(p);
+        return VerifyPolygonIndexExistance().Contains(p);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)] // useful for knockbacks that have the player as origin to block all angles that intersect the polygon (doesn't matter if outside or inside polygon)
     public void AddForbiddenDirections(in WDir centerOffset, Angle offset, AIHints hints, DateTime activation, float forbiddenDist, float safetyMargin = 1f)
     {
-        _polyIndex!.AddForbiddenDirections(centerOffset, offset, hints, activation, forbiddenDist + safetyMargin);
+        VerifyPolygonIndexExistance().AddForbiddenDirections(centerOffset, offset, hints, activation, forbiddenDist + safetyMargin);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public float Raycast(in WDir originOffset, in WDir dir)
     {
-        return _polyIndex!.Raycast(originOffset, dir);
+        return VerifyPolygonIndexExistance().Raycast(originOffset, dir);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public PolygonShapeRelation PolygonCircleIntersection(in WDir originOffset, float radius)
     {
-        return _polyIndex!.ClassifyCircle(originOffset, radius);
+        return VerifyPolygonIndexExistance().ClassifyCircle(originOffset, radius);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public PolygonShapeRelation PolygonDonutIntersection(in WDir originOffset, float innerRadius, float outerRadius)
     {
-        return _polyIndex!.ClassifyDonut(originOffset, innerRadius, outerRadius);
+        return VerifyPolygonIndexExistance().ClassifyDonut(originOffset, innerRadius, outerRadius);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public PolygonShapeRelation PolygonRectIntersection(in WDir originOffset, in WDir direction, float halfWidth, float halfLength)
     {
-        return _polyIndex!.ClassifyRectangle(originOffset, direction, halfWidth, halfLength);
+        return VerifyPolygonIndexExistance().ClassifyRectangle(originOffset, direction, halfWidth, halfLength);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public PolygonShapeRelation PolygonAABBIntersection(in WDir originOffset, float halfWidth, float halfLength)
     {
-        return _polyIndex!.ClassifyAABBRect(originOffset, halfWidth, halfLength);
+        return VerifyPolygonIndexExistance().ClassifyAABBRect(originOffset, halfWidth, halfLength);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public PolygonShapeRelation PolygonDirectionalRectIntersection(in WDir originOffset, in WDir direction, float lenFront, float lenBack, float halfWidth)
     {
-        return _polyIndex!.ClassifyDirectionalRectangle(originOffset, direction, lenFront, lenBack, halfWidth);
+        return VerifyPolygonIndexExistance().ClassifyDirectionalRectangle(originOffset, direction, lenFront, lenBack, halfWidth);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public PolygonShapeRelation PolygonCapsuleIntersection(in WDir originOffset, in WDir direction, float length, float radius)
     {
-        return _polyIndex!.ClassifyDirectionalCapsule(originOffset, direction, length, radius);
+        return VerifyPolygonIndexExistance().ClassifyDirectionalCapsule(originOffset, direction, length, radius);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public WDir ClosestPointOnBoundary(in WDir offset)
     {
-        return _polyIndex!.ClosestPointOnBoundary(offset);
+        return VerifyPolygonIndexExistance().ClosestPointOnBoundary(offset);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public WDir[] Visibility(in WDir origin)
     {
-        return _polyIndex!.VisibilityFrom(origin, this);
+        return VerifyPolygonIndexExistance().VisibilityFrom(origin, this);
     }
 
     // positive offsets inflate, negative shrink polygon, use join JoinType Round to simulate a Minkowski Sum with a circle

@@ -23,7 +23,13 @@ jobs:
           Expand-Archive -Force latest.zip -DestinationPath "$env:AppData\XIVLauncher\addon\Hooks\dev"
 
       - name: Restore NuGet Packages
-        run: dotnet restore     BossMod/BossModReborn.csproj
+        run: dotnet restore BossMod/BossMod.csproj
 
       - name: Build Plugin
-        run: dotnet build --no-restore -c Release BossMod/BossModReborn.csproj
+        run: dotnet build --no-restore -c Release BossMod/BossMod.csproj
+
+      - name: Check Polygon Queries
+        run: dotnet run --project Tests/PolygonQueries -c Release
+
+      - name: Check Distance Before Drawing
+        run: dotnet run --project Tests/PolygonQueries -c Release --no-build -- --distance-first
