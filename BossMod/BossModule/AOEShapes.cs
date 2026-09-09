@@ -501,6 +501,8 @@ public sealed class AOEShapeCustom : AOEShape
 
     private void AddToCache(RelSimplifiedComplexPolygon value)
     {
+        // Lazy construction must support Check/Distance before the first draw.
+        value.VerifyPolygonIndexExistance();
         if (cache.Count >= 50)
         {
             var lruKey = cacheOrder.Last?.Value;
