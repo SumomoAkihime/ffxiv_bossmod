@@ -407,6 +407,8 @@ public static partial class Utils
         return System.Text.Json.JsonSerializer.Deserialize<T>(stream, new System.Text.Json.JsonSerializerOptions { IncludeFields = true }) ?? throw new InvalidDataException("unable to load json from assembly resource");
     }
 
+    public static bool IsUnsynced(WorldState world, Actor player) => world.CurrentCFCID != 0 && Service.LuminaRow<Lumina.Excel.Sheets.ContentFinderCondition>(world.CurrentCFCID) is { } cfc && player.Level > cfc.ClassJobLevelSync;
+
     public static bool IsPlayerUnsynced(WorldState ws, bool forFateOnly = true, bool mightyGuard = false)
     {
         var player = ws.Party.Player();
