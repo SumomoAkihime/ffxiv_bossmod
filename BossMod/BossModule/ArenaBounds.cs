@@ -361,16 +361,10 @@ public sealed class ArenaBoundsCustom : ArenaBounds
 
         // The axis-aligned candidate is evaluated first and wins all equal-cell-count ties. If it wins, keep the
         // polygon in its existing coordinate frame so offset == 0 can reuse Polygon's already-built boundary index.
-        // Only a rotation that strictly reduces the pathfinding cell count pays for transform + reindex.
+        // Only a rotation that strictly reduces the pathfinding cell count pays for a transform.
         if (bounds.RequiresTransform)
         {
             polygon = TransformToGrid(polygon, bounds);
-            polygon.InitPolygonIndex();
-        }
-        else if (offset != default)
-        {
-            // Offset() creates a new polygon and therefore still needs an index even when no rotation is useful
-            polygon.InitPolygonIndex();
         }
 
         var map = new Pathfinding.Map();
@@ -394,6 +388,11 @@ public sealed class ArenaBoundsCustom : ArenaBounds
         var rasterCenter = bounds.RequiresTransform ? default : map.Center.ToWDir();
         var startPos = rasterCenter - ((width >> 1) - 0.5f) * dx - ((height >> 1) - 0.5f) * dy;
 
+        // Reuse the full index when available; temporary offset/rotated polygons only need AABB classification.
+        var existingRasterIndex = polygon.ExistingPolygonIndex;
+        using var lightweightRasterIndex = existingRasterIndex == null ? PolygonBoundaryIndex2D.BuildForAABBRectClassification(polygon) : null;
+        var rasterIndex = existingRasterIndex ?? lightweightRasterIndex!;
+
         Parallel.ForEach(Partitioner.Create(0, height), range =>
         {
             var r1 = range.Item1;
@@ -407,7 +406,7 @@ public sealed class ArenaBoundsCustom : ArenaBounds
                 for (var x = 0; x < width; ++x)
                 {
                     var cellCenter = posY + x * dx;
-                    var relation = polygon.PolygonAABBIntersection(cellCenter, halfCell, halfCell);
+                    var relation = rasterIndex.ClassifyAABBRect(cellCenter, halfCell, halfCell);
                     if (relation == PolygonShapeRelation.Inside)
                     {
                         continue;
