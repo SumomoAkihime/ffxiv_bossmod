@@ -1,5 +1,4 @@
 ﻿using System.IO;
-using System.Reflection;
 using System.Text.Json;
 
 namespace BossMod;
@@ -12,19 +11,11 @@ public sealed class ConfigRoot
 
     public void Initialize()
     {
-        foreach (var t in Utils.GetDerivedTypes<ConfigNode>(Assembly.GetExecutingAssembly()))
+        GeneratedRegistries.RegisterConfigNodes((type, inst) =>
         {
-            if (!t.IsAbstract)
-            {
-                if (Activator.CreateInstance(t) is not ConfigNode inst)
-                {
-                    Service.Log($"[Config] Failed to create an instance of {t}");
-                    continue;
-                }
-                inst.Modified.Subscribe(Modified.Fire);
-                _nodes[t] = inst;
-            }
-        }
+            inst.Modified.Subscribe(Modified.Fire);
+            _nodes[type] = inst;
+        });
     }
 
     public T Get<T>() where T : ConfigNode => (T)_nodes[typeof(T)];
@@ -42,7 +33,7 @@ public sealed class ConfigRoot
 
             foreach (var jconfig in data.payload.EnumerateObject())
             {
-                var type = Type.GetType(jconfig.Name);
+                var type = GeneratedFactories.FindType(jconfig.Name);
                 var node = type != null ? _nodes.GetValueOrDefault(type) : null;
                 try
                 {
@@ -149,9 +140,9 @@ public sealed class ConfigRoot
             {
                 result.Add("Usage: /bmr cfg <config-type> <field> <value>");
                 result.Add($"Valid fields for {matchingNodes[0].GetType().Name}:");
-                foreach (var f in matchingNodes[0].GetType().GetFields())
+                foreach (var f in GeneratedConfigMetadata.Get(matchingNodes[0]).DisplayFields)
                 {
-                    if (f.GetCustomAttribute<PropertyDisplayAttribute>() != null)
+                    if (f.Display != null)
                     {
                         result.Add($"- {f.Name}");
                     }
@@ -159,10 +150,10 @@ public sealed class ConfigRoot
             }
             else
             {
-                List<FieldInfo> matchingFields = [];
-                foreach (var f in matchingNodes[0].GetType().GetFields())
+                List<ConfigFieldMetadata> matchingFields = [];
+                foreach (var f in GeneratedConfigMetadata.Get(matchingNodes[0]).DisplayFields)
                 {
-                    if (f.GetCustomAttribute<PropertyDisplayAttribute>() == null)
+                    if (f.Display == null)
                     {
                         continue;
                     }
@@ -183,9 +174,9 @@ public sealed class ConfigRoot
                 if (matchingFields.Count == 0)
                 {
                     result.Add($"Field not found {args[1]}, Valid fields:");
-                    foreach (var f in matchingNodes[0].GetType().GetFields())
+                    foreach (var f in GeneratedConfigMetadata.Get(matchingNodes[0]).DisplayFields)
                     {
-                        if (f.GetCustomAttribute<PropertyDisplayAttribute>() != null)
+                        if (f.Display != null)
                         {
                             result.Add($"- {f.Name}");
                         }
@@ -210,7 +201,7 @@ public sealed class ConfigRoot
                     {
                         if (args.Length == 2)
                         {
-                            result.Add(matchingFields[0].GetValue(matchingNodes[0])?.ToString() ?? $"Failed to get value of '{args[2]}'");
+                            result.Add(matchingFields[0].Getter(matchingNodes[0])?.ToString() ?? $"Failed to get value of '{args[2]}'");
                         }
                         else
                         {
@@ -221,7 +212,7 @@ public sealed class ConfigRoot
                             }
                             else
                             {
-                                matchingFields[0].SetValue(matchingNodes[0], val);
+                                matchingFields[0].Setter(matchingNodes[0], val);
                                 if (save)
                                 {
                                     matchingNodes[0].Modified.Fire();

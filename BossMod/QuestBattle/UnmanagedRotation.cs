@@ -77,6 +77,6 @@ public abstract class UnmanagedRotation(WorldState ws, float effectiveRange)
 
 public abstract class RotationModule<R>(BossModule module) : BossComponent(module) where R : UnmanagedRotation
 {
-    private readonly R _rotation = New<R>.Constructor<WorldState>()(module.WorldState);
+    private readonly R _rotation = GeneratedFactories.CreateUnmanagedRotation<R>(module);
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) => _rotation.Execute(actor, hints);
 }

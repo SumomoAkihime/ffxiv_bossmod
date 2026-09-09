@@ -1,4 +1,4 @@
-using static BossMod.Dawntrail.Raid.BruteAmbombinatorSharedBounds.BruteAmbombinatorSharedBounds;
+﻿using static BossMod.Dawntrail.Raid.BruteAmbombinatorSharedBounds.BruteAmbombinatorSharedBounds;
 
 namespace BossMod.Dawntrail.Raid.M07NBruteAbombinator;
 
@@ -15,7 +15,7 @@ sealed class ArenaChanges(BossModule module) : BossComponent(module)
             }
             else if (index == 0x01)
             {
-                Arena.Bounds = DefaultArena;
+                Arena.Bounds = new ArenaBoundsSquare(20f) { Y = -200f, BorderY = -200f };
             }
         }
     }

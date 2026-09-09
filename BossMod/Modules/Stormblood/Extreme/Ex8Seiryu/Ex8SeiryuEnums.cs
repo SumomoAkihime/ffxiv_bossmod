@@ -1,4 +1,4 @@
-namespace BossMod.Stormblood.Extreme.Ex8Seiryu;
+﻿namespace BossMod.Stormblood.Extreme.Ex8Seiryu;
 
 public enum OID : uint
 {

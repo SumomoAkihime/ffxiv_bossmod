@@ -144,7 +144,7 @@ class A33OschonStates : StateMachineBuilder
         ComponentCondition<P2PeakPeril>(id + 0x13, 3.9f, comp => comp.NumCasts > 0, "Raidwide 4")
             .ActivateOnEnter<P2PeakPeril>()
             .DeactivateOnExit<P2PeakPeril>()
-            .OnExit(() => Module.Arena.Bounds = new ArenaBoundsSquare(20))
+            .OnExit(() => Module.Arena.Bounds = new ArenaBoundsSquare(20) { Y = 130f, BorderY = 130f })
             .SetHint(StateMachine.StateHint.Raidwide);
         ComponentCondition<P2Shockwave>(id + 0x20, 15.7f, comp => comp.NumCasts > 0, "Raidwide 5")
             .ActivateOnEnter<P2Shockwave>()

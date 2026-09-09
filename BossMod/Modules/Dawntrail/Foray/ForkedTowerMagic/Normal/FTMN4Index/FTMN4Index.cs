@@ -497,6 +497,14 @@ sealed class IndexStates : StateMachineBuilder
 public sealed class Index(WorldState ws, Actor primary) : BossModule(ws, primary, InitialBounds.Center, InitialBounds)
 {
     public static readonly WPos ArenaCenter = new(0f, -628f);
-    public static readonly ArenaBoundsCustom InitialBounds = IndexArenaBounds.Initial(ArenaCenter);
-    public static readonly ArenaBoundsCustom ExpandedBounds = IndexArenaBounds.Expanded(ArenaCenter);
+    private static ArenaBoundsCustom ConfigureProjection(ArenaBoundsCustom bounds)
+    {
+        bounds.Y = -683.9f;
+        bounds.BorderY = -684f;
+        bounds.WorldProjectionHeight = 0f;
+        return bounds;
+    }
+
+    public static readonly ArenaBoundsCustom InitialBounds = ConfigureProjection(IndexArenaBounds.Initial(ArenaCenter));
+    public static readonly ArenaBoundsCustom ExpandedBounds = ConfigureProjection(IndexArenaBounds.Expanded(ArenaCenter));
 }

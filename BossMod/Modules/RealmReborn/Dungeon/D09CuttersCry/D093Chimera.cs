@@ -129,6 +129,5 @@ public sealed class D093Chimera(WorldState ws, Actor primary) : BossModule(ws, p
     new(-205.32f, -214.91f), new(-205.53f, -216.9f), new(-205.55f, -217.58f), new(-205.42f, -218.25f), new(-204.95f, -219.51f),
     new(-204.63f, -220.1f), new(-204.26f, -220.64f), new(-193.31f, -229.15f),
     new(-188.3f, -230.61f), new(-186.84f, -231.89f), new(-186.67f, -232.43f), new(-186.19f, -232.91f), new(-185.79f, -233.39f),
-    new(-185.6f, -234f), new(-184.38f, -234.63f), new(-183.69f, -234.75f), new(-183f, -234.78f)])]);
+    new(-185.6f, -234f), new(-184.38f, -234.63f), new(-183.69f, -234.75f), new(-183f, -234.78f)])]) { WorldProjectionHeight = 10f };
 }
-

@@ -55,7 +55,7 @@ public sealed class D091MyrmidonPrincess(WorldState ws, Actor primary) : BossMod
     new(-41.67f, 184.94f), new(-40.48f, 184.47f), new(-39.83f, 184.31f), new(-37.77f, 184.20f), new(-35.23f, 184.54f),
     new(-34.67f, 184.99f), new(-34.30f, 185.57f), new(-33.12f, 184.63f), new(-33.03f, 182.80f), new(-32.69f, 182.18f),
     new(-32.18f, 181.78f), new(-31.99f, 180.41f), new(-31.72f, 179.75f), new(-31.16f, 179.32f), new(-30.63f, 178.97f),
-    new(-29.74f, 178.02f), new(-29.24f, 177.93f)])]);
+    new(-29.74f, 178.02f), new(-29.24f, 177.93f)])]) { WorldProjectionHeight = 10f };
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {

@@ -485,7 +485,7 @@ sealed class P3UltimateRelativityShadoweye(BossModule module) : BossComponent(mo
 
             var (min, max) = (-45f, 45f);
             Arena.PathArcTo(pos, 1, (pc.Rotation + min.Degrees()).Rad, (pc.Rotation + max.Degrees()).Rad);
-            MiniArena.PathStroke(false, Colors.Enemy);
+            Arena.PathStroke(false, Colors.Enemy);
         }
     }
 

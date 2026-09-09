@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace BossMod;
@@ -63,59 +62,35 @@ public abstract class ConfigNode
     // draw custom contents; override this for complex config nodes
     public virtual void DrawCustom(UITree tree, WorldState ws) { }
 
-    private static readonly ConcurrentDictionary<Type, FieldInfo[]> _fieldsCache = [];
-
-    protected static FieldInfo[] GetSerializableFields(Type t)
-    {
-        if (_fieldsCache.TryGetValue(t, out var cachedFields))
-        {
-            return cachedFields;
-        }
-
-        var fields = t.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-        var len = fields.Length;
-        var discoveredFields = new FieldInfo[len];
-        var index = 0;
-        for (var i = 0; i < len; ++i)
-        {
-            ref readonly var field = ref fields[i];
-            if (!field.IsStatic && !field.IsDefined(typeof(JsonIgnoreAttribute), false))
-            {
-                discoveredFields[index++] = field;
-            }
-        }
-
-        return _fieldsCache[t] = discoveredFields[..index];
-    }
+    /* generated metadata provides stable field accessors */
 
     // deserialize fields from json; default implementation should work fine for most cases
     public virtual void Deserialize(JsonElement j, JsonSerializerOptions ser)
     {
         var agg = new List<JsonException>();
 
-        var type = GetType();
+        var metadata = GeneratedConfigMetadata.Get(this);
         foreach (var jfield in j.EnumerateObject())
         {
-            var field = type.GetField(jfield.Name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            if (field != null)
+            if (metadata.FieldsByName.GetValueOrDefault(jfield.Name) is not { Serializable: true } field)
             {
-                if (field.IsStatic)
-                {
-                    continue;
-                }
+                continue;
+            }
 
-                if (field.GetCustomAttribute<JsonIgnoreAttribute>() != null)
-                {
-                    continue;
-                }
-
+            try
+            {
                 var value = jfield.Value.Deserialize(field.FieldType, ser);
                 if (value != null)
-                {
-                    field.SetValue(this, value);
-                }
+                    field.Setter(this, value);
+            }
+            catch (JsonException ex)
+            {
+                agg.Add(ex);
             }
         }
+
+        if (agg.Count > 0)
+            throw new AggregateException(agg);
     }
 
     // serialize node to json;
@@ -123,12 +98,12 @@ public abstract class ConfigNode
     {
         writer.WriteStartObject();
 
-        var fields = GetSerializableFields(GetType());
+        var fields = GeneratedConfigMetadata.Get(this).SerializableFields;
         var len = fields.Length;
         for (var i = 0; i < len; ++i)
         {
-            ref readonly var field = ref fields[i];
-            var fieldValue = field.GetValue(this);
+            var field = fields[i];
+            var fieldValue = field.Getter(this);
 
             writer.WritePropertyName(field.Name);
             if (fieldValue is ConfigNode subNode)

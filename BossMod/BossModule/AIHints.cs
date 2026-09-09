@@ -1,4 +1,4 @@
-namespace BossMod;
+﻿namespace BossMod;
 
 // information relevant for AI decision making process for a specific player
 [SkipLocalsInit]
@@ -90,6 +90,10 @@ public sealed class AIHints
     // information needed to build base pathfinding map (onto which forbidden/goal zones are later rasterized), if needed (lazy, since it's somewhat expensive and not always needed)
     public WPos PathfindMapCenter;
     public ArenaBounds PathfindMapBounds = DefaultBounds;
+    public int? PathfindMapArenaProjectionLayer;
+    private ArenaBoundsCustom? _arenaProjectionLayerClipOwner;
+    private WPos _arenaProjectionLayerClipCenter;
+    private ShapeDistance?[]? _arenaProjectionLayerClips;
     public Bitmap.Region PathfindMapObstacles;
     private static readonly AI.AIConfig _config = Service.Config.Get<AI.AIConfig>();
 
@@ -176,6 +180,7 @@ public sealed class AIHints
     {
         PathfindMapCenter = default;
         PathfindMapBounds = DefaultBounds;
+        PathfindMapArenaProjectionLayer = null;
         PathfindMapObstacles = default;
         Array.Clear(Enemies);
         PotentialTargets.Clear();
@@ -285,8 +290,40 @@ public sealed class AIHints
     }
     public void InteractWithOID<OID>(WorldState ws, OID oid) where OID : Enum => InteractWithOID(ws, (uint)(object)oid);
 
-    public void AddForbiddenZone(ShapeDistance shapeDistance, DateTime activation = default, ulong source = default) => ForbiddenZones.Add((shapeDistance, activation, source));
-    public void AddForbiddenZone(AOEShape shape, WPos origin, Angle rot = default, DateTime activation = default, ulong source = default) => ForbiddenZones.Add((shape.Distance(origin, rot), activation, source));
+    // Explicitly layered zones are intersected with their physical floor. This matters when several
+    // disjoint floors share one pathfinding grid: a large shape must not spill into another island.
+    public ShapeDistance ClipToArenaProjectionLayer(ShapeDistance shapeDistance, int? arenaProjectionLayer)
+    {
+        if (arenaProjectionLayer is not int index
+            || PathfindMapBounds is not ArenaBoundsCustom { WorldProjectionLayers: { Length: > 0 } layers } custom
+            || (uint)index >= (uint)layers.Length)
+        {
+            return shapeDistance;
+        }
+
+        if (!ReferenceEquals(_arenaProjectionLayerClipOwner, custom) || _arenaProjectionLayerClipCenter != PathfindMapCenter
+            || _arenaProjectionLayerClips == null || _arenaProjectionLayerClips.Length != layers.Length)
+        {
+            _arenaProjectionLayerClipOwner = custom;
+            _arenaProjectionLayerClipCenter = PathfindMapCenter;
+            _arenaProjectionLayerClips = new ShapeDistance?[layers.Length];
+        }
+
+        var clips = _arenaProjectionLayerClips!;
+        var clip = clips[index];
+        if (clip == null)
+        {
+            var polygon = layers[index].Shape;
+            polygon.VerifyPolygonIndexExistance();
+            clip = clips[index] = new SDPolygonWithHoles(new SDPolygonWithHolesBase(PathfindMapCenter, polygon));
+        }
+        return new SDIntersection([shapeDistance, clip]);
+    }
+
+    public void AddForbiddenZone(ShapeDistance shapeDistance, DateTime activation = default, ulong source = default, int? arenaProjectionLayer = null)
+        => ForbiddenZones.Add((ClipToArenaProjectionLayer(shapeDistance, arenaProjectionLayer), activation, source));
+    public void AddForbiddenZone(AOEShape shape, WPos origin, Angle rot = default, DateTime activation = default, ulong source = default, int? arenaProjectionLayer = null)
+        => ForbiddenZones.Add((ClipToArenaProjectionLayer(shape.Distance(origin, rot), arenaProjectionLayer), activation, source));
 
     public void AddPredictedDamage(BitMask players, DateTime activation, PredictedDamageType type = PredictedDamageType.Raidwide) => PredictedDamage.Add(new(players, activation, type));
 
@@ -321,7 +358,14 @@ public sealed class AIHints
 
     public void InitPathfindMap(Pathfinding.Map map)
     {
-        PathfindMapBounds.PathfindMap(map, PathfindMapCenter);
+        if (PathfindMapBounds is ArenaBoundsCustom custom)
+        {
+            custom.PathfindMap(map, PathfindMapCenter, PathfindMapArenaProjectionLayer);
+        }
+        else
+        {
+            PathfindMapBounds.PathfindMap(map, PathfindMapCenter);
+        }
         if (PathfindMapObstacles.Bitmap != null && !_config.DisableObstacleMaps)
         {
             var offX = -PathfindMapObstacles.Rect.Left;
@@ -359,6 +403,80 @@ public sealed class AIHints
                 }
             }
         }
+    }
+
+    // Allocation-free views used by consumers. These remain valid only until PotentialTargets is modified; in normal use that means until the next hints update.
+    public ReadOnlySpan<Enemy> PriorityTargetsSpan
+    {
+        get
+        {
+            var targets = CollectionsMarshal.AsSpan(PotentialTargets);
+            var count = 0;
+            while (count < targets.Length && targets[count].Priority == HighestPotentialTargetPriority)
+            {
+                ++count;
+            }
+            return targets[..count];
+        }
+    }
+
+    // This view retains PotentialTargets' descending-priority order
+    public ReadOnlySpan<Enemy> ForbiddenTargetsSpan
+    {
+        get
+        {
+            var targets = CollectionsMarshal.AsSpan(PotentialTargets);
+            var first = targets.Length;
+            while (first > 0 && targets[first - 1].Priority <= Enemy.PriorityUndesirable)
+            {
+                --first;
+            }
+            return targets[first..];
+        }
+    }
+
+    public bool AnyPriorityTarget(Func<Enemy, bool> predicate)
+    {
+        var span = PriorityTargetsSpan;
+        var len = span.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            if (predicate(span[i]))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public Enemy? FirstPriorityTarget(Func<Enemy, bool> predicate)
+    {
+        var span = PriorityTargetsSpan;
+        var len = span.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            var t = span[i];
+            if (predicate(t))
+            {
+                return t;
+            }
+        }
+        return null;
+    }
+
+    public int CountPriorityTargets(Func<Enemy, bool> predicate)
+    {
+        var count = 0;
+        var span = PriorityTargetsSpan;
+        var len = span.Length;
+        for (var i = 0; i < len; ++i)
+        {
+            if (predicate(span[i]))
+            {
+                ++count;
+            }
+        }
+        return count;
     }
 
     // query utilities

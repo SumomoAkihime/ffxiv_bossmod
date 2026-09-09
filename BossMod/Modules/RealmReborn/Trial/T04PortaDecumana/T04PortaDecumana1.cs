@@ -99,7 +99,7 @@ class T04PortaDecumana1States : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Verified, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 830, NameID = 2137, SortOrder = 1)]
-public class T04PortaDecumana1(WorldState ws, Actor primary) : BossModule(ws, primary, new(-772f, -600f), new ArenaBoundsCircle(19.5f))
+public class T04PortaDecumana1(WorldState ws, Actor primary) : BossModule(ws, primary, new(-772f, -600f), new ArenaBoundsCustom([new Polygon(new(-772f, -600f), 19.5f, 36)]))
 {
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {

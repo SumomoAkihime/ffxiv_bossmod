@@ -22,7 +22,7 @@ class P2Altitude(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Al
 class P2Arrow(BossModule module) : Components.BaitAwayCast(module, (uint)AID.ArrowP2AOE, 10f);
 
 [ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus, LTS", PrimaryActorOID = (uint)OID.BossP1, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 962, NameID = 11300, SortOrder = 4, PlanLevel = 90)]
-public class A33Oschon(WorldState ws, Actor primary) : BossModule(ws, primary, new(default, 750f), new ArenaBoundsSquare(25f))
+public class A33Oschon(WorldState ws, Actor primary) : BossModule(ws, primary, new(default, 750f), new ArenaBoundsSquare(25f) { Y = 50f, BorderY = 50f })
 {
     private Actor? _bossP2;
 

@@ -1,5 +1,4 @@
 ﻿using Dalamud.Bindings.ImGui;
-using System.Reflection;
 
 namespace BossMod.Dawntrail.Savage.M06SSugarRiot;
 
@@ -16,17 +15,17 @@ public sealed class M06SSugarRiotConfig() : ConfigNode
 
     public override void DrawCustom(UITree tree, WorldState ws)
     {
-        var fields = GetSerializableFields(GetType());
+        var fields = GeneratedConfigMetadata.Get(this).SerializableFields;
         var len = fields.Length;
         for (var j = 0; j < len; ++j)
         {
             ref readonly var field = ref fields[j];
-            var labelAttr = field.GetCustomAttribute<PropertyDisplayAttribute>();
-            var reorderAttr = field.GetCustomAttribute<PropertyStringOrderAttribute>();
+            var labelAttr = field.Display;
+            var reorderAttr = field.StringOrder;
 
             if (labelAttr != null && reorderAttr != null && field.FieldType == typeof(int[]))
             {
-                var indices = (int[]?)field.GetValue(this);
+                var indices = (int[]?)field.Getter(this);
                 var values = reorderAttr.Values;
                 if (indices == null || indices.Length != values.Length)
                     continue;

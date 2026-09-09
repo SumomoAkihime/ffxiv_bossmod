@@ -20,7 +20,7 @@ sealed class LightOfJudgment(BossModule module) : Components.RaidwideCast(module
     SortOrder = 1,
     PlanLevel = 100)]
 [SkipLocalsInit]
-public sealed class DMU(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 100f), new ArenaBoundsCircle(20f))
+public sealed class DMU(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 100f), new ArenaBoundsCustom([new Polygon(new(100f, 100f), 20f, 64)]) { WorldProjectionHeight = 0f, Y = 0.1f, BorderY = 0f })
 {
     public override bool ShouldPrioritizeAllEnemies => true;
 

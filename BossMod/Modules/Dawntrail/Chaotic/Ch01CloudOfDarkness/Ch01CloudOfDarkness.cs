@@ -28,8 +28,8 @@ public sealed class Ch01CloudOfDarkness(WorldState ws, Actor primary) : BossModu
     public static readonly Shape[] Phase2ShapesWD = [.. donut, .. Phase2ShapesND];
     public static readonly ArenaBoundsCircle DefaultArena = new(40f);
     public static readonly ArenaBoundsCustom Phase1Bounds = new(Diamond, ScaleFactor: 1.414f);
-    public static readonly ArenaBoundsCustom Phase2BoundsWD = new(Phase2ShapesWD, IntersectionBlockers);
-    public static readonly ArenaBoundsCustom Phase2BoundsND = new(Phase2ShapesND, [.. IntersectionBlockers, .. donut]);
+    public static readonly ArenaBoundsCustom Phase2BoundsWD = new(Phase2ShapesWD, IntersectionBlockers) { WorldProjectionHeight = 0.2f };
+    public static readonly ArenaBoundsCustom Phase2BoundsND = new(Phase2ShapesND, [.. IntersectionBlockers, .. donut]) { WorldProjectionHeight = 0.2f };
 
     private static Square[] GenerateIntersectionBlockers() // at intersections there are small blockers to prevent players from skipping tiles
     {

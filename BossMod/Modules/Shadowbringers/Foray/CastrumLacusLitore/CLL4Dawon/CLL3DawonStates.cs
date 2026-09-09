@@ -1,11 +1,11 @@
-namespace BossMod.Shadowbringers.Foray.CastrumLacusLitore.CLL4Dawon;
+﻿namespace BossMod.Shadowbringers.Foray.CastrumLacusLitore.CLL4Dawon;
 
 sealed class CLL4DawonStates : StateMachineBuilder
 {
     public CLL4DawonStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<ArenaChange>()
+            .ActivateOnEnter<ArenaChanges>()
             .ActivateOnEnter<Pentagust>()
             .ActivateOnEnter<FervidPulse>()
             .ActivateOnEnter<FrigidPulse>()

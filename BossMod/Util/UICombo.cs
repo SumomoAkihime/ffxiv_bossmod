@@ -1,22 +1,17 @@
 ﻿using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
-using System.Reflection;
 
 namespace BossMod;
 
 [SkipLocalsInit]
 public static class UICombo
 {
-    public static string EnumString(Enum v)
-    {
-        var name = v.ToString();
-        return Loc.Tr(v.GetType().GetField(name)?.GetCustomAttribute<PropertyDisplayAttribute>()?.Label ?? name);
-    }
+    public static string EnumString(Enum v) => GeneratedEnumMetadata.DisplayName(v);
 
     public static bool Enum<T>(string label, ref T v, Func<T, string>? print = null, Func<T, bool>? filter = null) where T : Enum
     {
         var et = v.GetType();
-        var rawValues = System.Enum.GetValues(et);
+        var rawValues = GeneratedEnumMetadata.Values(et);
         var values = new T[rawValues.Length];
         for (var i = 0; i < rawValues.Length; i++)
         {
@@ -44,7 +39,7 @@ public static class UICombo
 
     public static bool EnumIndex(string label, Type type, ref int v, Func<int, string>? print = null, Func<int, bool>? filter = null)
     {
-        var values = System.Enum.GetValues(type);
+        var values = GeneratedEnumMetadata.Values(type);
         print ??= p => EnumString((Enum)values.GetValue(p)!);
         filter ??= _ => true;
         var res = false;
@@ -88,7 +83,7 @@ public static class UICombo
 
     public static bool Radio(Type type, ref int v, bool oneLine, Func<int, string>? print = null)
     {
-        var values = System.Enum.GetValues(type);
+        var values = GeneratedEnumMetadata.Values(type);
         print ??= p => EnumString((Enum)values.GetValue(p)!);
         var orig = v;
         var res = false;

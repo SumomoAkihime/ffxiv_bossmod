@@ -138,5 +138,5 @@ public sealed class D092GiantTunnelWorm(WorldState ws, Actor primary) : BossModu
     new(-159.62f, 138.68f), new(-158.96f, 138.44f), new(-158.28f, 138.47f), new(-157.65f, 138.25f), new(-157.16f, 137.78f),
     new(-156.85f, 137.23f), new(-157.01f, 136.72f), new(-157.29f, 136.13f), new(-157.48f, 135.52f), new(-157.56f, 134.84f),
     new(-157.26f, 133.59f), new(-157.03f, 132.89f), new(-156.77f, 132.3f), new(-155.87f, 131.23f), new(-155.11f, 129.42f),
-    new(-154.53f, 128.98f), new(-153.87f, 128.71f), new(-153.35f, 128.36f), new(-152.99f, 127.81f), new(-152.42f, 127.49f)])]);
+    new(-154.53f, 128.98f), new(-153.87f, 128.71f), new(-153.35f, 128.36f), new(-152.99f, 127.81f), new(-152.42f, 127.49f)])]) { WorldProjectionHeight = 10f };
 }

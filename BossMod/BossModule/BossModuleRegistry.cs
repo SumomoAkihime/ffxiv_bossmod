@@ -17,6 +17,7 @@ public static class BossModuleRegistry
         public Type? IconIDType;
         public uint PrimaryActorOID;
         public Func<WorldState, Actor, BossModule> ModuleFactory;
+        public Func<BossModule, StateMachine> StateMachineFactory;
 
         public BossModuleInfo.Maturity Maturity;
         public string Contributors = "";
@@ -137,39 +138,69 @@ public static class BossModuleRegistry
             };
         }
 
+        internal Info(Type moduleType, Type statesType, Type? configType, Type? objectIDType, Type? actionIDType,
+            Type? statusIDType, Type? tetherIDType, Type? iconIDType, uint primaryActorOID, Func<WorldState, Actor, BossModule> moduleFactory,
+            Func<BossModule, StateMachine> stateMachineFactory, BossModuleInfo.Maturity maturity, string contributors, BossModuleInfo.Expansion expansion,
+            BossModuleInfo.Category category, BossModuleInfo.GroupType groupType, uint groupID, uint nameID, int sortOrder, int planLevel)
+        {
+            ModuleType = moduleType;
+            StatesType = statesType;
+            ConfigType = configType;
+            ObjectIDType = objectIDType;
+            ActionIDType = actionIDType;
+            StatusIDType = statusIDType;
+            TetherIDType = tetherIDType;
+            IconIDType = iconIDType;
+            PrimaryActorOID = primaryActorOID;
+            ModuleFactory = moduleFactory;
+            StateMachineFactory = stateMachineFactory;
+            Maturity = maturity;
+            Contributors = contributors;
+            Expansion = expansion;
+            Category = category;
+            GroupType = groupType;
+            GroupID = groupID;
+            NameID = nameID;
+            SortOrder = sortOrder;
+            PlanLevel = planLevel;
+        }
         private Info(Type moduleType, Type statesType)
         {
             ModuleType = moduleType;
             StatesType = statesType;
             ModuleFactory = New<BossModule>.ConstructorDerived<WorldState, Actor>(moduleType);
+            StateMachineFactory = module => ((StateMachineBuilder)Activator.CreateInstance(statesType, module)!).Build();
         }
     }
 
     public static readonly Dictionary<uint, Info> RegisteredModules = []; // [primary-actor-oid] = module info
+    private static readonly Dictionary<string, Info> _modulesByName = [];
     private static readonly Dictionary<Type, Info> _modulesByType = []; // [module-type] = module info
 
-    static BossModuleRegistry()
+    static BossModuleRegistry() => GeneratedRegistries.RegisterBossModules(Register);
+
+    private static void Register(Info info)
     {
-        foreach (var t in Utils.GetDerivedTypes<BossModule>(Assembly.GetExecutingAssembly()))
+        var type = info.ModuleType;
+        _modulesByType[type] = info;
+        if (type.FullName is { } fullName)
         {
-            if (!t.IsAbstract && t != typeof(DemoModule))
-            {
-                var info = Info.Build(t);
-                if (info == null)
-                {
-                    continue;
-                }
-                _modulesByType[t] = info;
-                if (!RegisteredModules.TryAdd(info.PrimaryActorOID, info))
-                {
-                    Service.Log($"[ModuleRegistry] Two boss modules have same primary actor OID: {t.FullName} and {RegisteredModules[info.PrimaryActorOID].ModuleType.FullName}");
-                }
-            }
+            _modulesByName[fullName] = info;
+        }
+        if (!RegisteredModules.TryAdd(info.PrimaryActorOID, info))
+        {
+            Service.Log($"[ModuleRegistry] Two boss modules have same primary actor OID: {type.FullName} and {RegisteredModules[info.PrimaryActorOID].ModuleType.FullName}");
         }
     }
 
     public static Info? FindByOID(uint oid) => RegisteredModules.GetValueOrDefault(oid);
     public static Info? FindByType(Type type) => _modulesByType.GetValueOrDefault(type);
+
+    public static Info? FindByTypeName(string typeName)
+    {
+        var assemblySeparator = typeName.IndexOf(',');
+        return _modulesByName.GetValueOrDefault(assemblySeparator >= 0 ? typeName[..assemblySeparator].Trim() : typeName);
+    }
 
     public static BossModule? CreateModule(Info? info, WorldState ws, Actor primary) => info?.ModuleFactory(ws, primary);
 

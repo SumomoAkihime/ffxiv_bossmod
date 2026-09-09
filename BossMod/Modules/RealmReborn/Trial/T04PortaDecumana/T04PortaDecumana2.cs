@@ -160,7 +160,7 @@ sealed class T04PortaDecumana2States : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 830u, NameID = 2137u, SortOrder = 2)]
-public sealed class T04PortaDecumana2(WorldState ws, Actor primary) : BossModule(ws, primary, new(-704f, 480f), new ArenaBoundsCircle(19.5f))
+public sealed class T04PortaDecumana2(WorldState ws, Actor primary) : BossModule(ws, primary, new(-704f, 480f), new ArenaBoundsCustom([new Polygon(new(-704f, 480f), 19.5f, 64)]))
 {
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {

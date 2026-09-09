@@ -1,5 +1,7 @@
 ﻿using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Textures.TextureWraps;
+using FFXIVClientStructs.FFXIV.Client.Game.Control;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using System.Buffers;
 using System.Diagnostics;
 using System.Threading;
@@ -57,6 +59,7 @@ public static unsafe partial class Dx11ArenaRenderer
         public uint Flags; // bit 0 = start cap, bit 1 = end cap
     }
 
+    private const float OneThird = 1f / 3f;
     public const int MaxWorldLineTransforms = 1024;
     // Shared indexed-quad buffer also contains sequential quads for procedural WorldCurve lines.
     // 65k generated lines per curve is far beyond practical tessellation while keeping the one-time
@@ -194,11 +197,291 @@ public static unsafe partial class Dx11ArenaRenderer
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    public readonly struct WorldProjectedArrowInstance(Vector3 origin, float length, Vector2 directionXZ, float shaftWidth, float headLength, float headWidth, float projectionHeight, uint color)
+    {
+        public readonly Vector3 Origin = origin;
+        public readonly float Length = length;
+        public readonly Vector2 DirectionXZ = directionXZ;
+        public readonly Vector2 Widths = new(Math.Max(0f, shaftWidth), Math.Max(0f, headWidth)); // x shaft width, y head width
+        public readonly Vector2 HeadProjection = new(Math.Clamp(headLength, 0f, Math.Max(0f, length)), Math.Max(0f, projectionHeight)); // x head length, y +/- projection height
+        public readonly uint Col = color;
+    }
+
+    public enum WorldProjectedShapeKind : uint
+    {
+        CircleDonut = 0,
+        Rect = 1,
+        Cone = 2,
+        Capsule = 3,
+        ArcCapsule = 4,
+        Cross = 5,
+        Triangle = 6,
+        Sdf = 7,
+        Eye3D = 8,
+    }
+
+    // World-projected MiniArena primitive. Most kinds reconstruct the visible scene surface and
+    // evaluate an X/Z SDF there; Eye3D instead ray-intersects a volumetric analytic lens. BoundsXZ
+    // remains an absolute world-space conservative AABB for the shared screen-quad VS path.
+    [StructLayout(LayoutKind.Sequential)]
+    public readonly struct WorldProjectedShapeInstance
+    {
+        public readonly Vector3 Origin;
+        public readonly float ProjectionHeight;
+        public readonly Vector2 BoundsMinXZ;
+        public readonly Vector2 BoundsMaxXZ;
+        public readonly Vector2 DirectionXZ;
+        public readonly Vector2 Aux;
+        public readonly Vector4 Params0;
+        public readonly Vector4 Params1;
+        public readonly uint Col;
+        public readonly uint Packed; // low 8 bits kind, bit 8 = outline-only, bit 9 = filled shape with outline, bit 10 = suppress zone wave, bit 11 = inverted gaze
+        public readonly float OutlineWidth;
+        public readonly uint OutlineCol;
+        public readonly Vector2 WaveOriginXZ;
+
+        private WorldProjectedShapeInstance(Vector3 origin, float projectionHeight, Vector2 boundsMinXZ, Vector2 boundsMaxXZ,
+            Vector2 directionXZ, Vector2 aux, Vector4 params0, Vector4 params1, uint color, WorldProjectedShapeKind kind, float outlineWidth, uint outlineColor = 0, bool fillWithOutline = false, Vector2 waveOriginXZ = default, bool suppressZoneWave = false, bool invertedGaze = false)
+        {
+            Origin = origin;
+            ProjectionHeight = Math.Max(0f, projectionHeight);
+            var pad = new Vector2(Math.Max(0f, outlineWidth) * 0.5f + 0.02f);
+            BoundsMinXZ = boundsMinXZ - pad;
+            BoundsMaxXZ = boundsMaxXZ + pad;
+            DirectionXZ = directionXZ;
+            Aux = aux;
+            Params0 = params0;
+            Params1 = params1;
+            Col = color;
+            OutlineWidth = Math.Max(0f, outlineWidth);
+            OutlineCol = outlineColor;
+            WaveOriginXZ = waveOriginXZ;
+            Packed = (uint)kind | (OutlineWidth > 0f ? (fillWithOutline ? 0x200u : 0x100u) : 0u) | (suppressZoneWave ? 0x400u : 0u) | (invertedGaze ? 0x800u : 0u);
+        }
+
+        public static WorldProjectedShapeInstance Circle(Vector3 center, float radius, uint color, float projectionHeight, float outlineWidth = 0f, float innerRadius = 0f)
+        {
+            radius = Math.Max(0f, radius);
+            innerRadius = Math.Clamp(innerRadius, 0f, radius);
+            var centerXZ = center.XZ();
+            var r = new Vector2(radius);
+            return new(center, projectionHeight, centerXZ - r, centerXZ + r, default, default,
+                new Vector4(radius, innerRadius, 0f, 0f), default, color, WorldProjectedShapeKind.CircleDonut, outlineWidth, waveOriginXZ: centerXZ);
+        }
+
+        public static WorldProjectedShapeInstance Rect(Vector3 origin, Vector2 directionXZ, float lenFront, float lenBack, float halfWidth, uint color, float projectionHeight, float outlineWidth = 0f)
+        {
+            var halfLength = 0.5f * Math.Max(0f, lenFront + lenBack);
+            var centerShift = 0.5f * (lenFront - lenBack);
+            var originXZ = origin.XZ();
+            var centerXZ = originXZ + directionXZ * centerShift;
+            var center = new Vector3(centerXZ.X, origin.Y, centerXZ.Y);
+            var perp = new Vector2(-directionXZ.Y, directionXZ.X);
+            var extent = Vector2.Abs(directionXZ) * halfLength + Vector2.Abs(perp) * Math.Max(0f, halfWidth);
+            return new(center, projectionHeight, centerXZ - extent, centerXZ + extent, directionXZ, default,
+                new Vector4(halfLength, Math.Max(0f, halfWidth), 0f, 0f), default, color, WorldProjectedShapeKind.Rect, outlineWidth, waveOriginXZ: originXZ);
+        }
+
+        public static WorldProjectedShapeInstance Cone(Vector3 center, float innerRadius, float outerRadius, Vector2 directionXZ, float halfAngle, uint color, float projectionHeight, float outlineWidth = 0f)
+        {
+            outerRadius = Math.Max(0f, outerRadius);
+            innerRadius = Math.Clamp(innerRadius, 0f, outerRadius);
+            halfAngle = Math.Clamp(Math.Abs(halfAngle), 0f, MathF.PI);
+            var centerXZ = center.XZ();
+            var (sinHalfAngle, cosHalfAngle) = MathF.SinCos(halfAngle);
+            var r = new Vector2(outerRadius);
+            return new(center, projectionHeight, centerXZ - r, centerXZ + r, directionXZ, new Vector2(sinHalfAngle, cosHalfAngle),
+                new Vector4(outerRadius, innerRadius, halfAngle, 0f), default, color, WorldProjectedShapeKind.Cone, outlineWidth, waveOriginXZ: centerXZ);
+        }
+
+        public static WorldProjectedShapeInstance Capsule(Vector3 start, Vector2 directionXZ, float radius, float length, uint color, float projectionHeight, float outlineWidth = 0f, bool suppressZoneWave = false)
+        {
+            radius = Math.Max(0f, radius);
+            length = Math.Max(0f, length);
+            var halfSegment = 0.5f * length;
+            var startXZ = start.XZ();
+            var centerXZ = startXZ + directionXZ * halfSegment;
+            var center = new Vector3(centerXZ.X, start.Y, centerXZ.Y);
+            var endA = centerXZ - directionXZ * halfSegment;
+            var endB = centerXZ + directionXZ * halfSegment;
+            var r = new Vector2(radius);
+            return new(center, projectionHeight, Vector2.Min(endA, endB) - r, Vector2.Max(endA, endB) + r, directionXZ, default,
+                new Vector4(halfSegment, radius, 0f, 0f), default, color, WorldProjectedShapeKind.Capsule, outlineWidth,
+                waveOriginXZ: startXZ, suppressZoneWave: suppressZoneWave);
+        }
+
+        public static WorldProjectedShapeInstance ArcCapsule(Vector3 orbitCenter, Vector2 startDirectionXZ, float orbitRadius, float radius, float angularLength, uint color, float projectionHeight, float outlineWidth = 0f, bool suppressZoneWave = false)
+        {
+            orbitRadius = Math.Max(0f, orbitRadius);
+            radius = Math.Max(0f, radius);
+            var (sinSweep, cosSweep) = MathF.SinCos(angularLength);
+            var startX = startDirectionXZ.X;
+            var startY = startDirectionXZ.Y;
+            var endDirectionXZ = new Vector2(startX * cosSweep + startY * sinSweep, startY * cosSweep - startX * sinSweep);
+            var centerXZ = orbitCenter.XZ();
+            var extent = new Vector2(orbitRadius + radius);
+            return new(orbitCenter, projectionHeight, centerXZ - extent, centerXZ + extent, startDirectionXZ, endDirectionXZ,
+                new Vector4(orbitRadius, radius, angularLength, 0f), default, color, WorldProjectedShapeKind.ArcCapsule, outlineWidth,
+                waveOriginXZ: centerXZ + startDirectionXZ * orbitRadius, suppressZoneWave: suppressZoneWave);
+        }
+
+        // Camera-facing analytic 3D eye. The pixel shader interprets this as the intersection of two
+        // equal ellipsoids (a biconvex lens), then adds a larger animated mist volume around it.
+        // ProjectionHeight is deliberately the conservative world-space bound radius here rather than
+        // a terrain receiver band; Eye3D takes a dedicated volumetric path in projected_shape_ps.
+        public static WorldProjectedShapeInstance Eye3D(Vector3 center, float halfWidth, float halfHeight, float halfDepth, float mistRadius, uint color, uint borderColor, bool inverted = false)
+        {
+            halfWidth = Math.Max(0.05f, halfWidth);
+            halfHeight = Math.Clamp(halfHeight, 0.05f, halfWidth);
+            halfDepth = Math.Max(0.05f, halfDepth);
+            mistRadius = Math.Max(0f, mistRadius);
+            var centerXZ = center.XZ();
+            var boundRadius = Math.Max(Math.Max(halfWidth + mistRadius, halfHeight + mistRadius), halfDepth + mistRadius);
+            var e = new Vector2(boundRadius);
+            return new(center, boundRadius, centerXZ - e, centerXZ + e, default, default,
+                new Vector4(halfWidth, halfHeight, halfDepth, mistRadius), new Vector4(boundRadius, 0f, 0f, 0f),
+                color, WorldProjectedShapeKind.Eye3D, 0f, borderColor, waveOriginXZ: centerXZ, invertedGaze: inverted);
+        }
+
+        public static WorldProjectedShapeInstance Cross(Vector3 center, Vector2 directionXZ, float range, float halfWidth, uint color, float projectionHeight, float outlineWidth = 0f)
+        {
+            range = Math.Max(0f, range);
+            halfWidth = Math.Max(0f, halfWidth);
+            var centerXZ = center.XZ();
+            var e = new Vector2(Math.Max(range, halfWidth));
+            return new(center, projectionHeight, centerXZ - e, centerXZ + e, directionXZ, default,
+                new Vector4(range, halfWidth, 0f, 0f), default, color, WorldProjectedShapeKind.Cross, outlineWidth, waveOriginXZ: centerXZ);
+        }
+
+        public static WorldProjectedShapeInstance Triangle(Vector3 a, Vector3 b, Vector3 c, uint color, float projectionHeight, float outlineWidth = 0f)
+        {
+            var center = (a + b + c) * OneThird;
+            var centerXZ = center.XZ();
+            var aXZ = a.XZ();
+            var bXZ = b.XZ();
+            var cXZ = c.XZ();
+            var aRel = aXZ - centerXZ;
+            var bRel = bXZ - centerXZ;
+            var cRel = cXZ - centerXZ;
+            var min = Vector2.Min(aXZ, Vector2.Min(bXZ, cXZ));
+            var max = Vector2.Max(aXZ, Vector2.Max(bXZ, cXZ));
+            return new(center, projectionHeight, min, max, aRel, bRel, new Vector4(cRel.X, cRel.Y, 0f, 0f), default, color, WorldProjectedShapeKind.Triangle, outlineWidth, waveOriginXZ: aXZ);
+        }
+
+        // One projected triangle instance containing both fill and outline. This is primarily used by
+        // actor markers so scene-depth reconstruction, character classification and arena clipping are evaluated once
+        public static WorldProjectedShapeInstance TriangleFilledOutlined(Vector3 a, Vector3 b, Vector3 c, uint fillColor, uint outlineColor, float projectionHeight, float outlineWidth, float boundsProjectionHeight = 0f)
+        {
+            var center = (a + b + c) * OneThird;
+            var centerXZ = center.XZ();
+            var aXZ = a.XZ();
+            var bXZ = b.XZ();
+            var cXZ = c.XZ();
+            var aRel = aXZ - centerXZ;
+            var bRel = bXZ - centerXZ;
+            var cRel = cXZ - centerXZ;
+            var min = Vector2.Min(aXZ, Vector2.Min(bXZ, cXZ));
+            var max = Vector2.Max(aXZ, Vector2.Max(bXZ, cXZ));
+            var conservativeHeight = Math.Max(projectionHeight, boundsProjectionHeight);
+            return new(center, projectionHeight, min, max, aRel, bRel,
+                new Vector4(cRel.X, cRel.Y, 0f, 0f), new Vector4(conservativeHeight, 0f, 0f, 0f), fillColor, WorldProjectedShapeKind.Triangle, outlineWidth, outlineColor, fillWithOutline: true, suppressZoneWave: true);
+        }
+
+        public static WorldProjectedShapeInstance Sdf(Vector3 referenceOrigin, Vector2 boundsMinXZ, Vector2 boundsMaxXZ, uint color, float projectionHeight, float outlineWidth = 0f)
+            => new(referenceOrigin, projectionHeight, boundsMinXZ, boundsMaxXZ, default, default, default, default, color, WorldProjectedShapeKind.Sdf, outlineWidth, waveOriginXZ: referenceOrigin.XZ());
+
+        private WorldProjectedShapeInstance(in WorldProjectedShapeInstance source, Vector4 params1, uint packed, Vector3 origin, float projectionHeight)
+        {
+            Origin = origin;
+            ProjectionHeight = projectionHeight;
+            BoundsMinXZ = source.BoundsMinXZ;
+            BoundsMaxXZ = source.BoundsMaxXZ;
+            DirectionXZ = source.DirectionXZ;
+            Aux = source.Aux;
+            Params0 = source.Params0;
+            Params1 = params1;
+            Col = source.Col;
+            Packed = packed;
+            OutlineWidth = source.OutlineWidth;
+            OutlineCol = source.OutlineCol;
+            WaveOriginXZ = source.WaveOriginXZ;
+        }
+
+        // Reuse a terrain footprint on another physical floor without changing its X/Z geometry,
+        // padding or style. Eye3D has an authoritative height and does not use this operation.
+        public WorldProjectedShapeInstance WithProjectionLayer(float y, float projectionHeight, float holeFillRadius)
+        {
+            var height = Math.Max(0f, projectionHeight);
+            var params1 = Params1;
+            if ((Packed & 0xFFu) == (uint)WorldProjectedShapeKind.Triangle)
+            {
+                params1.X = height; // the triangle's conservative vertical bound follows this floor too
+            }
+            params1.Y = Math.Clamp(holeFillRadius, 0f, 2f);
+            return new(this, params1, Packed, new Vector3(Origin.X, y, Origin.Z), height);
+        }
+
+        // Params1.y carries the optional world-space closing radius without growing the instance or input layout. ProjectionHeight == 0 selects the authored reference plane.
+        public WorldProjectedShapeInstance WithHoleFillRadius(float holeFillRadius)
+        {
+            var params1 = Params1;
+            params1.Y = Math.Clamp(holeFillRadius, 0f, 2f);
+            return new(this, params1, Packed, Origin, ProjectionHeight);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WorldProjectedSdfConstants
+    {
+        public Vector4 ShapeSdfMap;
+        public Vector4 ArenaSdfMap;
+        public Vector4 Flags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ZoneWaveConstants
+    {
+        public Vector4 Params; // x = elapsed seconds; remaining lanes reserved for future tuning
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WorldOverlayConstants
+    {
+        public Vector4 RiskColor; // straight-alpha color, with fade/intensity included in alpha
+        public Vector4 RiskParams; // xy = framebuffer size, z = pulse phase, w reserved
+    }
+
+    private struct WorldProjectedSdfBinding
+    {
+        public ID3D11ShaderResourceView* View;
+        // xy = world-space padded-domain minimum, zw = reciprocal world-space span.
+        public Vector4 Map;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     private struct WorldLineConstants
     {
         public Matrix4x4 ViewProj;
+        public Matrix4x4 InvViewProj;
         public Vector4 NearPlane;
         public Vector4 Viewport; // x/y framebuffer dimensions, z logical->framebuffer pixel scale
+        // xy maps framebuffer pixels to scene-depth texels; zw maps framebuffer pixels to NDC.
+        // Supplying these once per packet removes uniform divisions from every world-space pixel/vertex.
+        public Vector4 RasterScale;
+        public Vector4 SceneDepthParams; // xy scene depth actual dimensions, z line-occlusion tolerance in world units, w = scene depth available
+        public Vector4 SceneInfoParams; // x = character-classification texture available, y = near-black character threshold
+    }
+
+    // Prefix-compatible with D3D11_SHADER_RESOURCE_VIEW_DESC for a Texture2D view. TerraFX exposes
+    // the native anonymous union through generated nested types; this compact descriptor keeps the
+    // callsite independent of those generated union member names.
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Texture2DShaderResourceViewDesc
+    {
+        public DXGI_FORMAT Format;
+        public D3D_SRV_DIMENSION ViewDimension;
+        public uint MostDetailedMip;
+        public uint MipLevels;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -207,6 +490,21 @@ public static unsafe partial class Dx11ArenaRenderer
         // One glyph quad. RectNdc = (minX, minY, maxX, maxY), UvRect = (u0, v0, u1, v1).
         // The VS expands this to the same six triangle-list vertices as the other indexed-quad paths.
         public Vector4 RectNdc;
+        public Vector4 UvRect;
+        public uint Col;
+        public uint OutlineCol;
+        public float OutlineWidthPx;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WorldTextInstance
+    {
+        // Fixed-screen-size glyph quad anchored at a true world-space point. RectPx stores framebuffer-
+        // pixel offsets from the projected anchor; the world-text VS applies those offsets in clip space
+        // while preserving the anchor depth for scene-depth occlusion in the pixel shader.
+        public Vector3 Center;
+        public float Reserved;
+        public Vector4 RectPx;
         public Vector4 UvRect;
         public uint Col;
         public uint OutlineCol;
@@ -312,6 +610,50 @@ public static unsafe partial class Dx11ArenaRenderer
         public int Height;
         public int ByteSize;
         public long LastUse;
+        // Frame in which this resource was first published. Progressive refinement only starts after
+        // the polygon survives into a later frame, so one-frame dynamic AOEs/bounds do not flood the worker.
+        public int CreatedFrame = -1;
+    }
+
+    // CPU-side SDF payload produced by the background worker. It intentionally contains no D3D
+    // objects so expensive polygon sampling can run independently from the immediate-context thread.
+    private sealed class SdfCpuData
+    {
+        public required ushort[] Packed;
+        public int TotalSampleCount;
+        public int Width;
+        public int Height;
+        public int MipLevels;
+        public float MinX;
+        public float MinZ;
+        public float SpanX;
+        public float SpanZ;
+
+        public void ReturnPacked()
+        {
+            var packed = Packed;
+            Packed = null!;
+            if (packed != null)
+            {
+                ArrayPool<ushort>.Shared.Return(packed, clearArray: false);
+            }
+        }
+    }
+
+    private sealed class CustomSdfBuildRequest(RelSimplifiedComplexPolygon polygon, int longResolution, int generation, bool arenaCache)
+    {
+        public readonly RelSimplifiedComplexPolygon Polygon = polygon;
+        public readonly int LongResolution = longResolution;
+        public readonly int Generation = generation;
+        // Both arena and custom SDFs share one CPU worker so a changing arena cannot compete with
+        // changing mechanics for an entire second ThreadPool core. GPU publication remains cache-specific.
+        public readonly bool ArenaCache = arenaCache;
+    }
+
+    private sealed class CompletedCustomSdfBuild(CustomSdfBuildRequest request, SdfCpuData data)
+    {
+        public readonly CustomSdfBuildRequest Request = request;
+        public readonly SdfCpuData Data = data;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -322,6 +664,11 @@ public static unsafe partial class Dx11ArenaRenderer
         // UvRow1.w converts arena-local SDF world units to framebuffer pixels.
         public Vector4 UvRow0;
         public Vector4 UvRow1;
+        // xy converts distance outside the finite UV domain back to framebuffer pixels.
+        // This is invariant for a binding and avoids two length/reciprocal pairs per SDF sample.
+        public Vector4 OutsideScale;
+        // xy/zw are the explicit SampleGrad x/y gradients, including the stable -0.5 LOD bias.
+        public Vector4 MipGrad;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -361,6 +708,8 @@ public static unsafe partial class Dx11ArenaRenderer
         Stroke,
         WorldLine,
         WorldCurve,
+        WorldProjectedArrow,
+        WorldProjectedShape,
         Analytic,
         ScreenAnalytic,
         AnalyticOutline,
@@ -371,6 +720,7 @@ public static unsafe partial class Dx11ArenaRenderer
         AnalyticClipEdgeOverlay,
         CustomClipEdgeOverlay,
         Text,
+        WorldText,
         Sprite
     }
 
@@ -404,8 +754,14 @@ public static unsafe partial class Dx11ArenaRenderer
     {
         public OutlineInstance Instance;
         public SegmentKind Kind;
+        public ID3D11ShaderResourceView* ArenaSdfView;
+        public OutlineSdfConstants ArenaSdfConstants;
         public ID3D11ShaderResourceView* CustomSdfView;
         public OutlineSdfConstants CustomSdfConstants;
+        public Vector2 ClipOffset;
+        public Vector2 ClipScale;
+        public int FramebufferWidth;
+        public int FramebufferHeight;
     }
 
     private sealed class BatchPacket
@@ -421,15 +777,25 @@ public static unsafe partial class Dx11ArenaRenderer
         public int WorldLineCount;
         public WorldCurveInstance[]? WorldCurves;
         public int WorldCurveCount;
+        public WorldProjectedArrowInstance[]? WorldProjectedArrows;
+        public int WorldProjectedArrowCount;
+        public WorldProjectedShapeInstance[]? WorldProjectedShapes;
+        public int WorldProjectedShapeCount;
+        public WorldProjectedSdfBinding[]? WorldProjectedSdfs;
+        public int WorldProjectedSdfCount;
         public WorldLineTransform[]? WorldLineTransforms;
         public int WorldLineTransformCount;
         public WorldLineConstants WorldLineConstants;
+        public ID3D11ShaderResourceView* SceneDepthView;
+        public ID3D11ShaderResourceView* SceneInfoView;
         public AnalyticInstance[]? Analytics;
         public int AnalyticCount;
         public OutlineInstance[]? Outlines;
         public int OutlineCount;
         public TextInstance[]? TextInstances;
         public int TextInstanceCount;
+        public WorldTextInstance[]? WorldTextInstances;
+        public int WorldTextInstanceCount;
         public SpriteBinding[]? Sprites;
         public int SpriteCount;
         public ID3D11ShaderResourceView* ArenaSdfView;
@@ -437,6 +803,7 @@ public static unsafe partial class Dx11ArenaRenderer
         public CustomSdfBinding[]? CustomSdfs;
         public int CustomSdfCount;
         public bool NeedsStencil;
+        public bool UsesZoneWave;
         // True when any submitted segment explicitly switches away from the inherited depth/stencil state.
         // Computed while building so the render callback does not rescan the ordered segment list.
         public bool ModifiesDepthState;
@@ -455,10 +822,19 @@ public static unsafe partial class Dx11ArenaRenderer
         public uint StrokeOffsetBytes;
         public uint WorldLineOffsetBytes;
         public uint WorldCurveOffsetBytes;
+        public uint WorldProjectedArrowOffsetBytes;
+        public uint WorldProjectedShapeOffsetBytes;
         public uint AnalyticOffsetBytes;
         public uint OutlineOffsetBytes;
         public uint TextOffsetBytes;
+        public uint WorldTextOffsetBytes;
         public int SubmitFrame;
+        // Camera/world packets render into the texture presented by WorldOverlayNode instead of the
+        // composited swapchain. A separate marker packet resolves that texture once per frame.
+        public bool WorldOverlayTarget;
+        public bool IsWorldOverlayPresent;
+        public Vector4 ScreenRiskColor;
+        public float ScreenRiskPhase;
         // Deferred clipping-edge replay is correctness-sensitive: it must land after and obscure
         // the arena border. Give these packets a fresh dynamic-buffer backing allocation instead of sharing the same-frame NO_OVERWRITE ring with the border packet
         public bool IsDeferredOverlay;
@@ -467,10 +843,10 @@ public static unsafe partial class Dx11ArenaRenderer
     private static readonly ImDrawCallback DrawCallback = RenderBatchCallback;
     // DX11 objects below are process/game-owned COM resources used from the deferred ImGui render callback.
     // Hot reload can call Shutdown while a callback from the previous UI frame is still executing, so
-    // teardown must be mutually exclusive with callback execution. Lock ordering is always RendererLock -> PendingPackets when both are needed.
-    private static readonly Lock RendererLock = new();
+    // teardown must be mutually exclusive with callback execution. Lock ordering is always _rendererLock -> PendingPackets when both are needed.
+    private static readonly Lock _rendererLock = new();
     private static volatile bool _shutDown = true;
-    public static bool IsInitialized = false;
+    private static bool _isInitialized;
     private static readonly Dictionary<nint, BatchPacket> PendingPackets = [];
     private static readonly Stack<BatchPacket> BatchPacketPool = new(16);
 
@@ -486,9 +862,31 @@ public static unsafe partial class Dx11ArenaRenderer
     private const int MaxCachedCustomSdfs = 64;
     private const float TargetSdfPixelsPerTexel = 0.5f;
     private const int MinSdfLongResolution = 64;
+    // A new custom polygon gets this tiny exact-distance preview synchronously. A square 32px SDF
+    // evaluates only 1365 samples including its complete mip chain, versus ~1.4M at 1024px.
+    // Refinement is deferred until the same polygon survives into a later frame.
+    private const int CustomSdfPreviewLongResolution = 128;
+    // Arena/stencil bounds use the same tiny first-frame exact map. Unlike an async-only miss this
+    // guarantees clipping/background primitives always have a valid SDF, even if the bounds object
+    // is rebuilt every frame. Persistent bounds refine in the background.
+    private const int ArenaSdfPreviewLongResolution = 128;
     private const int MaxSdfResolution = 1024;
     private const int SdfResolutionAlignment = 16;
     private static readonly Dictionary<RelSimplifiedComplexPolygon, ArenaSdfResource> CustomSdfCache = new(ReferenceEqualityComparer.Instance);
+
+    // Custom SDF sampling is CPU-heavy and can be safely generated off-thread because polygons are
+    // immutable by renderer convention. A single background worker avoids turning a burst of new
+    // mechanics into competing ThreadPool jobs. Texture/SRV creation remains on the render thread.
+    private static readonly Lock _customSdfBuildLock = new();
+    private static readonly Queue<CustomSdfBuildRequest> _customSdfBuildQueue = [];
+    private static readonly Queue<CompletedCustomSdfBuild> _completedCustomSdfBuildQueue = [];
+    private static readonly Queue<CompletedCustomSdfBuild> _completedArenaSdfBuildQueue = [];
+    private static readonly HashSet<RelSimplifiedComplexPolygon> _pendingCustomSdfBuilds = new(ReferenceEqualityComparer.Instance);
+    private static readonly HashSet<RelSimplifiedComplexPolygon> _pendingArenaSdfBuilds = new(ReferenceEqualityComparer.Instance);
+    private const int MaxPendingCustomSdfBuilds = 64;
+    private static bool _customSdfWorkerRunning;
+    private static int _customSdfBuildGeneration;
+
     // Byte totals only change on create/upgrade/evict. Keep them incrementally instead of scanning
     // every cache entry on every SDF lookup in the steady-state render path
     private static long _arenaSdfCacheBytes;
@@ -518,8 +916,54 @@ public static unsafe partial class Dx11ArenaRenderer
     private static ID3D11InputLayout* _worldLineInputLayout;
     private static ID3D11VertexShader* _worldCurveVertexShader;
     private static ID3D11InputLayout* _worldCurveInputLayout;
+    private static ID3D11VertexShader* _worldProjectedArrowVertexShader;
+    private static ID3D11PixelShader* _worldProjectedArrowPixelShader;
+    private static ID3D11InputLayout* _worldProjectedArrowInputLayout;
+    private static ID3D11VertexShader* _worldProjectedShapeVertexShader;
+    private static ID3D11PixelShader* _worldProjectedShapePixelShader;
+    private static ID3D11InputLayout* _worldProjectedShapeInputLayout;
+    private static ID3D11VertexShader* _worldOverlayVertexShader;
+    private static ID3D11PixelShader* _worldOverlayPixelShader;
+    private static ID3D11Buffer* _worldOverlayConstantBuffer;
+    private static ID3D11Buffer* _worldProjectedSdfConstantBuffer;
     private static ID3D11Buffer* _worldLineConstantBuffer;
     private static ID3D11Buffer* _worldLineTransformBuffer;
+    private static ID3D11ShaderResourceView* _sceneDepthView;
+    private static nint _sceneDepthTextureIdentity;
+    private static ID3D11ShaderResourceView* _sceneInfoView;
+    private static nint _sceneInfoViewIdentity;
+    private static ID3D11Texture2D* _worldOverlayBaseTexture;
+    private static ID3D11RenderTargetView* _worldOverlayBaseRenderTarget;
+    private static ID3D11ShaderResourceView* _worldOverlayBaseView;
+    private static ID3D11Texture2D* _worldOverlayOutputTexture;
+    private static ID3D11RenderTargetView* _worldOverlayOutputRenderTarget;
+    private static ID3D11ShaderResourceView* _worldOverlayOutputView;
+    private static WorldOverlayNode? _worldOverlayNode;
+    // Backing textures are capacity-sized rather than exact framebuffer-sized. Keeping the largest
+    // recent allocation avoids feeding FFXIV/D3D11 a new pair of full-screen textures on every resize.
+    private static int _worldOverlayCapacityWidth;
+    private static int _worldOverlayCapacityHeight;
+    private static int _worldOverlayBaseFrame = -1;
+    private static bool _worldOverlayLastSucceeded;
+
+    // Full-screen overlay targets are expensive and native Texture destruction can be delayed. During
+    // an interactive window resize, wait until the requested framebuffer size has remained unchanged
+    // for several submitted frames before allocating another pair of full-screen targets. While the
+    // size is unstable, world packets use their existing non-overlay fallback path.
+    private const int WorldOverlayResizeStableFrames = 6;
+    private const int WorldOverlayCapacityAlignment = 256;
+    private static int _worldOverlayPendingWidth;
+    private static int _worldOverlayPendingHeight;
+    private static int _worldOverlayPendingStableFrames;
+    private static int _worldOverlayPendingLastSubmitFrame = -1;
+
+    // Stable world-render settings. Scene depth hides line/curve pixels behind world geometry. Native
+    // UI ordering is handled structurally by WorldOverlayNode's background layer, never inferred from
+    // the already-composited backbuffer (whose alpha also contains world particle billboards).
+    private const float WorldSceneOcclusionTolerance = 0.05f;
+    private const float WorldSceneCharacterMaskThreshold = 0.05f;
+    public static bool WorldSceneDepthAvailable => _sceneDepthView != null;
+    public static bool WorldNativeUiLayerAvailable => _worldOverlayLastSucceeded && _worldOverlayNode != null;
 
     private static ID3D11VertexShader* _analyticVertexShader;
     private static ID3D11PixelShader* _analyticPixelShader;
@@ -529,6 +973,9 @@ public static unsafe partial class Dx11ArenaRenderer
     private static ID3D11PixelShader* _textPixelShader;
     private static ID3D11PixelShader* _spritePixelShader;
     private static ID3D11InputLayout* _textInputLayout;
+    private static ID3D11VertexShader* _worldTextVertexShader;
+    private static ID3D11PixelShader* _worldTextPixelShader;
+    private static ID3D11InputLayout* _worldTextInputLayout;
     // Arena text is completely independent of ImGui's dynamic font atlas. The immutable MSDF
     // texture and metrics are embedded alongside the compiled shaders and owned by this renderer.
     private static ID3D11ShaderResourceView* _arenaFontAtlasView;
@@ -556,10 +1003,17 @@ public static unsafe partial class Dx11ArenaRenderer
     private static ID3D11SamplerState* _arenaSdfSampler;
     private static ID3D11Buffer* _outlineSdfConstantBuffer;
     private static ID3D11Buffer* _customSdfConstantBuffer;
+    private static ID3D11Buffer* _zoneWaveConstantBuffer;
+    private static readonly long ZoneWaveEpoch = Stopwatch.GetTimestamp();
+
+    // Retryable resource creation can fail every frame while the device is under pressure. Log the first
+    // failure immediately, then at most once every five seconds until the resource recovers.
     private static readonly long D3D11RetryFailureLogIntervalTicks = 5L * Stopwatch.Frequency;
     private static long _lastQuadIndexBufferFailureLogTimestamp;
     private static long _lastStencilTargetFailureLogTimestamp;
     private static long _lastUploadVertexBufferFailureLogTimestamp;
+    private static long _lastWorldOverlayFailureLogTimestamp;
+    private static long _lastSceneDepthViewFailureLogTimestamp;
     // Shared immutable 0,1,2 / 0,2,3 quad indices. Stroke/world-line/analytic/outline/text VS paths only need four unique corners
     private static ID3D11Buffer* _quadIndexBuffer;
     private static int _stencilWidth;
@@ -575,16 +1029,22 @@ public static unsafe partial class Dx11ArenaRenderer
     private static uint _uploadStrokeOffsetBytes;
     private static uint _uploadWorldLineOffsetBytes;
     private static uint _uploadWorldCurveOffsetBytes;
+    private static uint _uploadWorldProjectedArrowOffsetBytes;
+    private static uint _uploadWorldProjectedShapeOffsetBytes;
     private static uint _uploadAnalyticOffsetBytes;
     private static uint _uploadOutlineOffsetBytes;
     private static uint _uploadTextOffsetBytes;
+    private static uint _uploadWorldTextOffsetBytes;
 
     private static OutlineSdfConstants _lastOutlineSdfConstants;
     private static OutlineSdfConstants _lastCustomSdfConstants;
+    private static WorldProjectedSdfConstants _lastWorldProjectedSdfConstants;
     private static WorldLineConstants _lastUploadedWorldLineConstants;
     private static bool _outlineSdfConstantsValid;
     private static bool _customSdfConstantsValid;
+    private static bool _worldProjectedSdfConstantsValid;
     private static bool _uploadedWorldLineConstantsValid;
+    private static int _zoneWaveUploadFrame = -1;
 
     // Current arena/run build state
     private static MeshVertex[]? _buildMeshVertices;
@@ -598,12 +1058,22 @@ public static unsafe partial class Dx11ArenaRenderer
     private static int _buildWorldLineCount;
     private static WorldCurveInstance[]? _buildWorldCurves;
     private static int _buildWorldCurveCount;
+    private static WorldProjectedArrowInstance[]? _buildWorldProjectedArrows;
+    private static int _buildWorldProjectedArrowCount;
+    private static WorldProjectedShapeInstance[]? _buildWorldProjectedShapes;
+    private static int _buildWorldProjectedShapeCount;
+    private static WorldProjectedSdfBinding[]? _buildWorldProjectedSdfs;
+    private static int _buildWorldProjectedSdfCount;
     private static WorldLineTransform[]? _buildWorldLineTransforms;
     private static int _buildWorldLineTransformCount;
     private static WorldLineConstants _buildWorldLineConstants;
     private static bool _buildWorldLineConstantsValid;
     private static Matrix4x4 _buildWorldLineViewProj;
+    private static Matrix4x4 _buildWorldLineInvViewProj;
     private static Vector4 _buildWorldLineNearPlane;
+    private static Vector2 _buildWorldSceneDepthSize;
+    private static bool _buildWorldSceneDepthAvailable;
+    private static bool _buildWorldSceneInfoAvailable;
     private static bool _buildWorldLineConfigured;
     private static AnalyticInstance[]? _buildAnalytics;
     private static int _buildAnalyticCount;
@@ -611,9 +1081,12 @@ public static unsafe partial class Dx11ArenaRenderer
     private static int _buildOutlineCount;
     private static TextInstance[]? _buildTextInstances;
     private static int _buildTextInstanceCount;
+    private static WorldTextInstance[]? _buildWorldTextInstances;
+    private static int _buildWorldTextInstanceCount;
     private static SpriteBinding[]? _buildSprites;
     private static int _buildSpriteCount;
     private static bool _buildNeedsStencil;
+    private static bool _buildUsesZoneWave;
     private static bool _buildModifiesDepthState;
     private static long _arenaStencilKey;
     private static bool _arenaStencilMaskQueued;
@@ -624,15 +1097,6 @@ public static unsafe partial class Dx11ArenaRenderer
     private const float PathArcMaxErrorPx = 0.25f;
     private const int PathArcMaxSegments = 512;
     private static readonly List<DeferredOutlineOverlay> DeferredOutlineOverlays = new(16);
-    // Every deferred clipping-edge replay in one arena uses the same arena SDF and viewport mapping.
-    // Retain/store that packet-wide state once instead of once per outline.
-    private static ID3D11ShaderResourceView* _deferredArenaSdfView;
-    private static OutlineSdfConstants _deferredArenaSdfConstants;
-    private static Vector2 _deferredClipOffset;
-    private static Vector2 _deferredClipScale;
-    private static int _deferredFramebufferWidth;
-    private static int _deferredFramebufferHeight;
-
     private static bool _arenaActive;
     private static bool _arenaPrepared;
     private static ImDrawListPtr _buildDrawList;
@@ -671,6 +1135,15 @@ public static unsafe partial class Dx11ArenaRenderer
     private static int _buildFramebufferWidth;
     private static int _buildFramebufferHeight;
 
+    internal static void SetWorldOverlayNode(WorldOverlayNode? node)
+    {
+        lock (_rendererLock)
+        {
+            _worldOverlayNode = node;
+            _worldOverlayLastSucceeded = node != null && _worldOverlayOutputView != null;
+        }
+    }
+
     // Arena world-local -> screen transform, copied from MiniArena.Begin().
     private static float _buildCenterX;
     private static float _buildCenterY;
@@ -690,7 +1163,7 @@ public static unsafe partial class Dx11ArenaRenderer
         // RenderBatchCallback and leaves the gate closed until all new resources are ready.
         Shutdown();
 
-        lock (RendererLock)
+        lock (_rendererLock)
         {
             _device = (ID3D11Device*)deviceHandle;
             _device->AddRef();
@@ -707,28 +1180,30 @@ public static unsafe partial class Dx11ArenaRenderer
             {
                 // Publish the initialized generation only after every object required by callbacks exists.
                 _shutDown = false;
-                IsInitialized = true;
+                _isInitialized = true;
                 return;
             }
         }
 
-        // Initialization failed. Keep the gate closed and release whatever was created.
+        // Initialization failed. Keep the gate closed and release whatever was created. The failing
+        // D3D creation helper logs its HRESULT/device-removed reason before control reaches here.
         Service.Logger.Error("DX11 renderer initialization failed; renderer remains disabled for this generation");
         Shutdown();
     }
 
     public static void Shutdown()
     {
-        lock (RendererLock)
+        lock (_rendererLock)
         {
             // Close the gate before touching any COM object. A callback that has not started yet will
-            // return without using renderer state; an already-running callback owns RendererLock, so
+            // return without using renderer state; an already-running callback owns _rendererLock, so
             // we wait here until its draw/state-restore finally block has completed.
             _shutDown = true;
-            IsInitialized = false;
+            _isInitialized = false;
             _arenaActive = false;
             BuildPath.Clear();
             ResetBuildRun(returnArrays: true);
+            InvalidateAsyncCustomSdfBuilds();
 
             lock (PendingPackets)
             {
@@ -743,10 +1218,8 @@ public static unsafe partial class Dx11ArenaRenderer
             Release(ref _uploadVertexBuffer);
             Release(ref _outlineSdfConstantBuffer);
             Release(ref _customSdfConstantBuffer);
+            Release(ref _zoneWaveConstantBuffer);
             Release(ref _quadIndexBuffer);
-            _lastQuadIndexBufferFailureLogTimestamp = 0;
-            _lastStencilTargetFailureLogTimestamp = 0;
-            _lastUploadVertexBufferFailureLogTimestamp = 0;
             Release(ref _arenaSdfSampler);
             Release(ref _stencilView);
             Release(ref _stencilWriteState);
@@ -756,10 +1229,21 @@ public static unsafe partial class Dx11ArenaRenderer
             Release(ref _strokeInputLayout);
             Release(ref _worldLineInputLayout);
             Release(ref _worldCurveInputLayout);
+            Release(ref _worldProjectedArrowInputLayout);
+            Release(ref _worldProjectedShapeInputLayout);
+            Release(ref _worldOverlayConstantBuffer);
+            Release(ref _worldProjectedSdfConstantBuffer);
             Release(ref _worldLineConstantBuffer);
             Release(ref _worldLineTransformBuffer);
+            Release(ref _sceneDepthView);
+            _sceneDepthTextureIdentity = 0;
+            Release(ref _sceneInfoView);
+            _sceneInfoViewIdentity = 0;
+            ReleaseWorldOverlayResources();
+            ResetWorldOverlayResizeDebounce();
             Release(ref _analyticInputLayout);
             Release(ref _textInputLayout);
+            Release(ref _worldTextInputLayout);
             Release(ref _arenaFontAtlasView);
             _arenaTextGlyphs = null;
             _arenaIconGlyphs = null;
@@ -775,11 +1259,19 @@ public static unsafe partial class Dx11ArenaRenderer
             Release(ref _strokePixelShader);
             Release(ref _worldLineVertexShader);
             Release(ref _worldCurveVertexShader);
+            Release(ref _worldProjectedArrowVertexShader);
+            Release(ref _worldProjectedArrowPixelShader);
+            Release(ref _worldProjectedShapeVertexShader);
+            Release(ref _worldProjectedShapePixelShader);
+            Release(ref _worldOverlayVertexShader);
+            Release(ref _worldOverlayPixelShader);
             Release(ref _analyticVertexShader);
             Release(ref _analyticPixelShader);
             Release(ref _textVertexShader);
             Release(ref _textPixelShader);
             Release(ref _spritePixelShader);
+            Release(ref _worldTextVertexShader);
+            Release(ref _worldTextPixelShader);
             Release(ref _outlineShapeVertexShader);
             Release(ref _outlineShapePixelShader);
             Release(ref _outlineUnclippedPixelShader);
@@ -838,15 +1330,25 @@ public static unsafe partial class Dx11ArenaRenderer
             _uploadStrokeOffsetBytes = 0u;
             _uploadWorldLineOffsetBytes = 0u;
             _uploadWorldCurveOffsetBytes = 0u;
+            _uploadWorldProjectedArrowOffsetBytes = 0u;
+            _uploadWorldProjectedShapeOffsetBytes = 0u;
             _uploadAnalyticOffsetBytes = 0u;
             _uploadOutlineOffsetBytes = 0u;
             _uploadTextOffsetBytes = 0u;
             _outlineSdfConstantsValid = false;
             _customSdfConstantsValid = false;
+            _worldProjectedSdfConstantsValid = false;
             _uploadedWorldLineConstantsValid = false;
+            _lastWorldProjectedSdfConstants = default;
             _lastUploadedWorldLineConstants = default;
+            _zoneWaveUploadFrame = -1;
             _stencilWidth = 0;
             _stencilHeight = 0;
+            _lastQuadIndexBufferFailureLogTimestamp = 0;
+            _lastStencilTargetFailureLogTimestamp = 0;
+            _lastUploadVertexBufferFailureLogTimestamp = 0;
+            _lastWorldOverlayFailureLogTimestamp = 0;
+            _lastSceneDepthViewFailureLogTimestamp = 0;
             _arenaStencilKey = 0L;
             _arenaStencilMaskQueued = false;
             _renderedStencilKey = 0L;
@@ -856,7 +1358,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // Starts accumulation for one MiniArena. Arena background and clipping are SDF-driven. Arena shapes are considered immutable and keyed by object identity
     public static bool BeginArena(ImDrawListPtr drawList, RelSimplifiedComplexPolygon arenaShape, float centerX, float centerY, float scaledCos, float scaledSin, float screenScale)
     {
-        if (!IsInitialized)
+        if (!_isInitialized)
         {
             return false;
         }
@@ -869,6 +1371,8 @@ public static unsafe partial class Dx11ArenaRenderer
         ReleaseDeferredOutlineOverlays();
         BuildPath.Clear();
         ResetBuildRun(returnArrays: true);
+        // Safe publication point: no active arena build retains an ArenaSdfResource directly here.
+        DrainCompletedArenaSdfBuilds();
 
         _buildDrawList = drawList;
         _arenaActive = true;
@@ -882,17 +1386,17 @@ public static unsafe partial class Dx11ArenaRenderer
         _buildWorldLineConfigured = false;
         _buildWorldLineConstantsValid = false;
         _buildWorldLineTransformCount = 0;
+        _buildWorldLineInvViewProj = default;
+        _buildWorldSceneDepthSize = default;
+        _buildWorldSceneDepthAvailable = false;
+        _buildWorldSceneInfoAvailable = false;
         _buildCenterX = centerX;
         _buildCenterY = centerY;
         _buildScaledCos = scaledCos;
         _buildScaledSin = scaledSin;
         _buildScreenScale = screenScale;
         // Renderer build state is single-threaded by design (the immediate D3D11/ImGui render thread)
-        _arenaStencilKey = ++_nextArenaStencilKey;
-        if (_arenaStencilKey == 0L)
-        {
-            _arenaStencilKey = ++_nextArenaStencilKey;
-        }
+        _arenaStencilKey = NextArenaStencilKey();
         _arenaStencilMaskQueued = false;
 
         // Viewport/framebuffer state is deliberately deferred until the first actual DX11 primitive.
@@ -900,12 +1404,72 @@ public static unsafe partial class Dx11ArenaRenderer
         return true;
     }
 
+    // Changes the clipping polygon for subsequently submitted arena primitives. The current ordered
+    // run is flushed first, so each callback owns exactly one arena SDF/stencil generation. Switching
+    // back to an earlier polygon still receives a fresh generation key because another mask may have
+    // overwritten the private stencil target in between.
+    public static bool SetArenaStencil(RelSimplifiedComplexPolygon arenaShape)
+    {
+        if (!_isInitialized || !_arenaActive)
+        {
+            return false;
+        }
+        if (ReferenceEquals(_arenaShape, arenaShape))
+        {
+            return true;
+        }
+
+        if (!Flush())
+        {
+            return false;
+        }
+
+        // If Flush produced a packet it retained the old arena SRV; if the run was empty there is no
+        // packet that can consume the build reference. Either way, drop the direct build reference
+        // before publishing completed arena refinements.
+        _buildArenaSdf = null;
+        _buildOutlineSdfConstants = default;
+        DrainCompletedArenaSdfBuilds();
+        _arenaShape = arenaShape;
+        _arenaStencilKey = NextArenaStencilKey();
+        _arenaStencilMaskQueued = false;
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static long NextArenaStencilKey()
+    {
+        var key = ++_nextArenaStencilKey;
+        if (key == 0L)
+        {
+            key = ++_nextArenaStencilKey;
+        }
+        return key;
+    }
+
+    // Ensures an arbitrary world-projection clip has a cached SDF while the radar's real screen scale
+    // is available. This deliberately does not replace _arenaShape or _buildArenaSdf: the live 2D
+    // stencil remains untouched while the later world batch reuses the immutable cached resource.
+    public static bool PrepareArenaSdfForWorldProjection(RelSimplifiedComplexPolygon arenaShape)
+    {
+        if (!_isInitialized || !_arenaActive || arenaShape == null)
+        {
+            return false;
+        }
+        EnsureBuildRunStarted();
+        if (_buildArenaSdf == null)
+        {
+            DrainCompletedArenaSdfBuilds();
+        }
+        return GetOrCreateArenaSdfResource(arenaShape) != null;
+    }
+
     // Starts one standalone screen-space batch on an arbitrary ImGui draw list. This is used by
     // Camera/world overlays: ImGui only hosts the deferred callback; all line rasterization is DX11.
     // Coordinates submitted through AppendScreenLine are absolute logical screen coordinates.
     public static bool BeginScreenBatch(ImDrawListPtr drawList, Vector2 viewportPos, Vector2 viewportSize)
     {
-        if (!IsInitialized)
+        if (!_isInitialized)
         {
             return false;
         }
@@ -918,6 +1482,7 @@ public static unsafe partial class Dx11ArenaRenderer
         ReleaseDeferredOutlineOverlays();
         BuildPath.Clear();
         ResetBuildRun(returnArrays: true);
+        DrainCompletedArenaSdfBuilds();
 
         _buildDrawList = drawList;
         _arenaActive = true;
@@ -933,6 +1498,10 @@ public static unsafe partial class Dx11ArenaRenderer
         _buildWorldLineConfigured = false;
         _buildWorldLineConstantsValid = false;
         _buildWorldLineTransformCount = 0;
+        _buildWorldLineInvViewProj = default;
+        _buildWorldSceneDepthSize = default;
+        _buildWorldSceneDepthAvailable = false;
+        _buildWorldSceneInfoAvailable = false;
 
         // Identity local transform. Standalone screen primitives bypass arena-local conversion, but
         // keeping these invariants valid makes shared packet/setup code safe and inexpensive.
@@ -946,8 +1515,8 @@ public static unsafe partial class Dx11ArenaRenderer
         return true;
     }
 
-    // Starts a standalone Camera/world batch whose lines are projected by the GPU
-    public static bool BeginWorldBatch(ImDrawListPtr drawList, Vector2 viewportPos, Vector2 viewportSize, in Matrix4x4 viewProj, in Vector4 nearPlane, ReadOnlySpan<WorldLineTransform> transforms)
+    // Starts a standalone Camera/world batch whose primitives are projected by the GPU
+    public static bool BeginWorldBatch(ImDrawListPtr drawList, Vector2 viewportPos, Vector2 viewportSize, in Matrix4x4 viewProj, in Vector4 nearPlane, ReadOnlySpan<WorldLineTransform> transforms, bool needsProjectedReceiverMask)
     {
         if (!BeginScreenBatch(drawList, viewportPos, viewportSize))
         {
@@ -955,17 +1524,45 @@ public static unsafe partial class Dx11ArenaRenderer
         }
 
         var len = transforms.Length;
-        if (transforms.IsEmpty || len > MaxWorldLineTransforms)
+        if (len > MaxWorldLineTransforms)
         {
             EndScreenBatch();
             return false;
         }
 
-        EnsureWorldLineTransformBuildCapacity(len);
-        transforms.CopyTo(_buildWorldLineTransforms);
+        if (len != 0)
+        {
+            EnsureWorldLineTransformBuildCapacity(len);
+            transforms.CopyTo(_buildWorldLineTransforms);
+        }
         _buildWorldLineTransformCount = len;
-        _buildWorldLineViewProj = viewProj;
-        _buildWorldLineNearPlane = nearPlane;
+
+        // Capture projection in the same UI-submission epoch in which the scene resources below are
+        // selected. The deferred DX callback can execute after the game thread has advanced the camera;
+        // reading it there mixes the next matrix with this packet's depth and briefly rejects patches
+        // of otherwise valid floor geometry while the camera moves.
+        if (!TryReadStableGameViewProjection(out var snapshotViewProj) || !TryBuildWorldProjectionSnapshot(snapshotViewProj, out var snapshotInvViewProj, out var snapshotNearPlane))
+        {
+            snapshotViewProj = viewProj;
+            if (!TryBuildWorldProjectionSnapshot(snapshotViewProj, out snapshotInvViewProj, out snapshotNearPlane))
+            {
+                snapshotInvViewProj = Matrix4x4.Identity;
+                snapshotNearPlane = nearPlane;
+            }
+        }
+        _buildWorldLineViewProj = snapshotViewProj;
+        _buildWorldLineInvViewProj = snapshotInvViewProj;
+        _buildWorldLineNearPlane = snapshotNearPlane;
+        _buildWorldSceneDepthAvailable = TryUpdateSceneDepthResource(out _buildWorldSceneDepthSize);
+        _buildWorldSceneInfoAvailable = false;
+        if (needsProjectedReceiverMask && _buildWorldSceneDepthAvailable && TryUpdateSceneInfoResource(out var sceneInfoSize))
+        {
+            // Both resources are produced by the same deferred scene pass and normally have identical
+            // active dimensions. Refuse the mask if that invariant changes: sampling a mismatched
+            // classification texel would cut unrelated floor pixels around character silhouettes.
+            _buildWorldSceneInfoAvailable = Math.Abs(sceneInfoSize.X - _buildWorldSceneDepthSize.X) < 0.5f
+                && Math.Abs(sceneInfoSize.Y - _buildWorldSceneDepthSize.Y) < 0.5f;
+        }
         _buildWorldLineConfigured = true;
         return true;
     }
@@ -973,7 +1570,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // Appends compact local/world line instances without CPU clipping/projection
     public static void AppendWorldLines(ReadOnlySpan<WorldLineInstance> lines)
     {
-        if (lines.IsEmpty || !IsInitialized || !_arenaActive || !_buildWorldLineConfigured)
+        if (lines.IsEmpty || !_isInitialized || !_arenaActive || !_buildWorldLineConfigured || _buildWorldLineTransformCount == 0)
         {
             return;
         }
@@ -993,7 +1590,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // stay separate so one indexed instanced draw can expand every curve without CPU endpoint generation
     public static void AppendWorldCurves(ReadOnlySpan<WorldCurveInstance> curves, int lineCountPerInstance)
     {
-        if (curves.IsEmpty || lineCountPerInstance <= 0 || lineCountPerInstance > MaxIndexedWorldCurveLines || !IsInitialized || !_arenaActive || !_buildWorldLineConfigured)
+        if (curves.IsEmpty || lineCountPerInstance <= 0 || lineCountPerInstance > MaxIndexedWorldCurveLines || !_isInitialized || !_arenaActive || !_buildWorldLineConfigured || _buildWorldLineTransformCount == 0)
         {
             return;
         }
@@ -1010,9 +1607,83 @@ public static unsafe partial class Dx11ArenaRenderer
         AppendSegment(SegmentKind.WorldCurve, start, len, lineCountPerInstance);
     }
 
+    // Projected arrows are X/Z shapes evaluated against reconstructed FFXIV scene depth. The sampled
+    // scene surface supplies the final world height, so these do not use the line/curve occlusion test.
+    public static void AppendWorldProjectedArrows(ReadOnlySpan<WorldProjectedArrowInstance> arrows)
+    {
+        if (arrows.IsEmpty || !_isInitialized || !_arenaActive || !_buildWorldLineConfigured)
+        {
+            return;
+        }
+
+        EnsureBuildRunStarted();
+        EnsureWorldLineConstants();
+        var len = arrows.Length;
+        EnsureWorldProjectedArrowBuildCapacity(_buildWorldProjectedArrowCount + len);
+        var start = _buildWorldProjectedArrowCount;
+        arrows.CopyTo(_buildWorldProjectedArrows!.AsSpan(start, len));
+        _buildWorldProjectedArrowCount += len;
+        AppendSegment(SegmentKind.WorldProjectedArrow, start, len);
+    }
+
+    // Appends one ordered run of world-projected MiniArena primitives sharing the same optional
+    // custom-shape and arena SDF bindings. Camera groups only consecutive compatible shapes, so this
+    // reduces binding resolution/copy overhead without changing draw order or visual semantics.
+    public static void AppendWorldProjectedShapes(ReadOnlySpan<WorldProjectedShapeInstance> shapes,
+        RelSimplifiedComplexPolygon? shapeSdf = null, WPos shapeSdfOrigin = default,
+        RelSimplifiedComplexPolygon? arenaSdf = null, WPos arenaSdfOrigin = default)
+    {
+        if (shapes.IsEmpty || !_isInitialized || !_arenaActive || !_buildWorldLineConfigured)
+        {
+            return;
+        }
+
+        EnsureBuildRunStarted();
+        EnsureWorldLineConstants();
+
+        var shapeBinding = shapeSdf != null ? GetOrAddWorldProjectedSdfBinding(shapeSdf, shapeSdfOrigin, arenaCache: false) : -1;
+
+        // A raw SDF primitive cannot render without its custom-shape resource. This normally follows
+        // directly from shapeSdf != null, but retain the fail-closed invariant for generic callers.
+        var len = shapes.Length;
+        if (shapeBinding < 0)
+        {
+            for (var i = 0; i < len; ++i)
+            {
+                if ((shapes[i].Packed & 0xFFu) == (uint)WorldProjectedShapeKind.Sdf)
+                {
+                    return;
+                }
+            }
+        }
+
+        var arenaBinding = arenaSdf != null ? GetOrAddWorldProjectedSdfBinding(arenaSdf, arenaSdfOrigin, arenaCache: true) : -1;
+        if (arenaSdf != null && arenaBinding < 0)
+        {
+            return;
+        }
+
+        EnsureWorldProjectedShapeBuildCapacity(_buildWorldProjectedShapeCount + len);
+        var start = _buildWorldProjectedShapeCount;
+        shapes.CopyTo(_buildWorldProjectedShapes!.AsSpan(start, len));
+        _buildWorldProjectedShapeCount += len;
+        // Only bind/update the animation constant buffer when this projected run contains a filled
+        // zone. Outline-only primitives and actor markers (bit 10) stay on the static path.
+        for (var i = 0; i < len; ++i)
+        {
+            ref readonly var shape = ref shapes[i];
+            if ((shape.Packed & 0x100u) == 0u && (shape.Packed & 0x400u) == 0u)
+            {
+                _buildUsesZoneWave = true;
+                break;
+            }
+        }
+        AppendSegment(SegmentKind.WorldProjectedShape, start, len, shapeBinding, arenaBinding);
+    }
+
     public static void AppendArenaBackground(uint color)
     {
-        if (!IsInitialized || !_arenaActive)
+        if (!_isInitialized || !_arenaActive)
         {
             return;
         }
@@ -1049,7 +1720,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // Appends a relative complex polygon through the cached custom-SDF mesh-quad path. Polygons use PolygonBoundaryIndex2D's exact SIMD bulk builder
     public static void AppendRelPoly(RelSimplifiedComplexPolygon polygon, uint color)
     {
-        if (!IsInitialized || !_arenaActive)
+        if (!_isInitialized || !_arenaActive)
         {
             return;
         }
@@ -1095,7 +1766,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // Appends one raw arena-local triangle, the private stencil mask clips it to ArenaBounds
     public static void AppendTriangle(in WDir a, in WDir b, in WDir c, uint color)
     {
-        if (!IsInitialized || !_arenaActive)
+        if (!_isInitialized || !_arenaActive)
         {
             return;
         }
@@ -1122,7 +1793,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // onto the arena margins. True triangle edges get the mesh shader's derivative AA.
     public static void AppendPrimitiveTriangle(in WDir a, in WDir b, in WDir c, uint color)
     {
-        if (!IsInitialized || !_arenaActive)
+        if (!_isInitialized || !_arenaActive)
         {
             return;
         }
@@ -1147,7 +1818,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // once, then emits the same six AA mesh triangles as the generic closed polyline
     public static void AppendPrimitiveTriangleStroke(in WDir a, in WDir b, in WDir c, uint color, float thickness)
     {
-        if (!IsInitialized || !_arenaActive)
+        if (!_isInitialized || !_arenaActive)
         {
             return;
         }
@@ -1204,7 +1875,7 @@ public static unsafe partial class Dx11ArenaRenderer
         {
             var sum = previousNormal + nextNormal;
             var sumLenSq = sum.LengthSquared();
-            if (!(sumLenSq > 1e-8f))
+            if (sumLenSq <= 1e-8f)
             {
                 return nextNormal * halfWidth;
             }
@@ -1247,7 +1918,7 @@ public static unsafe partial class Dx11ArenaRenderer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void PathLineTo(in WDir point)
     {
-        if (!IsInitialized || !_arenaActive)
+        if (!_isInitialized || !_arenaActive)
         {
             return;
         }
@@ -1260,14 +1931,14 @@ public static unsafe partial class Dx11ArenaRenderer
     // from screen-space sagitta error so zoom/arena scale changes do not make curves visibly polygonal.
     public static void PathArcTo(in WDir center, float radius, float minAngleRadians, float maxAngleRadians)
     {
-        if (!IsInitialized || !_arenaActive || !(radius > 0f))
+        if (!_isInitialized || !_arenaActive || !(radius > 0f))
         {
             return;
         }
 
         var span = maxAngleRadians - minAngleRadians;
         var absSpan = Math.Abs(span);
-        if (!(absSpan > 1e-7f))
+        if (absSpan <= 1e-7f)
         {
             var (sin, cos) = MathF.SinCos(minAngleRadians);
             AppendPathPoint(new WDir(center.X + radius * sin, center.Z + radius * cos));
@@ -1285,7 +1956,7 @@ public static unsafe partial class Dx11ArenaRenderer
         {
             var cosHalfStep = Math.Clamp(1f - PathArcMaxErrorPx / radiusPx, -1f, 1f);
             maxStep = 2f * MathF.Acos(cosHalfStep);
-            if (!(maxStep > 1e-5f))
+            if (maxStep <= 1e-5f)
             {
                 maxStep = absSpan;
             }
@@ -1301,14 +1972,20 @@ public static unsafe partial class Dx11ArenaRenderer
         }
     }
 
-    // Strokes and clears the current path through the distance-based DX11 polyline pipeline
+    // Strokes and clears the current path through the distance-based DX11 polyline pipeline. Keep the
+    // existing void API intact; MiniArena uses the result-bearing sibling to mirror only paths that
+    // the 2D renderer actually accepted.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void PathStroke(bool closed, uint color, float thickness)
+        => PathStrokeWithResult(closed, color, thickness);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool PathStrokeWithResult(bool closed, uint color, float thickness)
     {
-        if (!IsInitialized || !_arenaActive || BuildPath.Count < (closed ? 3 : 2))
+        if (!_isInitialized || !_arenaActive || BuildPath.Count < (closed ? 3 : 2))
         {
             BuildPath.Clear();
-            return;
+            return false;
         }
 
         // A very common AddLine-style is exactly two points. Keep it out of the generic polyline scratch/dedup/segment loop and write the single stroke instance directly
@@ -1322,6 +1999,7 @@ public static unsafe partial class Dx11ArenaRenderer
         }
         // Matches ImDrawList::PathStroke semantics: consuming a path always clears it
         BuildPath.Clear();
+        return true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1345,7 +2023,7 @@ public static unsafe partial class Dx11ArenaRenderer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void AppendArenaLineFast(in WDir from, in WDir to, uint color, float thickness, uint shadowColor = 0u, float shadowThickness = 0f)
     {
-        if (!IsInitialized || !_arenaActive)
+        if (!_isInitialized || !_arenaActive)
         {
             return;
         }
@@ -1371,7 +2049,7 @@ public static unsafe partial class Dx11ArenaRenderer
     public static void AppendPolyline(ReadOnlySpan<WDir> points, bool closed, uint color, float thickness, uint shadowColor = 0u, float shadowThickness = 0f)
     {
         var len = points.Length;
-        if (!IsInitialized || !_arenaActive || len < 2)
+        if (!_isInitialized || !_arenaActive || len < 2)
         {
             return;
         }
@@ -1574,7 +2252,7 @@ public static unsafe partial class Dx11ArenaRenderer
 
     private static void AppendScreenLine(Vector2 from, Vector2 to, uint color, float thickness, uint shadowColor = 0u, float shadowThickness = 0f)
     {
-        if (!IsInitialized || !_arenaActive || Vector2.DistanceSquared(from, to) <= 1e-12f)
+        if (!_isInitialized || !_arenaActive || Vector2.DistanceSquared(from, to) <= 1e-12f)
         {
             return;
         }
@@ -1618,7 +2296,7 @@ public static unsafe partial class Dx11ArenaRenderer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void AppendArenaScreenCircle(in WDir centerOffset, Vector2 screenOffset, float radius, uint color)
     {
-        if (!IsInitialized || !_arenaActive || !(radius > 0f))
+        if (!_isInitialized || !_arenaActive || !(radius > 0f))
         {
             return;
         }
@@ -1637,7 +2315,7 @@ public static unsafe partial class Dx11ArenaRenderer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void AppendArenaScreenEye(in WDir centerOffset, Vector2 screenOffset, float halfWidth, float halfHeight, uint color)
     {
-        if (!IsInitialized || !_arenaActive || !(halfWidth > 0f) || !(halfHeight > 0f))
+        if (!_isInitialized || !_arenaActive || !(halfWidth > 0f) || !(halfHeight > 0f))
         {
             return;
         }
@@ -1652,7 +2330,7 @@ public static unsafe partial class Dx11ArenaRenderer
 
     private static void AppendArenaScreenAnalytic(in WDir centerOffset, Vector2 screenOffset, Vector2 extentScreen, Vector2 directionScreen, Vector4 parameters, uint color)
     {
-        if (!IsInitialized || !_arenaActive)
+        if (!_isInitialized || !_arenaActive)
         {
             return;
         }
@@ -1686,7 +2364,7 @@ public static unsafe partial class Dx11ArenaRenderer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void AppendCircleDonut(in WDir centerOffset, float innerRadius, float outerRadius, uint color, bool isDonut)
     {
-        if (!IsInitialized || !_arenaActive || outerRadius <= 0f || innerRadius >= outerRadius)
+        if (!_isInitialized || !_arenaActive || outerRadius <= 0f || innerRadius >= outerRadius)
         {
             return;
         }
@@ -1702,7 +2380,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // Adds an analytic directional rectangle
     public static void AppendRect(in WDir originOffset, in WDir direction, float lenFront, float lenBack, float halfWidth, uint color)
     {
-        if (!IsInitialized || !_arenaActive || halfWidth <= 0f || lenFront + lenBack <= 0f || !TryNormalizeScreenDirection(direction, out var dirScreen, out var dirWorldX, out var dirWorldZ))
+        if (!_isInitialized || !_arenaActive || halfWidth <= 0f || lenFront + lenBack <= 0f || !TryNormalizeScreenDirection(direction, out var dirScreen, out var dirWorldX, out var dirWorldZ))
         {
             return;
         }
@@ -1808,7 +2486,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // One instance is used so translucent colors are blended only once in the overlapping center.
     public static void AppendCross(in WDir centerOffset, in WDir direction, float range, float halfWidth, uint color)
     {
-        if (!IsInitialized || !_arenaActive || range <= 0f || halfWidth <= 0f || !TryNormalizeScreenDirection(direction, out var dirScreen, out _, out _))
+        if (!_isInitialized || !_arenaActive || range <= 0f || halfWidth <= 0f || !TryNormalizeScreenDirection(direction, out var dirScreen, out _, out _))
         {
             return;
         }
@@ -1827,7 +2505,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // Adds an analytic annular sector/cone
     public static void AppendCone(in WDir centerOffset, float innerRadius, float outerRadius, in WDir direction, float halfAngleRadians, uint color)
     {
-        if (!IsInitialized || !_arenaActive || outerRadius <= 0f || innerRadius >= outerRadius || halfAngleRadians <= 0f || !TryNormalizeScreenDirection(direction, out var dirScreen, out _, out _))
+        if (!_isInitialized || !_arenaActive || outerRadius <= 0f || innerRadius >= outerRadius || halfAngleRadians <= 0f || !TryNormalizeScreenDirection(direction, out var dirScreen, out _, out _))
         {
             return;
         }
@@ -1847,7 +2525,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // Adds an analytic straight capsule around [start, start + direction * length]
     public static void AppendCapsule(in WDir startOffset, in WDir direction, float radius, float length, uint color)
     {
-        if (!IsInitialized || !_arenaActive || radius <= 0f || length < 0f)
+        if (!_isInitialized || !_arenaActive || radius <= 0f || length < 0f)
         {
             return;
         }
@@ -1870,7 +2548,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // Adds an analytic curved capsule: the radius-neighborhood of the circular arc that starts at startOffset and rotates around orbitCenter by angularLengthRadians
     public static void AppendArcCapsule(in WDir startOffset, in WDir toOrbitCenter, float angularLengthRadians, float radius, uint color)
     {
-        if (!IsInitialized || !_arenaActive || radius <= 0f)
+        if (!_isInitialized || !_arenaActive || radius <= 0f)
         {
             return;
         }
@@ -1956,7 +2634,7 @@ public static unsafe partial class Dx11ArenaRenderer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void AppendCircleDonutOutline(in WDir centerOffset, float innerRadius, float outerRadius, uint color, float lineThickness, uint shadowColor, float shadowThickness, bool clipToArena)
     {
-        if (!IsInitialized || !_arenaActive || outerRadius <= 0f || innerRadius >= outerRadius)
+        if (!_isInitialized || !_arenaActive || outerRadius <= 0f || innerRadius >= outerRadius)
         {
             return;
         }
@@ -1971,7 +2649,7 @@ public static unsafe partial class Dx11ArenaRenderer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void AppendRectOutline(in WDir originOffset, in WDir direction, float lenFront, float lenBack, float halfWidth, uint color, float lineThickness, uint shadowColor, float shadowThickness)
     {
-        if (!IsInitialized || !_arenaActive || halfWidth <= 0f || lenFront + lenBack <= 0f || !TryNormalizeScreenDirection(direction, out var dirScreen, out var dirWorldX, out var dirWorldZ))
+        if (!_isInitialized || !_arenaActive || halfWidth <= 0f || lenFront + lenBack <= 0f || !TryNormalizeScreenDirection(direction, out var dirScreen, out var dirWorldX, out var dirWorldZ))
         {
             return;
         }
@@ -1989,7 +2667,7 @@ public static unsafe partial class Dx11ArenaRenderer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void AppendCrossOutline(in WDir centerOffset, in WDir direction, float range, float halfWidth, uint color, float lineThickness, uint shadowColor, float shadowThickness)
     {
-        if (!IsInitialized || !_arenaActive || range <= 0f || halfWidth <= 0f || !TryNormalizeScreenDirection(direction, out var dirScreen, out _, out _))
+        if (!_isInitialized || !_arenaActive || range <= 0f || halfWidth <= 0f || !TryNormalizeScreenDirection(direction, out var dirScreen, out _, out _))
         {
             return;
         }
@@ -2004,7 +2682,7 @@ public static unsafe partial class Dx11ArenaRenderer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void AppendConeOutline(in WDir centerOffset, float innerRadius, float outerRadius, in WDir direction, float halfAngleRadians, uint color, float lineThickness, uint shadowColor, float shadowThickness)
     {
-        if (!IsInitialized || !_arenaActive || outerRadius <= 0f || innerRadius >= outerRadius || halfAngleRadians <= 0f || !TryNormalizeScreenDirection(direction, out var dirScreen, out _, out _))
+        if (!_isInitialized || !_arenaActive || outerRadius <= 0f || innerRadius >= outerRadius || halfAngleRadians <= 0f || !TryNormalizeScreenDirection(direction, out var dirScreen, out _, out _))
         {
             return;
         }
@@ -2021,7 +2699,7 @@ public static unsafe partial class Dx11ArenaRenderer
 
     public static void AppendCapsuleOutline(in WDir startOffset, in WDir direction, float radius, float length, uint color, float lineThickness, uint shadowColor, float shadowThickness)
     {
-        if (!IsInitialized || !_arenaActive || radius <= 0f || length < 0f)
+        if (!_isInitialized || !_arenaActive || radius <= 0f || length < 0f)
         {
             return;
         }
@@ -2042,7 +2720,7 @@ public static unsafe partial class Dx11ArenaRenderer
 
     public static void AppendArcCapsuleOutline(in WDir startOffset, in WDir toOrbitCenter, float angularLengthRadians, float radius, uint color, float lineThickness, uint shadowColor, float shadowThickness)
     {
-        if (!IsInitialized || !_arenaActive || radius <= 0f)
+        if (!_isInitialized || !_arenaActive || radius <= 0f)
         {
             return;
         }
@@ -2074,9 +2752,9 @@ public static unsafe partial class Dx11ArenaRenderer
         var orbitRadiusScreen = orbitRadius * _buildScreenScale;
         var radiusScreen = radius * _buildScreenScale;
         var (sinSweep, cosSweep) = MathF.SinCos(angularLengthRadians);
-        var endDirectionScreen = new Vector2(
-            startDirectionScreen.X * cosSweep + startDirectionScreen.Y * sinSweep,
-            startDirectionScreen.Y * cosSweep - startDirectionScreen.X * sinSweep);
+        var startX = startDirectionScreen.X;
+        var startY = startDirectionScreen.Y;
+        var endDirectionScreen = new Vector2(startX * cosSweep + startY * sinSweep, startY * cosSweep - startX * sinSweep);
         var extentScreen = ArcCapsuleExtentScreen(startDirectionScreen, endDirectionScreen, angularLengthRadians, orbitRadiusScreen, radiusScreen);
         AppendAnalyticOutline(orbitCenterOffset, extentScreen, startDirectionScreen,
             new Vector4(orbitRadius * _buildWorldPixelScale, radius * _buildWorldPixelScale, angularLengthRadians, 4f),
@@ -2087,7 +2765,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // three screen-local vertices and intersected with the cached arena SDF in the pixel shader
     public static void AppendTriangleOutline(in WDir a, in WDir b, in WDir c, uint color, float lineThickness, uint shadowColor, float shadowThickness)
     {
-        if (!IsInitialized || !_arenaActive)
+        if (!_isInitialized || !_arenaActive)
         {
             return;
         }
@@ -2101,7 +2779,6 @@ public static unsafe partial class Dx11ArenaRenderer
             return;
         }
 
-        const float OneThird = 1f / 3f;
         var centerOffset = new WDir((a.X + b.X + c.X) * OneThird, (a.Z + b.Z + c.Z) * OneThird);
 
         var pixelScale = LocalPixelScale();
@@ -2126,7 +2803,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // clipping boundary and avoids mitered-polyline joins protruding over clipped outlines.
     public static void AppendArenaOutline(uint color, float lineThickness, uint shadowColor = 0u, float shadowThickness = 0u)
     {
-        if (!IsInitialized || !_arenaActive)
+        if (!_isInitialized || !_arenaActive)
         {
             return;
         }
@@ -2183,7 +2860,7 @@ public static unsafe partial class Dx11ArenaRenderer
     // every distinct custom SDF they reference; the callback switches t2/b2 per segment as needed
     public static void AppendCustomOutline(RelSimplifiedComplexPolygon polygon, uint color, float lineThickness, uint shadowColor, float shadowThickness)
     {
-        if (!IsInitialized || !_arenaActive)
+        if (!_isInitialized || !_arenaActive)
         {
             return;
         }
@@ -2247,7 +2924,7 @@ public static unsafe partial class Dx11ArenaRenderer
 
     private static void AppendAnalyticOutline(in WDir centerOffset, Vector2 extentScreen, Vector2 directionScreen, Vector4 parameters, uint color, float lineThickness, uint shadowColor, float shadowThickness, Vector2 extra = default, bool clipToArena = true)
     {
-        if (!IsInitialized || !_arenaActive)
+        if (!_isInitialized || !_arenaActive)
         {
             return;
         }
@@ -2302,6 +2979,65 @@ public static unsafe partial class Dx11ArenaRenderer
         return new(pX * _buildScaledCos - pZ * _buildScaledSin, pZ * _buildScaledCos + pX * _buildScaledSin);
     }
 
+    private static int GetOrAddWorldProjectedSdfBinding(RelSimplifiedComplexPolygon polygon, WPos worldOrigin, bool arenaCache)
+    {
+        var resource = GetOrCreateWorldProjectedSdfResource(polygon, arenaCache);
+        if (resource == null || resource.View == null)
+        {
+            return -1;
+        }
+
+        var map = new Vector4(worldOrigin.X + resource.MinX, worldOrigin.Z + resource.MinZ, resource.InvSpanX, resource.InvSpanZ);
+        var bindings = _buildWorldProjectedSdfs;
+        for (var i = 0; i < _buildWorldProjectedSdfCount; ++i)
+        {
+            if (bindings![i].View == resource.View && bindings[i].Map == map)
+            {
+                return i;
+            }
+        }
+
+        EnsureWorldProjectedSdfBindingBuildCapacity(_buildWorldProjectedSdfCount + 1);
+        resource.View->AddRef();
+        var index = _buildWorldProjectedSdfCount++;
+        _buildWorldProjectedSdfs![index] = new WorldProjectedSdfBinding { View = resource.View, Map = map };
+        return index;
+    }
+
+    private static ArenaSdfResource? GetOrCreateWorldProjectedSdfResource(RelSimplifiedComplexPolygon polygon, bool arenaCache)
+    {
+        if (arenaCache)
+        {
+            // World projection have at least an 8 px/world-unit target, but reach it progressively instead of synchronously rebuilding the clip
+            return GetOrCreateArenaSdfResource(polygon, Math.Max(_buildSdfResolutionPixelScale, 8f));
+        }
+
+        if (CustomSdfCache.TryGetValue(polygon, out var cached))
+        {
+            cached.LastUse = ++_arenaSdfUseCounter;
+            var frame = ImGui.GetFrameCount();
+            var desired = ComputeSdfLongResolution(Math.Max(cached.SpanX, cached.SpanZ), Math.Max(_buildSdfResolutionPixelScale, 8f));
+            if (frame != cached.CreatedFrame && Math.Max(cached.Width, cached.Height) < desired)
+            {
+                QueueCustomSdfBuild(polygon, NextCustomSdfLongResolution(cached, desired));
+            }
+            return cached;
+        }
+
+        // Projection-only custom polygons get the same immediate coarse preview as 2D polygons,
+        // so a fresh animated AOE never disappears while waiting for its background refinement.
+        var resource = BuildSdfPreview(polygon, ImGui.GetFrameCount(), CustomSdfPreviewLongResolution);
+        if (resource == null)
+        {
+            return null;
+        }
+        CustomSdfCache.Add(polygon, resource);
+        resource.LastUse = ++_arenaSdfUseCounter;
+        _customSdfCacheBytes += resource.ByteSize;
+        TrimSdfCache(CustomSdfCache, resource, ref _customSdfCacheBytes, CustomSdfCacheBudgetBytes, MaxCachedCustomSdfs);
+        return resource;
+    }
+
     private static int GetOrAddBuildCustomSdfBinding(ArenaSdfResource resource)
     {
         var bindings = _buildCustomSdfs;
@@ -2326,11 +3062,252 @@ public static unsafe partial class Dx11ArenaRenderer
         return index;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void QueueCustomSdfBuild(RelSimplifiedComplexPolygon polygon, int longResolution)
+        => QueueProgressiveSdfBuild(polygon, longResolution, arenaCache: false);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void QueueArenaSdfBuild(RelSimplifiedComplexPolygon polygon, int longResolution)
+        => QueueProgressiveSdfBuild(polygon, longResolution, arenaCache: true);
+
+    private static void QueueProgressiveSdfBuild(RelSimplifiedComplexPolygon polygon, int longResolution, bool arenaCache)
+    {
+        if (!_isInitialized || _shutDown)
+        {
+            return;
+        }
+
+        longResolution = Math.Clamp(AlignSdfResolution(longResolution), SdfResolutionAlignment, MaxSdfResolution);
+        var cache = arenaCache ? ArenaSdfCache : CustomSdfCache;
+        if (cache.TryGetValue(polygon, out var existing) && Math.Max(existing.Width, existing.Height) >= longResolution)
+        {
+            return;
+        }
+
+        // RelSimplifiedComplexPolygon lazily owns its exact boundary index. Force that one-time
+        // publication on the renderer thread; background jobs only perform read-only distance queries.
+        polygon.VerifyPolygonIndexExistance();
+
+        lock (_customSdfBuildLock)
+        {
+            var pending = arenaCache ? _pendingArenaSdfBuilds : _pendingCustomSdfBuilds;
+            if (pending.Contains(polygon) || _pendingCustomSdfBuilds.Count + _pendingArenaSdfBuilds.Count >= MaxPendingCustomSdfBuilds)
+            {
+                return;
+            }
+
+            var request = new CustomSdfBuildRequest(polygon, longResolution, _customSdfBuildGeneration, arenaCache);
+            pending.Add(polygon);
+            _customSdfBuildQueue.Enqueue(request);
+
+            if (_customSdfWorkerRunning)
+            {
+                return;
+            }
+
+            _customSdfWorkerRunning = true;
+            if (!ThreadPool.QueueUserWorkItem(static _ => RunCustomSdfWorker()))
+            {
+                _customSdfWorkerRunning = false;
+                _customSdfBuildQueue.Dequeue();
+                pending.Remove(polygon);
+            }
+        }
+    }
+
+    private static void RunCustomSdfWorker()
+    {
+        while (true)
+        {
+            CustomSdfBuildRequest request;
+            lock (_customSdfBuildLock)
+            {
+                if (_customSdfBuildQueue.Count == 0)
+                {
+                    _customSdfWorkerRunning = false;
+                    return;
+                }
+                request = _customSdfBuildQueue.Dequeue();
+            }
+
+            var data = BuildAdaptiveSdfCpu(request.Polygon, request.LongResolution);
+
+            lock (_customSdfBuildLock)
+            {
+                if (data != null && request.Generation == _customSdfBuildGeneration)
+                {
+                    var completed = new CompletedCustomSdfBuild(request, data);
+                    if (request.ArenaCache)
+                    {
+                        _completedArenaSdfBuildQueue.Enqueue(completed);
+                    }
+                    else
+                    {
+                        _completedCustomSdfBuildQueue.Enqueue(completed);
+                    }
+                }
+                else
+                {
+                    data?.ReturnPacked();
+                    // InvalidateAsyncCustomSdfBuilds already clears old-generation membership. Do not
+                    // remove a same-polygon request that may have been queued by a newer generation.
+                    if (request.Generation == _customSdfBuildGeneration)
+                    {
+                        (request.ArenaCache ? _pendingArenaSdfBuilds : _pendingCustomSdfBuilds).Remove(request.Polygon);
+                    }
+                }
+            }
+        }
+    }
+
+    // Custom SDFs are packet-bound immediately (with AddRef), so completed custom refinements can be
+    // published throughout build submission without invalidating an in-progress resource reference.
+    private static void DrainCompletedCustomSdfBuilds()
+    {
+        while (true)
+        {
+            CompletedCustomSdfBuild completed;
+            lock (_customSdfBuildLock)
+            {
+                if (_completedCustomSdfBuildQueue.Count == 0)
+                {
+                    return;
+                }
+                completed = _completedCustomSdfBuildQueue.Dequeue();
+            }
+            PublishCompletedSdfBuild(completed, arenaCache: false);
+        }
+    }
+
+    // Arena SDFs are held directly in _buildArenaSdf for the lifetime of an arena/stencil build.
+    // Drain this queue only at safe boundaries where _buildArenaSdf is null, before the next arena
+    // generation takes ownership. This avoids releasing/replacing an SRV underneath an active stencil.
+    private static void DrainCompletedArenaSdfBuilds()
+    {
+        Debug.Assert(_buildArenaSdf == null);
+        while (true)
+        {
+            CompletedCustomSdfBuild completed;
+            lock (_customSdfBuildLock)
+            {
+                if (_completedArenaSdfBuildQueue.Count == 0)
+                {
+                    return;
+                }
+                completed = _completedArenaSdfBuildQueue.Dequeue();
+            }
+            PublishCompletedSdfBuild(completed, arenaCache: true);
+        }
+    }
+
+    private static void PublishCompletedSdfBuild(CompletedCustomSdfBuild completed, bool arenaCache)
+    {
+        var request = completed.Request;
+        var data = completed.Data;
+        try
+        {
+            if (!_isInitialized || _shutDown || request.Generation != _customSdfBuildGeneration)
+            {
+                return;
+            }
+
+            var replacement = UploadAdaptiveSdfResource(data);
+            if (replacement == null)
+            {
+                return;
+            }
+
+            replacement.LastUse = ++_arenaSdfUseCounter;
+            var cache = arenaCache ? ArenaSdfCache : CustomSdfCache;
+            if (cache.TryGetValue(request.Polygon, out var existing))
+            {
+                if (Math.Max(replacement.Width, replacement.Height) <= Math.Max(existing.Width, existing.Height))
+                {
+                    replacement.View->Release();
+                    return;
+                }
+
+                replacement.CreatedFrame = existing.CreatedFrame;
+                cache[request.Polygon] = replacement;
+                if (arenaCache)
+                {
+                    _arenaSdfCacheBytes += replacement.ByteSize - existing.ByteSize;
+                }
+                else
+                {
+                    _customSdfCacheBytes += replacement.ByteSize - existing.ByteSize;
+                }
+                if (existing.View != null)
+                {
+                    existing.View->Release();
+                }
+            }
+            else
+            {
+                cache.Add(request.Polygon, replacement);
+                if (arenaCache)
+                {
+                    _arenaSdfCacheBytes += replacement.ByteSize;
+                }
+                else
+                {
+                    _customSdfCacheBytes += replacement.ByteSize;
+                }
+            }
+
+            if (arenaCache)
+            {
+                TrimSdfCache(ArenaSdfCache, replacement, ref _arenaSdfCacheBytes, ArenaSdfCacheBudgetBytes, MaxCachedArenaSdfs);
+            }
+            else
+            {
+                TrimSdfCache(CustomSdfCache, replacement, ref _customSdfCacheBytes, CustomSdfCacheBudgetBytes, MaxCachedCustomSdfs);
+            }
+        }
+        finally
+        {
+            data.ReturnPacked();
+            lock (_customSdfBuildLock)
+            {
+                if (request.Generation == _customSdfBuildGeneration)
+                {
+                    (arenaCache ? _pendingArenaSdfBuilds : _pendingCustomSdfBuilds).Remove(request.Polygon);
+                }
+            }
+        }
+    }
+
+    private static void InvalidateAsyncCustomSdfBuilds()
+    {
+        lock (_customSdfBuildLock)
+        {
+            ++_customSdfBuildGeneration;
+
+            _customSdfBuildQueue.Clear();
+            while (_completedCustomSdfBuildQueue.Count != 0)
+            {
+                _completedCustomSdfBuildQueue.Dequeue().Data.ReturnPacked();
+            }
+            while (_completedArenaSdfBuildQueue.Count != 0)
+            {
+                _completedArenaSdfBuildQueue.Dequeue().Data.ReturnPacked();
+            }
+            _pendingCustomSdfBuilds.Clear();
+            _pendingArenaSdfBuilds.Clear();
+            // Do not force _customSdfWorkerRunning false: an in-flight old-generation job may still be
+            // sampling. It will discard its result, then service any new-generation work queued later.
+        }
+    }
+
     private static ArenaSdfResource? GetOrCreateCustomSdf(RelSimplifiedComplexPolygon polygon)
     {
+        var frame = ImGui.GetFrameCount();
         if (!CustomSdfCache.TryGetValue(polygon, out var resource))
         {
-            resource = BuildAdaptiveSdfResource(polygon);
+            // Always generate a small exact SDF immediately. This keeps genuinely dynamic custom AOEs
+            // visible even when callers replace the polygon object every frame. The preview is deliberately
+            // much smaller than the normal 64px floor so its synchronous cost stays bounded.
+            resource = BuildSdfPreview(polygon, frame, CustomSdfPreviewLongResolution);
             if (resource == null)
             {
                 return null;
@@ -2342,32 +3319,48 @@ public static unsafe partial class Dx11ArenaRenderer
             return resource;
         }
 
-        if (NeedsSdfResolutionUpgrade(resource))
+        // Do not refine a polygon merely because both its 2D and world-projected paths touched it in
+        // the same frame. Only polygons that survive into a later frame earn background work. This is
+        // important for animated/custom AOEs that allocate a fresh polygon every update.
+        var desired = ComputeSdfLongResolution(Math.Max(resource.SpanX, resource.SpanZ));
+        if (frame != resource.CreatedFrame && Math.Max(resource.Width, resource.Height) < desired)
         {
-            // Cache entries only grow when the same immutable polygon is later viewed at a higher
-            // framebuffer scale. Never downgrade on zoom-out; that avoids texture rebuild churn.
-            var replacement = BuildAdaptiveSdfResource(polygon);
-            if (replacement != null && Math.Max(replacement.Width, replacement.Height) > Math.Max(resource.Width, resource.Height))
-            {
-                CustomSdfCache[polygon] = replacement;
-                _customSdfCacheBytes += replacement.ByteSize - resource.ByteSize;
-                if (resource.View != null)
-                {
-                    resource.View->Release();
-                }
-                resource = replacement;
-                resource.LastUse = ++_arenaSdfUseCounter;
-                TrimSdfCache(CustomSdfCache, resource, ref _customSdfCacheBytes, CustomSdfCacheBudgetBytes, MaxCachedCustomSdfs);
-                return resource;
-            }
-            if (replacement != null && replacement.View != null)
-            {
-                replacement.View->Release();
-            }
+            QueueCustomSdfBuild(polygon, NextCustomSdfLongResolution(resource, desired));
         }
 
         resource.LastUse = ++_arenaSdfUseCounter;
         return resource;
+    }
+
+    private static ArenaSdfResource? BuildSdfPreview(RelSimplifiedComplexPolygon polygon, int frame, int longResolution)
+    {
+        // Prime lazy polygon indexing on the renderer thread before sampling. This is also done by the
+        // async queue, but preview-only one-frame polygons never need to enter that queue at all.
+        polygon.VerifyPolygonIndexExistance();
+        var data = BuildAdaptiveSdfCpu(polygon, longResolution);
+        if (data == null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var resource = UploadAdaptiveSdfResource(data);
+            resource?.CreatedFrame = frame;
+            return resource;
+        }
+        finally
+        {
+            data.ReturnPacked();
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int NextCustomSdfLongResolution(ArenaSdfResource resource, int desired)
+    {
+        var current = Math.Max(resource.Width, resource.Height);
+        var next = Math.Max(MinSdfLongResolution, current * 2);
+        return Math.Min(desired, Math.Min(MaxSdfResolution, AlignSdfResolution(next)));
     }
 
     private static bool EnsureArenaSdfForBuild()
@@ -2383,50 +3376,48 @@ public static unsafe partial class Dx11ArenaRenderer
             return false;
         }
 
-        if (!ArenaSdfCache.TryGetValue(polygon, out var resource))
+        var resource = GetOrCreateArenaSdfResource(polygon);
+        if (resource == null)
         {
-            resource = BuildAdaptiveSdfResource(polygon);
-            if (resource == null)
-            {
-                return false;
-            }
-            ArenaSdfCache.Add(polygon, resource);
-            _arenaSdfCacheBytes += resource.ByteSize;
-            resource.LastUse = ++_arenaSdfUseCounter;
-            TrimSdfCache(ArenaSdfCache, resource, ref _arenaSdfCacheBytes, ArenaSdfCacheBudgetBytes, MaxCachedArenaSdfs);
-        }
-        else if (NeedsSdfResolutionUpgrade(resource))
-        {
-            var replacement = BuildAdaptiveSdfResource(polygon);
-            if (replacement != null && Math.Max(replacement.Width, replacement.Height) > Math.Max(resource.Width, resource.Height))
-            {
-                ArenaSdfCache[polygon] = replacement;
-                _arenaSdfCacheBytes += replacement.ByteSize - resource.ByteSize;
-                if (resource.View != null)
-                {
-                    resource.View->Release();
-                }
-                resource = replacement;
-                resource.LastUse = ++_arenaSdfUseCounter;
-                TrimSdfCache(ArenaSdfCache, resource, ref _arenaSdfCacheBytes, ArenaSdfCacheBudgetBytes, MaxCachedArenaSdfs);
-            }
-            else
-            {
-                if (replacement != null && replacement.View != null)
-                {
-                    replacement.View->Release();
-                }
-                resource.LastUse = ++_arenaSdfUseCounter;
-            }
-        }
-        else
-        {
-            resource.LastUse = ++_arenaSdfUseCounter;
+            return false;
         }
 
         _buildArenaSdf = resource;
         _buildOutlineSdfConstants = BuildOutlineSdfConstants(resource);
         return true;
+    }
+
+    private static ArenaSdfResource? GetOrCreateArenaSdfResource(RelSimplifiedComplexPolygon polygon)
+        => GetOrCreateArenaSdfResource(polygon, _buildSdfResolutionPixelScale);
+
+    private static ArenaSdfResource? GetOrCreateArenaSdfResource(RelSimplifiedComplexPolygon polygon, float resolutionPixelScale)
+    {
+        var frame = ImGui.GetFrameCount();
+        if (!ArenaSdfCache.TryGetValue(polygon, out var resource))
+        {
+            // Arena clipping cannot tolerate an async-only cache miss: stencil/background paths expect
+            // a valid resource immediately. Publish a tiny exact map synchronously, then refine only if
+            // the same immutable bounds polygon survives into a later frame.
+            resource = BuildSdfPreview(polygon, frame, ArenaSdfPreviewLongResolution);
+            if (resource == null)
+            {
+                return null;
+            }
+            ArenaSdfCache.Add(polygon, resource);
+            _arenaSdfCacheBytes += resource.ByteSize;
+            resource.LastUse = ++_arenaSdfUseCounter;
+            TrimSdfCache(ArenaSdfCache, resource, ref _arenaSdfCacheBytes, ArenaSdfCacheBudgetBytes, MaxCachedArenaSdfs);
+            return resource;
+        }
+
+        var desired = ComputeSdfLongResolution(Math.Max(resource.SpanX, resource.SpanZ), resolutionPixelScale);
+        if (frame != resource.CreatedFrame && Math.Max(resource.Width, resource.Height) < desired)
+        {
+            QueueArenaSdfBuild(polygon, NextCustomSdfLongResolution(resource, desired));
+        }
+
+        resource.LastUse = ++_arenaSdfUseCounter;
+        return resource;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -2435,12 +3426,16 @@ public static unsafe partial class Dx11ArenaRenderer
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int ComputeSdfLongResolution(float maxSpan)
+        => ComputeSdfLongResolution(maxSpan, _buildSdfResolutionPixelScale);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int ComputeSdfLongResolution(float maxSpan, float resolutionPixelScale)
     {
         // The SDF stores world-space distance and is bilinearly sampled. Keep texels at roughly
         // half a framebuffer pixel or finer, while retaining a small floor for zoomed
-        // out arenas and a hard cap for memory/build cost. The extra density matters most at
-        // polygon corners, where bilinear interpolation otherwise bends the SDF zero contour.
-        var screenPixels = maxSpan * Math.Max(_buildSdfResolutionPixelScale, 1e-5f);
+        // out arenas and a hard cap for memory/build cost. The explicit scale overload is used by
+        // background jobs so they never read mutable per-frame renderer state.
+        var screenPixels = maxSpan * Math.Max(resolutionPixelScale, 1e-5f);
         var requested = (int)MathF.Ceiling(screenPixels / TargetSdfPixelsPerTexel);
         requested = Math.Clamp(requested, MinSdfLongResolution, MaxSdfResolution);
         return Math.Min(MaxSdfResolution, AlignSdfResolution(requested));
@@ -2487,28 +3482,42 @@ public static unsafe partial class Dx11ArenaRenderer
 
     private static ArenaSdfResource? BuildAdaptiveSdfResource(RelSimplifiedComplexPolygon polygon)
     {
-        var minX = float.PositiveInfinity;
-        var minZ = float.PositiveInfinity;
-        var maxX = float.NegativeInfinity;
-        var maxZ = float.NegativeInfinity;
-        var parts = CollectionsMarshal.AsSpan(polygon.Parts);
-        var lenP = parts.Length;
-        for (var pi = 0; pi < lenP; ++pi)
+        var index = polygon.VerifyPolygonIndexExistance();
+        index.GetBounds(out Vector2 boundsMin, out var boundsMax);
+        var rawSpanX = Math.Max(boundsMax.X - boundsMin.X, 1e-3f);
+        var rawSpanZ = Math.Max(boundsMax.Y - boundsMin.Y, 1e-3f);
+        var maxRawSpan = Math.Max(rawSpanX, rawSpanZ);
+        var padding = Math.Max(0.5f, maxRawSpan * 0.125f);
+        var longResolution = ComputeSdfLongResolution(Math.Max(rawSpanX + 2f * padding, rawSpanZ + 2f * padding));
+        var data = BuildAdaptiveSdfCpu(polygon, longResolution);
+        if (data == null)
         {
-            var part = parts[pi];
-            var vertices = part.AllVertices;
-            var lenV = vertices.Length;
-            for (var i = 0; i < lenV; ++i)
-            {
-                var p = vertices[i];
-                var pX = p.X;
-                var pZ = p.Z;
-                minX = Math.Min(minX, pX);
-                minZ = Math.Min(minZ, pZ);
-                maxX = Math.Max(maxX, pX);
-                maxZ = Math.Max(maxZ, pZ);
-            }
+            return null;
         }
+
+        try
+        {
+            return UploadAdaptiveSdfResource(data);
+        }
+        finally
+        {
+            data.ReturnPacked();
+        }
+    }
+
+    private static SdfCpuData? BuildAdaptiveSdfCpu(RelSimplifiedComplexPolygon polygon, int longResolution)
+    {
+        // The exact boundary index is required below to build every SDF mip, and it already owns the
+        // polygon's raw local AABB. Reusing it avoids a separate full contour scan and gives all SDF
+        // and projected-quad paths one consistent bounds source. QueueCustomSdfBuild primes lazy index
+        // creation on the render thread before this method is used by the worker.
+        var index = polygon.VerifyPolygonIndexExistance();
+        index.GetBounds(out Vector2 boundsMin, out var boundsMax);
+
+        var minX = boundsMin.X;
+        var minZ = boundsMin.Y;
+        var maxX = boundsMax.X;
+        var maxZ = boundsMax.Y;
 
         var rawSpanX = Math.Max(maxX - minX, 1e-3f);
         var rawSpanZ = Math.Max(maxZ - minZ, 1e-3f);
@@ -2524,10 +3533,13 @@ public static unsafe partial class Dx11ArenaRenderer
         var spanX = maxX - minX;
         var spanZ = maxZ - minZ;
         var maxSpan = Math.Max(spanX, spanZ);
-        var longResolution = ComputeSdfLongResolution(maxSpan);
+        // Background jobs and the synchronous preview pass an explicit long-axis resolution so this
+        // method never reads mutable per-frame scale state. Preview is allowed below the normal 64px floor.
+        longResolution = Math.Clamp(AlignSdfResolution(longResolution), SdfResolutionAlignment, MaxSdfResolution);
         // Padding guarantees even a degenerate/thin polygon has a useful short dimension
-        var width = Math.Clamp(AlignSdfResolution((int)MathF.Ceiling(longResolution * spanX / maxSpan)), SdfResolutionAlignment, MaxSdfResolution);
-        var height = Math.Clamp(AlignSdfResolution((int)MathF.Ceiling(longResolution * spanZ / maxSpan)), SdfResolutionAlignment, MaxSdfResolution);
+        var invMax = 1f / maxSpan;
+        var width = Math.Clamp(AlignSdfResolution((int)MathF.Ceiling(longResolution * spanX * invMax)), SdfResolutionAlignment, MaxSdfResolution);
+        var height = Math.Clamp(AlignSdfResolution((int)MathF.Ceiling(longResolution * spanZ * invMax)), SdfResolutionAlignment, MaxSdfResolution);
         // Build a full mip chain, but do NOT derive coarse levels by averaging the previous SDF.
         // Averaging scalar distances moves/rounds the zero contour at polygon corners. Instead every
         // mip independently samples the exact polygon distance field over the same world-space domain.
@@ -2549,7 +3561,6 @@ public static unsafe partial class Dx11ArenaRenderer
         try
         {
             // PolygonBoundaryIndex2D evaluates the true unique-edge distance field at each mip's own texel centers
-            var index = polygon.VerifyPolygonIndexExistance();
             var packedOffset = 0;
             mipWidth = width;
             mipHeight = height;
@@ -2566,70 +3577,99 @@ public static unsafe partial class Dx11ArenaRenderer
                 mipHeight = Math.Max(1, mipHeight >> 1);
             }
 
-            D3D11_TEXTURE2D_DESC desc = default;
-            desc.Width = (uint)width;
-            desc.Height = (uint)height;
-            desc.MipLevels = (uint)mipLevels;
-            desc.ArraySize = 1u;
-            desc.Format = (DXGI_FORMAT)54; // DXGI_FORMAT_R16_FLOAT
-            desc.SampleDesc.Count = 1u;
-            desc.Usage = 0; // DEFAULT
-            desc.BindFlags = 0x8u; // SHADER_RESOURCE
-
-            ID3D11Texture2D* texture = null;
-            fixed (ushort* source = packed)
+            return new SdfCpuData
             {
-                var init = stackalloc D3D11_SUBRESOURCE_DATA[mipLevels];
-                var texelOffset = 0;
-                mipWidth = width;
-                mipHeight = height;
-                for (var mip = 0; mip < mipLevels; ++mip)
-                {
-                    var mipSampleCount = mipWidth * mipHeight;
-                    init[mip] = default;
-                    init[mip].pSysMem = source + texelOffset;
-                    init[mip].SysMemPitch = (uint)(mipWidth * sizeof(ushort));
-                    init[mip].SysMemSlicePitch = (uint)(mipSampleCount * sizeof(ushort));
-                    texelOffset += mipSampleCount;
-                    mipWidth = Math.Max(1, mipWidth >> 1);
-                    mipHeight = Math.Max(1, mipHeight >> 1);
-                }
-                _device->CreateTexture2D(&desc, init, &texture);
-            }
-
-            if (texture == null)
-            {
-                return null;
-            }
-
-            ID3D11ShaderResourceView* view = null;
-            _device->CreateShaderResourceView((ID3D11Resource*)texture, null, &view);
-            texture->Release();
-            if (view == null)
-            {
-                return null;
-            }
-
-            return new ArenaSdfResource
-            {
-                View = view,
+                Packed = packed,
+                TotalSampleCount = totalSampleCount,
+                Width = width,
+                Height = height,
+                MipLevels = mipLevels,
                 MinX = minX,
                 MinZ = minZ,
                 SpanX = spanX,
                 SpanZ = spanZ,
-                InvSpanX = 1f / spanX,
-                InvSpanZ = 1f / spanZ,
-                Width = width,
-                Height = height,
-                ByteSize = totalSampleCount * sizeof(ushort),
-                LastUse = 0L,
             };
         }
         finally
         {
-            ArrayPool<ushort>.Shared.Return(packed, clearArray: false);
             ArrayPool<float>.Shared.Return(samples, clearArray: false);
         }
+    }
+
+    private static ArenaSdfResource? UploadAdaptiveSdfResource(SdfCpuData data)
+    {
+        var device = _device;
+        if (device == null)
+        {
+            return null;
+        }
+
+        var width = data.Width;
+        var height = data.Height;
+        var mipLevels = data.MipLevels;
+        var packed = data.Packed;
+
+        D3D11_TEXTURE2D_DESC desc = default;
+        desc.Width = (uint)width;
+        desc.Height = (uint)height;
+        desc.MipLevels = (uint)mipLevels;
+        desc.ArraySize = 1u;
+        desc.Format = (DXGI_FORMAT)54; // DXGI_FORMAT_R16_FLOAT
+        desc.SampleDesc.Count = 1u;
+        desc.Usage = 0; // DEFAULT
+        desc.BindFlags = 0x8u; // SHADER_RESOURCE
+
+        ID3D11Texture2D* texture = null;
+        fixed (ushort* source = packed)
+        {
+            var init = stackalloc D3D11_SUBRESOURCE_DATA[mipLevels];
+            var texelOffset = 0;
+            var mipWidth = width;
+            var mipHeight = height;
+            for (var mip = 0; mip < mipLevels; ++mip)
+            {
+                var mipSampleCount = mipWidth * mipHeight;
+                init[mip] = default;
+                init[mip].pSysMem = source + texelOffset;
+                init[mip].SysMemPitch = (uint)(mipWidth * sizeof(ushort));
+                init[mip].SysMemSlicePitch = (uint)(mipSampleCount * sizeof(ushort));
+                texelOffset += mipSampleCount;
+                mipWidth = Math.Max(1, mipWidth >> 1);
+                mipHeight = Math.Max(1, mipHeight >> 1);
+            }
+            device->CreateTexture2D(&desc, init, &texture);
+        }
+
+        if (texture == null)
+        {
+            return null;
+        }
+
+        ID3D11ShaderResourceView* view = null;
+        device->CreateShaderResourceView((ID3D11Resource*)texture, null, &view);
+        texture->Release();
+        if (view == null)
+        {
+            return null;
+        }
+
+        var spanX = data.SpanX;
+        var spanZ = data.SpanZ;
+        return new ArenaSdfResource
+        {
+            View = view,
+            MinX = data.MinX,
+            MinZ = data.MinZ,
+            SpanX = spanX,
+            SpanZ = spanZ,
+            InvSpanX = 1f / spanX,
+            InvSpanZ = 1f / spanZ,
+            Width = width,
+            Height = height,
+            ByteSize = data.TotalSampleCount * sizeof(ushort),
+            LastUse = 0L,
+            CreatedFrame = ImGui.GetFrameCount(),
+        };
     }
 
     private static OutlineSdfConstants BuildOutlineSdfConstants(ArenaSdfResource sdf)
@@ -2638,11 +3678,21 @@ public static unsafe partial class Dx11ArenaRenderer
         var invSpanZ = sdf.InvSpanZ;
         var uv0 = new Vector4(_buildSdfWxPx * invSpanX, _buildSdfWxPy * invSpanX, (_buildSdfWx0 - sdf.MinX) * invSpanX, 0f);
         var uv1 = new Vector4(_buildSdfWzPx * invSpanZ, _buildSdfWzPy * invSpanZ, (_buildSdfWz0 - sdf.MinZ) * invSpanZ, _buildWorldPixelScale);
-        return new OutlineSdfConstants { UvRow0 = uv0, UvRow1 = uv1 };
+        var uv0X = uv0.X;
+        var uv1X = uv1.X;
+        var uv0Y = uv0.Y;
+        var uv1Y = uv1.Y;
+        var gradU = MathF.Sqrt(uv0X * uv0X + uv0Y * uv0Y);
+        var gradV = MathF.Sqrt(uv1X * uv1X + uv1Y * uv1Y);
+        var outsideScale = new Vector4(1f / Math.Max(gradU, 1e-7f), 1f / Math.Max(gradV, 1e-7f), 0f, 0f);
+        const float sdfMipGradScale = 0.70710678f;
+        var mipGrad = new Vector4(uv0X * sdfMipGradScale, uv1X * sdfMipGradScale, uv0Y * sdfMipGradScale, uv1Y * sdfMipGradScale);
+        return new OutlineSdfConstants { UvRow0 = uv0, UvRow1 = uv1, OutsideScale = outsideScale, MipGrad = mipGrad };
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool SameSdfConstants(in OutlineSdfConstants a, in OutlineSdfConstants b) => a.UvRow0 == b.UvRow0 && a.UvRow1 == b.UvRow1;
+    private static bool SameSdfConstants(in OutlineSdfConstants a, in OutlineSdfConstants b)
+        => a.UvRow0 == b.UvRow0 && a.UvRow1 == b.UvRow1 && a.OutsideScale == b.OutsideScale && a.MipGrad == b.MipGrad;
 
     private static void UploadOutlineSdfConstants(in OutlineSdfConstants constants)
     {
@@ -2687,6 +3737,30 @@ public static unsafe partial class Dx11ArenaRenderer
         }
     }
 
+    private static void UploadWorldProjectedSdfConstants(in WorldProjectedSdfConstants constants)
+    {
+        if (_worldProjectedSdfConstantBuffer == null || (_worldProjectedSdfConstantsValid && SameWorldProjectedSdfConstants(_lastWorldProjectedSdfConstants, constants)))
+        {
+            return;
+        }
+        D3D11_MAPPED_SUBRESOURCE mapped = default;
+        _context->Map((ID3D11Resource*)_worldProjectedSdfConstantBuffer, 0u, (D3D11_MAP)4, 0u, &mapped);
+        try
+        {
+            *(WorldProjectedSdfConstants*)mapped.pData = constants;
+            _lastWorldProjectedSdfConstants = constants;
+            _worldProjectedSdfConstantsValid = true;
+        }
+        finally
+        {
+            _context->Unmap((ID3D11Resource*)_worldProjectedSdfConstantBuffer, 0u);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool SameWorldProjectedSdfConstants(in WorldProjectedSdfConstants a, in WorldProjectedSdfConstants b)
+        => a.ShapeSdfMap == b.ShapeSdfMap && a.ArenaSdfMap == b.ArenaSdfMap && a.Flags == b.Flags;
+
     private static string FormatHResult(HRESULT hr) => $"0x{(uint)(int)hr:X8}";
 
     private static void LogD3D11Failure(string operation, HRESULT hr, string? details = null)
@@ -2706,6 +3780,26 @@ public static unsafe partial class Dx11ArenaRenderer
 
         lastTimestamp = now;
         LogD3D11Failure(operation, hr, details);
+    }
+
+    private static void UploadZoneWaveConstants(int submitFrame)
+    {
+        // All packets submitted by one ImGui frame should share a phase. Besides avoiding tiny visual
+        // seams across layer/stencil packets, this reduces a dynamic constant-buffer map to once/frame.
+        if (_zoneWaveConstantBuffer == null || _zoneWaveUploadFrame == submitFrame)
+        {
+            return;
+        }
+
+        D3D11_MAPPED_SUBRESOURCE mapped = default;
+        var hr = _context->Map((ID3D11Resource*)_zoneWaveConstantBuffer, 0u, (D3D11_MAP)4, 0u, &mapped);
+        if (hr >= 0)
+        {
+            var elapsedSeconds = (float)((Stopwatch.GetTimestamp() - ZoneWaveEpoch) / (double)Stopwatch.Frequency);
+            *(ZoneWaveConstants*)mapped.pData = new ZoneWaveConstants { Params = new Vector4(elapsedSeconds, 0f, 0f, 0f) };
+            _context->Unmap((ID3D11Resource*)_zoneWaveConstantBuffer, 0u);
+            _zoneWaveUploadFrame = submitFrame;
+        }
     }
 
     private static bool CreateArenaSdfPipelineResources()
@@ -2732,6 +3826,9 @@ public static unsafe partial class Dx11ArenaRenderer
 
         if (!CreateDynamicConstantBuffer((uint)sizeof(OutlineSdfConstants), "outline SDF constants", out _outlineSdfConstantBuffer) ||
             !CreateDynamicConstantBuffer((uint)sizeof(OutlineSdfConstants), "custom SDF constants", out _customSdfConstantBuffer) ||
+            !CreateDynamicConstantBuffer((uint)sizeof(ZoneWaveConstants), "zone-wave constants", out _zoneWaveConstantBuffer) ||
+            !CreateDynamicConstantBuffer((uint)sizeof(WorldOverlayConstants), "world-overlay constants", out _worldOverlayConstantBuffer) ||
+            !CreateDynamicConstantBuffer((uint)sizeof(WorldProjectedSdfConstants), "world-projected SDF constants", out _worldProjectedSdfConstantBuffer) ||
             !CreateDynamicConstantBuffer((uint)sizeof(WorldLineConstants), "world-line constants", out _worldLineConstantBuffer) ||
             !CreateDynamicConstantBuffer((uint)(MaxWorldLineTransforms * sizeof(WorldLineTransform)), "world-line transforms", out _worldLineTransformBuffer))
         {
@@ -2920,6 +4017,12 @@ public static unsafe partial class Dx11ArenaRenderer
     public static void AppendIconScreen(Vector2 center, string text, float renderSize, uint color)
         => AppendMsdfTextScreen(center, text, renderSize, color, iconFont: true, 0u, 0f);
 
+    // Camera-facing, fixed-screen-size text/icon anchored at a true world-space point. Unlike
+    // AppendTextScreen this path participates in world scene-depth occlusion; native UI ordering is
+    // provided by the background overlay addon that presents the completed world texture.
+    public static void AppendWorldTextBillboard(Vector3 center, string text, float renderSize, uint color, bool iconFont = false, uint outlineColor = 0u, float outlineWidthPx = 0f)
+        => AppendMsdfTextWorldBillboard(center, text, renderSize, color, iconFont, outlineColor, outlineWidthPx);
+
     private static void AppendMsdfTextScreen(Vector2 center, string text, float renderSize, uint color, bool iconFont, uint outlineColor, float outlineWidthPx)
     {
         if (!_arenaActive || !(renderSize > 0f) || string.IsNullOrEmpty(text) || (color & 0xFF000000u) == 0)
@@ -3062,6 +4165,155 @@ public static unsafe partial class Dx11ArenaRenderer
         AppendSegment(SegmentKind.Text, start, count);
     }
 
+    private static void AppendMsdfTextWorldBillboard(Vector3 center, string text, float renderSize, uint color, bool iconFont, uint outlineColor, float outlineWidthPx)
+    {
+        if (!_arenaActive || !_buildWorldLineConfigured || renderSize <= 0f || string.IsNullOrEmpty(text) || (color & 0xFF000000u) == 0)
+        {
+            return;
+        }
+
+        var glyphs = iconFont ? _arenaIconGlyphs : _arenaTextGlyphs;
+        if (glyphs == null || glyphs.Count == 0)
+        {
+            return;
+        }
+
+        var metrics = iconFont ? _arenaIconMetrics : _arenaTextMetrics;
+        var lineHeightEm = metrics.LineHeight > 0f ? metrics.LineHeight : 1f;
+        var lineAdvance = lineHeightEm * renderSize;
+
+        // Measure exactly as the screen-text path does so centering, fallback glyphs and kerning are
+        // identical. The only difference is that emitted rectangles remain offsets around the world
+        // anchor instead of being converted to absolute NDC on the CPU.
+        var lineWidth = 0f;
+        var maxWidth = 0f;
+        var lineCount = 1;
+        var visibleGlyphs = 0;
+        var previous = 0u;
+        var hasPrevious = false;
+
+        var len = text.Length;
+        for (var i = 0; i < len;)
+        {
+            var codepoint = ReadCodepoint(text, ref i);
+            if (codepoint == '\r')
+            {
+                continue;
+            }
+            if (codepoint == '\n')
+            {
+                maxWidth = Math.Max(maxWidth, lineWidth);
+                lineWidth = 0f;
+                ++lineCount;
+                previous = 0u;
+                hasPrevious = false;
+                continue;
+            }
+
+            if (!TryGetArenaGlyph(glyphs, codepoint, iconFont, out var glyph, out var resolvedCodepoint))
+            {
+                previous = 0u;
+                hasPrevious = false;
+                continue;
+            }
+
+            if (!iconFont && hasPrevious)
+            {
+                lineWidth += GetArenaTextKerning(previous, resolvedCodepoint) * renderSize;
+            }
+            lineWidth += glyph.Advance * renderSize;
+            if (glyph.HasQuad)
+            {
+                ++visibleGlyphs;
+            }
+            previous = resolvedCodepoint;
+            hasPrevious = true;
+        }
+        maxWidth = Math.Max(maxWidth, lineWidth);
+        if (visibleGlyphs == 0)
+        {
+            return;
+        }
+
+        EnsureBuildRunStarted();
+        EnsureWorldLineConstants();
+
+        // RectPx is stored in physical framebuffer pixels because the world-text VS uses RasterScale
+        // (2 / framebuffer dimension) directly. This keeps the public fontSize semantics in logical
+        // ImGui pixels while remaining correct on high-DPI framebuffers
+        var scaleX = Math.Max(_buildClipScale.X, 1e-5f);
+        var scaleY = Math.Max(_buildClipScale.Y, 1e-5f);
+
+        var start = _buildWorldTextInstanceCount;
+        EnsureWorldTextInstanceBuildCapacity(start + visibleGlyphs);
+        var instances = _buildWorldTextInstances!;
+        var dst = start;
+
+        var x0 = -0.5f * maxWidth;
+        var baseline0 = -0.5f * (lineCount - 1) * lineAdvance + 0.5f * (metrics.Ascender + metrics.Descender) * renderSize;
+        var x = x0;
+        var baseline = baseline0;
+        previous = 0u;
+        hasPrevious = false;
+
+        for (var i = 0; i < len;)
+        {
+            var codepoint = ReadCodepoint(text, ref i);
+            if (codepoint == '\r')
+            {
+                continue;
+            }
+            if (codepoint == '\n')
+            {
+                x = x0;
+                baseline += lineAdvance;
+                previous = 0u;
+                hasPrevious = false;
+                continue;
+            }
+
+            if (!TryGetArenaGlyph(glyphs, codepoint, iconFont, out var glyph, out var resolvedCodepoint))
+            {
+                previous = 0u;
+                hasPrevious = false;
+                continue;
+            }
+
+            if (!iconFont && hasPrevious)
+            {
+                x += GetArenaTextKerning(previous, resolvedCodepoint) * renderSize;
+            }
+
+            if (glyph.HasQuad)
+            {
+                var pb = glyph.PlaneBounds;
+                var x1 = (x + pb.X * renderSize) * scaleX;
+                var y1 = (baseline - pb.W * renderSize) * scaleY;
+                var x2 = (x + pb.Z * renderSize) * scaleX;
+                var y2 = (baseline - pb.Y * renderSize) * scaleY;
+                instances[dst++] = new WorldTextInstance
+                {
+                    Center = center,
+                    RectPx = new Vector4(x1, y1, x2, y2),
+                    UvRect = glyph.UvRect,
+                    Col = color,
+                    OutlineCol = outlineColor,
+                    // Match AppendTextScreen semantics: glyph dimensions follow framebuffer scale,
+                    // while the MSDF outline width is passed to the pixel shader unchanged
+                    OutlineWidthPx = Math.Max(0f, outlineWidthPx)
+                };
+            }
+
+            x += glyph.Advance * renderSize;
+            previous = resolvedCodepoint;
+            hasPrevious = true;
+        }
+
+        var count = dst - start;
+        _buildWorldTextInstanceCount = dst;
+        AppendSegment(SegmentKind.WorldText, start, count);
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryGetArenaGlyph(Dictionary<uint, ArenaFontGlyph> glyphs, uint codepoint, bool iconFont, out ArenaFontGlyph glyph, out uint resolvedCodepoint)
     {
@@ -3132,15 +4384,25 @@ public static unsafe partial class Dx11ArenaRenderer
         packet.WorldLineCount = _buildWorldLineCount;
         packet.WorldCurves = _buildWorldCurves;
         packet.WorldCurveCount = _buildWorldCurveCount;
+        packet.WorldProjectedArrows = _buildWorldProjectedArrows;
+        packet.WorldProjectedArrowCount = _buildWorldProjectedArrowCount;
+        packet.WorldProjectedShapes = _buildWorldProjectedShapes;
+        packet.WorldProjectedShapeCount = _buildWorldProjectedShapeCount;
+        packet.WorldProjectedSdfs = _buildWorldProjectedSdfs;
+        packet.WorldProjectedSdfCount = _buildWorldProjectedSdfCount;
         packet.WorldLineTransforms = _buildWorldLineTransforms;
         packet.WorldLineTransformCount = _buildWorldLineTransformCount;
         packet.WorldLineConstants = _buildWorldLineConstants;
+        packet.SceneDepthView = _buildWorldSceneDepthAvailable ? _sceneDepthView : null;
+        packet.SceneInfoView = _buildWorldSceneInfoAvailable ? _sceneInfoView : null;
         packet.Analytics = _buildAnalytics;
         packet.AnalyticCount = _buildAnalyticCount;
         packet.Outlines = _buildOutlines;
         packet.OutlineCount = _buildOutlineCount;
         packet.TextInstances = _buildTextInstances;
         packet.TextInstanceCount = _buildTextInstanceCount;
+        packet.WorldTextInstances = _buildWorldTextInstances;
+        packet.WorldTextInstanceCount = _buildWorldTextInstanceCount;
         packet.Sprites = _buildSprites;
         packet.SpriteCount = _buildSpriteCount;
         packet.ArenaSdfView = _buildArenaSdf?.View;
@@ -3148,6 +4410,7 @@ public static unsafe partial class Dx11ArenaRenderer
         packet.CustomSdfs = _buildCustomSdfs;
         packet.CustomSdfCount = _buildCustomSdfCount;
         packet.NeedsStencil = _buildNeedsStencil;
+        packet.UsesZoneWave = _buildUsesZoneWave;
         packet.ModifiesDepthState = _buildModifiesDepthState;
         packet.StencilKey = _buildNeedsStencil ? _arenaStencilKey : 0;
         packet.Segments = segmentArray;
@@ -3156,11 +4419,20 @@ public static unsafe partial class Dx11ArenaRenderer
         packet.ClipScale = _buildClipScale;
         packet.FramebufferWidth = _buildFramebufferWidth;
         packet.FramebufferHeight = _buildFramebufferHeight;
+        packet.WorldOverlayTarget = _buildWorldLineConfigured;
         PreparePacketUploadLayout(packet);
 
         if (packet.ArenaSdfView != null)
         {
             packet.ArenaSdfView->AddRef();
+        }
+        if (packet.SceneDepthView != null)
+        {
+            packet.SceneDepthView->AddRef();
+        }
+        if (packet.SceneInfoView != null)
+        {
+            packet.SceneInfoView->AddRef();
         }
         // Custom SDF bindings were AddRef'd when they entered the build packet, so cache eviction is safe before Flush(). Ownership of those retained references transfers to BatchPacket
         // Packet owns these arrays after this point
@@ -3169,10 +4441,14 @@ public static unsafe partial class Dx11ArenaRenderer
         _buildStrokeInstances = null;
         _buildWorldLines = null;
         _buildWorldCurves = null;
+        _buildWorldProjectedArrows = null;
+        _buildWorldProjectedShapes = null;
+        _buildWorldProjectedSdfs = null;
         _buildWorldLineTransforms = null;
         _buildAnalytics = null;
         _buildOutlines = null;
         _buildTextInstances = null;
+        _buildWorldTextInstances = null;
         _buildSprites = null;
         _buildCustomSdfs = null;
         _buildSegments = null;
@@ -3182,14 +4458,19 @@ public static unsafe partial class Dx11ArenaRenderer
         _buildStrokeInstanceCount = 0;
         _buildWorldLineCount = 0;
         _buildWorldCurveCount = 0;
+        _buildWorldProjectedArrowCount = 0;
+        _buildWorldProjectedShapeCount = 0;
+        _buildWorldProjectedSdfCount = 0;
         _buildWorldLineTransformCount = 0;
         _buildWorldLineConstantsValid = false;
         _buildAnalyticCount = 0;
         _buildOutlineCount = 0;
         _buildTextInstanceCount = 0;
+        _buildWorldTextInstanceCount = 0;
         _buildSpriteCount = 0;
         _buildSegmentCount = 0;
         _buildNeedsStencil = false;
+        _buildUsesZoneWave = false;
         _buildModifiesDepthState = false;
         _buildArenaSdf = null;
         _buildOutlineSdfConstants = default;
@@ -3240,6 +4521,39 @@ public static unsafe partial class Dx11ArenaRenderer
         FinishArena();
     }
 
+    // Queued after all Camera/world callbacks, including on frames with no world primitives. The
+    // marker clears stale content and resolves the accumulated premultiplied render target into the
+    // straight-alpha texture consumed by FFXIV's native background overlay node.
+    public static void QueueWorldOverlayPresent(ImDrawListPtr drawList, Vector2 viewportSize, Vector4 screenRiskColor = default, float screenRiskPhase = 0f)
+    {
+        if (!_isInitialized)
+        {
+            return;
+        }
+
+        PrepareFrame();
+        var scale = ImGui.GetIO().DisplayFramebufferScale;
+        var scaleX = scale.X > 0f ? scale.X : 1f;
+        var scaleY = scale.Y > 0f ? scale.Y : 1f;
+        var packet = RentBatchPacket();
+        packet.IsWorldOverlayPresent = true;
+        packet.ScreenRiskColor = screenRiskColor;
+        packet.ScreenRiskPhase = screenRiskPhase;
+        packet.FramebufferWidth = Math.Max(1, (int)MathF.Round(viewportSize.X * scaleX));
+        packet.FramebufferHeight = Math.Max(1, (int)MathF.Round(viewportSize.Y * scaleY));
+
+        var packetId = RegisterPacket(packet);
+        try
+        {
+            drawList.AddCallback(DrawCallback, (void*)packetId);
+        }
+        catch
+        {
+            if (RemovePacket(packetId) is BatchPacket abandoned)
+                ReturnPacketArrays(abandoned);
+        }
+    }
+
     private static void DeferClippedOutlineOverlay(ref OutlineInstance instance, SegmentKind kind, ArenaSdfResource arenaSdf, ArenaSdfResource? customSdf)
     {
         if (arenaSdf.View == null)
@@ -3247,19 +4561,10 @@ public static unsafe partial class Dx11ArenaRenderer
             return;
         }
 
-        // All deferred overlays belong to the current arena, so the arena SDF/view transform is
-        // packet-wide state. Retain it once when the first overlay is queued instead of AddRef'ing
-        // and storing the same metadata on every overlay.
-        if (DeferredOutlineOverlays.Count == 0)
-        {
-            arenaSdf.View->AddRef();
-            _deferredArenaSdfView = arenaSdf.View;
-            _deferredArenaSdfConstants = BuildOutlineSdfConstants(arenaSdf);
-            _deferredClipOffset = _buildClipOffset;
-            _deferredClipScale = _buildClipScale;
-            _deferredFramebufferWidth = _buildFramebufferWidth;
-            _deferredFramebufferHeight = _buildFramebufferHeight;
-        }
+        // Layer-aware arenas can use several clipping SDFs in one ordered draw stream. Retain the
+        // arena binding per overlay; QueueDeferredOutlineOverlays coalesces consecutive equal bindings
+        // into packets after the visible arena border has been submitted
+        arenaSdf.View->AddRef();
 
         if (customSdf != null && customSdf.View != null)
         {
@@ -3270,8 +4575,14 @@ public static unsafe partial class Dx11ArenaRenderer
         {
             Instance = instance,
             Kind = kind,
+            ArenaSdfView = arenaSdf.View,
+            ArenaSdfConstants = BuildOutlineSdfConstants(arenaSdf),
             CustomSdfView = customSdf != null ? customSdf.View : null,
             CustomSdfConstants = customSdf != null ? BuildOutlineSdfConstants(customSdf) : default,
+            ClipOffset = _buildClipOffset,
+            ClipScale = _buildClipScale,
+            FramebufferWidth = _buildFramebufferWidth,
+            FramebufferHeight = _buildFramebufferHeight,
         });
     }
 
@@ -3283,46 +4594,87 @@ public static unsafe partial class Dx11ArenaRenderer
             return true;
         }
 
-        BatchPacket? packet = null;
         try
         {
             var overlays = CollectionsMarshal.AsSpan(DeferredOutlineOverlays);
-            var hasCustomSdf = false;
-            for (var i = 0; i < count; ++i)
+            var start = 0;
+            while (start < count)
             {
-                if (overlays[i].CustomSdfView != null)
+                var end = start + 1;
+                ref readonly var first = ref overlays[start];
+                while (end < count)
                 {
-                    hasCustomSdf = true;
-                    break;
+                    ref readonly var next = ref overlays[end];
+                    if (next.ArenaSdfView != first.ArenaSdfView || next.ClipOffset != first.ClipOffset || next.ClipScale != first.ClipScale
+                        || next.FramebufferWidth != first.FramebufferWidth || next.FramebufferHeight != first.FramebufferHeight)
+                    {
+                        break;
+                    }
+                    ++end;
                 }
+
+                QueueDeferredOutlineOverlayRange(overlays, start, end);
+                start = end;
             }
 
+            DeferredOutlineOverlays.Clear();
+            return true;
+        }
+        catch (Exception)
+        {
+            ReleaseDeferredOutlineOverlays();
+            return false;
+        }
+    }
+
+    private static void QueueDeferredOutlineOverlayRange(Span<DeferredOutlineOverlay> overlays, int start, int end)
+    {
+        var count = end - start;
+        var hasCustomSdf = false;
+        for (var i = start; i < end; ++i)
+        {
+            if (overlays[i].CustomSdfView != null)
+            {
+                hasCustomSdf = true;
+                break;
+            }
+        }
+
+        BatchPacket? packet = null;
+        try
+        {
+            ref var first = ref overlays[start];
             packet = RentBatchPacket();
             packet.Outlines = ArrayPool<OutlineInstance>.Shared.Rent(count);
             packet.Segments = ArrayPool<DrawSegment>.Shared.Rent(count); // worst case: every overlay changes kind/SDF
             packet.CustomSdfs = hasCustomSdf ? ArrayPool<CustomSdfBinding>.Shared.Rent(count) : null; // worst case: every overlay uses a distinct custom SDF
-            packet.ArenaSdfView = _deferredArenaSdfView;
-            packet.OutlineSdfConstants = _deferredArenaSdfConstants;
+            packet.ArenaSdfView = first.ArenaSdfView;
+            packet.OutlineSdfConstants = first.ArenaSdfConstants;
             packet.NeedsStencil = false;
             packet.ModifiesDepthState = true;
             packet.StencilKey = 0;
-            packet.ClipOffset = _deferredClipOffset;
-            packet.ClipScale = _deferredClipScale;
-            packet.FramebufferWidth = _deferredFramebufferWidth;
-            packet.FramebufferHeight = _deferredFramebufferHeight;
+            packet.ClipOffset = first.ClipOffset;
+            packet.ClipScale = first.ClipScale;
+            packet.FramebufferWidth = first.FramebufferWidth;
+            packet.FramebufferHeight = first.FramebufferHeight;
             packet.IsDeferredOverlay = true;
-
-            // Transfer the one retained arena-SDF reference to the packet. Custom SDFs remain
-            // per-overlay until they are deduplicated into packet-local bindings below.
-            _deferredArenaSdfView = null;
+            first.ArenaSdfView = null; // packet owns this retained reference
 
             var customCount = 0;
             var segmentCount = 0;
             var customBindings = packet.CustomSdfs;
-            for (var i = 0; i < count; ++i)
+            for (var i = start; i < end; ++i)
             {
                 ref var overlay = ref overlays[i];
-                packet.Outlines[i] = overlay.Instance;
+                var localIndex = i - start;
+                packet.Outlines[localIndex] = overlay.Instance;
+
+                if (i != start && overlay.ArenaSdfView != null)
+                {
+                    // The packet already retained this run's arena SRV through its first overlay.
+                    overlay.ArenaSdfView->Release();
+                    overlay.ArenaSdfView = null;
+                }
 
                 var customBinding = -1;
                 if (overlay.CustomSdfView != null)
@@ -3345,13 +4697,11 @@ public static unsafe partial class Dx11ArenaRenderer
                             View = view,
                             Constants = overlay.CustomSdfConstants,
                         };
-                        // Record ownership immediately so exception cleanup releases any bindings already transferred before the packet finishes assembling
                         packet.CustomSdfCount = customCount;
                         overlay.CustomSdfView = null;
                     }
                     else
                     {
-                        // The packet already retained this exact SRV through an earlier overlay
                         view->Release();
                         overlay.CustomSdfView = null;
                     }
@@ -3360,7 +4710,7 @@ public static unsafe partial class Dx11ArenaRenderer
                 if (segmentCount != 0)
                 {
                     ref var previous = ref packet.Segments[segmentCount - 1];
-                    if (previous.Kind == overlay.Kind && previous.CustomSdfBinding == customBinding && previous.Start + previous.Count == i)
+                    if (previous.Kind == overlay.Kind && previous.CustomSdfBinding == customBinding && previous.Start + previous.Count == localIndex)
                     {
                         ++previous.Count;
                         continue;
@@ -3370,7 +4720,7 @@ public static unsafe partial class Dx11ArenaRenderer
                 packet.Segments[segmentCount++] = new DrawSegment
                 {
                     Kind = overlay.Kind,
-                    Start = i,
+                    Start = localIndex,
                     Count = 1,
                     CustomSdfBinding = customBinding,
                 };
@@ -3395,35 +4745,29 @@ public static unsafe partial class Dx11ArenaRenderer
                 }
                 throw;
             }
-
-            DeferredOutlineOverlays.Clear();
-            ResetDeferredArenaState();
-            return true;
         }
-        catch (Exception)
+        catch
         {
             if (packet != null)
             {
                 ReturnPacketArrays(packet);
             }
-            ReleaseDeferredOutlineOverlays();
-            return false;
+            throw;
         }
     }
 
     private static void ReleaseDeferredOutlineOverlays()
     {
-        if (_deferredArenaSdfView != null)
-        {
-            _deferredArenaSdfView->Release();
-            _deferredArenaSdfView = null;
-        }
-
         var overlays = CollectionsMarshal.AsSpan(DeferredOutlineOverlays);
         var len = overlays.Length;
         for (var i = 0; i < len; ++i)
         {
             ref var overlay = ref overlays[i];
+            if (overlay.ArenaSdfView != null)
+            {
+                overlay.ArenaSdfView->Release();
+                overlay.ArenaSdfView = null;
+            }
             if (overlay.CustomSdfView != null)
             {
                 overlay.CustomSdfView->Release();
@@ -3431,17 +4775,6 @@ public static unsafe partial class Dx11ArenaRenderer
             }
         }
         DeferredOutlineOverlays.Clear();
-        ResetDeferredArenaState();
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ResetDeferredArenaState()
-    {
-        _deferredArenaSdfConstants = default;
-        _deferredClipOffset = default;
-        _deferredClipScale = default;
-        _deferredFramebufferWidth = 0;
-        _deferredFramebufferHeight = 0;
     }
 
     private static void FinishArena()
@@ -3541,7 +4874,11 @@ public static unsafe partial class Dx11ArenaRenderer
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void EnsureBuildRunStarted() => EnsureArenaPrepared();
+    private static void EnsureBuildRunStarted()
+    {
+        EnsureArenaPrepared();
+        DrainCompletedCustomSdfBuilds();
+    }
 
     private static OutlineInstance BuildSdfFillInstance(ArenaSdfResource sdf, uint color)
     {
@@ -3742,6 +5079,81 @@ public static unsafe partial class Dx11ArenaRenderer
         _buildWorldCurves = replacement;
     }
 
+    private static void EnsureWorldProjectedArrowBuildCapacity(int required)
+    {
+        if (_buildWorldProjectedArrows != null && required <= _buildWorldProjectedArrows.Length)
+        {
+            return;
+        }
+
+        var capacity = _buildWorldProjectedArrows?.Length ?? 16;
+        while (capacity < required)
+        {
+            capacity *= 2;
+        }
+
+        var replacement = ArrayPool<WorldProjectedArrowInstance>.Shared.Rent(capacity);
+        if (_buildWorldProjectedArrows != null)
+        {
+            if (_buildWorldProjectedArrowCount != 0)
+            {
+                Array.Copy(_buildWorldProjectedArrows, replacement, _buildWorldProjectedArrowCount);
+            }
+            ArrayPool<WorldProjectedArrowInstance>.Shared.Return(_buildWorldProjectedArrows);
+        }
+        _buildWorldProjectedArrows = replacement;
+    }
+
+    private static void EnsureWorldProjectedShapeBuildCapacity(int required)
+    {
+        if (_buildWorldProjectedShapes != null && required <= _buildWorldProjectedShapes.Length)
+        {
+            return;
+        }
+
+        var capacity = _buildWorldProjectedShapes?.Length ?? 64;
+        while (capacity < required)
+        {
+            capacity *= 2;
+        }
+
+        var replacement = ArrayPool<WorldProjectedShapeInstance>.Shared.Rent(capacity);
+        if (_buildWorldProjectedShapes != null)
+        {
+            if (_buildWorldProjectedShapeCount != 0)
+            {
+                Array.Copy(_buildWorldProjectedShapes, replacement, _buildWorldProjectedShapeCount);
+            }
+            ArrayPool<WorldProjectedShapeInstance>.Shared.Return(_buildWorldProjectedShapes);
+        }
+        _buildWorldProjectedShapes = replacement;
+    }
+
+    private static void EnsureWorldProjectedSdfBindingBuildCapacity(int required)
+    {
+        if (_buildWorldProjectedSdfs != null && required <= _buildWorldProjectedSdfs.Length)
+        {
+            return;
+        }
+
+        var capacity = _buildWorldProjectedSdfs?.Length ?? 8;
+        while (capacity < required)
+        {
+            capacity *= 2;
+        }
+
+        var replacement = ArrayPool<WorldProjectedSdfBinding>.Shared.Rent(capacity);
+        if (_buildWorldProjectedSdfs != null)
+        {
+            if (_buildWorldProjectedSdfCount != 0)
+            {
+                Array.Copy(_buildWorldProjectedSdfs, replacement, _buildWorldProjectedSdfCount);
+            }
+            ArrayPool<WorldProjectedSdfBinding>.Shared.Return(_buildWorldProjectedSdfs);
+        }
+        _buildWorldProjectedSdfs = replacement;
+    }
+
     private static void EnsureWorldLineTransformBuildCapacity(int required)
     {
         if (_buildWorldLineTransforms != null && required <= _buildWorldLineTransforms.Length)
@@ -3768,6 +5180,62 @@ public static unsafe partial class Dx11ArenaRenderer
         _buildWorldLineTransforms = replacement;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsFinite(in Matrix4x4 matrix)
+        => float.IsFinite(matrix.M11) && float.IsFinite(matrix.M12) && float.IsFinite(matrix.M13) && float.IsFinite(matrix.M14)
+        && float.IsFinite(matrix.M21) && float.IsFinite(matrix.M22) && float.IsFinite(matrix.M23) && float.IsFinite(matrix.M24)
+        && float.IsFinite(matrix.M31) && float.IsFinite(matrix.M32) && float.IsFinite(matrix.M33) && float.IsFinite(matrix.M34)
+        && float.IsFinite(matrix.M41) && float.IsFinite(matrix.M42) && float.IsFinite(matrix.M43) && float.IsFinite(matrix.M44);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsFinite(in Vector4 vector)
+        => float.IsFinite(vector.X) && float.IsFinite(vector.Y) && float.IsFinite(vector.Z) && float.IsFinite(vector.W);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Vector4 ExtractReverseZNearPlane(in Matrix4x4 viewProj)
+    {
+        // HLSL uses row-vector world * ViewProj. With D3D reverse-Z, the near clipping inequality is
+        // clip.z - clip.w < 0, so extracting column Z minus column W keeps clipping tied to exactly
+        // the same matrix as projection. Reading RenderCamera.ViewMatrix separately can mix epochs.
+        return new(
+            viewProj.M13 - viewProj.M14,
+            viewProj.M23 - viewProj.M24,
+            viewProj.M33 - viewProj.M34,
+            viewProj.M43 - viewProj.M44);
+    }
+
+    private static bool TryBuildWorldProjectionSnapshot(in Matrix4x4 viewProj, out Matrix4x4 invViewProj, out Vector4 nearPlane)
+    {
+        invViewProj = default;
+        nearPlane = default;
+        if (!IsFinite(viewProj) || !Matrix4x4.Invert(viewProj, out invViewProj) || !IsFinite(invViewProj))
+            return false;
+
+        nearPlane = ExtractReverseZNearPlane(viewProj);
+        return IsFinite(nearPlane) && nearPlane.X * nearPlane.X + nearPlane.Y * nearPlane.Y + nearPlane.Z * nearPlane.Z > 1e-12f;
+    }
+
+    private static bool TryReadStableGameViewProjection(out Matrix4x4 viewProj)
+    {
+        viewProj = default;
+        var control = Control.Instance();
+        if (control == null)
+            return false;
+
+        // Control's 64-byte matrix has no sequence counter. Require three identical copies so UI
+        // submission never records a torn but accidentally invertible game-thread update.
+        Matrix4x4 first = control->ViewProjectionMatrix;
+        Thread.MemoryBarrier();
+        Matrix4x4 second = control->ViewProjectionMatrix;
+        Thread.MemoryBarrier();
+        Matrix4x4 third = control->ViewProjectionMatrix;
+        if (!first.Equals(second) || !second.Equals(third))
+            return false;
+
+        viewProj = third;
+        return true;
+    }
+
     private static void EnsureWorldLineConstants()
     {
         if (_buildWorldLineConstantsValid || !_buildWorldLineConfigured)
@@ -3775,11 +5243,19 @@ public static unsafe partial class Dx11ArenaRenderer
             return;
         }
 
+        var framebufferWidth = Math.Max(_buildFramebufferWidth, 1);
+        var framebufferHeight = Math.Max(_buildFramebufferHeight, 1);
+        var depthWidth = Math.Max(_buildWorldSceneDepthSize.X, 1f);
+        var depthHeight = Math.Max(_buildWorldSceneDepthSize.Y, 1f);
         _buildWorldLineConstants = new WorldLineConstants
         {
             ViewProj = _buildWorldLineViewProj,
+            InvViewProj = _buildWorldLineInvViewProj,
             NearPlane = _buildWorldLineNearPlane,
-            Viewport = new Vector4(_buildFramebufferWidth, _buildFramebufferHeight, Math.Max(_buildPixelScale, 1e-5f), 0f),
+            Viewport = new Vector4(framebufferWidth, framebufferHeight, Math.Max(_buildPixelScale, 1e-5f), 0f),
+            RasterScale = new Vector4(depthWidth / framebufferWidth, depthHeight / framebufferHeight, 2f / framebufferWidth, 2f / framebufferHeight),
+            SceneDepthParams = new Vector4(_buildWorldSceneDepthSize, WorldSceneOcclusionTolerance, _buildWorldSceneDepthAvailable ? 1f : 0f),
+            SceneInfoParams = new Vector4(_buildWorldSceneInfoAvailable ? 1f : 0f, WorldSceneCharacterMaskThreshold, 0f, 0f),
         };
         _buildWorldLineConstantsValid = true;
     }
@@ -3884,6 +5360,25 @@ public static unsafe partial class Dx11ArenaRenderer
         _buildOutlines = replacement;
     }
 
+    private static void EnsureWorldTextInstanceBuildCapacity(int required)
+    {
+        if (_buildWorldTextInstances != null && required <= _buildWorldTextInstances.Length)
+            return;
+
+        var capacity = _buildWorldTextInstances?.Length ?? 128;
+        while (capacity < required)
+            capacity *= 2;
+
+        var replacement = ArrayPool<WorldTextInstance>.Shared.Rent(capacity);
+        if (_buildWorldTextInstances != null)
+        {
+            if (_buildWorldTextInstanceCount != 0)
+                Array.Copy(_buildWorldTextInstances, replacement, _buildWorldTextInstanceCount);
+            ArrayPool<WorldTextInstance>.Shared.Return(_buildWorldTextInstances);
+        }
+        _buildWorldTextInstances = replacement;
+    }
+
     private static void EnsureSpriteBuildCapacity(int required)
     {
         if (_buildSprites != null && required <= _buildSprites.Length)
@@ -3982,6 +5477,25 @@ public static unsafe partial class Dx11ArenaRenderer
             {
                 ArrayPool<WorldCurveInstance>.Shared.Return(_buildWorldCurves);
             }
+            if (_buildWorldProjectedArrows != null)
+            {
+                ArrayPool<WorldProjectedArrowInstance>.Shared.Return(_buildWorldProjectedArrows);
+            }
+            if (_buildWorldProjectedShapes != null)
+            {
+                ArrayPool<WorldProjectedShapeInstance>.Shared.Return(_buildWorldProjectedShapes);
+            }
+            if (_buildWorldProjectedSdfs != null)
+            {
+                for (var i = 0; i < _buildWorldProjectedSdfCount; ++i)
+                {
+                    if (_buildWorldProjectedSdfs[i].View != null)
+                    {
+                        _buildWorldProjectedSdfs[i].View->Release();
+                    }
+                }
+                ArrayPool<WorldProjectedSdfBinding>.Shared.Return(_buildWorldProjectedSdfs, clearArray: false);
+            }
             if (_buildWorldLineTransforms != null)
             {
                 ArrayPool<WorldLineTransform>.Shared.Return(_buildWorldLineTransforms);
@@ -3997,6 +5511,10 @@ public static unsafe partial class Dx11ArenaRenderer
             if (_buildTextInstances != null)
             {
                 ArrayPool<TextInstance>.Shared.Return(_buildTextInstances);
+            }
+            if (_buildWorldTextInstances != null)
+            {
+                ArrayPool<WorldTextInstance>.Shared.Return(_buildWorldTextInstances);
             }
             if (_buildSprites != null)
             {
@@ -4032,10 +5550,14 @@ public static unsafe partial class Dx11ArenaRenderer
         _buildStrokeInstances = null;
         _buildWorldLines = null;
         _buildWorldCurves = null;
+        _buildWorldProjectedArrows = null;
+        _buildWorldProjectedShapes = null;
+        _buildWorldProjectedSdfs = null;
         _buildWorldLineTransforms = null;
         _buildAnalytics = null;
         _buildOutlines = null;
         _buildTextInstances = null;
+        _buildWorldTextInstances = null;
         _buildSprites = null;
         _buildCustomSdfs = null;
         _buildSegments = null;
@@ -4045,14 +5567,19 @@ public static unsafe partial class Dx11ArenaRenderer
         _buildStrokeInstanceCount = 0;
         _buildWorldLineCount = 0;
         _buildWorldCurveCount = 0;
+        _buildWorldProjectedArrowCount = 0;
+        _buildWorldProjectedShapeCount = 0;
+        _buildWorldProjectedSdfCount = 0;
         _buildWorldLineTransformCount = 0;
         _buildWorldLineConstantsValid = false;
         _buildAnalyticCount = 0;
         _buildOutlineCount = 0;
         _buildTextInstanceCount = 0;
+        _buildWorldTextInstanceCount = 0;
         _buildSpriteCount = 0;
         _buildSegmentCount = 0;
         _buildNeedsStencil = false;
+        _buildUsesZoneWave = false;
         _buildModifiesDepthState = false;
         _buildArenaSdf = null;
         _buildOutlineSdfConstants = default;
@@ -4064,7 +5591,7 @@ public static unsafe partial class Dx11ArenaRenderer
         // The ImGui callback may run concurrently with plugin hot-reload teardown. Serialize the
         // complete callback, including its finally/state restoration, against Shutdown so none of
         // the global D3D11 objects can be released while native driver calls are in flight.
-        lock (RendererLock)
+        lock (_rendererLock)
         {
             if (_shutDown)
             {
@@ -4084,14 +5611,15 @@ public static unsafe partial class Dx11ArenaRenderer
         ID3D11InputLayout* oldInputLayout = null;
         ID3D11VertexShader* oldVertexShader = null;
         ID3D11PixelShader* oldPixelShader = null;
-        // The arena renderer owns PS resource slots t1-t3. Text uses the immutable renderer-owned
-        // MSDF atlas at t3; t0 remains entirely owned by the ImGui backend.
-        var oldPsSrvs = stackalloc ID3D11ShaderResourceView*[4];
+        // The arena renderer owns PS resource slots t1-t7. Text uses t3, world-space scene
+        // occlusion uses FFXIV scene depth at t4, the per-pixel character classification uses t5,
+        // and terrain-projected polygon/arena SDFs use t6/t7. Native UI ordering is structural.
+        var oldPsSrvs = stackalloc ID3D11ShaderResourceView*[8];
         var oldAuxSamplers = stackalloc ID3D11SamplerState*[3];
         var oldAuxConstantBuffers = stackalloc ID3D11Buffer*[2];
         // Scratch storage must be allocated outside try/finally: Reuse these two slots for world VS capture, bind and restore
         var worldLineBufferScratch = stackalloc ID3D11Buffer*[2];
-        for (var i = 0; i < 4; ++i)
+        for (var i = 0; i < 8; ++i)
         {
             oldPsSrvs[i] = null;
         }
@@ -4110,7 +5638,14 @@ public static unsafe partial class Dx11ArenaRenderer
         var capturedConstantBufferCount = 0u;
         ID3D11Buffer* oldWorldLineVsConstantBuffers0 = null;
         ID3D11Buffer* oldWorldLineVsConstantBuffers1 = null;
+        ID3D11Buffer* oldWorldLinePsConstantBuffer = null;
+        ID3D11Buffer* oldWorldProjectedSdfPsConstantBuffer = null;
+        ID3D11Buffer* oldZoneWavePsConstantBuffer = null;
         var worldLineVsConstantBuffersCaptured = false;
+        var worldLineVsConstantBufferCount = 0u;
+        var worldLinePsConstantBufferCaptured = false;
+        var worldProjectedSdfPsConstantBufferCaptured = false;
+        var zoneWavePsConstantBufferCaptured = false;
         ID3D11DepthStencilState* oldDepthStencilState = null;
         ID3D11RenderTargetView* oldRenderTarget = null;
         ID3D11DepthStencilView* oldDepthStencilView = null;
@@ -4129,13 +5664,22 @@ public static unsafe partial class Dx11ArenaRenderer
 
         try
         {
-            if (cmd == null || cmd->UserCallbackData == null || !IsInitialized)
+            if (cmd == null || cmd->UserCallbackData == null || !_isInitialized)
             {
                 return;
             }
 
             packet = RemovePacket((nint)cmd->UserCallbackData);
-            if (packet == null || packet.Segments == null || packet.SegmentCount == 0)
+            if (packet == null)
+            {
+                return;
+            }
+            if (packet.IsWorldOverlayPresent)
+            {
+                PresentWorldOverlay(packet.FramebufferWidth, packet.FramebufferHeight, packet.SubmitFrame, packet.ScreenRiskColor, packet.ScreenRiskPhase);
+                return;
+            }
+            if (packet.Segments == null || packet.SegmentCount == 0)
             {
                 return;
             }
@@ -4155,11 +5699,12 @@ public static unsafe partial class Dx11ArenaRenderer
                 return;
             }
 
-            var usesIndexedQuad = packet.AnalyticCount != 0 || packet.OutlineCount != 0 || packet.TextInstanceCount != 0 ||
-                packet.StrokeInstanceCount != 0 || packet.WorldLineCount != 0 || packet.WorldCurveCount != 0 || packet.NeedsStencil;
-            if (usesIndexedQuad && !EnsureQuadIndexBuffer())
+            // If the native layer cannot allocate during startup/device pressure, keep world
+            // primitives visible as an ordinary background draw for this frame. They remain free of
+            // the particle-corrupted alpha mask even in this degraded path.
+            if (packet.WorldOverlayTarget && !EnsureWorldOverlayResources(packet.FramebufferWidth, packet.FramebufferHeight, packet.SubmitFrame))
             {
-                return;
+                packet.WorldOverlayTarget = false;
             }
 
             var uploadBytes = packet.UploadBytes;
@@ -4185,8 +5730,26 @@ public static unsafe partial class Dx11ArenaRenderer
             _context->PSGetShader(&oldPixelShader, null, null);
             coreStateCaptured = true;
 
+            if (packet.UsesZoneWave && _zoneWaveConstantBuffer != null)
+            {
+                _context->PSGetConstantBuffers(7u, 1u, &oldZoneWavePsConstantBuffer);
+                zoneWavePsConstantBufferCaptured = true;
+                UploadZoneWaveConstants(packet.SubmitFrame);
+                var zoneWaveConstants = _zoneWaveConstantBuffer;
+                _context->PSSetConstantBuffers(7u, 1u, &zoneWaveConstants);
+            }
+
+            var usesIndexedQuad = packet.AnalyticCount != 0 || packet.OutlineCount != 0 || packet.TextInstanceCount != 0 || packet.WorldTextInstanceCount != 0 ||
+                packet.StrokeInstanceCount != 0 || packet.WorldLineCount != 0 || packet.WorldCurveCount != 0 || packet.WorldProjectedArrowCount != 0 || packet.WorldProjectedShapeCount != 0 || packet.NeedsStencil;
             if (usesIndexedQuad)
             {
+                // A transient startup allocation failure must not permanently disable every indexed
+                // primitive until plugin reload. Retry lazily on each frame that actually needs it.
+                if (!EnsureQuadIndexBuffer())
+                {
+                    return;
+                }
+
                 _context->IAGetIndexBuffer(&oldIndexBuffer, &oldIndexFormat, &oldIndexOffset);
                 _context->IASetIndexBuffer(_quadIndexBuffer, (DXGI_FORMAT)42 /* R32_UINT */, 0u);
                 indexStateCaptured = true;
@@ -4194,26 +5757,48 @@ public static unsafe partial class Dx11ArenaRenderer
 
             var usesArenaSdf = packet.ArenaSdfView != null && (packet.OutlineCount != 0 || packet.NeedsStencil);
             var usesCustomSdf = packet.CustomSdfCount != 0;
-            var usesSdf = usesArenaSdf || usesCustomSdf;
-            var usesText = packet.TextInstanceCount != 0;
-            var usesWorldProjection = packet.WorldLineCount != 0 || packet.WorldCurveCount != 0;
+            var usesWorldProjectedSdf = packet.WorldProjectedSdfCount != 0;
+            var usesSdf = usesArenaSdf || usesCustomSdf || usesWorldProjectedSdf;
+            var usesText = packet.TextInstanceCount != 0 || packet.WorldTextInstanceCount != 0;
+            var usesWorldProjection = packet.WorldLineCount != 0 || packet.WorldCurveCount != 0 || packet.WorldProjectedArrowCount != 0 || packet.WorldProjectedShapeCount != 0 || packet.WorldTextInstanceCount != 0;
+            var usesWorldTransforms = packet.WorldLineCount != 0 || packet.WorldCurveCount != 0;
             if (usesWorldProjection)
             {
-                if (packet.WorldLineTransforms == null)
+                if (usesWorldTransforms && packet.WorldLineTransforms == null)
                 {
                     return;
                 }
 
-                _context->VSGetConstantBuffers(1u, 2u, worldLineBufferScratch);
+                worldLineVsConstantBufferCount = usesWorldTransforms ? 2u : 1u;
+                _context->VSGetConstantBuffers(1u, worldLineVsConstantBufferCount, worldLineBufferScratch);
                 oldWorldLineVsConstantBuffers0 = worldLineBufferScratch[0];
-                oldWorldLineVsConstantBuffers1 = worldLineBufferScratch[1];
+                oldWorldLineVsConstantBuffers1 = usesWorldTransforms ? worldLineBufferScratch[1] : null;
                 worldLineVsConstantBuffersCaptured = true;
 
-                UploadWorldLineConstants(packet.WorldLineConstants);
-                UploadWorldLineTransforms(packet.WorldLineTransforms, packet.WorldLineTransformCount);
+                UploadWorldLineConstants(ref packet.WorldLineConstants);
                 worldLineBufferScratch[0] = _worldLineConstantBuffer;
-                worldLineBufferScratch[1] = _worldLineTransformBuffer;
-                _context->VSSetConstantBuffers(1u, 2u, worldLineBufferScratch);
+                if (usesWorldTransforms)
+                {
+                    UploadWorldLineTransforms(packet.WorldLineTransforms!, packet.WorldLineTransformCount);
+                    worldLineBufferScratch[1] = _worldLineTransformBuffer;
+                }
+                _context->VSSetConstantBuffers(1u, worldLineVsConstantBufferCount, worldLineBufferScratch);
+
+                // stroke_ps is shared by screen and world strokes. World VS paths mark their pixels
+                // with flag bit 2; projected receivers additionally use scene classification at t5.
+                _context->PSGetConstantBuffers(4u, 1u, &oldWorldLinePsConstantBuffer);
+                worldLinePsConstantBufferCaptured = true;
+                var worldConstants = _worldLineConstantBuffer;
+                _context->PSSetConstantBuffers(4u, 1u, &worldConstants);
+
+                if (packet.WorldProjectedShapeCount != 0)
+                {
+                    _context->PSGetConstantBuffers(5u, 1u, &oldWorldProjectedSdfPsConstantBuffer);
+                    worldProjectedSdfPsConstantBufferCaptured = true;
+                    var projectedSdfConstants = _worldProjectedSdfConstantBuffer;
+                    _context->PSSetConstantBuffers(5u, 1u, &projectedSdfConstants);
+
+                }
             }
 
             // The build path records whether any segment explicitly switches depth/stencil mode,
@@ -4227,26 +5812,35 @@ public static unsafe partial class Dx11ArenaRenderer
             if (usesText)
             {
                 // Text samples the renderer-owned immutable MSDF atlas. It is created once during
-                // Initialize and released only while holding RendererLock in Shutdown, so glyph UVs
+                // Initialize and released only while holding _rendererLock in Shutdown, so glyph UVs
                 // and the texture identity are a permanent matched pair for this renderer generation.
                 fontAtlasSrv = _arenaFontAtlasView;
-
-                // Our text shader binds the atlas at t3; SDF paths may also use t1/t2. Capture only
-                // the slots we actually modify so t0 remains entirely owned by the ImGui backend.
-                _context->PSGetShaderResources(1u, 3u, oldPsSrvs + 1);
-                capturedSrvFirstSlot = 1u;
-                capturedSrvCount = 3u;
-                auxSrvStateCaptured = true;
             }
-            else if (usesSdf)
+
+            var usesWorldSceneDepth = usesWorldProjection && packet.SceneDepthView != null;
+            var usesProjectedReceivers = packet.WorldProjectedArrowCount != 0 || packet.WorldProjectedShapeCount != 0;
+            var usesWorldSceneInfo = usesProjectedReceivers && packet.SceneInfoView != null;
+            var highestAuxSrvSlot = usesWorldProjectedSdf ? 7u : usesWorldSceneInfo ? 5u : usesWorldSceneDepth ? 4u : usesText ? 3u : usesSdf ? 2u : 0u;
+            if (highestAuxSrvSlot != 0u)
             {
-                // SDF rendering only touches t1/t2.
-                _context->PSGetShaderResources(1u, 2u, oldPsSrvs + 1);
+                // Capture one contiguous t1..tN range. This preserves any backend-owned resources in
+                // the gaps while allowing world-space strokes to temporarily occupy t4.
+                _context->PSGetShaderResources(1u, highestAuxSrvSlot, oldPsSrvs + 1);
                 capturedSrvFirstSlot = 1u;
-                capturedSrvCount = 2u;
+                capturedSrvCount = highestAuxSrvSlot;
                 auxSrvStateCaptured = true;
             }
 
+            if (usesWorldSceneDepth)
+            {
+                var sceneDepth = packet.SceneDepthView;
+                _context->PSSetShaderResources(4u, 1u, &sceneDepth);
+            }
+            if (usesWorldSceneInfo)
+            {
+                var sceneInfo = packet.SceneInfoView;
+                _context->PSSetShaderResources(5u, 1u, &sceneInfo);
+            }
             if (usesSdf && usesText)
             {
                 _context->PSGetSamplers(1u, 3u, oldAuxSamplers);
@@ -4293,10 +5887,23 @@ public static unsafe partial class Dx11ArenaRenderer
 
             // The MSDF atlas is renderer-owned; t1-t3 above are captured only so this callback can
             // restore the backend's state afterward.
-            if (packet.NeedsStencil)
+            if (packet.NeedsStencil || packet.WorldOverlayTarget)
             {
                 _context->OMGetRenderTargets(1u, &oldRenderTarget, &oldDepthStencilView);
                 renderTargetCaptured = true;
+            }
+
+            if (packet.WorldOverlayTarget)
+            {
+                if (_worldOverlayBaseFrame != packet.SubmitFrame)
+                {
+                    float* transparent = stackalloc float[4];
+                    transparent[0] = transparent[1] = transparent[2] = transparent[3] = 0f;
+                    _context->ClearRenderTargetView(_worldOverlayBaseRenderTarget, transparent);
+                    _worldOverlayBaseFrame = packet.SubmitFrame;
+                }
+                var overlayTarget = _worldOverlayBaseRenderTarget;
+                _context->OMSetRenderTargets(1u, &overlayTarget, null);
             }
 
             var scissor = new RECT
@@ -4315,10 +5922,12 @@ public static unsafe partial class Dx11ArenaRenderer
 
             // Track actual IA/VB/VS family separately from the pixel shader. All outline variants
             // share one vertex path; CustomSdfFill shares the mesh vertex path.
-            const byte vertexNone = 0, vertexMesh = 1, vertexStroke = 2, vertexAnalytic = 3, vertexOutline = 4, vertexText = 5, vertexWorldLine = 6, vertexWorldCurve = 7, vertexPrimitiveTriangleStroke = 8;
+            const byte vertexNone = 0, vertexMesh = 1, vertexStroke = 2, vertexAnalytic = 3, vertexOutline = 4, vertexText = 5, vertexWorldLine = 6, vertexWorldCurve = 7, vertexPrimitiveTriangleStroke = 8, vertexWorldProjectedArrow = 9, vertexWorldProjectedShape = 10, vertexWorldText = 11;
             var boundVertexFamily = vertexNone;
             ID3D11PixelShader* boundPixelShader = null;
             var boundCustomSdfBinding = -1;
+            var boundWorldShapeSdfBinding = int.MinValue;
+            var boundWorldArenaSdfBinding = int.MinValue;
             var boundSpriteBinding = -1; // -1 means renderer font atlas is currently bound at t3
 
             if (usesArenaSdf)
@@ -4409,7 +6018,7 @@ public static unsafe partial class Dx11ArenaRenderer
                 }
 
                 // Pair the active ImGui RTV with our private stencil for all arena-clipped draws
-                var rtv = oldRenderTarget;
+                var rtv = packet.WorldOverlayTarget ? _worldOverlayBaseRenderTarget : oldRenderTarget;
                 _context->OMSetRenderTargets(1, &rtv, _stencilView);
                 _context->OMSetDepthStencilState(_stencilTestState, 1u);
             }
@@ -4542,6 +6151,26 @@ public static unsafe partial class Dx11ArenaRenderer
                         _context->DrawIndexedInstanced(6u, (uint)segment.Count, 0u, 0, (uint)segment.Start);
                         break;
 
+                    case SegmentKind.WorldText:
+                        if (fontAtlasSrv == null)
+                        {
+                            break;
+                        }
+                        if (boundSpriteBinding != -1)
+                        {
+                            var textView = fontAtlasSrv;
+                            _context->PSSetShaderResources(3u, 1u, &textView);
+                            boundSpriteBinding = -1;
+                        }
+                        if (boundDepthMode != 2)
+                        {
+                            _context->OMSetDepthStencilState(_stencilDisabledState, 0u);
+                            boundDepthMode = 2;
+                        }
+                        BindPipeline(vertexWorldText, _worldTextPixelShader, ref boundVertexFamily, ref boundPixelShader);
+                        _context->DrawIndexedInstanced(6u, (uint)segment.Count, 0u, 0, (uint)segment.Start);
+                        break;
+
                     case SegmentKind.Sprite:
                         var binding = segment.SpriteBinding;
                         if ((uint)binding >= (uint)packet.SpriteCount || packet.Sprites == null)
@@ -4596,6 +6225,35 @@ public static unsafe partial class Dx11ArenaRenderer
                         BindPipeline(vertexWorldCurve, _strokePixelShader, ref boundVertexFamily, ref boundPixelShader);
                         var indicesPerCurve = (uint)segment.CustomSdfBinding * 6u;
                         _context->DrawIndexedInstanced(indicesPerCurve, (uint)segment.Count, 0u, 0, (uint)segment.Start);
+                        break;
+                    case SegmentKind.WorldProjectedArrow:
+                        // The arrow pixel shader samples scene depth to reconstruct the visible world surface;
+                        // it is projected onto that surface rather than depth-occluded like line geometry
+                        if (packet.SceneDepthView == null)
+                        {
+                            break;
+                        }
+                        if (boundDepthMode != 2)
+                        {
+                            _context->OMSetDepthStencilState(_stencilDisabledState, 0u);
+                            boundDepthMode = 2;
+                        }
+                        BindPipeline(vertexWorldProjectedArrow, _worldProjectedArrowPixelShader, ref boundVertexFamily, ref boundPixelShader);
+                        _context->DrawIndexedInstanced(6u, (uint)segment.Count, 0u, 0, (uint)segment.Start);
+                        break;
+                    case SegmentKind.WorldProjectedShape:
+                        if (packet.SceneDepthView == null)
+                        {
+                            break;
+                        }
+                        BindWorldProjectedSdfs(packet, segment.CustomSdfBinding, segment.SpriteBinding, ref boundWorldShapeSdfBinding, ref boundWorldArenaSdfBinding);
+                        if (boundDepthMode != 2)
+                        {
+                            _context->OMSetDepthStencilState(_stencilDisabledState, 0u);
+                            boundDepthMode = 2;
+                        }
+                        BindPipeline(vertexWorldProjectedShape, _worldProjectedShapePixelShader, ref boundVertexFamily, ref boundPixelShader);
+                        _context->DrawIndexedInstanced(6u, (uint)segment.Count, 0u, 0, (uint)segment.Start);
                         break;
                     case SegmentKind.Stroke:
                         // Polylines are intentionally unclipped, matching the existing primitive path
@@ -4672,7 +6330,19 @@ public static unsafe partial class Dx11ArenaRenderer
             {
                 worldLineBufferScratch[0] = oldWorldLineVsConstantBuffers0;
                 worldLineBufferScratch[1] = oldWorldLineVsConstantBuffers1;
-                _context->VSSetConstantBuffers(1u, 2u, worldLineBufferScratch);
+                _context->VSSetConstantBuffers(1u, worldLineVsConstantBufferCount, worldLineBufferScratch);
+            }
+            if (worldLinePsConstantBufferCaptured)
+            {
+                _context->PSSetConstantBuffers(4u, 1u, &oldWorldLinePsConstantBuffer);
+            }
+            if (worldProjectedSdfPsConstantBufferCaptured)
+            {
+                _context->PSSetConstantBuffers(5u, 1u, &oldWorldProjectedSdfPsConstantBuffer);
+            }
+            if (zoneWavePsConstantBufferCaptured)
+            {
+                _context->PSSetConstantBuffers(7u, 1u, &oldZoneWavePsConstantBuffer);
             }
 
             if (indexStateCaptured)
@@ -4768,6 +6438,18 @@ public static unsafe partial class Dx11ArenaRenderer
             {
                 oldWorldLineVsConstantBuffers1->Release();
             }
+            if (oldWorldLinePsConstantBuffer != null)
+            {
+                oldWorldLinePsConstantBuffer->Release();
+            }
+            if (oldWorldProjectedSdfPsConstantBuffer != null)
+            {
+                oldWorldProjectedSdfPsConstantBuffer->Release();
+            }
+            if (oldZoneWavePsConstantBuffer != null)
+            {
+                oldZoneWavePsConstantBuffer->Release();
+            }
             if (oldDepthStencilState != null)
             {
                 oldDepthStencilState->Release();
@@ -4789,12 +6471,13 @@ public static unsafe partial class Dx11ArenaRenderer
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static bool SameWorldLineConstants(in WorldLineConstants a, in WorldLineConstants b)
-        => a.ViewProj.Equals(b.ViewProj) && a.NearPlane == b.NearPlane && a.Viewport == b.Viewport;
+    private static bool SameWorldLineConstants(ref WorldLineConstants a, ref WorldLineConstants b)
+        => a.ViewProj.Equals(b.ViewProj) && a.InvViewProj.Equals(b.InvViewProj) && a.NearPlane == b.NearPlane && a.Viewport == b.Viewport && a.RasterScale == b.RasterScale
+            && a.SceneDepthParams == b.SceneDepthParams && a.SceneInfoParams == b.SceneInfoParams;
 
-    private static void UploadWorldLineConstants(in WorldLineConstants constants)
+    private static void UploadWorldLineConstants(ref WorldLineConstants constants)
     {
-        if (_uploadedWorldLineConstantsValid && SameWorldLineConstants(_lastUploadedWorldLineConstants, constants))
+        if (_uploadedWorldLineConstantsValid && SameWorldLineConstants(ref _lastUploadedWorldLineConstants, ref constants))
         {
             return;
         }
@@ -4881,6 +6564,33 @@ public static unsafe partial class Dx11ArenaRenderer
                     _context->VSSetShader(_worldCurveVertexShader, null, 0u);
                     break;
                 }
+            case 9: // terrain-projected world arrow
+                {
+                    var stride = (uint)sizeof(WorldProjectedArrowInstance);
+                    var offset = _uploadWorldProjectedArrowOffsetBytes;
+                    _context->IASetInputLayout(_worldProjectedArrowInputLayout);
+                    _context->IASetVertexBuffers(0u, 1u, &buffer, &stride, &offset);
+                    _context->VSSetShader(_worldProjectedArrowVertexShader, null, 0u);
+                    break;
+                }
+            case 10: // terrain-projected MiniArena shape
+                {
+                    var stride = (uint)sizeof(WorldProjectedShapeInstance);
+                    var offset = _uploadWorldProjectedShapeOffsetBytes;
+                    _context->IASetInputLayout(_worldProjectedShapeInputLayout);
+                    _context->IASetVertexBuffers(0u, 1u, &buffer, &stride, &offset);
+                    _context->VSSetShader(_worldProjectedShapeVertexShader, null, 0u);
+                    break;
+                }
+            case 11: // camera-facing world text/icon billboard
+                {
+                    var stride = (uint)sizeof(WorldTextInstance);
+                    var offset = _uploadWorldTextOffsetBytes;
+                    _context->IASetInputLayout(_worldTextInputLayout);
+                    _context->IASetVertexBuffers(0u, 1u, &buffer, &stride, &offset);
+                    _context->VSSetShader(_worldTextVertexShader, null, 0u);
+                    break;
+                }
             case 3: // analytic
                 {
                     var stride = (uint)sizeof(AnalyticInstance);
@@ -4936,6 +6646,48 @@ public static unsafe partial class Dx11ArenaRenderer
         return true;
     }
 
+    private static void BindWorldProjectedSdfs(BatchPacket packet, int shapeBindingIndex, int arenaBindingIndex,
+        ref int boundShapeBindingIndex, ref int boundArenaBindingIndex)
+    {
+        if (shapeBindingIndex == boundShapeBindingIndex && arenaBindingIndex == boundArenaBindingIndex)
+        {
+            return;
+        }
+
+        var constants = default(WorldProjectedSdfConstants);
+        var views = stackalloc ID3D11ShaderResourceView*[2];
+        views[0] = null;
+        views[1] = null;
+        if (packet.WorldProjectedSdfs != null)
+        {
+            if ((uint)shapeBindingIndex < (uint)packet.WorldProjectedSdfCount)
+            {
+                ref var binding = ref packet.WorldProjectedSdfs[shapeBindingIndex];
+                views[0] = binding.View;
+                constants.ShapeSdfMap = binding.Map;
+                constants.Flags.X = binding.View != null ? 1f : 0f;
+            }
+            if ((uint)arenaBindingIndex < (uint)packet.WorldProjectedSdfCount)
+            {
+                ref var binding = ref packet.WorldProjectedSdfs[arenaBindingIndex];
+                views[1] = binding.View;
+                constants.ArenaSdfMap = binding.Map;
+                constants.Flags.Y = binding.View != null ? 1f : 0f;
+            }
+        }
+
+        UploadWorldProjectedSdfConstants(constants);
+        // A packet with no projected SDF bindings must not touch t6/t7: those slots were not captured,
+        // and the zero flags already guarantee the shader never samples them. This also removes one
+        // driver call from the common analytic projected-shape path.
+        if (packet.WorldProjectedSdfCount != 0)
+        {
+            _context->PSSetShaderResources(6u, 2u, views);
+        }
+        boundShapeBindingIndex = shapeBindingIndex;
+        boundArenaBindingIndex = arenaBindingIndex;
+    }
+
     private static void BindPipeline(byte vertexFamily, ID3D11PixelShader* pixelShader, ref byte boundVertexFamily, ref ID3D11PixelShader* boundPixelShader)
     {
         if (boundVertexFamily != vertexFamily)
@@ -4977,6 +6729,14 @@ public static unsafe partial class Dx11ArenaRenderer
         offset += packet.WorldCurveCount * sizeof(WorldCurveInstance);
 
         offset = AlignUploadOffset(offset);
+        packet.WorldProjectedArrowOffsetBytes = (uint)offset;
+        offset += packet.WorldProjectedArrowCount * sizeof(WorldProjectedArrowInstance);
+
+        offset = AlignUploadOffset(offset);
+        packet.WorldProjectedShapeOffsetBytes = (uint)offset;
+        offset += packet.WorldProjectedShapeCount * sizeof(WorldProjectedShapeInstance);
+
+        offset = AlignUploadOffset(offset);
         packet.AnalyticOffsetBytes = (uint)offset;
         offset += packet.AnalyticCount * sizeof(AnalyticInstance);
 
@@ -4987,6 +6747,10 @@ public static unsafe partial class Dx11ArenaRenderer
         offset = AlignUploadOffset(offset);
         packet.TextOffsetBytes = (uint)offset;
         offset += packet.TextInstanceCount * sizeof(TextInstance);
+
+        offset = AlignUploadOffset(offset);
+        packet.WorldTextOffsetBytes = (uint)offset;
+        offset += packet.WorldTextInstanceCount * sizeof(WorldTextInstance);
 
         packet.UploadBytes = offset;
     }
@@ -5000,9 +6764,12 @@ public static unsafe partial class Dx11ArenaRenderer
         _uploadStrokeOffsetBytes = packet.StrokeOffsetBytes + add;
         _uploadWorldLineOffsetBytes = packet.WorldLineOffsetBytes + add;
         _uploadWorldCurveOffsetBytes = packet.WorldCurveOffsetBytes + add;
+        _uploadWorldProjectedArrowOffsetBytes = packet.WorldProjectedArrowOffsetBytes + add;
+        _uploadWorldProjectedShapeOffsetBytes = packet.WorldProjectedShapeOffsetBytes + add;
         _uploadAnalyticOffsetBytes = packet.AnalyticOffsetBytes + add;
         _uploadOutlineOffsetBytes = packet.OutlineOffsetBytes + add;
         _uploadTextOffsetBytes = packet.TextOffsetBytes + add;
+        _uploadWorldTextOffsetBytes = packet.WorldTextOffsetBytes + add;
     }
 
     private static void UploadPacket(BatchPacket packet, int totalBytes)
@@ -5076,6 +6843,22 @@ public static unsafe partial class Dx11ArenaRenderer
                     Buffer.MemoryCopy(source, basePtr + (int)_uploadWorldCurveOffsetBytes, (nuint)(_uploadVertexCapacityBytes - (int)_uploadWorldCurveOffsetBytes), bytes);
             }
 
+            if (packet.WorldProjectedArrowCount != 0)
+            {
+                var sourceArray = packet.WorldProjectedArrows;
+                var bytes = (nuint)(packet.WorldProjectedArrowCount * sizeof(WorldProjectedArrowInstance));
+                fixed (WorldProjectedArrowInstance* source = sourceArray)
+                    Buffer.MemoryCopy(source, basePtr + (int)_uploadWorldProjectedArrowOffsetBytes, (nuint)(_uploadVertexCapacityBytes - (int)_uploadWorldProjectedArrowOffsetBytes), bytes);
+            }
+
+            if (packet.WorldProjectedShapeCount != 0)
+            {
+                var sourceArray = packet.WorldProjectedShapes;
+                var bytes = (nuint)(packet.WorldProjectedShapeCount * sizeof(WorldProjectedShapeInstance));
+                fixed (WorldProjectedShapeInstance* source = sourceArray)
+                    Buffer.MemoryCopy(source, basePtr + (int)_uploadWorldProjectedShapeOffsetBytes, (nuint)(_uploadVertexCapacityBytes - (int)_uploadWorldProjectedShapeOffsetBytes), bytes);
+            }
+
             if (packet.AnalyticCount != 0)
             {
                 var sourceArray = packet.Analytics;
@@ -5098,6 +6881,14 @@ public static unsafe partial class Dx11ArenaRenderer
                 var bytes = (nuint)(packet.TextInstanceCount * sizeof(TextInstance));
                 fixed (TextInstance* source = sourceArray)
                     Buffer.MemoryCopy(source, basePtr + (int)_uploadTextOffsetBytes, (nuint)(_uploadVertexCapacityBytes - (int)_uploadTextOffsetBytes), bytes);
+            }
+
+            if (packet.WorldTextInstanceCount != 0)
+            {
+                var sourceArray = packet.WorldTextInstances;
+                var bytes = (nuint)(packet.WorldTextInstanceCount * sizeof(WorldTextInstance));
+                fixed (WorldTextInstance* source = sourceArray)
+                    Buffer.MemoryCopy(source, basePtr + (int)_uploadWorldTextOffsetBytes, (nuint)(_uploadVertexCapacityBytes - (int)_uploadWorldTextOffsetBytes), bytes);
             }
         }
         finally
@@ -5483,6 +7274,11 @@ public static unsafe partial class Dx11ArenaRenderer
 
     private static bool CreateShadersAndLayouts()
     {
+        if (!CreateVertexShaderResource("world_overlay_vs.cso", out _worldOverlayVertexShader, out _) ||
+            !CreatePixelShaderResource("world_overlay_ps.cso", out _worldOverlayPixelShader))
+        {
+            return false;
+        }
         if (!CreateVertexShaderResource("mesh_vs.cso", out _meshVertexShader, out var meshVsBytecode))
         {
             return false;
@@ -5536,6 +7332,24 @@ public static unsafe partial class Dx11ArenaRenderer
         {
             return false;
         }
+        if (!CreateVertexShaderResource("projected_arrow_vs.cso", out _worldProjectedArrowVertexShader, out var projectedArrowVsBytecode))
+        {
+            return false;
+        }
+        CreateWorldProjectedArrowInputLayout(projectedArrowVsBytecode, out _worldProjectedArrowInputLayout);
+        if (_worldProjectedArrowInputLayout == null || !CreatePixelShaderResource("projected_arrow_ps.cso", out _worldProjectedArrowPixelShader))
+        {
+            return false;
+        }
+        if (!CreateVertexShaderResource("projected_shape_vs.cso", out _worldProjectedShapeVertexShader, out var projectedShapeVsBytecode))
+        {
+            return false;
+        }
+        CreateWorldProjectedShapeInputLayout(projectedShapeVsBytecode, out _worldProjectedShapeInputLayout);
+        if (_worldProjectedShapeInputLayout == null || !CreatePixelShaderResource("projected_shape_ps.cso", out _worldProjectedShapePixelShader))
+        {
+            return false;
+        }
         if (!CreateVertexShaderResource("text_vs.cso", out _textVertexShader, out var textVsBytecode))
         {
             return false;
@@ -5550,6 +7364,15 @@ public static unsafe partial class Dx11ArenaRenderer
             return false;
         }
         if (!CreatePixelShaderResource("sprite_ps.cso", out _spritePixelShader))
+        {
+            return false;
+        }
+        if (!CreateVertexShaderResource("world_text_vs.cso", out _worldTextVertexShader, out var worldTextVsBytecode))
+        {
+            return false;
+        }
+        CreateWorldTextInputLayout(worldTextVsBytecode, out _worldTextInputLayout);
+        if (_worldTextInputLayout == null || !CreatePixelShaderResource("world_text_ps.cso", out _worldTextPixelShader))
         {
             return false;
         }
@@ -5609,7 +7432,7 @@ public static unsafe partial class Dx11ArenaRenderer
         var len = bytecode.Length;
         if (len == 0)
         {
-            Service.Log($"DX11 renderer: embedded vertex shader resource is missing or empty: {fileName}");
+            Service.Logger.Error($"DX11 renderer: embedded vertex shader resource is missing or empty: {fileName}");
             return false;
         }
 
@@ -5632,8 +7455,9 @@ public static unsafe partial class Dx11ArenaRenderer
         shader = null;
         var bytecode = LoadShaderBytecode(fileName);
         var len = bytecode?.Length ?? 0;
-        if (bytecode != null && len == 0)
+        if (bytecode == null || len == 0)
         {
+            Service.Logger.Error($"DX11 renderer: embedded pixel shader resource is missing or empty: {fileName}");
             return false;
         }
 
@@ -5834,6 +7658,95 @@ public static unsafe partial class Dx11ArenaRenderer
             };
     }
 
+    private static void CreateWorldProjectedArrowInputLayout(ReadOnlySpan<byte> vsBytecode, out ID3D11InputLayout* layout)
+    {
+        layout = null;
+        var position = Encoding.ASCII.GetBytes("POSITION\0");
+        var texcoord = Encoding.ASCII.GetBytes("TEXCOORD\0");
+        var color = Encoding.ASCII.GetBytes("COLOR\0");
+
+        fixed (byte* pPosition = position)
+        fixed (byte* pTexcoord = texcoord)
+        fixed (byte* pColor = color)
+        fixed (byte* pBytecode = vsBytecode)
+        {
+            var elements = stackalloc D3D11_INPUT_ELEMENT_DESC[6];
+            elements[0] = InstanceElement((sbyte*)pPosition, 0u, (DXGI_FORMAT)6, 0u);   // float3 origin
+            elements[1] = InstanceElement((sbyte*)pTexcoord, 0u, (DXGI_FORMAT)41, 12u); // float length
+            elements[2] = InstanceElement((sbyte*)pTexcoord, 1u, (DXGI_FORMAT)16, 16u); // float2 directionXZ
+            elements[3] = InstanceElement((sbyte*)pTexcoord, 2u, (DXGI_FORMAT)16, 24u); // float2 widths
+            elements[4] = InstanceElement((sbyte*)pTexcoord, 3u, (DXGI_FORMAT)16, 32u); // float2 head/projection
+            elements[5] = InstanceElement((sbyte*)pColor, 0u, (DXGI_FORMAT)28, 40u);    // RGBA8
+
+            ID3D11InputLayout* created = null;
+            var hr = _device->CreateInputLayout(elements, 6u, pBytecode, (nuint)vsBytecode.Length, &created);
+            if (hr < 0 || created == null)
+            {
+                LogD3D11Failure("CreateInputLayout(world projected arrow)", hr, $"bytecodeBytes={vsBytecode.Length}");
+            }
+            layout = created;
+        }
+
+        static D3D11_INPUT_ELEMENT_DESC InstanceElement(sbyte* semantic, uint semanticIndex, DXGI_FORMAT format, uint offset)
+            => new()
+            {
+                SemanticName = semantic,
+                SemanticIndex = semanticIndex,
+                Format = format,
+                InputSlot = 0u,
+                AlignedByteOffset = offset,
+                InputSlotClass = (D3D11_INPUT_CLASSIFICATION)1,
+                InstanceDataStepRate = 1u,
+            };
+    }
+
+    private static void CreateWorldProjectedShapeInputLayout(ReadOnlySpan<byte> vsBytecode, out ID3D11InputLayout* layout)
+    {
+        layout = null;
+        var position = Encoding.ASCII.GetBytes("POSITION\0");
+        var texcoord = Encoding.ASCII.GetBytes("TEXCOORD\0");
+        var color = Encoding.ASCII.GetBytes("COLOR\0");
+
+        fixed (byte* pPosition = position)
+        fixed (byte* pTexcoord = texcoord)
+        fixed (byte* pColor = color)
+        fixed (byte* pBytecode = vsBytecode)
+        {
+            var elements = stackalloc D3D11_INPUT_ELEMENT_DESC[11];
+            elements[0] = InstanceElement((sbyte*)pPosition, 0u, (DXGI_FORMAT)6, 0u);    // float3 origin
+            elements[1] = InstanceElement((sbyte*)pTexcoord, 0u, (DXGI_FORMAT)41, 12u); // float projection height
+            elements[2] = InstanceElement((sbyte*)pTexcoord, 1u, (DXGI_FORMAT)2, 16u);  // float4 bounds XZ
+            elements[3] = InstanceElement((sbyte*)pTexcoord, 2u, (DXGI_FORMAT)2, 32u);  // float4 direction/aux
+            elements[4] = InstanceElement((sbyte*)pTexcoord, 3u, (DXGI_FORMAT)2, 48u);  // float4 params0
+            elements[5] = InstanceElement((sbyte*)pTexcoord, 4u, (DXGI_FORMAT)2, 64u);  // float4 params1
+            elements[6] = InstanceElement((sbyte*)pColor, 0u, (DXGI_FORMAT)28, 80u);    // fill/primary RGBA8
+            elements[7] = InstanceElement((sbyte*)pTexcoord, 5u, (DXGI_FORMAT)42, 84u); // uint packed kind/flags
+            elements[8] = InstanceElement((sbyte*)pTexcoord, 6u, (DXGI_FORMAT)41, 88u); // float outline width
+            elements[9] = InstanceElement((sbyte*)pColor, 1u, (DXGI_FORMAT)28, 92u);    // optional outline RGBA8
+            elements[10] = InstanceElement((sbyte*)pTexcoord, 7u, (DXGI_FORMAT)16, 96u); // float2 wave origin XZ
+
+            ID3D11InputLayout* created = null;
+            var hr = _device->CreateInputLayout(elements, 11u, pBytecode, (nuint)vsBytecode.Length, &created);
+            if (hr < 0 || created == null)
+            {
+                LogD3D11Failure("CreateInputLayout(world projected shape)", hr, $"bytecodeBytes={vsBytecode.Length}");
+            }
+            layout = created;
+        }
+
+        static D3D11_INPUT_ELEMENT_DESC InstanceElement(sbyte* semantic, uint semanticIndex, DXGI_FORMAT format, uint offset)
+            => new()
+            {
+                SemanticName = semantic,
+                SemanticIndex = semanticIndex,
+                Format = format,
+                InputSlot = 0u,
+                AlignedByteOffset = offset,
+                InputSlotClass = (D3D11_INPUT_CLASSIFICATION)1,
+                InstanceDataStepRate = 1u,
+            };
+    }
+
     private static void CreateTextInputLayout(ReadOnlySpan<byte> vsBytecode, out ID3D11InputLayout* layout)
     {
         layout = null;
@@ -5904,6 +7817,48 @@ public static unsafe partial class Dx11ArenaRenderer
             }
             layout = created;
         }
+    }
+
+    private static void CreateWorldTextInputLayout(ReadOnlySpan<byte> vsBytecode, out ID3D11InputLayout* layout)
+    {
+        layout = null;
+        var position = Encoding.ASCII.GetBytes("POSITION\0");
+        var texcoord = Encoding.ASCII.GetBytes("TEXCOORD\0");
+        var color = Encoding.ASCII.GetBytes("COLOR\0");
+
+        fixed (byte* pPosition = position)
+        fixed (byte* pTexcoord = texcoord)
+        fixed (byte* pColor = color)
+        fixed (byte* pBytecode = vsBytecode)
+        {
+            var elements = stackalloc D3D11_INPUT_ELEMENT_DESC[6];
+            elements[0] = InstanceElement((sbyte*)pPosition, 0u, (DXGI_FORMAT)6, 0u);   // float3 center
+            elements[1] = InstanceElement((sbyte*)pTexcoord, 0u, (DXGI_FORMAT)2, 16u); // float4 rect framebuffer px
+            elements[2] = InstanceElement((sbyte*)pTexcoord, 1u, (DXGI_FORMAT)2, 32u); // float4 uv rect
+            elements[3] = InstanceElement((sbyte*)pColor, 0u, (DXGI_FORMAT)28, 48u);   // RGBA8
+            elements[4] = InstanceElement((sbyte*)pColor, 1u, (DXGI_FORMAT)28, 52u);   // RGBA8
+            elements[5] = InstanceElement((sbyte*)pTexcoord, 2u, (DXGI_FORMAT)41, 56u); // outline px
+
+            ID3D11InputLayout* created = null;
+            var hr = _device->CreateInputLayout(elements, 6u, pBytecode, (nuint)vsBytecode.Length, &created);
+            if (hr < 0 || created == null)
+            {
+                LogD3D11Failure("CreateInputLayout(world text)", hr, $"bytecodeBytes={vsBytecode.Length}");
+            }
+            layout = created;
+        }
+
+        static D3D11_INPUT_ELEMENT_DESC InstanceElement(sbyte* semantic, uint semanticIndex, DXGI_FORMAT format, uint offset)
+            => new()
+            {
+                SemanticName = semantic,
+                SemanticIndex = semanticIndex,
+                Format = format,
+                InputSlot = 0u,
+                AlignedByteOffset = offset,
+                InputSlotClass = (D3D11_INPUT_CLASSIFICATION)1,
+                InstanceDataStepRate = 1u,
+            };
     }
 
     private static void CreateAnalyticInputLayout(ReadOnlySpan<byte> vsBytecode, out ID3D11InputLayout* layout)
@@ -5977,6 +7932,478 @@ public static unsafe partial class Dx11ArenaRenderer
 
     private static D3D11_INPUT_ELEMENT_DESC Inst(sbyte* semantic, uint index, DXGI_FORMAT format, uint offset, uint slot)
         => new() { SemanticName = semantic, SemanticIndex = index, Format = format, InputSlot = slot, AlignedByteOffset = offset, InputSlotClass = (D3D11_INPUT_CLASSIFICATION)1, InstanceDataStepRate = 1 };
+
+    private static bool EnsureWorldOverlayResources(int width, int height, int submitFrame)
+    {
+        var node = _worldOverlayNode;
+        if (node == null || !node.IsAttached || width <= 0 || height <= 0)
+        {
+            return false;
+        }
+
+        var haveResources = _worldOverlayBaseTexture != null && _worldOverlayBaseRenderTarget != null && _worldOverlayBaseView != null &&
+            _worldOverlayOutputTexture != null && _worldOverlayOutputRenderTarget != null && _worldOverlayOutputView != null;
+
+        // The backing textures are allowed to be larger than the current framebuffer. AtkUldPart's
+        // Width/Height select the visible top-left portion of the texture, so a smaller window can use
+        // the existing allocation without stretching the old framebuffer or reallocating anything.
+        if (haveResources && width <= _worldOverlayCapacityWidth && height <= _worldOverlayCapacityHeight)
+        {
+            node.SetDisplaySize(width, height);
+            ResetWorldOverlayResizeDebounce();
+            return true;
+        }
+
+        // Growth is the only reason to replace an existing allocation. Keep the old GPU resources
+        // alive while the requested size is still changing so shrinking back within capacity is free.
+        // Hide the native image during this short fallback period to avoid displaying stale content.
+        if (!WorldOverlaySizeSettled(width, height, submitFrame))
+        {
+            if (haveResources)
+            {
+                node.SetDisplaySize(0, 0);
+            }
+            return false;
+        }
+
+        var allocationWidth = GrowWorldOverlayCapacity(width, _worldOverlayCapacityWidth);
+        var allocationHeight = GrowWorldOverlayCapacity(height, _worldOverlayCapacityHeight);
+
+        if (!CreateWorldOverlayTexture(allocationWidth, allocationHeight, out var baseTexture, out var baseRenderTarget, out var baseView))
+        {
+            return false;
+        }
+
+        var outputWrapper = node.CreateTexture(allocationWidth, allocationHeight);
+        var outputTexture = outputWrapper != null ? (ID3D11Texture2D*)outputWrapper->D3D11Texture2D : null;
+        var outputView = outputWrapper != null ? (ID3D11ShaderResourceView*)outputWrapper->D3D11ShaderResourceView : null;
+        if (outputWrapper == null || outputTexture == null || outputView == null)
+        {
+            Release(ref baseView);
+            Release(ref baseRenderTarget);
+            Release(ref baseTexture);
+            if (outputWrapper != null)
+            {
+                outputWrapper->DecRef();
+            }
+            return false;
+        }
+
+        // Hold renderer-side references independently from the native Texture wrapper owned by the node.
+        outputTexture->AddRef();
+        outputView->AddRef();
+        ID3D11RenderTargetView* outputRenderTarget = null;
+        var outputRtvHr = _device->CreateRenderTargetView((ID3D11Resource*)outputTexture, null, &outputRenderTarget);
+        if (outputRtvHr < 0 || outputRenderTarget == null)
+        {
+            LogD3D11FailureThrottled(ref _lastWorldOverlayFailureLogTimestamp,
+                "CreateRenderTargetView(world overlay output)", outputRtvHr, $"allocation={allocationWidth}x{allocationHeight}, display={width}x{height}");
+            outputView->Release();
+            outputTexture->Release();
+            outputWrapper->DecRef();
+            Release(ref baseView);
+            Release(ref baseRenderTarget);
+            Release(ref baseTexture);
+            return false;
+        }
+
+        // SetTexture consumes outputWrapper and releases the node's previous wrapper. The display size
+        // remains the real framebuffer size even though the new texture may include capacity headroom.
+        node.SetTexture(outputWrapper, width, height);
+
+        // Only after the replacement is complete do we release the renderer-side references to the
+        // previous allocation. This keeps failure paths non-destructive and makes resize recovery cheap.
+        ReleaseWorldOverlayResources();
+        _worldOverlayBaseTexture = baseTexture;
+        _worldOverlayBaseRenderTarget = baseRenderTarget;
+        _worldOverlayBaseView = baseView;
+        _worldOverlayOutputTexture = outputTexture;
+        _worldOverlayOutputRenderTarget = outputRenderTarget;
+        _worldOverlayOutputView = outputView;
+        _worldOverlayCapacityWidth = allocationWidth;
+        _worldOverlayCapacityHeight = allocationHeight;
+        _worldOverlayBaseFrame = -1;
+        return true;
+    }
+
+    private static int GrowWorldOverlayCapacity(int requested, int current)
+    {
+        // Align upward instead of allocating the exact window size. A small amount of headroom prevents
+        // a one-pixel or small incremental resize from immediately creating another texture generation.
+        var target = Math.Max(requested, current);
+        var alignment = WorldOverlayCapacityAlignment;
+        return (target + alignment - 1) / alignment * alignment;
+    }
+
+    private static bool WorldOverlaySizeSettled(int width, int height, int submitFrame)
+    {
+        if (_worldOverlayPendingWidth != width || _worldOverlayPendingHeight != height)
+        {
+            _worldOverlayPendingWidth = width;
+            _worldOverlayPendingHeight = height;
+            _worldOverlayPendingStableFrames = 1;
+            _worldOverlayPendingLastSubmitFrame = submitFrame;
+            return WorldOverlayResizeStableFrames <= 1;
+        }
+
+        if (_worldOverlayPendingLastSubmitFrame != submitFrame)
+        {
+            _worldOverlayPendingLastSubmitFrame = submitFrame;
+            if (_worldOverlayPendingStableFrames < WorldOverlayResizeStableFrames)
+            {
+                ++_worldOverlayPendingStableFrames;
+            }
+        }
+
+        if (_worldOverlayPendingStableFrames < WorldOverlayResizeStableFrames)
+        {
+            return false;
+        }
+
+        ResetWorldOverlayResizeDebounce();
+        return true;
+    }
+
+    private static void ResetWorldOverlayResizeDebounce()
+    {
+        _worldOverlayPendingWidth = 0;
+        _worldOverlayPendingHeight = 0;
+        _worldOverlayPendingStableFrames = 0;
+        _worldOverlayPendingLastSubmitFrame = -1;
+    }
+
+    private static bool CreateWorldOverlayTexture(int width, int height, out ID3D11Texture2D* texture, out ID3D11RenderTargetView* renderTarget, out ID3D11ShaderResourceView* view)
+    {
+        texture = null;
+        renderTarget = null;
+        view = null;
+
+        D3D11_TEXTURE2D_DESC desc = default;
+        desc.Width = (uint)width;
+        desc.Height = (uint)height;
+        desc.MipLevels = 1u;
+        desc.ArraySize = 1u;
+        desc.Format = (DXGI_FORMAT)87; // DXGI_FORMAT_B8G8R8A8_UNORM
+        desc.SampleDesc.Count = 1u;
+        desc.Usage = 0; // D3D11_USAGE_DEFAULT
+        desc.BindFlags = 0x28u; // D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET
+
+        ID3D11Texture2D* createdTexture = null;
+        var textureHr = _device->CreateTexture2D(&desc, null, &createdTexture);
+        if (textureHr < 0 || createdTexture == null)
+        {
+            LogD3D11FailureThrottled(ref _lastWorldOverlayFailureLogTimestamp,
+                "CreateTexture2D(world overlay base)", textureHr, $"size={width}x{height}, format=B8G8R8A8_UNORM");
+            return false;
+        }
+
+        ID3D11RenderTargetView* createdRenderTarget = null;
+        var rtvHr = _device->CreateRenderTargetView((ID3D11Resource*)createdTexture, null, &createdRenderTarget);
+        if (rtvHr < 0 || createdRenderTarget == null)
+        {
+            LogD3D11FailureThrottled(ref _lastWorldOverlayFailureLogTimestamp,
+                "CreateRenderTargetView(world overlay base)", rtvHr, $"size={width}x{height}");
+            createdTexture->Release();
+            return false;
+        }
+
+        ID3D11ShaderResourceView* createdView = null;
+        var srvHr = _device->CreateShaderResourceView((ID3D11Resource*)createdTexture, null, &createdView);
+        if (srvHr < 0 || createdView == null)
+        {
+            LogD3D11FailureThrottled(ref _lastWorldOverlayFailureLogTimestamp,
+                "CreateShaderResourceView(world overlay base)", srvHr, $"size={width}x{height}");
+            createdRenderTarget->Release();
+            createdTexture->Release();
+            return false;
+        }
+
+        _lastWorldOverlayFailureLogTimestamp = 0;
+        texture = createdTexture;
+        renderTarget = createdRenderTarget;
+        view = createdView;
+        return true;
+    }
+
+    private static void PresentWorldOverlay(int width, int height, int submitFrame, Vector4 screenRiskColor, float screenRiskPhase)
+    {
+        _worldOverlayLastSucceeded = false;
+        if (!EnsureWorldOverlayResources(width, height, submitFrame))
+        {
+            return;
+        }
+
+        // Snapshot per-packet state, including a zero alpha when disabled. The same resolve pass
+        // also draws a screen warning on frames with no projected world primitives.
+        D3D11_MAPPED_SUBRESOURCE mapped = default;
+        if (_worldOverlayConstantBuffer == null || _context->Map((ID3D11Resource*)_worldOverlayConstantBuffer, 0u, (D3D11_MAP)4, 0u, &mapped) < 0)
+        {
+            return;
+        }
+        *(WorldOverlayConstants*)mapped.pData = new WorldOverlayConstants
+        {
+            RiskColor = screenRiskColor,
+            RiskParams = new Vector4(width, height, screenRiskPhase, 0f),
+        };
+        _context->Unmap((ID3D11Resource*)_worldOverlayConstantBuffer, 0u);
+
+        if (_worldOverlayBaseFrame != submitFrame)
+        {
+            var transparent = stackalloc float[4];
+            transparent[0] = transparent[1] = transparent[2] = transparent[3] = 0f;
+            _context->ClearRenderTargetView(_worldOverlayBaseRenderTarget, transparent);
+            _worldOverlayBaseFrame = submitFrame;
+        }
+
+        ID3D11RenderTargetView* oldRenderTarget = null;
+        ID3D11DepthStencilView* oldDepthStencilView = null;
+        ID3D11BlendState* oldBlendState = null;
+        ID3D11DepthStencilState* oldDepthStencilState = null;
+        ID3D11VertexShader* oldVertexShader = null;
+        ID3D11PixelShader* oldPixelShader = null;
+        ID3D11ShaderResourceView* oldInputView = null;
+        ID3D11Buffer* oldPixelConstants = null;
+        var oldBlendFactor = stackalloc float[4];
+        uint oldSampleMask = 0;
+        uint oldStencilRef = 0;
+
+        _context->OMGetRenderTargets(1u, &oldRenderTarget, &oldDepthStencilView);
+        _context->OMGetBlendState(&oldBlendState, oldBlendFactor, &oldSampleMask);
+        _context->OMGetDepthStencilState(&oldDepthStencilState, &oldStencilRef);
+        _context->VSGetShader(&oldVertexShader, null, null);
+        _context->PSGetShader(&oldPixelShader, null, null);
+        _context->PSGetShaderResources(0u, 1u, &oldInputView);
+        _context->PSGetConstantBuffers(0u, 1u, &oldPixelConstants);
+
+        try
+        {
+            var outputTarget = _worldOverlayOutputRenderTarget;
+            _context->OMSetRenderTargets(1u, &outputTarget, null);
+            _context->OMSetBlendState(null, null, uint.MaxValue);
+            _context->OMSetDepthStencilState(_stencilDisabledState, 0u);
+
+            var scissor = new RECT { left = 0, top = 0, right = width, bottom = height };
+            _context->RSSetScissorRects(1u, &scissor);
+            _context->VSSetShader(_worldOverlayVertexShader, null, 0u);
+            _context->PSSetShader(_worldOverlayPixelShader, null, 0u);
+            var constants = _worldOverlayConstantBuffer;
+            _context->PSSetConstantBuffers(0u, 1u, &constants);
+            var baseView = _worldOverlayBaseView;
+            _context->PSSetShaderResources(0u, 1u, &baseView);
+            _context->Draw(3u, 0u);
+            _worldOverlayLastSucceeded = true;
+        }
+        finally
+        {
+            if (oldRenderTarget != null)
+            {
+                var restoreTarget = oldRenderTarget;
+                _context->OMSetRenderTargets(1u, &restoreTarget, oldDepthStencilView);
+            }
+            else
+            {
+                _context->OMSetRenderTargets(0u, null, oldDepthStencilView);
+            }
+            _context->OMSetBlendState(oldBlendState, oldBlendFactor, oldSampleMask);
+            _context->OMSetDepthStencilState(oldDepthStencilState, oldStencilRef);
+            _context->VSSetShader(oldVertexShader, null, 0u);
+            _context->PSSetShader(oldPixelShader, null, 0u);
+            _context->PSSetShaderResources(0u, 1u, &oldInputView);
+            _context->PSSetConstantBuffers(0u, 1u, &oldPixelConstants);
+
+            if (oldPixelConstants != null)
+            {
+                oldPixelConstants->Release();
+            }
+
+            if (oldInputView != null)
+            {
+                oldInputView->Release();
+            }
+            if (oldPixelShader != null)
+            {
+                oldPixelShader->Release();
+            }
+            if (oldVertexShader != null)
+            {
+                oldVertexShader->Release();
+            }
+            if (oldDepthStencilState != null)
+            {
+                oldDepthStencilState->Release();
+            }
+            if (oldBlendState != null)
+            {
+                oldBlendState->Release();
+            }
+            if (oldDepthStencilView != null)
+            {
+                oldDepthStencilView->Release();
+            }
+            if (oldRenderTarget != null)
+            {
+                oldRenderTarget->Release();
+            }
+        }
+    }
+
+    private static void ReleaseWorldOverlayResources()
+    {
+        Release(ref _worldOverlayOutputView);
+        Release(ref _worldOverlayOutputRenderTarget);
+        Release(ref _worldOverlayOutputTexture);
+        Release(ref _worldOverlayBaseView);
+        Release(ref _worldOverlayBaseRenderTarget);
+        Release(ref _worldOverlayBaseTexture);
+        _worldOverlayCapacityWidth = 0;
+        _worldOverlayCapacityHeight = 0;
+        _worldOverlayBaseFrame = -1;
+        _worldOverlayLastSucceeded = false;
+    }
+
+    private static bool TryUpdateSceneDepthResource(out Vector2 actualSize)
+    {
+        actualSize = default;
+        if (_device == null)
+        {
+            return false;
+        }
+
+        var manager = RenderTargetManager.Instance();
+        var depth = manager != null ? manager->DepthStencil : null;
+        if (depth == null || depth->D3D11Texture2D == null)
+        {
+            ReleaseSceneDepthResource();
+            return false;
+        }
+
+        var texture = (ID3D11Texture2D*)depth->D3D11Texture2D;
+        D3D11_TEXTURE2D_DESC textureDesc = default;
+        texture->GetDesc(&textureDesc);
+        if (textureDesc.SampleDesc.Count != 1u)
+        {
+            // The current shader path uses Texture2D.Load. FFXIV's normal scene depth is single-sample;
+            // fail open (ordinary overlay) if that ever changes rather than binding the wrong SRV type.
+            ReleaseSceneDepthResource();
+            return false;
+        }
+
+        var srvFormat = SceneDepthSrvFormat(textureDesc.Format);
+        if (srvFormat == 0)
+        {
+            ReleaseSceneDepthResource();
+            return false;
+        }
+
+        var identity = (nint)texture;
+        if (_sceneDepthView == null || _sceneDepthTextureIdentity != identity)
+        {
+            ID3D11ShaderResourceView* newView = null;
+            D3D11_SHADER_RESOURCE_VIEW_DESC nativeDesc = default;
+            var srvDesc = (Texture2DShaderResourceViewDesc*)&nativeDesc;
+            *srvDesc = new Texture2DShaderResourceViewDesc
+            {
+                Format = srvFormat,
+                ViewDimension = (D3D_SRV_DIMENSION)4, // D3D_SRV_DIMENSION_TEXTURE2D
+                MostDetailedMip = 0u,
+                MipLevels = 1u,
+            };
+            var hr = _device->CreateShaderResourceView((ID3D11Resource*)texture, &nativeDesc, &newView);
+            if (hr < 0 || newView == null)
+            {
+                LogD3D11FailureThrottled(ref _lastSceneDepthViewFailureLogTimestamp,
+                    "CreateShaderResourceView(scene depth)", hr, $"format={(uint)srvFormat}, textureIdentity=0x{identity:X}");
+                ReleaseSceneDepthResource();
+                return false;
+            }
+
+            _lastSceneDepthViewFailureLogTimestamp = 0;
+            Release(ref _sceneDepthView);
+            _sceneDepthView = newView;
+            _sceneDepthTextureIdentity = identity;
+        }
+
+        var width = depth->ActualWidth > 0 ? (float)depth->ActualWidth : textureDesc.Width;
+        var height = depth->ActualHeight > 0 ? (float)depth->ActualHeight : textureDesc.Height;
+        if (width <= 0f || height <= 0f)
+        {
+            return false;
+        }
+        actualSize = new Vector2(width, height);
+        return true;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static DXGI_FORMAT SceneDepthSrvFormat(DXGI_FORMAT source)
+        => (int)source switch
+        {
+            19 or 20 or 21 => (DXGI_FORMAT)21, // R32G8X24_TYPELESS / D32_FLOAT_S8X24_UINT -> R32_FLOAT_X8X24_TYPELESS
+            39 or 40 or 41 => (DXGI_FORMAT)41, // R32_TYPELESS / D32_FLOAT -> R32_FLOAT
+            44 or 45 or 46 => (DXGI_FORMAT)46, // R24G8_TYPELESS / D24_UNORM_S8_UINT -> R24_UNORM_X8_TYPELESS
+            _ => 0,
+        };
+
+    private static void ReleaseSceneDepthResource()
+    {
+        Release(ref _sceneDepthView);
+        _sceneDepthTextureIdentity = 0;
+    }
+
+    private static bool TryUpdateSceneInfoResource(out Vector2 actualSize)
+    {
+        actualSize = default;
+        if (_device == null)
+        {
+            return false;
+        }
+
+        var manager = RenderTargetManager.Instance();
+        var sceneInfo = manager != null ? manager->GBuffers[3].Value : null;
+        if (sceneInfo == null || sceneInfo->D3D11Texture2D == null || sceneInfo->D3D11ShaderResourceView == null)
+        {
+            ReleaseSceneInfoResource();
+            return false;
+        }
+
+        var texture = (ID3D11Texture2D*)sceneInfo->D3D11Texture2D;
+        D3D11_TEXTURE2D_DESC textureDesc = default;
+        texture->GetDesc(&textureDesc);
+        if (textureDesc.SampleDesc.Count != 1u)
+        {
+            // Projected receiver shaders use Texture2D.Load. Refuse an unexpected multisampled target
+            // rather than binding it through the wrong shader resource type.
+            ReleaseSceneInfoResource();
+            return false;
+        }
+
+        var sourceView = (ID3D11ShaderResourceView*)sceneInfo->D3D11ShaderResourceView;
+        var identity = (nint)sourceView;
+        if (_sceneInfoView == null || _sceneInfoViewIdentity != identity)
+        {
+            // Unlike scene depth, this texture already has a compatible SRV owned by the game. Hold
+            // our own reference because ImGui can execute the queued packet after the build call ends.
+            sourceView->AddRef();
+            Release(ref _sceneInfoView);
+            _sceneInfoView = sourceView;
+            _sceneInfoViewIdentity = identity;
+        }
+
+        var width = sceneInfo->ActualWidth > 0 ? (float)sceneInfo->ActualWidth : textureDesc.Width;
+        var height = sceneInfo->ActualHeight > 0 ? (float)sceneInfo->ActualHeight : textureDesc.Height;
+        if (width <= 0f || height <= 0f)
+        {
+            return false;
+        }
+
+        actualSize = new Vector2(width, height);
+        return true;
+    }
+
+    private static void ReleaseSceneInfoResource()
+    {
+        Release(ref _sceneInfoView);
+        _sceneInfoViewIdentity = 0;
+    }
 
     private static bool CreateStencilStates()
     {
@@ -6094,6 +8521,14 @@ public static unsafe partial class Dx11ArenaRenderer
         {
             packet.ArenaSdfView->Release();
         }
+        if (packet.SceneDepthView != null)
+        {
+            packet.SceneDepthView->Release();
+        }
+        if (packet.SceneInfoView != null)
+        {
+            packet.SceneInfoView->Release();
+        }
         if (packet.CustomSdfs != null)
         {
             var count = packet.CustomSdfCount;
@@ -6106,6 +8541,19 @@ public static unsafe partial class Dx11ArenaRenderer
                 }
             }
             ArrayPool<CustomSdfBinding>.Shared.Return(packet.CustomSdfs, clearArray: false);
+        }
+        if (packet.WorldProjectedSdfs != null)
+        {
+            var count = packet.WorldProjectedSdfCount;
+            for (var i = 0; i < count; ++i)
+            {
+                var view = packet.WorldProjectedSdfs[i].View;
+                if (view != null)
+                {
+                    view->Release();
+                }
+            }
+            ArrayPool<WorldProjectedSdfBinding>.Shared.Return(packet.WorldProjectedSdfs, clearArray: false);
         }
         if (packet.Sprites != null)
         {
@@ -6140,6 +8588,14 @@ public static unsafe partial class Dx11ArenaRenderer
         {
             ArrayPool<WorldCurveInstance>.Shared.Return(wc);
         }
+        if (packet.WorldProjectedArrows is WorldProjectedArrowInstance[] wpa)
+        {
+            ArrayPool<WorldProjectedArrowInstance>.Shared.Return(wpa);
+        }
+        if (packet.WorldProjectedShapes is WorldProjectedShapeInstance[] wps)
+        {
+            ArrayPool<WorldProjectedShapeInstance>.Shared.Return(wps);
+        }
         if (packet.WorldLineTransforms is WorldLineTransform[] wlt)
         {
             ArrayPool<WorldLineTransform>.Shared.Return(wlt);
@@ -6155,6 +8611,10 @@ public static unsafe partial class Dx11ArenaRenderer
         if (packet.TextInstances is TextInstance[] t)
         {
             ArrayPool<TextInstance>.Shared.Return(t);
+        }
+        if (packet.WorldTextInstances is WorldTextInstance[] wt)
+        {
+            ArrayPool<WorldTextInstance>.Shared.Return(wt);
         }
         if (packet.Segments is DrawSegment[] s)
         {
@@ -6172,15 +8632,25 @@ public static unsafe partial class Dx11ArenaRenderer
         packet.WorldLineCount = 0;
         packet.WorldCurves = null;
         packet.WorldCurveCount = 0;
+        packet.WorldProjectedArrows = null;
+        packet.WorldProjectedArrowCount = 0;
+        packet.WorldProjectedShapes = null;
+        packet.WorldProjectedShapeCount = 0;
+        packet.WorldProjectedSdfs = null;
+        packet.WorldProjectedSdfCount = 0;
         packet.WorldLineTransforms = null;
         packet.WorldLineTransformCount = 0;
         packet.WorldLineConstants = default;
+        packet.SceneDepthView = null;
+        packet.SceneInfoView = null;
         packet.Analytics = null;
         packet.AnalyticCount = 0;
         packet.Outlines = null;
         packet.OutlineCount = 0;
         packet.TextInstances = null;
         packet.TextInstanceCount = 0;
+        packet.WorldTextInstances = null;
+        packet.WorldTextInstanceCount = 0;
         packet.Sprites = null;
         packet.SpriteCount = 0;
         packet.ArenaSdfView = null;
@@ -6188,6 +8658,7 @@ public static unsafe partial class Dx11ArenaRenderer
         packet.CustomSdfs = null;
         packet.CustomSdfCount = 0;
         packet.NeedsStencil = false;
+        packet.UsesZoneWave = false;
         packet.ModifiesDepthState = false;
         packet.StencilKey = 0;
         packet.Segments = null;
@@ -6202,10 +8673,17 @@ public static unsafe partial class Dx11ArenaRenderer
         packet.StrokeOffsetBytes = 0u;
         packet.WorldLineOffsetBytes = 0u;
         packet.WorldCurveOffsetBytes = 0u;
+        packet.WorldProjectedArrowOffsetBytes = 0u;
+        packet.WorldProjectedShapeOffsetBytes = 0u;
         packet.AnalyticOffsetBytes = 0u;
         packet.OutlineOffsetBytes = 0u;
         packet.TextOffsetBytes = 0u;
+        packet.WorldTextOffsetBytes = 0u;
         packet.SubmitFrame = -1;
+        packet.WorldOverlayTarget = false;
+        packet.IsWorldOverlayPresent = false;
+        packet.ScreenRiskColor = default;
+        packet.ScreenRiskPhase = 0f;
         packet.IsDeferredOverlay = false;
         BatchPacketPool.Push(packet);
     }

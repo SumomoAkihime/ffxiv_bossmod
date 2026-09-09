@@ -70,6 +70,6 @@ sealed class Distortion(BossModule module) : Components.GenericGaze(module)
 
         var (min, max) = eye.Inverted ? (90f, 270f) : (-90f, 90f);
         Arena.PathArcTo(pos, 1f, (rot + eye.Forward + min.Degrees()).Rad, (rot + eye.Forward + max.Degrees()).Rad);
-        MiniArena.PathStroke(false, Colors.Enemy);
+        Arena.PathStroke(false, Colors.Enemy);
     }
 }

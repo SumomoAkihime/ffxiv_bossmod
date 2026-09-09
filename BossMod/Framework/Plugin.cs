@@ -42,6 +42,8 @@ public sealed class Plugin : IAsyncDalamudPlugin
     private DateTime _throttleFateSync;
     private DateTime _throttleLeaveDuty;
 
+    private WorldOverlayNode? _worldOverlayNode;
+
     // windows
     private ConfigUI _configUI = null!; // TODO: should be a proper window!
     private BossModuleMainWindow _wndBossmod = null!;
@@ -101,6 +103,8 @@ public sealed class Plugin : IAsyncDalamudPlugin
         Service.Condition.ConditionChange += OnConditionChanged;
         MultiboxUnlock.Exec();
         Camera.Instance = new();
+        _worldOverlayNode = new();
+        Dx11ArenaRenderer.SetWorldOverlayNode(_worldOverlayNode);
 
         Service.Config.Modified.Subscribe(() => Task.Run(() => Service.Config.SaveToFile(_dalamud.ConfigFile)));
 
@@ -149,6 +153,10 @@ public sealed class Plugin : IAsyncDalamudPlugin
         {
             _dalamud.UiBuilder.Draw -= DrawUI;
             Service.Condition.ConditionChange -= OnConditionChanged;
+            Dx11ArenaRenderer.SetWorldOverlayNode(null);
+            _worldOverlayNode?.Dispose();
+            _worldOverlayNode = null;
+            Dx11ArenaRenderer.Shutdown();
         });
 
         _wndDebug.Dispose();
@@ -171,7 +179,6 @@ public sealed class Plugin : IAsyncDalamudPlugin
         _zonemod.Dispose();
         _bossmod.Dispose();
         ActionDefinitions.Instance.Dispose();
-        Dx11ArenaRenderer.Shutdown();
         CommandManager.RemoveHandler("/bmr");
         GarbageCollection();
     }
@@ -311,6 +318,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         _amex.FinishActionGather();
 
         var uiHidden = Service.GameGui.GameUiHidden || Service.Condition[ConditionFlag.OccupiedInCutSceneEvent] || Service.Condition[ConditionFlag.WatchingCutscene78] || Service.Condition[ConditionFlag.WatchingCutscene];
+        UpdateScreenRiskBorder(uiHidden);
         if (!uiHidden)
         {
             Service.WindowSystem?.Draw();
@@ -320,6 +328,30 @@ public sealed class Plugin : IAsyncDalamudPlugin
 
         Camera.Instance?.DrawWorldPrimitives();
         _prevUpdateTime = DateTime.Now - tsStart;
+    }
+
+    private void UpdateScreenRiskBorder(bool uiHidden)
+    {
+        var config = BossModuleManager.Config;
+        var module = _bossmod.ActiveModule;
+        var pc = _ws.Party[PartyState.PlayerSlot];
+        var enabled = config.ShowScreenRiskBorder && !uiHidden && module != null && pc != null && !pc.IsDead;
+        var haveRisks = false;
+        if (enabled && config.ScreenRiskBorderIntensity > 0f)
+        {
+            var hints = module!.CalculateHintsForRaidMember(PartyState.PlayerSlot, pc!);
+            var count = hints.Count;
+            for (var i = 0; i < count; ++i)
+            {
+                if (hints[i].Item2)
+                {
+                    haveRisks = true;
+                    break;
+                }
+            }
+        }
+
+        Camera.Instance?.UpdateScreenRiskBorder(enabled, haveRisks, Colors.Enemy, config.ScreenRiskBorderIntensity);
     }
 
     private unsafe bool QuestUnlocked(uint link)

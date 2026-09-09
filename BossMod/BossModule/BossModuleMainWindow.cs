@@ -43,6 +43,24 @@ public sealed class BossModuleMainWindow : UIWindow
         {
             DrawMovementHints(_mgr.ActiveModule.CalculateMovementHintsForRaidMember(PartyState.PlayerSlot, pc), pc.PosRot.Y);
         }
+        if (!BossModuleManager.Config.Enable && BossModuleManager.Config.ProjectRadarInto3DWorld)
+        {
+            var module = _mgr.ActiveModule;
+            if (module == null)
+            {
+                return;
+            }
+
+            try
+            {
+                module.DrawWorldProjection(_mgr.WorldState.Client.CameraAzimuth, PartyState.PlayerSlot);
+            }
+            catch (Exception ex)
+            {
+                Service.Logger.Error(ex, "Boss module world projection crashed");
+                _mgr.ActiveModule = null;
+            }
+        }
     }
 
     public override void OnOpen() => Service.Log($"[BMM] Opening main window; there are {_mgr.LoadedModules.Count} loaded modules, active is {_mgr.ActiveModule?.GetType().FullName ?? "<n/a>"}; zone module is {_zmm.ActiveModule?.GetType().FullName ?? "<n/a>"}");
@@ -100,7 +118,7 @@ public sealed class BossModuleMainWindow : UIWindow
             }
             catch (Exception ex)
             {
-                Service.Log($"Boss module draw crashed: {ex}");
+                Service.Logger.Error(ex, "Boss module draw crashed");
                 _mgr.ActiveModule = null;
             }
         }

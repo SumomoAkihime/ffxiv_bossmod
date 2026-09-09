@@ -351,8 +351,8 @@ public sealed class AOEShapeCross(float length, float halfWidth, Angle direction
 
     public override string ToString() => $"Cross: l={Length:f3}, w={HalfWidth * 2f}, off={DirectionOffset}, ifz={InvertForbiddenZone}";
     public override bool Check(WPos position, WPos origin, Angle rotation) => position.InCross(origin, rotation + DirectionOffset, Length, HalfWidth);
-    public override void Draw(MiniArena arena, WPos origin, Angle rotation, uint color = default) => arena.ZoneCross(origin, rotation + DirectionOffset, Length, HalfWidth, ContourPoints(origin, rotation), color);
-    public override void Outline(MiniArena arena, WPos origin, Angle rotation, uint color = default, float thickness = 1f) => arena.ZoneCrossOutline(origin, rotation + DirectionOffset, Length, HalfWidth, ContourPoints(origin, rotation), color, thickness);
+    public override void Draw(MiniArena arena, WPos origin, Angle rotation, uint color = default) => arena.ZoneCross(origin, rotation + DirectionOffset, Length, HalfWidth, color);
+    public override void Outline(MiniArena arena, WPos origin, Angle rotation, uint color = default, float thickness = 1f) => arena.ZoneCrossOutline(origin, rotation + DirectionOffset, Length, HalfWidth, color, thickness);
 
     private WPos[] ContourPoints(WPos origin, Angle rotation, float offset = default)
     {
@@ -478,6 +478,22 @@ public sealed class AOEShapeCustom : AOEShape
         Origin = origin;
         Operand = operand;
         hashkey = CreateCacheKey(Shapes1, Shapes2, DifferenceShapes, Operand, Origin);
+    }
+
+    public AOEShapeCustom(WPos arenaCenter, IReadOnlyList<Shape> shapes1, IReadOnlyList<Shape>? differenceShapes = null, IReadOnlyList<Shape>? shapes2 = null,
+        OperandType operand = OperandType.Union, bool invertForbiddenZone = false, bool skipPolygonInit = false)
+        : this(shapes1, differenceShapes, shapes2, operand, arenaCenter, invertForbiddenZone)
+    {
+        if (!skipPolygonInit)
+            ReplacePolygon(GetCombinedPolygon(arenaCenter), arenaCenter);
+    }
+
+    public void ReplacePolygon(RelSimplifiedComplexPolygon poly, WPos origin)
+    {
+        Polygon = poly;
+        Polygon.VerifyPolygonIndexExistance();
+        shapeDistance = new SDPolygonWithHolesBase(origin, Polygon);
+        isShapeDistanceInitialized = true;
     }
 
     private static readonly Dictionary<int, RelSimplifiedComplexPolygon> cache = [];
@@ -606,12 +622,12 @@ public sealed class AOEShapeCustom : AOEShape
         return hashCode.ToHashCode();
     }
 
-    public override void Draw(MiniArena arena, WPos origin, Angle rotation, uint color = default) => arena.ZoneRelPoly(hashkey, Polygon ?? GetCombinedPolygon(origin), color);
+    public override void Draw(MiniArena arena, WPos origin, Angle rotation, uint color = default) => arena.ZoneRelPoly(Polygon ?? GetCombinedPolygon(origin), color);
 
     public override void Outline(MiniArena arena, WPos origin, Angle rotation, uint color = default, float thickness = 1f)
     {
         var combinedPolygon = Polygon ?? GetCombinedPolygon(origin);
-        arena.ZoneRelPolyOutline(hashkey, combinedPolygon, color, thickness);
+        arena.ZoneRelPolyOutline(combinedPolygon, color, thickness);
     }
 
     public override ShapeDistance Distance(WPos origin, Angle rotation)

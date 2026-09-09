@@ -215,8 +215,7 @@ public sealed class ActionDefinitions
 
     private ActionDefinitions()
     {
-        foreach (var d in Utils.GetDerivedTypes<Defs>(Assembly.GetExecutingAssembly()))
-            ((Defs)Activator.CreateInstance(d)!).Define(this);
+        GeneratedRegistries.RegisterActionDefinitions(this);
 
         // items (TODO: more generic approach is needed...)
         RegisterItem(IDPotionStr);
