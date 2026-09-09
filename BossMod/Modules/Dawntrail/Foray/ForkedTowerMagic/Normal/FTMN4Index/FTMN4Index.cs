@@ -3,6 +3,7 @@
 public enum OID : uint
 {
     Boss = 0x4B5F, // R7.5
+    SummonedBomb = 0x4B60,
     HolyLance = 0x4B62,
     PropheticPhenomenon = 0x4B63,
     IceBall = 0x4B64,
@@ -47,6 +48,52 @@ public enum IconID : uint
     AllConsumingFlames = 466
 }
 
+sealed class Bombs(BossModule module) : Components.Adds(module, (uint)OID.SummonedBomb, 2)
+{
+    private readonly FTMN4IndexConfig _config = Service.Config.Get<FTMN4IndexConfig>();
+
+    public override void AddGlobalHints(GlobalHints hints)
+    {
+        if (ActiveActors.Count != 0)
+        {
+            hints.Add("优先击杀炸弹！");
+        }
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        base.DrawArenaForeground(pcSlot, pc);
+        var actors = CollectionsMarshal.AsSpan(ActiveActors);
+        var count = actors.Length;
+        for (var i = 0; i < count; i++)
+        {
+            ref var actor = ref actors[i];
+            Arena.ZoneCircleOutline(actor.Position, 2f);
+        }
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var activeActors = ActiveActors;
+        if (activeActors.Count != 0)
+        {
+            // prioritize adds if boss still healthy
+            if (Module.PrimaryActor.HPRatio > 0.05f)
+            {
+                hints.PrioritizeTargetsByOID((uint)OID.SummonedBomb, 2);
+                // ignore forced targetting if current target is a PC
+                if (_config.ForceAddTargeting && WorldState.Actors.Find(actor.TargetID) is var target && target?.Type != ActorType.Player && target?.OID != (uint)OID.SummonedBomb)
+                {
+                    hints.ForcedTarget = activeActors.MinBy(actor.DistanceToHitbox);
+                }
+            }
+        }
+        else if (_config.ForceBossTargeting && WorldState.Actors.Find(actor.TargetID) == null)
+        {
+            hints.ForcedTarget = Module.PrimaryActor;
+        }
+    }
+}
 sealed class Flare(BossModule module) : Components.RaidwideCast(module, (uint)AID.Flare);
 sealed class RomeosBallad(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RomeosBallad, 15f)
 {
@@ -419,6 +466,7 @@ sealed class IndexStates : StateMachineBuilder
     {
         TrivialPhase()
             .ActivateOnEnter<Flare>()
+            .ActivateOnEnter<Bombs>()
             .ActivateOnEnter<ArenaChanges>()
             .ActivateOnEnter<RomeosBallad>()
             .ActivateOnEnter<Aim>()
@@ -436,6 +484,7 @@ sealed class IndexStates : StateMachineBuilder
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed,
     StatesType = typeof(IndexStates),
+    ConfigType = typeof(FTMN4IndexConfig),
     ObjectIDType = typeof(OID),
     ActionIDType = typeof(AID),
     PrimaryActorOID = (uint)OID.Boss,
