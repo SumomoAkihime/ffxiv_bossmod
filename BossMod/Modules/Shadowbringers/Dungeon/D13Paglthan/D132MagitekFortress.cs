@@ -34,16 +34,28 @@ sealed class Exhaust(BossModule module) : Components.SimpleAOEs(module, (uint)AI
 
 sealed class GroundToGroundBallistic(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.GroundToGroundBallistic, 10f)
 {
-    private static readonly Angle a180 = 180f.Degrees(), a18 = 18f.Degrees();
+    private readonly StableCannon _aoes = module.FindComponent<StableCannon>()!;
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (Casters.Count != 0)
+        if (Casters.Count == 0)
         {
-            var forbidden = new ShapeDistance[2];
-            forbidden[0] = new SDInvertedCone(D132MagitekFortress.DefaultCenter, 20f, a180, a18);
-            forbidden[1] = new SDInvertedCone(D132MagitekFortress.DefaultCenter, 20f, default, a18);
-            hints.AddForbiddenZone(new SDIntersection(forbidden), Casters.Ref(0).Activation);
+            return;
+        }
+        ref readonly var c = ref Casters.Ref(0);
+        var act = c.Activation;
+        if (!IsImmune(slot, act))
+        {
+            var aoes = _aoes.ActiveAOEs(slot, actor);
+            var len = aoes.Length;
+            var rects = new (WPos origin, WDir rotation)[len];
+            for (var i = 0; i < len; ++i)
+            {
+                ref readonly var aoe = ref aoes[i];
+                rects[i] = (aoe.Origin, aoe.Rotation.ToDirection());
+            }
+
+            hints.AddForbiddenZone(new SDKnockbackInAABBSquareAwayFromOriginPlusAOERects(D132MagitekFortress.DefaultCenter, c.Origin, 10f, 14.5f, rects, 60f, 5f, len), act);
         }
     }
 }

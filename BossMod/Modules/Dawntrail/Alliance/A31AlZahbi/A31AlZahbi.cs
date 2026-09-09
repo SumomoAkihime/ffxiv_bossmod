@@ -52,6 +52,7 @@ public enum AID : uint
     Tourbillion = 50091, // 4DA9->self, 5.0s cast, range 40 width 50 rect
     PinningShotCast = 50089, // 4DA8->self, 7.0s cast, single-target
     PinningShot = 50090, // Helper->player, 7.0s cast, range 13 circle
+    FulminationKhryseos = 50093, // NemeanLion->self, 5.0s cast, range 70 circle, interruptible raidwide
     FulminationKhalkeos = 50092, // 4DA9->self, 4.0s cast, range 70 circle
     DanceToDustVisual = 50095, // 4DAB->self, 5.0s cast, single-target
     DanceToDustFirst = 50096, // Helper->self, 5.0s cast, range 7 circle
@@ -72,6 +73,7 @@ sealed class WhirlingSlash(BossModule module) : Components.SimpleAOEs(module, (u
 sealed class Perdition(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Perdition, 9f);
 sealed class Tourbillion(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Tourbillion, new AOEShapeRect(40f, 25f));
 sealed class PinningShot(BossModule module) : Components.BaitAwayCast(module, (uint)AID.PinningShot, 13f, tankbuster: true);
+sealed class FulminationKhryseos(BossModule module) : Components.CastInterruptHint(module, (uint)AID.FulminationKhryseos, showNameInHint: true);
 sealed class FulminationKhalkeos(BossModule module) : Components.RaidwideCast(module, (uint)AID.FulminationKhalkeos);
 sealed class DanceToDust(BossModule module) : Components.Exaflare(module, 7f)
 {
@@ -115,6 +117,7 @@ sealed class A31AlZahbiStates : StateMachineBuilder
             .ActivateOnEnter<Tourbillion>()
             .ActivateOnEnter<PinningShot>()
             .ActivateOnEnter<FulminationKhalkeos>()
+            .ActivateOnEnter<FulminationKhryseos>()
             .ActivateOnEnter<DanceToDust>()
             .ActivateOnEnter<ShadowSlash>()
             .ActivateOnEnter<BellowingGrunt>()

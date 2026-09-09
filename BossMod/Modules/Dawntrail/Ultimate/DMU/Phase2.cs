@@ -776,12 +776,12 @@ sealed class ForsakenSolverSet1(BossModule module) : BossComponent(module)
 
                 if (assignment is PartyRolesConfig.Assignment.M1 or PartyRolesConfig.Assignment.M2)
                 {
-                    Arena.ZoneCircleOutline(sePosition + 4.5f * toCenter - 1.0f * toCenter.Rotate(90f.Degrees()), 1.0f, colourCircle, 2.0f);
+                    Arena.ZoneCircleOutline(sePosition + 4.5f * toCenter + 1.0f * toCenter.Rotate(90f.Degrees()), 1.0f, colourCircle, 2.0f);
                 }
 
                 if (assignment is PartyRolesConfig.Assignment.R1 or PartyRolesConfig.Assignment.R2)
                 {
-                    Arena.ZoneCircleOutline(sePosition + 4.5f * toCenter - 1.0f * toCenter.Rotate(90f.Degrees()), 1.0f, colourCircle, 2.0f);
+                    Arena.ZoneCircleOutline(sePosition + 4.5f * toCenter + 1.0f * toCenter.Rotate(90f.Degrees()), 1.0f, colourCircle, 2.0f);
                 }
             }
         }

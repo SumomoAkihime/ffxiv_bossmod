@@ -84,7 +84,7 @@ sealed class SpinningInhale(BossModule module) : Components.GenericRotatingAOE(m
     {
         if (spell.Action.ID == (uint)AID.SpinningInhale3)
         {
-            AdvanceSequence(caster.Position, spell.Rotation, WorldState.CurrentTime);
+            AdvanceSequence(0, WorldState.CurrentTime);
         }
     }
 

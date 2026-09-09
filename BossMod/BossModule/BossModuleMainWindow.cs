@@ -54,7 +54,10 @@ public sealed class BossModuleMainWindow : UIWindow
         if (_shouldRecenter)
         {
             var viewport = ImGui.GetMainViewport();
-            var windowSize = Size ?? new Vector2(400, 400);
+            BossModuleManager.Config.ArenaScale = 1f;
+            BossModuleManager.Config.RadarResize = true;
+            var windowSize = Vector2.Max(new Vector2(400, 400), new Vector2(2f * (20f + BossModuleManager.Config.SlackForRotations * 150f)));
+            ImGui.SetNextWindowSize(windowSize, ImGuiCond.Always);
             var center = viewport.Pos + viewport.Size * 0.5f;
             var newPos = center - windowSize * 0.5f;
             ImGui.SetNextWindowPos(newPos, ImGuiCond.Always);
@@ -76,6 +79,15 @@ public sealed class BossModuleMainWindow : UIWindow
 
     public override void Draw()
     {
+        if (ImGui.BeginPopupContextWindow("RadarContext", ImGuiPopupFlags.MouseButtonRight))
+        {
+            if (ImGui.MenuItem("重置雷达位置与大小"))
+            {
+                RecenterWindow();
+            }
+            ImGui.EndPopup();
+        }
+
         if (ShowZoneModule())
         {
             _zmm.ActiveModule?.DrawGlobalHints();

@@ -209,6 +209,9 @@ public sealed class Plugin : IAsyncDalamudPlugin
             case "AR":
                 ParseAutorotationCommands(split);
                 break;
+            case "RADAR" when split.Length == 2 && split[1].Equals("RESET", StringComparison.OrdinalIgnoreCase):
+                Service.BossModWindow?.RecenterWindow();
+                break;
             case "RESETCOLORS":
                 ResetColors();
                 break;

@@ -5,6 +5,8 @@ namespace BossMod;
 [ConfigDisplay(Name = "Boss modules and radar", Order = 1)]
 public sealed class BossModuleConfig : ConfigNode
 {
+    internal bool RadarResize;
+
     public override void DrawCustom(UITree tree, WorldState ws)
     {
         if (ImGui.Button("Recenter Window"))

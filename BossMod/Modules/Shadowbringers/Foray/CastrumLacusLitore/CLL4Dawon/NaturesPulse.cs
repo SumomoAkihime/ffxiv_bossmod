@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.CastrumLacusLitore.CLL4Dawon;
+﻿namespace BossMod.Shadowbringers.Foray.CastrumLacusLitore.CLL4Dawon;
 
 sealed class NaturesPulse(BossModule module) : Components.ConcentricAOEs(module, _shapes)
 {
@@ -31,6 +31,14 @@ sealed class NaturesPulse(BossModule module) : Components.ConcentricAOEs(module,
                 _ => -1
             };
             AdvanceSequence(order, spell.LocXZ, WorldState.FutureTime(1.5d));
+        }
+    }
+
+    public override void OnActorUntargetable(Actor actor)
+    {
+        if (actor.OID == (uint)OID.LyonTheBeastKing)
+        {
+            Sequences.Clear();
         }
     }
 }

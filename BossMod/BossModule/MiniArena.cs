@@ -85,9 +85,10 @@ public sealed class MiniArena(WPos center, ArenaBounds bounds)
 
         var centerOffset = new Vector2(screenMarginSize + Config.SlackForRotations * screenHalfSize);
         var fullSize = 2f * centerOffset;
-        var currentWindowSize = ImGui.GetWindowSize();
+        var currentWindowSize = Config.RadarResize ? new Vector2(400, 400) : ImGui.GetWindowSize();
         var requiredWindowSize = Vector2.Max(fullSize, currentWindowSize);
         ImGui.SetWindowSize(requiredWindowSize);
+        Config.RadarResize = false;
         var cursor = ImGui.GetCursorScreenPos();
         ImGui.Dummy(fullSize);
 

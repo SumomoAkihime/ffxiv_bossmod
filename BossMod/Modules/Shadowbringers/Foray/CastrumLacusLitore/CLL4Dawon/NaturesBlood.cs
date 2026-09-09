@@ -1,4 +1,4 @@
-namespace BossMod.Shadowbringers.Foray.CastrumLacusLitore.CLL4Dawon;
+﻿namespace BossMod.Shadowbringers.Foray.CastrumLacusLitore.CLL4Dawon;
 
 sealed class NaturesBlood(BossModule module) : Components.Exaflare(module, 4f)
 {
@@ -37,6 +37,14 @@ sealed class NaturesBlood(BossModule module) : Components.Exaflare(module, 4f)
                     return;
                 }
             }
+        }
+    }
+
+    public override void OnActorUntargetable(Actor actor)
+    {
+        if (actor.OID == (uint)OID.LyonTheBeastKing)
+        {
+            Lines.Clear();
         }
     }
 }
