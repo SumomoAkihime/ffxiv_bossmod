@@ -51,7 +51,7 @@ public struct NavigationDecision
             var inBounds = ctx.Map.InBounds(gridPos.x, gridPos.y);
             if (!inBounds || ctx.Map.PixelMaxG[ctx.Map.GridToIndex(gridPos)] >= 1f) // prioritize safety over uptime
             {
-                if (hints.GoalZones.Count != 0)
+                if (hints.GoalZonesEnabled && hints.GoalZones.Count != 0)
                 {
                     RasterizeGoalZones(ctx.Map, [.. hints.GoalZones]);
                 }

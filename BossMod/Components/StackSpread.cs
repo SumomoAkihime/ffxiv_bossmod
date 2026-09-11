@@ -59,7 +59,8 @@ public abstract class GenericStackSpread(BossModule module, bool raidwideOnResol
 
     public readonly bool RaidwideOnResolve = raidwideOnResolve; // if true, assume even if mechanic is correctly resolved everyone will still take damage
     public readonly bool IncludeDeadTargets = includeDeadTargets; // if false, stacks & spreads with dead targets are ignored
-    public int ExtraAISpreadThreshold = 1;
+    public float ExtraAISpreadThreshold = 1f;
+    public bool EnableHints = true;
     public readonly List<Stack> Stacks = [];
     public List<Spread> Spreads = [];
     public const string StackHint = "Stack!";
@@ -191,6 +192,9 @@ public abstract class GenericStackSpread(BossModule module, bool raidwideOnResol
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
+        if (!EnableHints)
+            return;
+
         var spreads = CollectionsMarshal.AsSpan(ActiveSpreads);
         var lenSpreads = spreads.Length;
         for (var i = 0; i < lenSpreads; ++i)
@@ -354,6 +358,9 @@ public abstract class GenericStackSpread(BossModule module, bool raidwideOnResol
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
+        if (!EnableHints)
+            return;
+
         // forbid standing next to spread markers
         // TODO: think how to improve this, current implementation works, but isn't particularly good - e.g. nearby players tend to move to same spot, turn around, etc.
         // ideally we should provide per-mechanic spread spots, but for simple cases we should try to let melee spread close and healers/rdd spread far from main target...

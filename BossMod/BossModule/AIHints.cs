@@ -27,6 +27,7 @@ public sealed class AIHints
         }
         //public float TimeToKill;
         public float AttackStrength = 0.05f; // target's predicted HP percent is decreased by this amount (0.05 by default)
+        public bool CanMove = true;
         public WPos DesiredPosition = actor.Position; // tank AI will try to move enemy to this position
         public Angle DesiredRotation = actor.Rotation; // tank AI will try to rotate enemy to this angle
         public float TankDistance = 2f; // enemy will start moving if distance between hitboxes is bigger than this
@@ -130,6 +131,7 @@ public sealed class AIHints
     // guideline: rotation modules should return 1 if it would use single-target action from that spot, 2 if it is also a positional, 3 if it would use aoe that would hit minimal viable number of targets, +1 for each extra target
     // other parts of the code can return small (e.g. 0.01) values to slightly (de)prioritize some positions, or large (e.g. 1000) values to effectively soft-override target position (but still utilize pathfinding)
     public readonly List<Func<WPos, float>> GoalZones = [];
+    public bool GoalZonesEnabled = true;
 
     // AI will treat the pixels inside these shapes as unreachable and not try to pathfind through them (unlike imminent forbidden zones)
     public List<ShapeDistance> TemporaryObstacles = [];
@@ -191,6 +193,7 @@ public sealed class AIHints
         InteractWithTarget = null;
         ForbiddenZones.Clear();
         GoalZones.Clear();
+        GoalZonesEnabled = true;
         TemporaryObstacles.Clear();
         Teleporters.Clear();
         RecommendedPositional = default;
@@ -754,6 +757,35 @@ public sealed class AIHints
             return GoalSingleTarget(dest, PathfindMapBounds.MapResolution, 10f);
         }
         return _ => default;
+    }
+
+    public Func<WPos, float> PullTargetToLocation(Actor target, WPos destination, Actor player, float gcd, float destRadius = 2f)
+    {
+        var enemy = FindEnemy(target);
+        if (enemy == null)
+        {
+            return _ => 0;
+        }
+
+        var adjRange = enemy.TankDistance + target.HitboxRadius + player.HitboxRadius;
+        var dirToGoal = destination - target.Position;
+        var distToGoal = dirToGoal.Length() + adjRange;
+        var leewaySq = destRadius * destRadius;
+
+        // try to stay within pull range
+        if (dirToGoal.LengthSq() <= leewaySq)
+        {
+            return GoalSingleTarget(target.Position, adjRange, 0.5f);
+        }
+
+        if (gcd < 0.5f)
+        {
+            var playerEffRange = player.Role is Role.Tank or Role.Melee ? 3 : 25;
+            distToGoal = Math.Min(distToGoal, target.HitboxRadius + player.HitboxRadius + playerEffRange);
+        }
+
+        var sh = new SDPrecisePosition(target.Position + dirToGoal.Normalized() * distToGoal, new(0f, 1f), PathfindMapBounds.MapResolution, player.Position, 0.1f);
+        return p => sh.Distance(p) > 0f ? 10f : 0f;
     }
 
     public static Func<WPos, float> GoalRectangle(WPos center, WDir direction, float halfWidth, float halfHeight, float weight = 1f)

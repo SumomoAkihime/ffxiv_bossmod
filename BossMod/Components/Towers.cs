@@ -69,6 +69,7 @@ public class GenericTowers(BossModule module, uint aid = default, bool prioritiz
     }
 
     public List<Tower> Towers = [];
+    public bool EnableHints = true;
     public readonly bool PrioritizeInsufficient = prioritizeInsufficient; // give priority to towers with more than 0 but less than min soakers
     public readonly AIHints.PredictedDamageType DamageType = damageType;
 
@@ -79,6 +80,9 @@ public class GenericTowers(BossModule module, uint aid = default, bool prioritiz
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
+        if (!EnableHints)
+            return;
+
         var towers = ActiveTowers(slot, actor);
         var len = towers.Length;
         if (len == 0)
@@ -222,6 +226,9 @@ public class GenericTowers(BossModule module, uint aid = default, bool prioritiz
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
+        if (!EnableHints)
+            return;
+
         var towers = ActiveTowers(slot, actor);
         var len = towers.Length;
         if (len == 0)
