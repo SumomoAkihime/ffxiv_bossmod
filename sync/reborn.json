@@ -29,11 +29,15 @@
     },
     {
       "commit": "787148f34",
-      "scope": "副本入场与幽灵龙骑及动作保护"
+      "scope": "副本入场与辅助龙骑士及动作保护"
+    },
+    {
+      "commit": "a01e4b401",
+      "scope": "明确移动负责方、跟随目标接入、异步旧路径失效；视线开关与正确距离过滤；队伍排序/分组实现；原版外部联动 IPC 与导航状态适配"
     },
     {
       "commit": "包含本清单的提交",
-      "scope": "明确移动负责方、跟随目标接入、异步旧路径失效；视线开关与正确距离过滤；队伍排序/分组实现；原版外部联动 IPC 与导航状态适配"
+      "scope": "Reborn 20b8092f4 辅助职业：盗窃、忍者、白魔法师、黑魔法师、召唤师、青魔法师、赤魔法师及动作/状态依赖；保留辅助龙骑士保护"
     }
   ],
   "requiredPatches": [
@@ -79,14 +83,17 @@
         "BossMod/Pathfinding/NavigationDecision.cs"
       ],
       "behavior": "保留首次查询/并发初始化和空 ShapeDistance 过滤；上游具备等价修复后才移除。"
+    },
+    {
+      "paths": [
+        "BossMod/Autorotation/Standard/xan/AI/Phantom.cs",
+        "BossMod/ActionQueue/ClassShared.cs"
+      ],
+      "behavior": "保留 ref 目标接口和 Dualcast/近战连段保护；魔震雷与雷暴匹配雷弱点；蓝魔配置列出实际使用的魔烈风，黑魔配置不宣称自动魔蛙变；魔跳跃危险区禁止、前踏步采用本地 ForbidExecute 位移保护。"
     }
   ],
   "localRadars": "local-radars.json",
   "pending": [
-    {
-      "scope": "PhantomAI 非龙骑分支及其动作依赖",
-      "reason": "Steal、Ninja、WhiteMage、BlackMage、Summoner、BlueMage、RedMage 等早期差异尚未整合；移植时修正 PRdm OccultThunderII 的元素优先级。"
-    },
     {
       "scope": "其他上游差异",
       "reason": "按本轮准确提交继续分类对照；历史输出中的未合并清单不自动代表当前状态。"
@@ -104,6 +111,7 @@
   ],
   "validation": [
     "Tests/RotationMovement",
+    "Tests/SupportJobs（动作注册、配置开关、目标、元素、自疗、复活、读条、连段与位移保护）",
     "Tests/PolygonQueries（默认与 --distance-first）",
     "tools/check_local_radars.py（同步前后快照）",
     "Release 构建；涉及模块的专项离线回归；实机验证组合场景"
@@ -129,10 +137,23 @@
     "date": "2026-09-11",
     "releaseBuild": "零警告、零错误",
     "movementAndIPCAssertions": 142,
-    "entryAndRotationAssertions": 1655,
+    "entryAndRotationAssertions": 1675,
     "ucobAssertions": 1032,
     "polygonAssertions": 67922,
     "protectedSourceFilesUnchanged": 40,
-    "gameTest": "待用户实机验证循环、移动及 AutoDuty/vnavmesh 联动组合；尚未发布"
+    "gameTest": "辅助职业实际施放与移动组合待实机验证；尚未升版发布。",
+    "supportJobsAssertions": 331,
+    "unchangedAreaValidation": "UCOB 与多边形沿用上一批通过结果；本轮未修改其源码，未重复运行。"
+  },
+  "supportJobs": {
+    "sourceCommit": "20b8092f4a5673f8b7d1a3959f4671732a67710c",
+    "scope": "补齐上游已实现的辅助职业自动化；不表示每个辅助职业全部技能均会自动使用",
+    "notAutomated": [
+      "辅助亡灵法师仅同步动作定义，上游无自动循环分支",
+      "魔蛙变、前踏步等未被上游 PhantomAI 调用的技能不新增自动施放"
+    ],
+    "defaults": "盗窃默认关闭；辅助白魔复活默认关闭；其余新增输出与自疗按上游默认开启，并受装备技能及对应条件限制",
+    "terminologySource": "https://ff14.huijiwiki.com/wiki/辅助职业",
+    "localCompatibility": "保留普通赤魔 Dualcast 连段，辅助法术不会消耗该状态；Swiftcast 等其余即刻状态仍按上游处理，召唤技能始终按 4 秒读条。"
   }
 }
