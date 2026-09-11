@@ -72,7 +72,7 @@ class A13ThanatosStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 92, NameID = 710)]
-public class A13Thanatos(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, ThanatosBounds)
+public class A13Thanatos(WorldState ws, Actor primary) : BossModule(ws, primary, ThanatosBounds.Center, ThanatosBounds)
 {
     public static readonly WPos ArenaCenter = new(440.4f, 280);
     public static readonly ArenaBoundsCustom ThanatosBounds = MakeBounds();

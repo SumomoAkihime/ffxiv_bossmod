@@ -90,6 +90,19 @@
         "BossMod/ActionQueue/ClassShared.cs"
       ],
       "behavior": "保留 ref 目标接口和 Dualcast/近战连段保护；魔震雷与雷暴匹配雷弱点；蓝魔配置列出实际使用的魔烈风，黑魔配置不宣称自动魔蛙变；魔跳跃危险区禁止、前踏步采用本地 ForbidExecute 位移保护。"
+    },
+    {
+      "paths": [
+        "BossMod/Modules/Shadowbringers/Alliance/A12Hobbes/A12Hobbes.cs",
+        "BossMod/Modules/Shadowbringers/Alliance/A12Hobbes/FireResistanceTest.cs",
+        "BossMod/Modules/Shadowbringers/Alliance/A13GoliathTank/A13GoliathTank.cs",
+        "BossMod/Modules/Shadowbringers/Alliance/A15WalkingFortress/A15WalkingFortress.cs",
+        "BossMod/Modules/Shadowbringers/Alliance/A15WalkingFortress/BallisticExaImpact.cs",
+        "BossMod/Modules/RealmReborn/Alliance/A13Thanatos/A13Thanatos.cs",
+        "BossMod/Modules/Heavensward/Dungeon/D04TheVault/D041SerAdelphel.cs",
+        "BossMod/Modules/Stormblood/Alliance/A33ThunderGod/A33ThunderGod.cs"
+      ],
+      "behavior": "保留原版模块适配 Reborn 的边界中心与固定机制中心区分、ConcentricAOEs/Exaflare 父类更新及末段清理；A15 激光按战车 TargetID 匹配来源并跟随原标记者。同步后运行 RadarDrawingTests，不能仅以编译成功验收。上游存在等价修复后再移除本地补丁。"
     }
   ],
   "localRadars": "local-radars.json",
@@ -110,7 +123,7 @@
     }
   ],
   "validation": [
-    "Tests/RotationMovement",
+    "Tests/RotationMovement（含 RadarDrawingTests：场地世界坐标、AOE 更新/推进/清理及激光目标匹配）",
     "Tests/SupportJobs（动作注册、配置开关、目标、元素、自疗、复活、读条、连段与位移保护）",
     "Tests/PolygonQueries（默认与 --distance-first）",
     "tools/check_local_radars.py（同步前后快照）",

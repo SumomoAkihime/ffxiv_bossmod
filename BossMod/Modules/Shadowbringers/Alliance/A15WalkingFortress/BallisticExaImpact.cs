@@ -25,6 +25,7 @@ class BallisticExaImpact(BossModule module) : Components.Exaflare(module, new AO
                 Lines.Add(_toAdd[i]);
                 _toAdd.RemoveAt(i);
             }
+        base.Update();
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -33,7 +34,12 @@ class BallisticExaImpact(BossModule module) : Components.Exaflare(module, new AO
         {
             var ix = Lines.FindIndex(l => l.Next.AlmostEqual(caster.Position, 1));
             if (ix >= 0)
-                AdvanceLine(Lines[ix], caster.Position);
+            {
+                var line = Lines[ix];
+                AdvanceLine(line, caster.Position);
+                if (line.ExplosionsLeft == 0)
+                    Lines.RemoveAt(ix);
+            }
         }
     }
 }

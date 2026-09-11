@@ -121,7 +121,7 @@ sealed class ShiningBlade(BossModule module) : Components.GenericAOEs(module)
 
         var primary = Module.PrimaryActor.Position;
         var activationTimes = GetActivationTimes(WorldState.FutureTime(0.08f));
-        var center = Arena.Center;
+        var center = D041SerAdelphel.ArenaCenter;
         if (primary.InCone(center, a90, a60))
             AddAOEs(primary, west, south, north, east, activationTimes);
         else if (primary.InCone(center, am90, a60))
@@ -176,7 +176,7 @@ sealed class D041SerAdelphelStates : StateMachineBuilder
 [ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus, LTS), Xyzzy", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 34, NameID = 3634)]
 public sealed class D041SerAdelphel : BossModule
 {
-    public D041SerAdelphel(WorldState ws, Actor primary) : base(ws, primary, new(default, -100f), arena)
+    public D041SerAdelphel(WorldState ws, Actor primary) : base(ws, primary, arena.Center, arena)
     {
         ostiaries = Enemies((uint)OID.VaultOstiary);
     }
@@ -194,7 +194,8 @@ public sealed class D041SerAdelphel : BossModule
 
     protected override bool CheckPull() => IsActorInCombat((uint)OID.SerAdelphelBrightblade);
 
-    public static readonly ArenaBoundsCustom arena = new([new Circle(new(default, -100f), 19.5f)], [new Rectangle(new(default, -120f), 20f, 1.75f), new Rectangle(new(-21f, -100f), 1.75f, 20f)]);
+    public static readonly WPos ArenaCenter = new(default, -100f);
+    public static readonly ArenaBoundsCustom arena = new([new Circle(ArenaCenter, 19.5f)], [new Rectangle(new(default, -120f), 20f, 1.75f), new Rectangle(new(-21f, -100f), 1.75f, 20f)]);
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {

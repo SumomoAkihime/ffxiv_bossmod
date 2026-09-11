@@ -176,6 +176,7 @@ class Program
             var bad = new GroupAssignmentLightParties(); Check(bad.Resolve(world.Party, new PartyRolesConfig()).Count == 0, "无效分组返回空列表");
             IPCTests.Run(manager, bossmods, hints, ai, Check, autoDutyDirectory);
             MechanicSafetyTests.Run(module, player, Check);
+            RadarDrawingTests.Run(Check);
             Console.WriteLine("循环/移动开关、预设改名与顺序、跟随、旧任务失效、视线及排序检查完成。");
         }
         finally { ImGui.DestroyContext(imgui); }

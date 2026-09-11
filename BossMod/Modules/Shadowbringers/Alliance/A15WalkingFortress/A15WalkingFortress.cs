@@ -102,12 +102,14 @@ class BossInvincible(BossModule module) : Components.InvincibleStatus(module, (u
 class GoliathTank(BossModule module) : Components.Adds(module, (uint)OID.GoliathTank);
 class GoliathTankLaserTurret(BossModule module) : Components.GenericAOEs(module, (uint)AID.LaserTurretTank)
 {
-    private readonly List<(Actor caster, Angle direction, DateTime activation)> _predicted = [];
+    private readonly List<(Actor caster, Actor target, DateTime activation)> _predicted = [];
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        if ((IconID)iconID == IconID.TurretLockon && Module.Enemies((uint)OID.GoliathTank).Closest(actor.Position) is { } tank)
-            _predicted.Add((tank, tank.AngleTo(actor), WorldState.FutureTime(3.3f)));
+        if ((IconID)iconID == IconID.TurretLockon)
+            foreach (var tank in Module.Enemies((uint)OID.GoliathTank))
+                if (tank.TargetID == actor.InstanceID)
+                    _predicted.Add((tank, actor, WorldState.FutureTime(3.3f)));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -125,7 +127,7 @@ class GoliathTankLaserTurret(BossModule module) : Components.GenericAOEs(module,
     }
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
-        => _predicted.Select(p => new AOEInstance(new AOEShapeRect(85, 5), p.caster.Position, p.direction, p.activation)).ToArray();
+        => _predicted.Select(p => new AOEInstance(new AOEShapeRect(85, 5), p.caster.Position, p.caster.AngleTo(p.target), p.activation)).ToArray();
 }
 // actual radius (9.6 units) is too wide
 class ConvenientSelfDestruction(BossModule module) : Components.CastLineOfSightAOE(module, (uint)AID.ConvenientSelfDestructionLOS, 85, false)

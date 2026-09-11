@@ -56,6 +56,7 @@ class EnergyRing(BossModule module) : Components.ConcentricAOEs(module, [new AOE
     {
         if (Module.PrimaryActor.IsDeadOrDestroyed)
             Sequences.Clear();
+        base.Update();
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)

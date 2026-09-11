@@ -26,18 +26,18 @@ class FireResistanceTest(BossModule module) : Components.GenericAOEs(module)
         switch (_pattern)
         {
             case Pattern.CW:
-                aoes.Add(new(new AOEShapeRect(22, 21, 2), center, Angle.FromDirection(Arena.Center - center) + 85.Degrees()));
+                aoes.Add(new(new AOEShapeRect(22, 21, 2), center, Angle.FromDirection(A12Hobbes.ArenaCenter - center) + 85.Degrees()));
                 break;
             case Pattern.CCW:
-                aoes.Add(new(new AOEShapeRect(22, 21, 2), center, Angle.FromDirection(Arena.Center - center) - 85.Degrees()));
+                aoes.Add(new(new AOEShapeRect(22, 21, 2), center, Angle.FromDirection(A12Hobbes.ArenaCenter - center) - 85.Degrees()));
                 break;
             case Pattern.Inside:
-                var dir = (Arena.Center - center).Normalized() * 15;
-                aoes.Add(new(new AOEShapeCone(70, 15.Degrees()), Arena.Center + dir, Angle.FromDirection(center - Arena.Center)));
+                var dir = (A12Hobbes.ArenaCenter - center).Normalized() * 15;
+                aoes.Add(new(new AOEShapeCone(70, 15.Degrees()), A12Hobbes.ArenaCenter + dir, Angle.FromDirection(center - A12Hobbes.ArenaCenter)));
                 break;
             case Pattern.Outside:
-                var platformEdge = (Arena.Center - center).Normalized() * 20 + center;
-                var angle = Angle.FromDirection(center - Arena.Center);
+                var platformEdge = (A12Hobbes.ArenaCenter - center).Normalized() * 20 + center;
+                var angle = Angle.FromDirection(center - A12Hobbes.ArenaCenter);
                 aoes.Add(new(new AOEShapeCone(70, 30.Degrees()), platformEdge, angle + 55.Degrees()));
                 aoes.Add(new(new AOEShapeCone(70, 30.Degrees()), platformEdge, angle - 55.Degrees()));
                 break;
