@@ -280,6 +280,27 @@ sealed class ElementSafePlatforms(BossModule module) : BossComponent(module)
     private readonly HashSet<Element> _resolved = [];
     private readonly HashSet<Element> _pair = [];
     private DateTime _lastPairEvent;
+    private readonly Dictionary<Angle, ShapeDistance> _safeZones = [];
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var safe = PlayerSafeElement(actor);
+        if (safe == Element.None || _resolved.Contains(safe))
+            return;
+        var marker = Module.Enemies(MarkerOID(safe)).FirstOrDefault(marker => !marker.IsDestroyed);
+        if (marker == null)
+            return;
+        if (!_safeZones.TryGetValue(marker.Rotation, out var forbidden))
+        {
+            var first = IndexArenaBounds.PlatformRegion(Index.ArenaCenter, marker.Rotation);
+            var second = IndexArenaBounds.PlatformRegion(Index.ArenaCenter, marker.Rotation + 180f.Degrees());
+            forbidden = new SDInvertedUnion([first.Distance(Index.ArenaCenter, default), second.Distance(Index.ArenaCenter, default)]);
+            _safeZones[marker.Rotation] = forbidden;
+        }
+        // Stay on either personally safe platform; other components still exclude prophecy/weapon AOEs.
+        hints.AddForbiddenZone(forbidden, WorldState.CurrentTime);
+        hints.GoalZonesEnabled = false;
+    }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
@@ -644,6 +665,63 @@ sealed class Shockwave(BossModule module) : Components.GenericKnockback(module)
 {
     private readonly List<Knockback> _sources = new(6);
     private readonly Knockback[] _nearest = new Knockback[1];
+    private ArenaBounds? _cachedBounds;
+    private RelSimplifiedComplexPolygon _safePolygon;
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (_sources.Count == 0 || Arena.Bounds is not ArenaBoundsCustom bounds)
+            return;
+        var activation = _sources.Min(source => source.Activation);
+        if (IsImmune(slot, activation))
+            return;
+        if (!ReferenceEquals(_cachedBounds, bounds))
+        {
+            _safePolygon = bounds.Polygon.Offset(-1f);
+            _cachedBounds = bounds;
+        }
+        // Duplicate helpers at one origin are one hit, not sequential knockbacks.
+        var sources = _sources.Where(source => Math.Abs((source.Activation - activation).TotalSeconds) <= 0.5d)
+            .Select(source => source.Origin).Distinct().ToArray();
+        List<ShapeDistance> dangers = [];
+        foreach (var component in Module.Components)
+            if (component is Components.GenericAOEs aoes)
+                foreach (var aoe in aoes.ActiveAOEs(slot, actor))
+                    if (aoe.Activation >= activation.AddSeconds(-0.5d) && aoe.Activation <= activation.AddSeconds(3d))
+                        dangers.Add(aoe.Shape.Distance(aoe.Origin, aoe.Rotation));
+        hints.AddForbiddenZone(new ShockwaveSafety(Arena.Center, _safePolygon, sources, [.. dangers]), activation);
+        hints.GoalZonesEnabled = false;
+    }
+
+    private sealed class ShockwaveSafety(WPos center, RelSimplifiedComplexPolygon polygon, WPos[] sources, ShapeDistance[] dangers) : ShapeDistance
+    {
+        public override float Distance(in WPos p)
+        {
+            // Choose the source for EACH candidate, rather than fixing the player's current source.
+            var origin = sources[0];
+            var closest = (p - origin).LengthSq();
+            for (var i = 1; i < sources.Length; ++i)
+            {
+                var distance = (p - sources[i]).LengthSq();
+                if (distance < closest)
+                {
+                    closest = distance;
+                    origin = sources[i];
+                }
+            }
+            if (closest <= Epsilon)
+                return 0f;
+            var direction = (p - origin).Normalized();
+            var landing = p + 9f * direction;
+            if (!polygon.Contains(landing - center) || !polygon.Contains(p - center)
+                || Intersect.RayPolygon(p - center, direction, polygon) < 9f)
+                return 0f;
+            foreach (var danger in dangers)
+                if (danger.Distance(landing) <= 0.5f)
+                    return 0f;
+            return 1f;
+        }
+    }
 
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
@@ -671,14 +749,18 @@ sealed class Shockwave(BossModule module) : Components.GenericKnockback(module)
             _sources.Add(new(caster.Position, 9f, Module.CastFinishAt(spell), actorID: caster.InstanceID));
     }
 
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         if (spell.Action.ID == (uint)AID.Shockwave)
         {
-            _sources.RemoveAll(source => source.ActorID == caster.InstanceID);
-            ++NumCasts;
+            if (_sources.RemoveAll(source => (source.Origin - caster.Position).LengthSq() < 0.1f) != 0)
+                ++NumCasts;
         }
     }
+
+    public override void OnActorDestroyed(Actor actor) => _sources.RemoveAll(source => source.ActorID == actor.InstanceID);
+
+    public override void Update() => _sources.RemoveAll(source => source.Activation < WorldState.CurrentTime.AddSeconds(-2d));
 }
 
 sealed class GroundFire(BossModule module) : Components.GenericAOEs(module)

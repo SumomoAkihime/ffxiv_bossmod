@@ -14,7 +14,7 @@
     {
       "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN2SwordDancer",
       "identity": "GroupType=CFC; GroupID=1093; NameID=14820; PrimaryActorOID=0x4D76 (源码 ModuleInfo/OID)",
-      "reason": "保留普通剑舞者的本地旋剑圆/环映射、击退及剑舞机制处理，按实际方向与事件推进；不得与高难同名模块混用身份或机制。",
+      "reason": "保留普通剑舞者的本地旋剑圆/环映射、击退及剑舞机制处理，按实际方向与事件推进；不得与高难同名模块混用身份或机制。 移动安全增强：保留逐段抗击退判断、下一有效来源准备区与按激活时间筛选的冲锋线落点约束。",
       "evidence": [
         "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN2SwordDancer/FTMN2SwordDancer.cs",
         "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/魔之塔普通雷达制作记录.md",
@@ -34,7 +34,7 @@
     {
       "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME1TwoHeadedAevis",
       "identity": "GroupType=CFC; GroupID=1114; NameID=14490; PrimaryActorOID=0x4C19 (源码 ModuleInfo/OID；0x4C18 为演出实体)",
-      "reason": "保留绿头作为主实体、矩阵颜色与方向、元素召唤属性/顺序、四连冰焰 47671-47678 的完整形状组合及中心击退实测方向。",
+      "reason": "保留绿头作为主实体、矩阵颜色与方向、元素召唤属性/顺序、四连冰焰 47671-47678 的完整形状组合及中心击退实测方向。 移动安全增强：保留中心击退与共鸣击退的起点/后续落点联合约束、公共抗击退状态跟踪及准备期停止追敌。",
       "evidence": [
         "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME1TwoHeadedAevis/FTME1TwoHeadedAevis.cs",
         "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME1TwoHeadedAevis/超魔之塔Boss1雷达制作记录.md",
@@ -44,7 +44,7 @@
     {
       "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME2SwordDancer",
       "identity": "GroupType=CFC; GroupID=1114; NameID=14820; PrimaryActorOID=0x4D7E (源码 ModuleInfo/OID)",
-      "reason": "保留三把错开圆心旋剑、两段反转形状、按钢铁状态实际落点、顺序三环安全区逐组晋级，以及剑舞方向未明时不提前猜测终点安全区。",
+      "reason": "保留三把错开圆心旋剑、两段反转形状、按钢铁状态实际落点、顺序三环安全区逐组晋级，以及剑舞方向未明时不提前猜测终点安全区。 移动安全增强：五连击退检查当前落点、到下一安全起点的可达路线和各时刻 AOE；匹配来源与事件序列缩短已结算击退的等待，保留客户端位移缓冲；不改三环纯图示要求。",
       "evidence": [
         "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME2SwordDancer/FTME2SwordDancer.cs",
         "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME2SwordDancer/超魔之塔Boss2雷达制作记录.md",
@@ -54,7 +54,7 @@
     {
       "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME3Necrophobia",
       "identity": "GroupType=CFC; GroupID=1114; NameID=14503; PrimaryActorOID=0x4BE7 (源码 ModuleInfo/OID)",
-      "reason": "保留 Boss3 实测机制与半径 25 场地；对回放未覆盖的终盘分支维持待验证状态，不以目录或编号推测新增机制。",
+      "reason": "保留 Boss3 实测机制与半径 25 场地；对回放未覆盖的终盘分支维持待验证状态，不以目录或编号推测新增机制。 移动安全增强：当前元素组合与个人播撒通道参与 AI，按实际状态重算并扣除同期元素范围，不把下一波安全面强制叠入当前禁区。",
       "evidence": [
         "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME3Necrophobia/FTME3Necrophobia.cs",
         "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME3Necrophobia/高难魔之塔Boss3雷达制作记录.md",
@@ -74,7 +74,7 @@
     {
       "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME4Index",
       "identity": "GroupType=CFC; GroupID=1093; NameID=14717; PrimaryActorOID=0x4B67 (源码 ModuleInfo/OID)",
-      "reason": "保留实际场地几何、四连武器状态顺序、六连地板事件物体、玩家本人双色安全图标、预言顺/逆时针终点判定、元素整合按实际状态推进及全斩分批安全区等实测雷达增强。",
+      "reason": "保留实际场地几何、四连武器状态顺序、六连地板事件物体、玩家本人双色安全图标、预言顺/逆时针终点判定、元素整合按实际状态推进及全斩分批安全区等实测雷达增强。 移动安全增强：个人双色平台参与 AI；飞翔击退按候选点选来源，检查真实多边形内落点、跨洞路径及短间隔后续 AOE。",
       "evidence": [
         "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME4Index/FTME4Index.cs",
         "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME4Index/高难魔之塔Boss4雷达制作记录.md",
@@ -84,7 +84,7 @@
     {
       "path": "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE201ABeastUnleashed.cs",
       "identity": "GroupType=CFC; GroupID=1093; NameID=14791 (源码 ModuleInfo); PrimaryActorOID=0x4C4F",
-      "reason": "保留黄宝石时间线落位预警、墙线 EAnim 的旋转/镜像与碰撞筛选、整块封闭区反射、两次击退轴及前后/后前攻击方向处理。",
+      "reason": "保留黄宝石时间线落位预警、墙线 EAnim 的旋转/镜像与碰撞筛选、整块封闭区反射、两次击退轴及前后/后前攻击方向处理。连续击退须提供两段联合落点的 AI 禁区，首段实际伤害后转为立即生效的次段约束，不能只绘制箭头或读条结束就撤销。 移动安全增强：联合结算附近 AOE 快照，并在连段准备期关闭输出位置评分。",
       "evidence": [
         "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE201ABeastUnleashed.cs",
         "../AGENTS.md"
@@ -123,7 +123,7 @@
     {
       "path": "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE214TinyTerror.cs",
       "identity": "GroupType=CriticalEngagement; GroupID=1093; NameID=60 (DynamicEvent 行，源码 ModuleInfo); PrimaryActorOID=0x4C6D (实体 NameID 另按实测记录核对)",
-      "reason": "保留小小法师按结构化身份匹配、连续球体/击退组合和实测场地处理；不得因日志文件旧名 CE211 或上游编号变化创建重复模块。",
+      "reason": "保留小小法师按结构化身份匹配、连续球体/击退组合和实测场地处理；不得因日志文件旧名 CE211 或上游编号变化创建重复模块。 移动安全增强：当前与下一核爆/击退按落点顺序联合求解，逐段判断抗击退并叠加结算附近 AOE，禁止准备期为了输出追敌。",
       "evidence": [
         "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE214TinyTerror.cs",
         "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE214TinyTerror雷达制作记录.md",

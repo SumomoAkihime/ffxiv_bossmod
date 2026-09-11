@@ -278,7 +278,42 @@ sealed class ComboAOEs(BossModule module) : PredictiveAOEs(module)
     }
 }
 
-sealed class StormsBreath(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.StormsBreathKnockback, 14f);
+sealed class StormsBreath(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.StormsBreathKnockback, 14f)
+{
+    private readonly ComboAOEs _combo = module.FindComponent<ComboAOEs>()!;
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var sources = ActiveKnockbacks(slot, actor);
+        if (sources.Length == 0 || IsImmune(slot, sources[0].Activation))
+            return;
+
+        ref readonly var source = ref sources[0];
+        var aoes = _combo.ActiveAOEs(slot, actor).ToArray();
+        hints.AddForbiddenZone(new SDStormsBreath(source.Origin, source.Distance, aoes), source.Activation);
+        hints.GoalZonesEnabled = false;
+    }
+
+    private sealed class SDStormsBreath(WPos origin, float distance, Components.GenericAOEs.AOEInstance[] aoes) : ShapeDistance
+    {
+        private readonly WPos _origin = origin;
+        private readonly float _distance = distance;
+        private readonly Components.GenericAOEs.AOEInstance[] _aoes = aoes;
+
+        public override bool Contains(in WPos p)
+        {
+            var offset = p - _origin;
+            if (offset == default)
+                return true;
+            var destination = p + _distance * offset.Normalized();
+            return !SafeSpot.Safe(destination, _aoes);
+        }
+
+        public override float Distance(in WPos p) => Contains(p) ? 0f : 1f;
+
+        public override bool RowIntersectsShape(WPos rowStart, WDir dx, float width, float cushion = default) => true;
+    }
+}
 
 sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
 {
@@ -386,6 +421,17 @@ sealed class FourfoldBlaze(BossModule module) : PredictiveAOEs(module)
 
     public bool DestinationUnsafe(WPos destination, Preview circle) =>
         !SafeSpot.InBounds(destination) || FollowingShape(circle) is Preview following && following.AOE.Check(destination);
+
+    public (AOEInstance[] Before, AOEInstance[] After) KnockbackSafety(Preview circle)
+    {
+        var before = _previews
+            .Where(preview => preview.Activation <= circle.Activation && preview != circle)
+            .Select(preview => preview.AOE)
+            .Prepend(circle.AOE)
+            .ToArray();
+        var after = FollowingShape(circle) is Preview following ? new[] { following.AOE } : [];
+        return (before, after);
+    }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
@@ -589,16 +635,33 @@ sealed class HissingResonance(BossModule module) : Components.GenericKnockback(m
         }
     }
 
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (!_statuses.TryGetValue(actor.InstanceID, out var status)
+            || _fourfold.CircleForKnockback(IsGreen(status)) is not FourfoldBlaze.Preview circle)
+            return;
+
+        var activation = circle.Activation.AddSeconds(0.4d);
+        var safety = _fourfold.KnockbackSafety(circle);
+        if (IsImmune(slot, activation))
+            return;
+
+        hints.AddForbiddenZone(new SDHissingResonance(10f * Direction(status), safety.Before, safety.After), activation);
+        hints.GoalZonesEnabled = false;
+    }
+
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         if (status.ID is >= (uint)SID.GreenNoiseEasterly and <= (uint)SID.BlueNoiseWesterly)
             _statuses[actor.InstanceID] = status.ID;
+        base.OnStatusGain(actor, ref status);
     }
 
     public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
         if (_statuses.GetValueOrDefault(actor.InstanceID) == status.ID)
             _statuses.Remove(actor.InstanceID);
+        base.OnStatusLose(actor, ref status);
     }
 
     private static bool IsGreen(uint status) => status is (uint)SID.GreenNoiseEasterly or (uint)SID.GreenNoiseWesterly;
@@ -608,6 +671,20 @@ sealed class HissingResonance(BossModule module) : Components.GenericKnockback(m
         (uint)SID.GreenNoiseEasterly or (uint)SID.BlueNoiseEasterly => (-90f).Degrees().ToDirection(),
         _ => 90f.Degrees().ToDirection()
     };
+
+    private sealed class SDHissingResonance(WDir direction, Components.GenericAOEs.AOEInstance[] before, Components.GenericAOEs.AOEInstance[] after) : ShapeDistance
+    {
+        private readonly WDir _direction = direction;
+        private readonly Components.GenericAOEs.AOEInstance[] _before = before;
+        private readonly Components.GenericAOEs.AOEInstance[] _after = after;
+
+        public override bool Contains(in WPos p) =>
+            !SafeSpot.Safe(p, _before) || !SafeSpot.Safe(p + _direction, _after);
+
+        public override float Distance(in WPos p) => Contains(p) ? 0f : 1f;
+
+        public override bool RowIntersectsShape(WPos rowStart, WDir dx, float width, float cushion = default) => true;
+    }
 }
 
 sealed class ArcaneRevelationAOEs(BossModule module) : PredictiveAOEs(module)

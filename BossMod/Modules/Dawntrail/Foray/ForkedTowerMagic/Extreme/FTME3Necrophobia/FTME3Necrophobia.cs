@@ -238,6 +238,20 @@ sealed class ElementSafezones(BossModule module) : Components.GenericAOEs(module
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => [];
 
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var dangers = _directElement != Element.None
+            ? BuildDangers(_directElement, true, null)
+            : _sequenceActive && _sequenceIndex < _sequence.Count
+                ? BuildDangers(_sequence[_sequenceIndex], false, _sequenceIndex)
+                : [];
+        if (dangers.Count == 0)
+            return;
+        var safe = new AOEShapeCustom([new Circle(Necrophobia.ArenaCenter, 24.5f)], dangers, origin: Necrophobia.ArenaCenter);
+        hints.AddForbiddenZone(safe.InvertedDistance(Necrophobia.ArenaCenter, default), WorldState.CurrentTime);
+        hints.GoalZonesEnabled = false;
+    }
+
     public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
         if (_directElement != Element.None)
@@ -371,6 +385,23 @@ sealed class FertileSoil(BossModule module) : Components.GenericAOEs(module)
     {
         _active.Clear();
         return CollectionsMarshal.AsSpan(_active);
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var status = PlayerSoilStatus(actor);
+        if (_order.Count == 0 || status == 0)
+            return;
+        var current = _order[0];
+        var rotation = (Necrophobia.ArenaCenter - current.Head.Position).ToAngle();
+        var side = IsSafeLeft(current, status) ? 1f : -1f;
+        var laneOrigin = current.Head.Position + side * 15.25f * rotation.ToDirection().OrthoL();
+        // Leave space at the color boundary. The displayed lane remains unchanged.
+        Shape[] lane = [new Rectangle(laneOrigin + 40f * rotation.ToDirection(), 14.25f, 40f, rotation)];
+        var safe = new AOEShapeCustom(lane, [.. _elementDangers], origin: Necrophobia.ArenaCenter);
+        hints.AddForbiddenZone(safe.InvertedDistance(Necrophobia.ArenaCenter, default), WorldState.CurrentTime);
+        // Re-evaluate the actual status every frame; never advance the AI color by cast count.
+        hints.GoalZonesEnabled = false;
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)

@@ -298,6 +298,73 @@ sealed class StarvingDread(BossModule module) : Components.GenericKnockback(modu
         return _second != null ? new Knockback[1] { _second.Value } : [];
     }
 
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        // Snapshot each stage independently: immunity can expire between the two hits.
+        var first = _firstDirection is { } direction && !IsImmune(slot, _firstActivation) ? (WDir?)direction.ToDirection().OrthoL() : null;
+        var second = _second is { } knockback && !IsImmune(slot, knockback.Activation) ? (WPos?)knockback.Origin : null;
+        if (first == null && second == null)
+            return;
+
+        // Before the first hit, prepare for BOTH landings. After it, keep the second
+        // landing constraint active immediately so uptime cannot pull us out of safety.
+        hints.AddForbiddenZone(new UnsafeKnockbackPositions(Arena.Center, Arena.Bounds.Radius - 1f, first, second,
+            LandingDangers(slot, actor, _firstActivation), LandingDangers(slot, actor, _second?.Activation ?? default)),
+            first != null ? _firstActivation : WorldState.CurrentTime);
+        hints.GoalZonesEnabled = false;
+    }
+
+    private ShapeDistance[] LandingDangers(int slot, Actor actor, DateTime activation)
+    {
+        if (activation == default)
+            return [];
+        List<ShapeDistance> dangers = [];
+        foreach (var component in Module.Components)
+            if (component is Components.GenericAOEs aoes)
+                foreach (var aoe in aoes.ActiveAOEs(slot, actor))
+                    if (aoe.Activation >= activation.AddSeconds(-0.5d) && aoe.Activation <= activation.AddSeconds(1d))
+                        dangers.Add(aoe.Shape.Distance(aoe.Origin, aoe.Rotation));
+        return [.. dangers];
+    }
+
+    private sealed class UnsafeKnockbackPositions(WPos center, float halfWidth, WDir? firstNormal, WPos? secondOrigin,
+        ShapeDistance[] firstDangers, ShapeDistance[] secondDangers) : ShapeDistance
+    {
+        public override float Distance(in WPos p) => Contains(p) ? 0f : 1f;
+
+        public override bool Contains(in WPos p)
+        {
+            var landing = p;
+            if (firstNormal is { } normal)
+            {
+                // Select the side from the candidate position, not the player's current side.
+                landing += ((landing - center).Dot(normal) >= 0f ? normal : -normal) * 15f;
+                if (!landing.InSquare(center, halfWidth))
+                    return true;
+            }
+            if (firstNormal != null && InDanger(landing, firstDangers))
+                return true;
+            if (secondOrigin is { } origin)
+            {
+                var offset = landing - origin;
+                if (offset.LengthSq() <= Epsilon)
+                    return true; // the exact knockback origin has no reliable direction
+                landing += offset.Normalized() * 30f;
+                if (!landing.InSquare(center, halfWidth))
+                    return true;
+            }
+            return secondOrigin != null && InDanger(landing, secondDangers);
+        }
+
+        private static bool InDanger(WPos position, ShapeDistance[] dangers)
+        {
+            foreach (var danger in dangers)
+                if (danger.Distance(position) <= 0.5f)
+                    return true;
+            return false;
+        }
+    }
+
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         if (spell.Action.ID == (uint)AID.StarvingDreadFirst)
@@ -306,25 +373,23 @@ sealed class StarvingDread(BossModule module) : Components.GenericKnockback(modu
             if (movement.LengthSq() > 1f)
             {
                 _firstDirection = Angle.FromDirection(movement);
-                _firstActivation = Module.CastFinishAt(spell);
+                _firstActivation = Module.CastFinishAt(spell, 0.75d);
             }
         }
         else if (spell.Action.ID == (uint)AID.StarvingDreadSecondVisual)
-            _second = new(caster.Position, 30f, Module.CastFinishAt(spell, 5d));
-    }
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if (spell.Action.ID == (uint)AID.StarvingDreadFirst)
-        {
-            _firstDirection = null;
-            ++NumCasts;
-        }
+            _second = new(caster.Position, 30f, Module.CastFinishAt(spell, 6.1d));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action.ID == (uint)AID.StarvingDreadSecondDamage)
+        // The actual first hit follows the boss's cast end by about 0.65s.
+        // Keep the preparation constraint until it resolves; each hit has duplicate helper events.
+        if (spell.Action.ID == (uint)AID.StarvingDreadFirstDamage && _firstDirection != null)
+        {
+            _firstDirection = null;
+            ++NumCasts;
+        }
+        else if (spell.Action.ID == (uint)AID.StarvingDreadSecondDamage && _second != null)
         {
             _second = null;
             ++NumCasts;

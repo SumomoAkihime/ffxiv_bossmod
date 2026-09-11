@@ -17,3 +17,9 @@ dotnet run --project Tests/RotationMovement -c Release -- --sqpack 'D:\最终幻
 可选追加 `--autoduty <预设文件所在目录>`，其中应包含官方 `AutoDuty.json` 和 `AutoDuty_Passive.json`。检查会通过真实 IPC 委托导入两份预设、核对所有模块与策略未丢失，并执行临时移动策略切换；所有预设写入独立临时测试目录。测试本身不联网下载文件。
 
 IPC 检查使用本地 Dalamud 接口代理捕获真实注册委托，覆盖 Configuration 签名、模块禁用/恢复、追加/移除单个预设、多预设、临时覆盖及移动状态查询。代理验证插件端契约，不替代实际 AutoDuty/vnavmesh 跨插件实机验收。
+
+# 击退与复合机制回归
+
+`MechanicSafetyTests` 直接检查产品的落点约束及真实寻路：两段击退、抗击退、击退后核爆、按候选点选择击退源、穿越场地空洞、重复伤害事件及结束后释放约束。应引用本次源码构建的 BossMod.dll；旧发布 DLL 不含新增类型，不能用于验收。
+
+2026-09-11 发布 7.5.5.5206 时已引用当前 Release DLL 执行；循环/移动、IPC 与新增机制安全用例共 109 项断言通过。离线回归不替代实机时序与未知随机组合验证。

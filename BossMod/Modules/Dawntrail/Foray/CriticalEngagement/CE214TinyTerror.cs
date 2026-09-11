@@ -322,12 +322,15 @@ sealed class Comet(BossModule module) : BossComponent(module)
     }
 }
 
-sealed class FlareHolyMerge(BossModule module) : BossComponent(module)
+sealed class FlareHolyMerge(BossModule module) : Components.GenericKnockback(module)
 {
     private static readonly AOEShapeCircle flareShape = new(18.0f);
     private const float holyKnockBackDistance = 15.0f;
     private readonly record struct MergeCombination(WPos Origin, float Distance, bool IsFlare, DateTime Activation);
     private readonly List<MergeCombination> mergeCombinations = [];
+
+    // Preserve the existing custom drawing; the base supplies shared immunity tracking for AI.
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor) => [];
 
     public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
@@ -449,45 +452,60 @@ sealed class FlareHolyMerge(BossModule module) : BossComponent(module)
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         var count = mergeCombinations.Count;
-        if (count == 0)
+        if (count == 0 || mergeCombinations[0].Activation == default)
         {
             return;
         }
 
-        var nextCombinations = CollectionsMarshal.AsSpan(mergeCombinations);
-        var max = count > 2 ? 2 : count;
-        var knockbackSetup = false;
-
+        var max = Math.Min(count, 2);
+        var stages = new (WPos Origin, bool Flare, bool Immune)[max];
+        var dangers = new ShapeDistance[max][];
         for (var i = 0; i < max; i++)
         {
-            ref var combination = ref nextCombinations[i];
-            if (combination.IsFlare)
-            {
-                hints.AddForbiddenZone(flareShape, combination.Origin, activation: combination.Activation);
-            }
+            var combination = mergeCombinations[i];
+            stages[i] = (combination.Origin, combination.IsFlare, IsImmune(slot, combination.Activation));
+            List<ShapeDistance> landingDangers = [];
+            foreach (var component in Module.Components)
+                if (component is Components.GenericAOEs aoes)
+                    foreach (var aoe in aoes.ActiveAOEs(slot, actor))
+                        if (aoe.Activation >= combination.Activation.AddSeconds(-0.5d) && aoe.Activation <= combination.Activation.AddSeconds(1d))
+                            landingDangers.Add(aoe.Shape.Distance(aoe.Origin, aoe.Rotation));
+            dangers[i] = [.. landingDangers];
+        }
 
-            // Safeguard so we don't try and solve both knockbacks at the same time, only happens if it knockback into knockback
-            if (knockbackSetup)
-            {
-                return;
-            }
+        // The second explosion is evaluated at the FIRST landing, not the original position.
+        // Keep the safe preparation throughout the short gaps instead of chasing the boss.
+        hints.AddForbiddenZone(new MergeSafety(Arena.Center, stages, dangers), mergeCombinations[0].Activation);
+        hints.GoalZonesEnabled = false;
+    }
 
-            if (!combination.IsFlare)
+    private sealed class MergeSafety(WPos center, (WPos Origin, bool Flare, bool Immune)[] stages, ShapeDistance[][] dangers) : ShapeDistance
+    {
+        public override float Distance(in WPos p)
+        {
+            var landing = p;
+            for (var i = 0; i < stages.Length; ++i)
             {
-                var activation = combination.Activation;
-                var circles = new WPos[2];
-                for (var k = 0; k < 2 && max == 2; ++k)
+                var stage = stages[i];
+                if (stage.Flare)
                 {
-                    if (nextCombinations[k].IsFlare)
-                    {
-                        circles[k] = nextCombinations[k].Origin;
-                    }
+                    if (landing.InCircle(stage.Origin, flareShape.Radius + 1f))
+                        return 0f;
                 }
-
-                hints.AddForbiddenZone(new SDKnockbackInCircleAwayFromOriginPlusAOECircles(Arena.Center, combination.Origin, holyKnockBackDistance, 19.0f,
-                    circles, flareShape.Radius, 2), activation);
-                knockbackSetup = true;
+                else if (!stage.Immune)
+                {
+                    var offset = landing - stage.Origin;
+                    if (offset.LengthSq() <= Epsilon)
+                        return 0f;
+                    landing += holyKnockBackDistance * offset.Normalized();
+                    if (!landing.InCircle(center, 19f))
+                        return 0f;
+                }
+                foreach (var danger in dangers[i])
+                    if (danger.Distance(landing) <= 0.5f)
+                        return 0f;
             }
+            return 1f;
         }
     }
 }

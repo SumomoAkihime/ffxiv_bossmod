@@ -8,6 +8,9 @@ sealed class RushSurgesword(BossModule module) : Components.GenericAOEs(module)
     // hide AOE until knockback done, less clutter
     private readonly Steelsbreath steelsbreath = module.FindComponent<Steelsbreath>()!;
     private readonly List<AOEInstance> _aoes = [];
+
+    public AOEInstance[] Snapshot() => [.. _aoes];
+
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         var knockbacks = steelsbreath.ActiveKnockbacks(slot, actor);
@@ -203,25 +206,66 @@ sealed class Steelsbreath(BossModule module) : Components.GenericKnockback(modul
         }
 
         var kbs = CollectionsMarshal.AsSpan(_knockbacks);
-        var count = kbs.Length;
-        if (count != 0)
+        if (kbs.Length == 0)
+            return;
+
+        ref readonly var current = ref kbs[0];
+        var currentApplies = !IsImmune(slot, current.Activation);
+        WPos? nextOrigin = null;
+        var nextActivation = DateTime.MaxValue;
+        for (var i = 1; i < kbs.Length; ++i)
         {
-            ref var kb = ref kbs[0];
-            var act = kb.Activation;
-            var isImmune = IsImmune(slot, act);
-            if (!isImmune)
-            {
-                if (count == 1)
-                {
-                    hints.AddForbiddenZone(new SDKnockbackInCircleAwayFromOrigin(Arena.Center, kb.Origin, 25f, 24f), act);
-                }
-                else
-                {
-                    ref var kb1 = ref kbs[1];
-                    hints.AddForbiddenZone(new SDKnockbackInCircleAwayFromOriginIntoCircle(Arena.Center, kb.Origin, 25f, 24f, kb1.Origin, 7f), act);
-                }
-            }
+            if (IsImmune(slot, kbs[i].Activation))
+                continue;
+            nextOrigin = kbs[i].Origin;
+            nextActivation = kbs[i].Activation;
+            break;
         }
+
+        // Recorded rushes resolve after the final knockback. If a future non-immune
+        // knockback exists, defer later rushes to that landing instead of testing the intermediate one.
+        var rushes = (Module.FindComponent<RushSurgesword>()?.Snapshot() ?? [])
+            .Where(aoe => aoe.Activation <= nextActivation)
+            .ToArray();
+        if (currentApplies || nextOrigin != null || rushes.Length != 0)
+        {
+            hints.AddForbiddenZone(new SDSteelsbreath(Arena.Center, current.Origin, currentApplies, nextOrigin, rushes), current.Activation);
+            hints.GoalZonesEnabled = false;
+        }
+    }
+
+    private sealed class SDSteelsbreath(WPos center, WPos origin, bool applies, WPos? nextOrigin, Components.GenericAOEs.AOEInstance[] rushes) : ShapeDistance
+    {
+        private readonly WPos _center = center;
+        private readonly WPos _origin = origin;
+        private readonly bool _applies = applies;
+        private readonly WPos? _nextOrigin = nextOrigin;
+        private readonly Components.GenericAOEs.AOEInstance[] _rushes = rushes;
+
+        public override bool Contains(in WPos p)
+        {
+            var destination = p;
+            if (_applies)
+            {
+                var offset = p - _origin;
+                if (offset == default)
+                    return true;
+                destination += 25f * offset.Normalized();
+            }
+            if (!destination.InCircle(_center, 24f))
+                return true;
+            if (_nextOrigin is WPos next && !destination.InCircle(next, 7f))
+                return true;
+
+            for (var i = 0; i < _rushes.Length; ++i)
+                if (_rushes[i].Check(destination))
+                    return true;
+            return false;
+        }
+
+        public override float Distance(in WPos p) => Contains(p) ? 0f : 1f;
+
+        public override bool RowIntersectsShape(WPos rowStart, WDir dx, float width, float cushion = default) => true;
     }
 }
 

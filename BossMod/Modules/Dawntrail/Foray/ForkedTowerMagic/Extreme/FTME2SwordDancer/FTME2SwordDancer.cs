@@ -548,9 +548,187 @@ sealed class Steelsforge(BossModule module) : Components.GenericAOEs(module)
 
 sealed class LeapingLiftKnockback(BossModule module) : Components.GenericKnockback(module, (uint)AID.Steelsbreath)
 {
+    private const double ActivationCluster = 0.5d;
+    private readonly record struct LandingHazard(ShapeDistance Shape, DateTime Activation);
+
+    private sealed class UnsafeKnockbackSetupPositions : ShapeDistance
+    {
+        private const int DirectionSamples = 64;
+        private const float SafetyMargin = 1f;
+        private readonly WPos _center;
+        private readonly float _safeRadius;
+        private readonly WPos? _currentOrigin;
+        private readonly float _knockbackDistance;
+        private readonly float _moveSpeed;
+        private readonly DateTime _currentActivation;
+        private readonly LandingHazard[] _hazards;
+        private readonly (WPos Start, WPos End)[] _nextSafeSegments;
+        private readonly Knockback _next;
+        private readonly bool _hasNext;
+        private readonly float _nextReachSq;
+
+        public UnsafeKnockbackSetupPositions(WPos center, float safeRadius, WPos? currentOrigin, float knockbackDistance, float moveSpeed,
+            DateTime currentActivation, Knockback? next, LandingHazard[] hazards)
+        {
+            _center = center;
+            _safeRadius = safeRadius;
+            _currentOrigin = currentOrigin;
+            _knockbackDistance = knockbackDistance;
+            _moveSpeed = moveSpeed;
+            _currentActivation = currentActivation;
+            _hazards = hazards;
+            if (next is { } n)
+            {
+                _next = n;
+                _hasNext = true;
+                _nextSafeSegments = BuildSafeSegments(center, safeRadius, n.Origin, n.Distance);
+                var moveSeconds = Math.Max(0d, (n.Activation - currentActivation).TotalSeconds - Pathfinding.NavigationDecision.ActivationTimeCushion);
+                var reach = moveSpeed * (float)moveSeconds;
+                _nextReachSq = reach * reach;
+            }
+            else
+            {
+                _nextSafeSegments = [];
+                _nextReachSq = float.PositiveInfinity;
+            }
+        }
+
+        public override float Distance(in WPos p) => Contains(p) ? 0f : 1f;
+
+        public override bool Contains(in WPos p)
+        {
+            var landing = p;
+            if (_currentOrigin is { } origin)
+            {
+                var offset = landing - origin;
+                if (offset.LengthSq() <= Epsilon)
+                    return true;
+                landing += _knockbackDistance * offset.Normalized();
+            }
+
+            if (!landing.InCircle(_center, _safeRadius))
+                return true;
+            if (!_hasNext)
+                return !CanReachHazardSafePosition(landing);
+            if (_nextSafeSegments.Length == 0)
+                return true;
+
+            if (CanReachNextSetup(landing, landing))
+                return false;
+            for (var i = 0; i < _nextSafeSegments.Length; ++i)
+            {
+                ref readonly var segment = ref _nextSafeSegments[i];
+                var closest = ClosestPointOnSegment(landing, segment.Start, segment.End);
+                if (CanReachNextSetup(landing, closest) || CanReachNextSetup(landing, segment.Start) || CanReachNextSetup(landing, segment.End))
+                    return false;
+            }
+            return true;
+        }
+
+        public override bool RowIntersectsShape(WPos rowStart, WDir dx, float width, float cushion = default) => true;
+
+        private bool CanReachNextSetup(WPos landing, WPos destination)
+        {
+            var route = destination - landing;
+            if (route.LengthSq() > _nextReachSq)
+                return false;
+
+            var offset = destination - _next.Origin;
+            if (offset.LengthSq() <= Epsilon)
+                return false;
+            var nextLanding = destination + _next.Distance * offset.Normalized();
+            return nextLanding.InCircle(_center, _safeRadius) && RouteSafe(landing, destination, nextLanding);
+        }
+
+        private bool CanReachHazardSafePosition(WPos landing)
+        {
+            if (_hazards.Length == 0 || RouteSafe(landing, landing, null))
+                return true;
+
+            var latest = _hazards.Max(h => h.Activation);
+            var moveSeconds = Math.Max(0d, (latest - _currentActivation).TotalSeconds - Pathfinding.NavigationDecision.ActivationTimeCushion);
+            var maxReach = _moveSpeed * (float)moveSeconds;
+            var fromCenter = landing - _center;
+            var fromCenterLengthSq = fromCenter.LengthSq();
+            for (var i = 0; i < DirectionSamples; ++i)
+            {
+                var angle = 2f * MathF.PI * i / DirectionSamples;
+                var direction = new WDir(MathF.Cos(angle), MathF.Sin(angle));
+                var projection = fromCenter.Dot(direction);
+                var discriminant = projection * projection + _safeRadius * _safeRadius - fromCenterLengthSq;
+                if (discriminant < 0f)
+                    continue;
+
+                var distanceToBoundary = -projection + MathF.Sqrt(discriminant);
+                var destination = landing + MathF.Min(maxReach, distanceToBoundary) * direction;
+                if (RouteSafe(landing, destination, null))
+                    return true;
+            }
+            return false;
+        }
+
+        private bool RouteSafe(WPos start, WPos destination, WPos? postKnockback)
+        {
+            var route = destination - start;
+            var routeLength = route.Length();
+            var direction = routeLength > Epsilon ? route / routeLength : default;
+            for (var i = 0; i < _hazards.Length; ++i)
+            {
+                ref readonly var hazard = ref _hazards[i];
+                if (_hasNext && hazard.Activation > _next.Activation)
+                {
+                    if (postKnockback is { } after && hazard.Shape.Distance(after) < SafetyMargin)
+                        return false;
+                    continue;
+                }
+
+                var moveSeconds = Math.Max(0d, (hazard.Activation - _currentActivation).TotalSeconds - Pathfinding.NavigationDecision.ActivationTimeCushion);
+                var position = start + MathF.Min(routeLength, _moveSpeed * (float)moveSeconds) * direction;
+                if (hazard.Shape.Distance(position) < SafetyMargin)
+                    return false;
+                if (postKnockback is { } landing && Math.Abs((hazard.Activation - _next.Activation).TotalSeconds) <= ActivationCluster
+                    && hazard.Shape.Distance(landing) < SafetyMargin)
+                    return false;
+            }
+            return true;
+        }
+
+        private static (WPos Start, WPos End)[] BuildSafeSegments(WPos center, float radius, WPos origin, float distance)
+        {
+            // Conservative polar approximation: every retained segment is an exact safe ray for the next landing.
+            const float minSourceDistance = 0.5f;
+            var fromCenter = origin - center;
+            var fromCenterLengthSq = fromCenter.LengthSq();
+            var result = new List<(WPos, WPos)>(DirectionSamples);
+            for (var i = 0; i < DirectionSamples; ++i)
+            {
+                var angle = 2f * MathF.PI * i / DirectionSamples;
+                var direction = new WDir(MathF.Cos(angle), MathF.Sin(angle));
+                var projection = fromCenter.Dot(direction);
+                var discriminant = projection * projection + radius * radius - fromCenterLengthSq;
+                if (discriminant <= 0f)
+                    continue;
+
+                var maxStartDistance = -projection + MathF.Sqrt(discriminant) - distance;
+                if (maxStartDistance >= minSourceDistance)
+                    result.Add((origin + minSourceDistance * direction, origin + maxStartDistance * direction));
+            }
+            return [.. result];
+        }
+
+        private static WPos ClosestPointOnSegment(WPos point, WPos start, WPos end)
+        {
+            var segment = end - start;
+            var lengthSq = segment.LengthSq();
+            var t = lengthSq > 0f ? Math.Clamp((point - start).Dot(segment) / lengthSq, 0f, 1f) : 0f;
+            return start + t * segment;
+        }
+    }
+
     private const float NextSourceMarkerRadius = 2f;
     private static readonly uint NextSourceMarkerColor = Color.FromComponents(64, 192, 255).ABGR;
     private readonly List<Knockback> _sources = [];
+    private readonly Dictionary<(ulong SourceID, uint GlobalSequence), DateTime> _resolvedSources = [];
     private DateTime _firstActivation;
     private bool _collecting;
 
@@ -564,11 +742,41 @@ sealed class LeapingLiftKnockback(BossModule module) : Components.GenericKnockba
             Arena.ZoneCircleOutline(_sources[1].Origin, NextSourceMarkerRadius, NextSourceMarkerColor, 2f);
     }
 
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        ShortenResolvedPendingKnockbacks(actor);
+        if (_sources.Count == 0)
+            return;
+        // Keep uptime goals from pulling the player away between consecutive knockbacks.
+        hints.GoalZonesEnabled = false;
+
+        ref readonly var current = ref _sources.Ref(0);
+        var currentImmune = IsImmune(slot, current.Activation);
+        Knockback? next = null;
+        for (var i = 1; i < _sources.Count; ++i)
+        {
+            ref readonly var candidate = ref _sources.Ref(i);
+            if (!IsImmune(slot, candidate.Activation))
+            {
+                next = candidate;
+                break;
+            }
+        }
+        if (currentImmune && next == null)
+            return;
+
+        var hazardEnd = next?.Activation.AddSeconds(ActivationCluster) ?? DateTime.MaxValue;
+        var hazards = SnapshotLandingHazards(current.Activation, hazardEnd, slot, actor);
+        hints.AddForbiddenZone(new UnsafeKnockbackSetupPositions(Arena.Center, Arena.Bounds.Radius - 1f, currentImmune ? null : current.Origin,
+            current.Distance, WorldState.Client.MoveSpeed, current.Activation, next, hazards), current.Activation);
+    }
+
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         if (spell.Action.ID == (uint)AID.LeapingLift)
         {
             _sources.Clear();
+            _resolvedSources.Clear();
             _firstActivation = default;
             _collecting = true;
             return;
@@ -609,19 +817,62 @@ sealed class LeapingLiftKnockback(BossModule module) : Components.GenericKnockba
 
         if (id == (uint)AID.Steelsbreath)
         {
-            var index = ClosestSource(caster.Position);
+            var key = (caster.InstanceID, spell.GlobalSequence);
+            if (!_resolvedSources.TryAdd(key, WorldState.CurrentTime))
+                return;
+
+            var index = _sources.FindIndex(source => source.ActorID == caster.InstanceID);
+            if (index < 0)
+                index = ClosestSource(caster.Position, WorldState.CurrentTime);
             if (index >= 0)
                 _sources.RemoveAt(index);
         }
         base.OnEventCast(caster, spell);
     }
 
-    private int ClosestSource(WPos position)
+    private LandingHazard[] SnapshotLandingHazards(DateTime start, DateTime end, int slot, Actor actor)
+    {
+        var result = new List<LandingHazard>();
+        foreach (var component in Module.Components)
+        {
+            if (component is not Components.GenericAOEs aoes)
+                continue;
+
+            Components.GenericAOEs.AOEInstance[] active = [.. aoes.ActiveAOEs(slot, actor)];
+            for (var i = 0; i < active.Length; ++i)
+            {
+                ref readonly var aoe = ref active[i];
+                if (aoe.Risky && aoe.Activation >= start && aoe.Activation <= end)
+                    result.Add(new(aoe.Shape.Distance(aoe.Origin, aoe.Rotation), aoe.Activation));
+            }
+        }
+        return [.. result];
+    }
+
+    private void ShortenResolvedPendingKnockbacks(Actor actor)
+    {
+        var pending = actor.PendingKnockbacks;
+        for (var i = 0; i < pending.Count; ++i)
+        {
+            var effect = pending[i];
+            if (_resolvedSources.TryGetValue((effect.SourceInstanceID, effect.GlobalSequence), out var resolvedAt))
+            {
+                // Direction-6 effects need a short post-event buffer while the client is still moving.
+                var expiration = resolvedAt.AddSeconds(1d);
+                if (effect.Expiration > expiration)
+                    pending[i] = new(effect.GlobalSequence, effect.TargetIndex, effect.SourceInstanceID, expiration, effect.RequiresEffectResult);
+            }
+        }
+    }
+
+    private int ClosestSource(WPos position, DateTime activation = default)
     {
         var bestIndex = -1;
         var bestDistance = 1f;
         for (var i = 0; i < _sources.Count; ++i)
         {
+            if (activation != default && Math.Abs((_sources[i].Activation - activation).TotalSeconds) > ActivationCluster)
+                continue;
             var distance = (_sources[i].Origin - position).LengthSq();
             if (distance < bestDistance)
             {
