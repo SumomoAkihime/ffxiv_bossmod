@@ -53,7 +53,10 @@ sealed class P3OversampledWaveCannon(BossModule module) : BossComponent(module)
         al.Forbidden.Clear();
         al.Center = actor.Position;
 
-        var safeConePlayers = Raid.WithoutSlot().ClockOrder(actor, Arena.Center, !targetCW).Skip(2).Take(2).ToList();
+        var safeConePlayers = Raid.WithoutSlot(false, true, true).ClockOrder(actor, Arena.Center, !targetCW).Skip(2).Take(2).ToList();
+        if (safeConePlayers.Count < 2)
+            return;
+
         if (targetCW)
             safeConePlayers.Reverse();
 
@@ -68,8 +71,8 @@ sealed class P3OversampledWaveCannon(BossModule module) : BossComponent(module)
         var dirToUnsafeCleave = actor.DirectionTo(Arena.Center).ToAngle() - _playerAngles[slot];
         al.ForbidArc(dirToUnsafeCleave - 90.Degrees(), dirToUnsafeCleave + 90f.Degrees());
 
-        foreach (var (min, max) in al.Allowed(2f.Degrees()))
-            hints.ForbiddenDirections.Add(((max + min) / 2f, (max - min) / 2f, _resolve));
+        foreach (var (min, max) in al.Forbidden.Segments)
+            hints.ForbiddenDirections.Add((((max + min) * 0.5f).Radians(), ((max - min) * 0.5f).Radians() + 1f.Degrees(), _resolve));
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)
