@@ -216,7 +216,7 @@ public static class BossModuleRegistry
         }
 
         var info = FindByOID(primary.OID);
-        return info?.Maturity >= minMaturity ? CreateModule(info, ws, primary) : null;
+        return info?.Maturity >= minMaturity && !Service.Config.Get<BossModuleConfig>().DisabledModules.Contains(info.ModuleType.ToString()) ? CreateModule(info, ws, primary) : null;
     }
 
     // TODO: this is a hack...

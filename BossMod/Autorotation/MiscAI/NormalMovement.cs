@@ -77,11 +77,21 @@ public sealed class NormalMovement : RotationModule
 
     private Task<NavigationDecision> _decisionTask = Task.FromResult(default(NavigationDecision));
     private NavigationDecision _lastDecision;
+    private bool _discardDecision;
+    private readonly AI.AIConfig _aiConfig = Service.Config.Get<AI.AIConfig>();
+
+    private void ResetDecision()
+    {
+        _lastDecision = default;
+        _discardDecision = true;
+        Manager.LastPathfindMs = 0;
+        Manager.LastRasterizeMs = 0;
+    }
 
     private DateTime? TimeToMove;
     private NavigationDecision GetDecision(float speed, float cushionSize)
     {
-        if (_decisionTask.IsCompletedSuccessfully)
+        if (_decisionTask.IsCompletedSuccessfully && !_discardDecision)
         {
             _lastDecision = _decisionTask.Result;
             Manager.LastRasterizeMs = (float)_lastDecision.RasterizeTime.TotalMilliseconds;
@@ -93,6 +103,7 @@ public sealed class NormalMovement : RotationModule
             if (_decisionTask.Exception is { } exception)
                 Service.Log($"exception during pathfind: {exception}");
 
+            _discardDecision = false;
             _decisionTask = Task.Run(() => NavigationDecision.Build(_navCtx, World.CurrentTime, Hints, Player, speed, forbiddenZoneCushion: cushionSize));
         }
 
@@ -102,8 +113,13 @@ public sealed class NormalMovement : RotationModule
     public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
         // do nothing if we're already being moved by some other module (i.e. quest battle pathfinding)
-        if (Hints.ForcedMovement != null)
+        if (Hints.ForcedMovement != null || _aiConfig.ForbidMovement || _aiConfig.ForbidAIMovementMounted && Player.MountId != 0
+            || Player.IsDead || World.Client.Flying)
+        {
+            ResetDecision();
+            TimeToMove = null;
             return;
+        }
 
         var castOpt = strategy.Option(Track.Cast);
         var castStrategy = castOpt.As<CastStrategy>();
@@ -117,20 +133,32 @@ public sealed class NormalMovement : RotationModule
         if (allowSpecialModes)
         {
             if (Player.PendingKnockbacks.Count > 0)
-                return; // do not move if there are any unresolved knockbacks - the positions are taken at resolve time, so we might fuck things up
+            {
+                ResetDecision();
+                TimeToMove = null;
+                return; // knockback positions are taken at resolve time
+            }
 
             if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Pyretic && Hints.ImminentSpecialMode.activation <= World.FutureTime(1))
             {
                 Hints.ForceCancelCast = true; // this is only useful if autopyretic tweak is disabled
+                ResetDecision();
+                TimeToMove = null;
                 return; // pyretic is imminent, do not move
             }
 
-            if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.PyreticMove && Hints.ImminentSpecialMode.activation <= World.FutureTime(1))
+            if (Hints.ImminentSpecialMode.mode is AIHints.SpecialMode.PyreticMove or AIHints.SpecialMode.NoMovement && Hints.ImminentSpecialMode.activation <= World.FutureTime(1))
+            {
+                ResetDecision();
+                TimeToMove = null;
                 return;
+            }
 
             if (Hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Freezing && Hints.ImminentSpecialMode.activation <= World.FutureTime(0.5f))
                 Hints.WantJump = true;
         }
+
+        AI.AIManager.Instance?.AddFollowHints(Player);
 
         if (Hints.InteractWithTarget != null)
         {
@@ -221,9 +249,7 @@ public sealed class NormalMovement : RotationModule
 
         if (resetStats)
         {
-            _lastDecision = default;
-            Manager.LastPathfindMs = 0;
-            Manager.LastRasterizeMs = 0;
+            ResetDecision();
         }
 
         if (isSpinning)

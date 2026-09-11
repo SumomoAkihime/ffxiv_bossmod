@@ -45,6 +45,9 @@ public sealed class RotationModuleManager : IDisposable
     public (DateTime Time, ActorCastEvent? Data) LastCast { get; private set; }
     public LineOfSightFix? LoSFix { get; private set; }
 
+    // A movement module owns even an empty/stop result; legacy AI must not fill it in.
+    public bool MovementModuleActive { get; private set; }
+
     public volatile float LastRasterizeMs;
     public volatile float LastPathfindMs;
 
@@ -105,6 +108,8 @@ public sealed class RotationModuleManager : IDisposable
 
     public void Update(float estimatedAnimLockDelay, bool isMoving, bool dutyRecorder)
     {
+        MovementModuleActive = false;
+
         // see whether current plan matches what should be active, and update if not; only rebuild actions if there is no active override
         var expectedPlan = CalculateExpectedPlan();
         if (Planner?.Module != Bossmods.ActiveModule || Planner?.Plan != expectedPlan)
@@ -118,7 +123,14 @@ public sealed class RotationModuleManager : IDisposable
         // rebuild modules if needed
         _activeModules ??= Presets.Count > 0 ? [.. Presets.SelectMany((p, i) => RebuildActiveModules(p.Modules, i))] : Planner?.Plan != null ? RebuildActiveModules(Planner.Plan.Modules, 0) : [];
 
-        _activeModules?.SortBy(m => m.module.Definition.Order);
+        _activeModules?.Sort((a, b) =>
+        {
+            var order = a.module.Definition.Order.CompareTo(b.module.Definition.Order);
+            if (order != 0)
+                return order;
+            var preset = a.index.CompareTo(b.index);
+            return preset != 0 ? preset : a.module.DataIndex.CompareTo(b.module.DataIndex);
+        });
 
         // trying to change target or use actions is a waste of cpu cycles during duty recorder playback
         if (dutyRecorder)
@@ -136,6 +148,13 @@ public sealed class RotationModuleManager : IDisposable
         var target = Hints.ForcedTarget ?? WorldState.Actors.Find(Player?.TargetID ?? 0);
         foreach (var (slot, m) in _activeModules ?? [])
         {
+            if (m.Definition.Order == RotationModuleOrder.Movement)
+            {
+                // The first selected movement module wins, including an explicit stop strategy.
+                if (MovementModuleActive)
+                    continue;
+                MovementModuleActive = true;
+            }
             var values = Presets.BoundSafeAt(slot)?.ActiveStrategyOverrides(m.DataIndex) ?? Planner?.ActiveStrategyOverrides(m.DataIndex, WorldState, PlayerSlot) ?? throw new InvalidOperationException("Both preset and plan are null, but there are active modules");
             m.Module.Execute(values, ref target, estimatedAnimLockDelay, isMoving);
         }

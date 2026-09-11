@@ -1,0 +1,138 @@
+﻿{
+  "schemaVersion": 1,
+  "updated": "2026-09-11",
+  "source": {
+    "repository": "https://github.com/FFXIV-CombatReborn/BossmodReborn",
+    "commit": "20b8092f4a5673f8b7d1a3959f4671732a67710c",
+    "releaseTag": "7.5.6.2",
+    "releaseCommit": "326f699dcb9d7b208ffa00e193f87269d2501958",
+    "status": "选择性整合，主分支含发布标签后内容；不表示整树一致"
+  },
+  "forkBaseline": "787148f34",
+  "purpose": "以 Reborn 雷达与共享支撑为主体，融合 awgil 职业循环及移动、保留多预设与外部插件联动、自建雷达和已验证修复。",
+  "integrated": [
+    {
+      "commit": "9f4e87703",
+      "scope": "TOP 朝向禁区；世界人物投影"
+    },
+    {
+      "commit": "202f22a4c",
+      "scope": "第二/第三棋盘；战前提示基础；坐骑保护"
+    },
+    {
+      "commit": "e83cc1e65",
+      "scope": "绝巴哈机制、目标控制及所需 AI 提示接口"
+    },
+    {
+      "commit": "da92246d7",
+      "scope": "已列职业循环、治疗策略与队伍 AI 更新"
+    },
+    {
+      "commit": "787148f34",
+      "scope": "副本入场与幽灵龙骑及动作保护"
+    },
+    {
+      "commit": "包含本清单的提交",
+      "scope": "明确移动负责方、跟随目标接入、异步旧路径失效；视线开关与正确距离过滤；队伍排序/分组实现；原版外部联动 IPC 与导航状态适配"
+    }
+  ],
+  "requiredPatches": [
+    {
+      "paths": [
+        "BossMod/Autorotation/RotationModuleManager.cs",
+        "BossMod/AI/AIManager.cs",
+        "BossMod/AI/AIBehaviour.cs",
+        "BossMod/Autorotation/MiscAI/NormalMovement.cs"
+      ],
+      "behavior": "保留多预设；旧 AI 不替换职业预设；第一个移动模块独占移动阶段，包括 None/特殊状态的停止结果；手动跟随转为目标；切换后丢弃旧异步结果。"
+    },
+    {
+      "paths": [
+        "BossMod/Framework/IPCProvider.cs",
+        "BossMod/Autorotation/RotationModuleManager.cs",
+        "BossMod/Autorotation/Preset.cs"
+      ],
+      "behavior": "原版 Presets IPC、临时策略、外部启停和多预设扩展属于融合边界；不能因仅关注雷达而遗漏 AutoDuty 等调用方。"
+    },
+    {
+      "paths": [
+        "BossMod/ActionQueue/ActionDefinition.cs"
+      ],
+      "behavior": "动作资源检查仍用 ForbidExecute；与上游 AllowExecute 相反，按行为映射。"
+    },
+    {
+      "paths": [
+        "BossMod/Components/Gaze.cs",
+        "BossMod/Modules/Endwalker/Ultimate/DSW2/DragonsGaze.cs"
+      ],
+      "behavior": "保留楼层限制与绝龙诗默认开关；范围内绘图，修正上游 continue 条件反向。"
+    },
+    {
+      "paths": [
+        "BossMod/Data/ActorEnumeration.cs"
+      ],
+      "behavior": "排序实现跟随 Reborn，IEnumerable 兼容重载承接原版调用。"
+    },
+    {
+      "paths": [
+        "BossMod/Util/Polygon/RelSimplifiedComplexPolygon.cs",
+        "BossMod/Pathfinding/NavigationDecision.cs"
+      ],
+      "behavior": "保留首次查询/并发初始化和空 ShapeDistance 过滤；上游具备等价修复后才移除。"
+    }
+  ],
+  "localRadars": "local-radars.json",
+  "pending": [
+    {
+      "scope": "PhantomAI 非龙骑分支及其动作依赖",
+      "reason": "Steal、Ninja、WhiteMage、BlackMage、Summoner、BlueMage、RedMage 等早期差异尚未整合；移植时修正 PRdm OccultThunderII 的元素优先级。"
+    },
+    {
+      "scope": "其他上游差异",
+      "reason": "按本轮准确提交继续分类对照；历史输出中的未合并清单不自动代表当前状态。"
+    }
+  ],
+  "excluded": [
+    {
+      "scope": "awgil 拆包与热重载",
+      "reason": "与持续同步 Reborn 雷达及循环/移动融合无直接必要关系，保留当前单插件结构。"
+    },
+    {
+      "scope": "发布身份、版本、双仓 ZIP 与发布流程",
+      "reason": "单独发布；本次测试分支调整不升版、不更新发布包。"
+    }
+  ],
+  "validation": [
+    "Tests/RotationMovement",
+    "Tests/PolygonQueries（默认与 --distance-first）",
+    "tools/check_local_radars.py（同步前后快照）",
+    "Release 构建；涉及模块的专项离线回归；实机验证组合场景"
+  ],
+  "externalIntegration": {
+    "awgilCommit": "0b741f5fa813afe18d4f96c79c8d9eb157ada755",
+    "autoDutyRepository": "https://github.com/ffxivcode/AutoDuty",
+    "autoDutyCommit": "53f4e7400f9791f4534f803a2ec2d2ff709375ba",
+    "verifiedModules": 31,
+    "adapted": [
+      "Configuration.DisableModule 与模块创建限制",
+      "Presets.Activate/Deactivate",
+      "Configuration 只读列表参数",
+      "AI.NaviTargetPos/IsNavigating 按当前移动负责方查询"
+    ],
+    "preserved": [
+      "现有 Presets 创建/查询/独占选择/总停止/多预设/临时策略",
+      "vnav.PathIsRunning 移动让出"
+    ],
+    "legacy": "AI.SetPreset/GetPreset 继续为空兼容；当前官方 AutoDuty 未调用，不恢复旧 AI 自动选预设"
+  },
+  "lastValidation": {
+    "date": "2026-09-11",
+    "releaseBuild": "零警告、零错误",
+    "movementAndIPCAssertions": 142,
+    "entryAndRotationAssertions": 1655,
+    "ucobAssertions": 1032,
+    "polygonAssertions": 67922,
+    "protectedSourceFilesUnchanged": 40,
+    "gameTest": "待用户实机验证循环、移动及 AutoDuty/vnavmesh 联动组合；尚未发布"
+  }
+}

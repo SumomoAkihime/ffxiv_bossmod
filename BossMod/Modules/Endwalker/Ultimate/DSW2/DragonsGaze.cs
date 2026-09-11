@@ -1,10 +1,18 @@
 ﻿namespace BossMod.Endwalker.Ultimate.DSW2;
 
 // used by two trio mechanics, in p2 and in p5
-abstract class DragonsGaze(BossModule module, uint bossOID, double activationDelay) : Components.GenericGaze(module, (uint)AID.DragonsGazeAOE)
+abstract class DragonsGaze : Components.GenericGaze
 {
-    public bool EnableHints;
-    private readonly uint _bossOID = bossOID;
+    private readonly uint _bossOID;
+    private readonly double _activationDelay;
+
+    protected DragonsGaze(BossModule module, uint bossOID, double activationDelay) : base(module, (uint)AID.DragonsGazeAOE)
+    {
+        _bossOID = bossOID;
+        _activationDelay = activationDelay;
+        EnableHints = false;
+        DrawEyeRange = false; // keep showing the eyes before facing hints are enabled
+    }
     private Actor? _boss;
     private WPos _eyePosition;
     private DateTime _activation;
@@ -29,7 +37,7 @@ abstract class DragonsGaze(BossModule module, uint bossOID, double activationDel
         if (index <= 0x07 && state == 0x00020001u)
         {
             if (_activation == default)
-                _activation = WorldState.FutureTime(activationDelay);
+                _activation = WorldState.FutureTime(_activationDelay);
             _boss = Module.Enemies(_bossOID)[0];
             _eyePosition = Arena.Center + 40f * (180f - index * 45f).Degrees().ToDirection();
         }

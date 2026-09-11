@@ -29,9 +29,16 @@ public abstract class GenericGaze(BossModule module, uint aid = default) : CastC
     }
 
     public abstract ReadOnlySpan<Eye> ActiveEyes(int slot, Actor actor);
+    public bool EnableHints = true;
+    public bool DrawEyeRange = true;
+
+    internal bool EyeInDrawRange(WPos playerPosition, in Eye eye)
+        => !DrawEyeRange || eye.Range >= 100f || playerPosition.InCircle(eye.Position, eye.Range * 1.2f);
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
+        if (!EnableHints)
+            return;
         var eyes = ActiveEyes(slot, actor);
         var len = eyes.Length;
         for (var i = 0; i < len; ++i)
@@ -48,6 +55,8 @@ public abstract class GenericGaze(BossModule module, uint aid = default) : CastC
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
+        if (!EnableHints)
+            return;
         var eyes = ActiveEyes(slot, actor);
         var len = eyes.Length;
         if (len == 0)
@@ -86,6 +95,8 @@ public abstract class GenericGaze(BossModule module, uint aid = default) : CastC
         for (var i = 0; i < len; ++i)
         {
             ref readonly var eye = ref eyes[i];
+            if (!EyeInDrawRange(pcpos, eye))
+                continue;
             var participantApplies = ArenaProjectionLayerParticipantApplies(pc, eye.ArenaProjectionLayer, eye.RestrictToArenaProjectionLayer);
             var inverted = eye.Inverted;
             var danger = participantApplies && HitByEye(pc, eye) != inverted;
@@ -336,6 +347,8 @@ public class CastWeakpoint(BossModule module, uint aid, AOEShape shape, uint sta
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
+        if (!EnableHints)
+            return;
         var eyes = ActiveEyes(slot, actor);
         var len = eyes.Length;
         for (var i = 0; i < len; ++i)

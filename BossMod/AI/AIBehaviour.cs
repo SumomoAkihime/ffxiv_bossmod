@@ -29,14 +29,62 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot) : IDi
     private static readonly SemaphoreSlim _semaphore = new(1, 1);
     private static readonly Random random = new();
 
-    public void Dispose() { }
+    private readonly object _stateLock = new();
+    private int _generation;
+    private bool _disposed;
+
+    public void Suspend()
+    {
+        lock (_stateLock)
+        {
+            ++_generation;
+            _naviDecision = default;
+            _navStartTime = default;
+            ForceMovementIn = float.MaxValue;
+            ctrl.Clear();
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_stateLock)
+        {
+            _disposed = true;
+            Suspend();
+        }
+    }
+
+    public void AddFollowHints(Actor player, Actor master)
+    {
+        if (master == player || _disposed)
+            return;
+        if (_config.FocusTargetMaster)
+            autorot.Hints.ForcedFocusTarget = master;
+        if (autorot.Hints.InteractWithTarget == null
+            && (_config.FollowDuringCombat || !master.InCombat || (_masterPrevPos - _masterMovementStart).LengthSq() > 100f)
+            && (_config.FollowDuringActiveBossModule || autorot.Bossmods.ActiveModule?.StateMachine.ActiveState == null)
+            && (_config.FollowOutOfCombat || master.InCombat))
+        {
+            autorot.Hints.GoalZones.Add(AIHints.GoalSingleTarget(master, Positional.Any, _config.MaxDistanceToSlot));
+        }
+        TrackMasterMovement(master);
+    }
 
     public async Task Execute(Actor player, Actor master)
     {
         // Flight breaks the ground-navigation assumptions used by obstacle and AOE avoidance.
-        if (WorldState.Client.Flying)
+        if (WorldState.Client.Flying || player.IsDead)
         {
+            Suspend();
             return;
+        }
+
+        int generation;
+        lock (_stateLock)
+        {
+            if (_disposed)
+                return;
+            generation = _generation;
         }
 
         if (await _semaphore.WaitAsync(0).ConfigureAwait(false))
@@ -64,25 +112,37 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot) : IDi
 
                 _followMaster = master != player;
 
-                // note: if there are pending knockbacks, don't update navigation decision to avoid fucking up positioning
+                var decision = _naviDecision;
                 if (player.PendingKnockbacks.Count == 0)
                 {
-                    _naviDecision = await BuildNavigationDecision(player, master, target).ConfigureAwait(false);
-
-                    // there is a difference between having a small positive leeway and having a negative one for pathfinding, prefer to keep positive
-                    _naviDecision.LeewaySeconds = Math.Max(0, _naviDecision.LeewaySeconds - 0.1f);
+                    decision = await BuildNavigationDecision(player, master, target).ConfigureAwait(false);
+                    decision.LeewaySeconds = Math.Max(0, decision.LeewaySeconds - 0.1f);
                 }
 
-                var masterIsMoving = TrackMasterMovement(master);
-                var moveWithMaster = masterIsMoving && _followMaster;
-                ForceMovementIn = moveWithMaster || gazeImminent || pyreticImminent ? default : _naviDecision.LeewaySeconds;
-
-                if (_config.MoveDelay != 0d && !hadNavi && _naviDecision.Destination != null)
+                lock (_stateLock)
                 {
-                    _navStartTime = WorldState.FutureTime(_config.MoveDelay);
-                }
+                    // Switching movement owner or stopping AI invalidates all outstanding results.
+                    if (_disposed || generation != _generation)
+                        return;
+                    _naviDecision = decision;
+                    var masterIsMoving = TrackMasterMovement(master);
+                    var moveWithMaster = masterIsMoving && _followMaster;
+                    ForceMovementIn = moveWithMaster || gazeImminent || pyreticImminent ? default : _naviDecision.LeewaySeconds;
 
-                UpdateMovement(player, master, gazeImminent || pyreticImminent, misdirectionMode ? autorot.Hints.MisdirectionThreshold : default, null);
+                    if (_config.MoveDelay != 0d && !hadNavi && _naviDecision.Destination != null)
+                        _navStartTime = WorldState.FutureTime(_config.MoveDelay);
+
+                    UpdateMovement(player, master, gazeImminent || pyreticImminent, misdirectionMode ? autorot.Hints.MisdirectionThreshold : default, null);
+                }
+            }
+            catch (Exception ex)
+            {
+                lock (_stateLock)
+                {
+                    if (!_disposed && generation == _generation)
+                        Suspend();
+                }
+                Service.Logger.Error(ex, "AI pathfinding failed");
             }
             finally
             {

@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <BossModAssembly Condition="'$(BossModAssembly)' == ''">../../BossMod/bin/Release/BossMod.dll</BossModAssembly>
+    <DalamudLibPath Condition="'$(DALAMUD_HOME)' == ''">$(APPDATA)/XIVLauncher/addon/Hooks/dev</DalamudLibPath>
+    <DalamudLibPath Condition="'$(DALAMUD_HOME)' != ''">$(DALAMUD_HOME)</DalamudLibPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BossMod" HintPath="$(BossModAssembly)" />
+    <Reference Include="Lumina" HintPath="$(DalamudLibPath)/Lumina.dll" />
+    <Reference Include="Lumina.Excel" HintPath="$(DalamudLibPath)/Lumina.Excel.dll" />
+    <Reference Include="Dalamud" HintPath="$(DalamudLibPath)/Dalamud.dll" />
+    <Reference Include="Dalamud.Bindings.ImGui" HintPath="$(DalamudLibPath)/Dalamud.Bindings.ImGui.dll" />
+    <None Include="$(DalamudLibPath)/cimgui.dll" Link="cimgui.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

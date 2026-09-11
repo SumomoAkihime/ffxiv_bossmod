@@ -7,8 +7,6 @@ namespace BossMod.AI;
 
 sealed class AIManager : IDisposable
 {
-    private const string VBMAIPresetName = "VBM AI";
-
     public static AIManager? Instance;
     public readonly RotationModuleManager Autorot;
     public readonly AIController Controller;
@@ -16,7 +14,6 @@ sealed class AIManager : IDisposable
     private readonly AIManagementWindow _wndAI;
     public int MasterSlot = PartyState.PlayerSlot; // non-zero means corresponding player is master
     public AIBehaviour? Beh;
-    private bool _autoStartedByVBMAI;
 
     public WorldState WorldState => Autorot.Bossmods.WorldState;
     public float ForceMovementIn => Beh?.ForceMovementIn ?? float.MaxValue;
@@ -43,7 +40,12 @@ sealed class AIManager : IDisposable
 
     public void Update()
     {
-        SyncVBMAIAutoMovement();
+        if (Autorot.MovementModuleActive || Autorot.IsForceDisabled || _config.ForbidMovement)
+        {
+            Beh?.Suspend();
+            Controller.Clear();
+            return;
+        }
 
         if (!WorldState.Party.Members[MasterSlot].IsValid())
         {
@@ -58,6 +60,7 @@ sealed class AIManager : IDisposable
         }
         else
         {
+            Beh?.Suspend();
             Controller.Clear();
         }
 
@@ -90,9 +93,6 @@ sealed class AIManager : IDisposable
         Beh?.Dispose();
         Beh = null;
         MasterSlot = PartyState.PlayerSlot;
-        if (Autorot.IsForceDisabled)
-            Autorot.Clear();
-        _autoStartedByVBMAI = false;
         Controller.Clear();
         _wndAI.UpdateTitle();
     }
@@ -100,50 +100,16 @@ sealed class AIManager : IDisposable
     public void SwitchToFollow(int masterSlot)
     {
         SwitchToIdle();
-        _autoStartedByVBMAI = false;
         MasterSlot = WorldState.Party[masterSlot]?.Name == null ? 0 : masterSlot;
         Beh = new AIBehaviour(Controller, Autorot);
         _wndAI.UpdateTitle();
     }
 
-    private void SyncVBMAIAutoMovement()
+    // Manual follow contributes a goal to the selected movement module, not a second pathfinder.
+    public void AddFollowHints(Actor player)
     {
-        var vbmAIActive = IsVBMAIPresetActive();
-        if (vbmAIActive)
-        {
-            if (Beh == null && !_config.Enabled)
-                SwitchToFollowForVBMAI(_config.FollowSlot);
-        }
-        else if (_autoStartedByVBMAI)
-        {
-            StopAutoStartedBehaviour();
-        }
-    }
-
-    private void SwitchToFollowForVBMAI(int masterSlot)
-    {
-        Beh?.Dispose();
-        Beh = null;
-        MasterSlot = WorldState.Party[masterSlot]?.Name == null ? 0 : masterSlot;
-        _autoStartedByVBMAI = true;
-        Beh = new AIBehaviour(Controller, Autorot);
-        _wndAI.UpdateTitle();
-    }
-
-    private void StopAutoStartedBehaviour()
-    {
-        Beh?.Dispose();
-        Beh = null;
-        MasterSlot = PartyState.PlayerSlot;
-        _autoStartedByVBMAI = false;
-        Controller.Clear();
-        _wndAI.UpdateTitle();
-    }
-
-    private bool IsVBMAIPresetActive()
-    {
-        var preset = Autorot.Database.Presets.FindPresetByName(VBMAIPresetName, StringComparison.OrdinalIgnoreCase);
-        return preset != null && Autorot.Presets.Contains(preset);
+        if (Beh != null && WorldState.Party[MasterSlot] is { } master)
+            Beh.AddFollowHints(player, master);
     }
 
     private unsafe int FindPartyMemberSlotFromSender(SeString sender)

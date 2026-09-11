@@ -187,12 +187,19 @@ sealed class IPCProvider : IDisposable
         Register("Hints.InteractWithTargetOID", () => hints.InteractWithTarget?.InstanceID ?? 0ul);
         Register("Hints.RecommendedPositional", () => (int)hints.RecommendedPositional.Pos);
         Register("AI.PauseMovement", (bool pause) => Service.Config.Get<AIConfig>().ForbidMovement = pause);
-        Register("AI.NaviTargetPos", () =>
+        Vector3? navigationTarget()
         {
+            if (autorotation.MovementModuleActive)
+            {
+                // Report the selected module's movement, including an explicit stop.
+                return hints.ForcedMovement is { } direction && bossmod.WorldState.Party.Player() is { } player
+                    ? new Vector3(player.Position.X + direction.X, 0, player.Position.Z + direction.Z) : null;
+            }
             var pos = ai.Controller.NaviTargetPos;
-            return pos.HasValue ? new Vector3(pos.Value.X, 0, pos.Value.Z) : (Vector3?)null;
-        });
-        Register("AI.IsNavigating", () => ai.Controller.NaviTargetPos != null);
+            return pos.HasValue ? new Vector3(pos.Value.X, 0, pos.Value.Z) : null;
+        }
+        Register("AI.NaviTargetPos", navigationTarget);
+        Register("AI.IsNavigating", () => navigationTarget() != null);
         Register("AI.PlayerSpeed", () => ai.WorldState.Client.MoveSpeed);
         // ---------------------------------
 
@@ -279,11 +286,27 @@ sealed class IPCProvider : IDisposable
             return !ActionDefinitions.IsDashDangerous(player.Position, dest, hints);
         });
 
-        Register("Configuration", (List<string> args, bool save) => Service.Config.ConsoleCommand(args.AsSpan(), save));
+        Register("Configuration", (IReadOnlyList<string> args, bool save) => Service.Config.ConsoleCommand(args.ToArray(), save));
 
         var lastModified = DateTime.Now;
         Service.Config.Modified.Subscribe(() => lastModified = DateTime.Now);
         Register("Configuration.LastModified", () => lastModified);
+
+        Register("Configuration.DisableModule", (string name, bool disable) =>
+        {
+            var disabledModules = Service.Config.Get<BossModuleConfig>().DisabledModules;
+
+            if (!disable)
+                return disabledModules.Remove(name);
+
+            if (!disabledModules.Contains(name))
+            {
+                disabledModules.Add(name);
+                return true;
+            }
+
+            return false;
+        });
 
         Register("Rotation.ActionQueue.HasEntries", () =>
         {
@@ -385,6 +408,23 @@ sealed class IPCProvider : IDisposable
             autorotation.SetForceDisabled();
             return true;
         });
+        Register("Presets.Activate", (string name) =>
+        {
+            var preset = autorotation.Database.Presets.FindPresetByName(name);
+            if (preset == null || autorotation.Presets.Contains(preset))
+                return false;
+            autorotation.Activate(preset);
+            return true;
+        });
+        Register("Presets.Deactivate", (string name) =>
+        {
+            var preset = autorotation.Database.Presets.FindPresetByName(name);
+            if (preset == null || !autorotation.Presets.Contains(preset))
+                return false;
+            autorotation.Deactivate(preset);
+            return true;
+        });
+
         Register("Presets.GetActiveList", () => autorotation.Presets.Select(p => p.Name).ToList());
         Register("Presets.SetActiveList", (List<string> names) =>
         {

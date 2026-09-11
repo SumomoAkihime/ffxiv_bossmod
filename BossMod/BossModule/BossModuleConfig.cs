@@ -17,6 +17,9 @@ public sealed class BossModuleConfig : ConfigNode
         }
     }
 
+    // External module-disable requests take effect when creating encounter instances.
+    public List<string> DisabledModules = [];
+
     // boss module settings
     [PropertyDisplay("Minimal maturity for the module to be loaded", tooltip: "Some modules will have the \"WIP\" status and will not automatically load unless you change this")]
     public BossModuleInfo.Maturity MinMaturity = BossModuleInfo.Maturity.Contributed;

@@ -1,0 +1,210 @@
+﻿{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN1TwoHeadedAevis",
+      "identity": "GroupType=CFC; GroupID=1093; NameID=14489; PrimaryActorOID=0x4C12 (源码 ModuleInfo/OID)",
+      "reason": "保留绿头主实体身份、正方形场地、中心击退安全判断及冰/雷/毒、Blaze Loop 等根实测机制提示；其余分支按实际事件推进。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN1TwoHeadedAevis/FTMN1TwoHeadedAevis.cs",
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN1TwoHeadedAevis/FTMN1TwoHeadedAevisEnums.cs",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN2SwordDancer",
+      "identity": "GroupType=CFC; GroupID=1093; NameID=14820; PrimaryActorOID=0x4D76 (源码 ModuleInfo/OID)",
+      "reason": "保留普通剑舞者的本地旋剑圆/环映射、击退及剑舞机制处理，按实际方向与事件推进；不得与高难同名模块混用身份或机制。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN2SwordDancer/FTMN2SwordDancer.cs",
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/魔之塔普通雷达制作记录.md",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN3Necrophobia",
+      "identity": "GroupType=CFC; GroupID=1093; NameID=14503; PrimaryActorOID=0x4BE5 (源码 ModuleInfo/OID)",
+      "reason": "保留 Boss3 实测场地半径、黑暗奔流首条线后按垂直轴两侧扩散的三波预警，并避免对未记录的终盘方向作固定猜测。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN3Necrophobia/FTMN3Necrophobia.cs",
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN3Necrophobia/FTMN3NecrophobiaEnums.cs",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME1TwoHeadedAevis",
+      "identity": "GroupType=CFC; GroupID=1114; NameID=14490; PrimaryActorOID=0x4C19 (源码 ModuleInfo/OID；0x4C18 为演出实体)",
+      "reason": "保留绿头作为主实体、矩阵颜色与方向、元素召唤属性/顺序、四连冰焰 47671-47678 的完整形状组合及中心击退实测方向。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME1TwoHeadedAevis/FTME1TwoHeadedAevis.cs",
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME1TwoHeadedAevis/超魔之塔Boss1雷达制作记录.md",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME2SwordDancer",
+      "identity": "GroupType=CFC; GroupID=1114; NameID=14820; PrimaryActorOID=0x4D7E (源码 ModuleInfo/OID)",
+      "reason": "保留三把错开圆心旋剑、两段反转形状、按钢铁状态实际落点、顺序三环安全区逐组晋级，以及剑舞方向未明时不提前猜测终点安全区。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME2SwordDancer/FTME2SwordDancer.cs",
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME2SwordDancer/超魔之塔Boss2雷达制作记录.md",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME3Necrophobia",
+      "identity": "GroupType=CFC; GroupID=1114; NameID=14503; PrimaryActorOID=0x4BE7 (源码 ModuleInfo/OID)",
+      "reason": "保留 Boss3 实测机制与半径 25 场地；对回放未覆盖的终盘分支维持待验证状态，不以目录或编号推测新增机制。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME3Necrophobia/FTME3Necrophobia.cs",
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME3Necrophobia/高难魔之塔Boss3雷达制作记录.md",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN4Index",
+      "identity": "GroupType=CFC; GroupID=1093; NameID=14717; PrimaryActorOID=0x4B5F (源码 ModuleInfo/OID)",
+      "reason": "保留材质顶点对应的三平台、六平台与中央内六边形边界，以及按事件物体实际顺序排队、当前组/下一组双色预警、预言终点与 AI 击退处理等实测雷达增强。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN4Index/FTMN4Index.cs",
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/魔之塔普通雷达制作记录.md",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME4Index",
+      "identity": "GroupType=CFC; GroupID=1093; NameID=14717; PrimaryActorOID=0x4B67 (源码 ModuleInfo/OID)",
+      "reason": "保留实际场地几何、四连武器状态顺序、六连地板事件物体、玩家本人双色安全图标、预言顺/逆时针终点判定、元素整合按实际状态推进及全斩分批安全区等实测雷达增强。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME4Index/FTME4Index.cs",
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Extreme/FTME4Index/高难魔之塔Boss4雷达制作记录.md",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE201ABeastUnleashed.cs",
+      "identity": "GroupType=CFC; GroupID=1093; NameID=14791 (源码 ModuleInfo); PrimaryActorOID=0x4C4F",
+      "reason": "保留黄宝石时间线落位预警、墙线 EAnim 的旋转/镜像与碰撞筛选、整块封闭区反射、两次击退轴及前后/后前攻击方向处理。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE201ABeastUnleashed.cs",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE203AheadoftheCompetition.cs",
+      "identity": "GroupType=CriticalEngagement; GroupID=1093; NameID=62 (DynamicEvent 行，源码 ModuleInfo); PrimaryActorOID=0x4BC5 (实体 NameID 另按实测记录核对)",
+      "reason": "保留雷球三段范围按同一 Helper 与 ActorID 成组清理、毒球持续毒圈在 EAnim 后按实测半径增长且不与读条重复绘制的本地修正。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE203AheadoftheCompetition.cs",
+        "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE203AheadoftheCompetition雷达制作记录.md",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE211LostontheWind.cs",
+      "identity": "GroupType=CriticalEngagement; GroupID=1093; NameID=61 (DynamicEvent 行，源码 ModuleInfo); PrimaryActorOID=0x4BE1 (实体 NameID 另按实测记录核对)",
+      "reason": "保留移动烈风按运行方向与轨道预测停止点、正十字/斜十字固定北向、旋风环内径 5 及切分战斗范围的实测提示。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE211LostontheWind.cs",
+        "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE211LostontheWind雷达制作记录.md",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE213QuarriedAway.cs",
+      "identity": "GroupType=CriticalEngagement; GroupID=1093; NameID=51 (DynamicEvent 行，源码 ModuleInfo); PrimaryActorOID=0x4BBE (实体 NameID 另按实测记录核对)",
+      "reason": "保留小怪攻击指令后的顺时针面向投影阈值、Boss 左右组合直接采用读条方向并反转第二刀，以及场地半径实测值。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE213QuarriedAway.cs",
+        "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE203雪石膏之剑雷达制作记录.md",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE214TinyTerror.cs",
+      "identity": "GroupType=CriticalEngagement; GroupID=1093; NameID=60 (DynamicEvent 行，源码 ModuleInfo); PrimaryActorOID=0x4C6D (实体 NameID 另按实测记录核对)",
+      "reason": "保留小小法师按结构化身份匹配、连续球体/击退组合和实测场地处理；不得因日志文件旧名 CE211 或上游编号变化创建重复模块。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE214TinyTerror.cs",
+        "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE214TinyTerror雷达制作记录.md",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Stormblood/Alliance/A31Mustadio",
+      "identity": "GroupType=CFC; GroupID=636; NameID=7915 (源码 ModuleInfo，按 CFC 身份字段记录); PrimaryActorOID=0x25B7",
+      "reason": "保留当前本地模块与机制实现；注册字段按源码记录，同行注释中的另一数值只作为后续数据核对提示，不自动改写。",
+      "evidence": [
+        "BossMod/Modules/Stormblood/Alliance/A31Mustadio/A31Mustadio.cs",
+        "BossMod/Modules/Stormblood/Alliance/A31Mustadio/A31MustadioEnums.cs",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Stormblood/Alliance/A33ThunderGod",
+      "identity": "GroupType=CFC; GroupID=636; NameID=7899 (源码 ModuleInfo，按 CFC 身份字段记录); PrimaryActorOID=0x25D7",
+      "reason": "保留六座三人塔的事件物体、半径 3 站位提示及 AID 14157 按施法朝向三次平台爆炸映射；身份冲突未核实前不得覆盖注册信息。",
+      "evidence": [
+        "BossMod/Modules/Stormblood/Alliance/A33ThunderGod/A33ThunderGod.cs",
+        "BossMod/Modules/Stormblood/Alliance/A33ThunderGod/A33ThunderGodEnums.cs",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Stormblood/Alliance/A34UltimaP1",
+      "identity": "GroupType=CFC; GroupID=636; NameID=7909; PrimaryActorOID=0x2604",
+      "reason": "保留究极幻想实际位于本阶段的半径 8 安全圈、制裁之刃事件物体倒向、圣石光长矩形及读条后持续显示的本地实测处理。",
+      "evidence": [
+        "BossMod/Modules/Stormblood/Alliance/A34UltimaP1/A34UltimaP1.cs",
+        "BossMod/Modules/Stormblood/Alliance/A34UltimaP1/A34UltimaP1Enums.cs",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Stormblood/Alliance/A35UltimaP2",
+      "identity": "GroupType=CFC; GroupID=636; NameID=7909; PrimaryActorOID=0x25A9",
+      "reason": "保留光波主天使跟随实体最终位置、大十字前两块圣石按进军方向横移一格及终阶段本地机制处理；安全圈归属 A34UltimaP1，不能重复添加。",
+      "evidence": [
+        "BossMod/Modules/Stormblood/Alliance/A35UltimaP2/A35UltimaP2.cs",
+        "BossMod/Modules/Stormblood/Alliance/A35UltimaP2/A35UltimaP2Enums.cs",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/RealmReborn/Alliance/A16Phlegethon",
+      "identity": "GroupType=CFC; GroupID=92; NameID=732; PrimaryActorOID=0x938",
+      "reason": "保留组合边界中心与机制实际圆心分离的修正：绘图边界使用 PhlegBounds.Center，古代耀星和动态外圈继续使用 ArenaCenter=(-110,181.6)。",
+      "evidence": [
+        "BossMod/Modules/RealmReborn/Alliance/A16Phlegethon/A16Phlegethon.cs",
+        "../AGENTS.md"
+      ]
+    }
+  ],
+  "supportFiles": [
+    {
+      "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/IndexArenaBounds.cs",
+      "reason": "普通/高难魔之塔 Boss4 共用的材质顶点场地；平台区域、中央内六边形空洞和外六边形几何必须作为共享支撑保留。",
+      "evidence": [
+        "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/IndexArenaBounds.cs",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Pathfinding/NavigationDecision.cs",
+      "reason": "保留并行栅格化前压缩并丢弃空 ShapeDistance 的导航空引用防护。",
+      "evidence": [
+        "BossMod/Pathfinding/NavigationDecision.cs",
+        "../AGENTS.md"
+      ]
+    },
+    {
+      "path": "BossMod/Modules/Endwalker/Dungeon/D09AlzadaalsLegacy/D093Kapikulu.cs",
+      "reason": "保留旋转状态实际存在时的移动提示条件修正（mask 非真时返回）。",
+      "evidence": [
+        "BossMod/Modules/Endwalker/Dungeon/D09AlzadaalsLegacy/D093Kapikulu.cs",
+        "../AGENTS.md"
+      ]
+    }
+  ],
+  "policy": "本清单只记录已确认的本地实测或自建保护项；同步 Reborn 时按 GroupID、NameID、主 OID 结构化核对。新发现的本地差异须人工审查，不能自动覆盖或仅因成熟度为 Contributed 就整文件替换。"
+}
