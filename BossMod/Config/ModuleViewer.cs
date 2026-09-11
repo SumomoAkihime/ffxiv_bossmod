@@ -70,6 +70,7 @@ public sealed class ModuleViewer : IDisposable
         Customize(BossModuleInfo.Category.DeepDungeon, contentType.GetRow(21u));
         Customize(BossModuleInfo.Category.Ultimate, contentType.GetRow(28u));
         Customize(BossModuleInfo.Category.VariantCriterion, contentType.GetRow(30u));
+        Customize(BossModuleInfo.Category.CrucibleOfTheUnbroken, contentType.GetRow(40u));
 
         var playStyle = Service.LuminaSheet<CharaCardPlayStyle>()!;
         Customize(BossModuleInfo.Category.Foray, playStyle.GetRow(6u));
@@ -293,7 +294,7 @@ public sealed class ModuleViewer : IDisposable
                     {
                         foreach (var mod in group.Modules)
                         {
-                            using (ImRaii.Disabled(mod.Info.ConfigType == null))
+                            using (ImRaii.Disabled(mod.Info.ConfigType == null && !mod.Info.HasPrePullHints))
                             {
                                 if (UIMisc.IconButton(FontAwesomeIcon.Cog, $"###{mod.Info.ModuleType.FullName}_cfg"))
                                 {

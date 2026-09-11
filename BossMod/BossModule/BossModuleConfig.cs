@@ -1,4 +1,6 @@
 ﻿using Dalamud.Bindings.ImGui;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace BossMod;
 
@@ -22,7 +24,7 @@ public sealed class BossModuleConfig : ConfigNode
     [PropertyDisplay("Allow modules to automatically use actions", tooltip: "Example: modules can automatically use anti-knockback abilities before a knockback happens")]
     public bool AllowAutomaticActions = true;
 
-    [PropertyDisplay("Show testing radar and hint window", tooltip: "Useful for configuring your radar and hint windows without being inside of a boss encounter", separator: true)]
+    [PropertyDisplay("Show testing radar and hint window", tooltip: "Useful for configuring your radar and hint windows without being inside of a boss encounter", separator: true, depends: nameof(Enable))]
     public bool ShowDemo = false;
 
     // radar window settings
@@ -32,24 +34,24 @@ public sealed class BossModuleConfig : ConfigNode
     [PropertyDisplay("Enable projecting radar into the 3D world")]
     public bool ProjectRadarInto3DWorld = false;
 
-    [PropertyDisplay("Show actor triangles in the 3D world", tooltip: "Show ordinary actor triangles. Mechanic markers, including knockback destinations, remain visible when this is disabled.")]
+    [PropertyDisplay("Show actor triangles in the 3D world", tooltip: "Show ordinary actor triangles. Mechanic markers, including knockback destinations, remain visible when this is disabled.", depends: nameof(ProjectRadarInto3DWorld))]
     public bool ShowActorTrianglesIn3DWorld = true;
 
-    [PropertyDisplay("Include drawing arena outline into the 3D world", tooltip: "If projecting the radar into the 3D world is enabled, the outline can also be drawn")]
+    [PropertyDisplay("Include drawing arena outline into the 3D world", tooltip: "If projecting the radar into the 3D world is enabled, the outline can also be drawn", depends: nameof(ProjectRadarInto3DWorld))]
     public bool EnableArenaOutlineIn3DWorld = true;
 
-    [PropertyDisplay("Allow drawing text and icon billboards into the 3D world", tooltip: "If projecting the radar into the 3D world is enabled, the outline can also be drawn")]
+    [PropertyDisplay("Allow drawing text and icon billboards into the 3D world", tooltip: "If projecting the radar into the 3D world is enabled, the outline can also be drawn", depends: nameof(ProjectRadarInto3DWorld))]
     public bool EnableTextIconBillboards = true;
 
-    [PropertyDisplay("Billboard height offset", tooltip: "How many yalms billboards should appear above ground. Includes gazes, text and icons.")]
+    [PropertyDisplay("Billboard height offset", tooltip: "How many yalms billboards should appear above ground. Includes gazes, text and icons.", depends: nameof(ProjectRadarInto3DWorld))]
     [PropertySlider(0f, 20f, Speed = 0.1f, Logarithmic = true)]
     public float BillboardHeightOffset = 5f;
 
-    [PropertyDisplay("Text billboard font size", tooltip: "Change text size of 3D world billboards")]
+    [PropertyDisplay("Text billboard font size", tooltip: "Change text size of 3D world billboards", depends: nameof(ProjectRadarInto3DWorld))]
     [PropertySlider(17f, 250f, Speed = 0.5f, Logarithmic = true)]
     public float TextBillboardFontSize = 110f;
 
-    [PropertyDisplay("Icon billboard font size", tooltip: "Change icon size of 3D world billboards", separator: true)]
+    [PropertyDisplay("Icon billboard font size", tooltip: "Change icon size of 3D world billboards", separator: true, depends: nameof(ProjectRadarInto3DWorld))]
     [PropertySlider(17f, 250f, Speed = 0.5f, Logarithmic = true)]
     public float IconBillboardFontSize = 110f;
 
@@ -92,18 +94,18 @@ public sealed class BossModuleConfig : ConfigNode
     [PropertyDisplay("Pulse screen edges when player is at risk", tooltip: "A glow pulses in the risky arena border color (Enemy color) while a player warning is active. Works independently of the radar and 3D projection settings.")]
     public bool ShowScreenRiskBorder = false;
 
-    [PropertyDisplay("Screen danger pulse intensity")]
+    [PropertyDisplay("Screen danger pulse intensity", depends: nameof(ShowScreenRiskBorder))]
     [PropertySlider(0f, 10f, Speed = 0.1f)]
     public float ScreenRiskBorderIntensity = 2.5f;
 
     [PropertyDisplay("Show cardinal direction names on radar")]
     public bool ShowCardinals = false;
 
-    [PropertyDisplay("Cardinal direction font size")]
+    [PropertyDisplay("Cardinal direction font size", depends: nameof(ShowCardinals))]
     [PropertySlider(0.1f, 100, Speed = 1)]
     public float CardinalsFontSize = 17f;
 
-    [PropertyDisplay("Waymark font size")]
+    [PropertyDisplay("Waymark font size", depends: nameof(ShowWaymarks))]
     [PropertySlider(0.1f, 100, Speed = 1)]
     public float WaymarkFontSize = 22f;
 
@@ -127,6 +129,16 @@ public sealed class BossModuleConfig : ConfigNode
     public bool ShowFocusTargetPlayer = false;
 
     // hint window settings
+    [PropertyDisplay("显示副本战前提示窗口", tooltip: "在开战前显示副本专属说明。可在弹窗中关闭此副本提示，并从副本配置中重新开启。")]
+    public bool ShowPrePullHints = true;
+
+    // Persisted separately from module-specific config so every encounter can support "Never show again"
+    // without requiring a boilerplate setting in each ConfigNode. Primary actor OIDs are unique module IDs.
+    public uint[] SuppressedPrePullHintOIDs = [];
+
+    [JsonIgnore]
+    internal HashSet<uint>? _suppressedPrePullHintOIDs;
+
     [PropertyDisplay("Show text hints in separate window", tooltip: "Separates the radar window from the hints window, allowing you to reposition the hints window")]
     public bool HintsInSeparateWindow = false;
 
@@ -152,4 +164,53 @@ public sealed class BossModuleConfig : ConfigNode
     [PropertyDisplay("Maximum load distance", tooltip: "Maximum load distance in yalms")]
     [PropertySlider(0.1f, 500f, Speed = 0.1f, Logarithmic = true)]
     public float MaxLoadDistance = 500f;
+
+    public override void Deserialize(JsonElement j, JsonSerializerOptions ser)
+    {
+        base.Deserialize(j, ser);
+        _suppressedPrePullHintOIDs = null;
+    }
+
+    public bool ShowPrePullHintsFor(uint primaryActorOID) => !SuppressedPrePullHintOIDSet().Contains(primaryActorOID);
+
+    public void SetShowPrePullHintsFor(uint primaryActorOID, bool show)
+    {
+        var set = SuppressedPrePullHintOIDSet();
+        var suppressed = set.Contains(primaryActorOID);
+        if (show == !suppressed)
+        {
+            return;
+        }
+
+        if (show)
+        {
+            set.Remove(primaryActorOID);
+        }
+        else
+        {
+            set.Add(primaryActorOID);
+        }
+
+        var persisted = new uint[set.Count];
+        set.CopyTo(persisted);
+        Array.Sort(persisted);
+        SuppressedPrePullHintOIDs = persisted;
+        Modified.Fire();
+    }
+
+    private HashSet<uint> SuppressedPrePullHintOIDSet()
+    {
+        if (_suppressedPrePullHintOIDs != null)
+        {
+            return _suppressedPrePullHintOIDs;
+        }
+
+        var len = SuppressedPrePullHintOIDs.Length;
+        var set = new HashSet<uint>(len);
+        for (var i = 0; i < len; ++i)
+        {
+            set.Add(SuppressedPrePullHintOIDs[i]);
+        }
+        return _suppressedPrePullHintOIDs = set;
+    }
 }

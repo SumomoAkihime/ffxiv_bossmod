@@ -13,6 +13,9 @@ public sealed class CancelCastTweak(WorldState ws, AIHints hints)
         if (currentTime < _nextCancelAllowed)
             return false;
 
+        if (_ws.Party.Player() is { CastInfo.Action.Type: ActionType.Mount })
+            return false;
+
         if (!force && !WantCancel())
             return false;
 

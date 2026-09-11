@@ -24,10 +24,12 @@ public sealed class AutoDismountTweak(WorldState ws)
         return !canUseWhileMounted;
     }
 
-    public bool AllowDismount()
+    public bool AllowAutoDismount()
     {
         var player = ws.Party.Player();
         var mountData = player != null && player.MountId != 0 ? Service.LuminaRow<Lumina.Excel.Sheets.Mount>(player.MountId) : null;
         return mountData != null && mountData.Value.Order >= 0;
     }
+
+    public bool AllowManualDismount() => ws.Party.Player() is { MountId: > 0 };
 }

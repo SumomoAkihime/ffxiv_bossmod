@@ -16,6 +16,7 @@ public static class BossModuleRegistry
         public Type? TetherIDType;
         public Type? IconIDType;
         public uint PrimaryActorOID;
+        public bool HasPrePullHints;
         public Func<WorldState, Actor, BossModule> ModuleFactory;
         public Func<BossModule, StateMachine> StateMachineFactory;
 
@@ -125,6 +126,8 @@ public static class BossModuleRegistry
                 TetherIDType = tidType,
                 IconIDType = iidType,
                 PrimaryActorOID = primaryOID,
+                HasPrePullHints = module.GetProperty(nameof(BossModule.PrePullHints))?.GetMethod?.GetBaseDefinition().DeclaringType == typeof(BossModule)
+                    && module.GetProperty(nameof(BossModule.PrePullHints))?.DeclaringType != typeof(BossModule),
 
                 Maturity = infoAttr?.Maturity ?? BossModuleInfo.Maturity.WIP,
                 Contributors = infoAttr?.Contributors ?? "",
@@ -139,7 +142,7 @@ public static class BossModuleRegistry
         }
 
         internal Info(Type moduleType, Type statesType, Type? configType, Type? objectIDType, Type? actionIDType,
-            Type? statusIDType, Type? tetherIDType, Type? iconIDType, uint primaryActorOID, Func<WorldState, Actor, BossModule> moduleFactory,
+            Type? statusIDType, Type? tetherIDType, Type? iconIDType, uint primaryActorOID, bool hasPrePullHints, Func<WorldState, Actor, BossModule> moduleFactory,
             Func<BossModule, StateMachine> stateMachineFactory, BossModuleInfo.Maturity maturity, string contributors, BossModuleInfo.Expansion expansion,
             BossModuleInfo.Category category, BossModuleInfo.GroupType groupType, uint groupID, uint nameID, int sortOrder, int planLevel)
         {
@@ -152,6 +155,7 @@ public static class BossModuleRegistry
             TetherIDType = tetherIDType;
             IconIDType = iconIDType;
             PrimaryActorOID = primaryActorOID;
+            HasPrePullHints = hasPrePullHints;
             ModuleFactory = moduleFactory;
             StateMachineFactory = stateMachineFactory;
             Maturity = maturity;
