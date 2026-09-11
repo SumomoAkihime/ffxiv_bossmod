@@ -589,7 +589,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         if (HaveTarget && Chakra >= 5 && !useRof)
         {
             if (NumLineTargets >= 3)
-                PushOGCD(AID.HowlingFist, BestLineTarget, OGCDPriority.TFC);
+                PushOGCD(AID.HowlingFist, BestLineTarget, OGCDPriority.TFC, setRotation: true);
 
             PushOGCD(AID.SteelPeak, primaryTarget, OGCDPriority.TFC, useOnDyingTarget: false);
         }
@@ -678,7 +678,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
                 prio = GCDPriority.MeditateForce;
                 break;
             case OffensiveStrategy.Automatic:
-                if (UptimeIn > MathF.Max(GCD + AttackGCDLength, FormShiftLeft) && UptimeIn < 25)
+                if (UptimeIn > Math.Max(GCD + AttackGCDLength, FormShiftLeft) && UptimeIn < 25)
                     prio = GCDPriority.Meditate;
                 break;
         }
@@ -744,7 +744,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
                 break;
         }
 
-        PushGCD(AID.WindsReply, ResolveTargetOverride(strategy.WindsReply) ?? BestLineTarget, prio);
+        PushGCD(AID.WindsReply, ResolveTargetOverride(strategy.WindsReply) ?? BestLineTarget, prio, setRotation: NumLineTargets > 1);
     }
 
     private float DesiredFireWindow => GCDLength * 10;

@@ -1,5 +1,4 @@
-﻿using BossMod.Autorotation.xan;
-
+﻿
 namespace BossMod.Autorotation.MiscAI;
 
 public sealed class AutoTarget(RotationModuleManager manager, Actor player) : RotationModule(manager, player)
@@ -51,7 +50,7 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
-        res.Define(Track.Treasure).As<Flag>("Treasure", "Open treasure chests", renderer: typeof(DefaultOffRenderer))
+        res.Define(Track.Treasure).As<Flag>("Treasure", "Open treasure chests", renderer: typeof(DefaultOffRenderer), uiPriority: -115)
             .AddOption(Flag.Disabled)
             .AddOption(Flag.Enabled);
 
@@ -125,7 +124,7 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
         if (strategy.Option(Track.QuestBattle).As<Flag>() == Flag.Enabled)
             allowAll |= Bossmods.LoadedModules is [{ Info.Category: BossModuleInfo.Category.Quest }];
 
-        if (strategy.Option(Track.DeepDungeon).As<Flag>() == Flag.Enabled && !World.Party.WithoutSlot(includeDead: true, excludeNPCs: true).Skip(1).Any())
+        if (strategy.Option(Track.DeepDungeon).As<Flag>() == Flag.Enabled && World.Party.WithoutSlot(true, true, true).Length == 1)
             allowAll |= Bossmods.LoadedModules is [{ Info.Category: BossModuleInfo.Category.DeepDungeon }];
 
         if (strategy.Option(Track.EpicEcho).As<Flag>() == Flag.Enabled)
@@ -201,7 +200,7 @@ public sealed class AutoTarget(RotationModuleManager manager, Actor player) : Ro
             }
 
             // add all other targets to potential targets list (e.g. if modules modify out-of-combat mob priority)
-            if (target.Priority >= 0)
+            if (target.Priority >= 0 || target.ShouldBeTargeted)
                 prioritize(target, target.Priority);
         }
 

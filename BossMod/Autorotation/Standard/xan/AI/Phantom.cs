@@ -21,6 +21,9 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase<Pha
         [Track("Samurai: Use Iainuki on best AOE target", Action = PhantomID.Iainuki)]
         public Track<EnabledByDefault> Samurai;
 
+        [Track("Samurai: Use Zeninage during buffs", Action = PhantomID.Zeninage)]
+        public Track<DisabledByDefault> Zeninage;
+
         [Track("Bard: Use Aria/Rime in combat", Actions = [PhantomID.OffensiveAria, PhantomID.HerosRime])]
         public Track<EnabledByDefault> Bard;
 
@@ -206,6 +209,9 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase<Pha
                 UseAction(PhantomID.Revive, tar, prio);
         }
 
+        if (strategy.Zeninage.IsEnabled() && primaryTarget?.IsAlly == false && !isMidCombo && (Bossmods.RaidCooldowns.DamageBuffLeft(Player, primaryTarget) > GCD || Bossmods.RaidCooldowns.NextDamageBuffIn2() == null))
+            UseAction(PhantomID.Zeninage, primaryTarget, strategy.Zeninage.Priority(ActionQueue.Priority.High + 500));
+
         if (strategy.Samurai.IsEnabled() && primaryTarget?.IsAlly == false && !isMidCombo)
         {
             var prio = strategy.Samurai.Priority(ActionQueue.Priority.High + 500);
@@ -344,7 +350,7 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase<Pha
         }
 
         if (DesiredRange < float.MaxValue && primaryTarget != null)
-            Hints.GoalZones.Add(AIHints.GoalSingleTarget(primaryTarget, DesiredRange, 1));
+            Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget, Player, World.Actors, DesiredRange, 1));
     }
 
     private bool EnoughHP => Player.HPMP.MaxHP * 0.9f < Player.HPMP.CurHP + Player.HPMP.Shield;
@@ -410,6 +416,7 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase<Pha
 
     public static readonly uint[] BreakableComboStatus = [
         (uint)BossMod.NIN.SID.Mudra,
+        (uint)BossMod.NIN.SID.RaijuReady,
         (uint)BossMod.NIN.SID.TenChiJin,
         (uint)BossMod.RDM.SID.Dualcast,
         (uint)BossMod.DRG.SID.DraconianFire,

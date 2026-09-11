@@ -313,7 +313,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
                 PushGCD((AID)PhantomID.Iainuki, primaryTarget, GCDPriority.Max);
 
             if (ready <= GCD + GCDLength * 2)
-                Hints.GoalZones.Add(AIHints.GoalSingleTarget(primaryTarget.Actor, 8));
+                Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget.Actor, Player, World.Actors, 8f));
         }
 
         if (strategy.AutoTimeMage.IsEnabled())

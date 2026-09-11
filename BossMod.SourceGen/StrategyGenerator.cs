@@ -384,7 +384,7 @@ public sealed class StrategyGenerator : IIncrementalGenerator
                 sb.Append("            MinLevel = definition.NonDefault(option_").Append(localSuffix).Append('_').Append(optionIndex).Append(".MinLevel, trackInfo_").Append(localSuffix).AppendLine(".MinLevel, 1),");
                 sb.Append("            MaxLevel = definition.NonDefault(option_").Append(localSuffix).Append('_').Append(optionIndex).Append(".MaxLevel, trackInfo_").Append(localSuffix).AppendLine(".MaxLevel, int.MaxValue),");
                 sb.Append("            DefaultPriority = definition.NonDefault(option_").Append(localSuffix).Append('_').Append(optionIndex).Append(".DefaultPriority, trackInfo_").Append(localSuffix).AppendLine(".DefaultPriority, ActionQueue.Priority.Medium),");
-                sb.Append("            Context = definition.NonDefault(option_").Append(localSuffix).Append('_').Append(optionIndex).AppendLine(".Context, StrategyContext.All),");
+                sb.Append("            Context = definition.NonDefault(option_").Append(localSuffix).Append('_').Append(optionIndex).Append(".Context, trackInfo_").Append(localSuffix).AppendLine(".Context, StrategyContext.All),");
                 sb.Append("            Color = option_").Append(localSuffix).Append('_').Append(optionIndex).AppendLine(".Color");
                 sb.AppendLine("        });");
                 ++optionIndex;

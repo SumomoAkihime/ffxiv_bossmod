@@ -149,7 +149,17 @@ public sealed class NormalMovement : RotationModule
 
         // fallback so that we can automatically start some quest battles xddd (the RP rotation is a component on the module, which isn't active until we pull, so no goal zone)
         if (Hints.GoalZones.Count == 0 && primaryTarget is { IsAlly: false, IsDead: false } && Player.Statuses.Any(s => RotationModuleManager.TransformationStatuses.Contains(s.ID)))
-            Hints.GoalZones.Add(AIHints.GoalSingleTarget(primaryTarget, 3));
+            Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget, Player, World.Actors, 3));
+
+        // UCOB already applies its tank goals after encounter components.
+        if (Bossmods.ActiveModule is not Stormblood.Ultimate.UCOB.UCOB && Hints.FindEnemy(primaryTarget) is { } enemy && enemy.Actor.TargetID == Player.InstanceID)
+        {
+            var position = enemy.Actor.Position;
+            var rotation = enemy.DesiredRotation;
+            Hints.GoalZones.Add(p => p.InRect(position, rotation, 100f, 0f, 1f) ? 0.5f : 0f);
+            if (enemy.CanMove)
+                Hints.GoalZones.Add(Hints.PullTargetToLocation(enemy.Actor, enemy.DesiredPosition, Player, GCD, 0.5f));
+        }
 
         var isSpinning = Player.FindStatus(SID.Spinning) != null;
         // simulate forward forced movement; this is kind of a hack, but it definitely doesn't belong in modules because it's part of the movement constraint

@@ -87,7 +87,7 @@ public sealed class DRK(RotationModuleManager manager, Actor player) : Attackxan
         if (Darkside > GCD)
         {
             if (Scorn > GCD && (RaidBuffsLeft > GCD || RaidBuffsIn > 9000))
-                PushGCD(AID.Disesteem, BestLineTarget);
+                PushGCD(AID.Disesteem, BestLineTarget, setRotation: NumLineTargets > 1);
 
             if (EnhancedDelirium > 0)
             {
@@ -169,7 +169,7 @@ public sealed class DRK(RotationModuleManager manager, Actor player) : Attackxan
                 PushOGCD(AID.SaltedEarth, Player, OGCDPriority.SaltedEarth);
 
             if (NumLineTargets > 0 && (RaidBuffsLeft > 0 || RaidBuffsIn > 9000))
-                PushOGCD(AID.Shadowbringer, BestLineTarget, OGCDPriority.SHB);
+                PushOGCD(AID.Shadowbringer, BestLineTarget, OGCDPriority.SHB, setRotation: NumLineTargets > 1);
 
             if (NumRangedAOETargets > 2)
                 PushOGCD(AID.AbyssalDrain, BestRangedAOETarget, OGCDPriority.Carve);
@@ -211,7 +211,7 @@ public sealed class DRK(RotationModuleManager manager, Actor player) : Attackxan
         void use(OGCDPriority prio)
         {
             if (NumLineTargets > 2 || !Unlocked(AID.EdgeOfDarkness))
-                PushOGCD(AID.FloodOfDarkness, edgeTarget ?? BestLineTarget, prio);
+                PushOGCD(AID.FloodOfDarkness, edgeTarget ?? BestLineTarget, prio, setRotation: NumLineTargets > 1);
 
             PushOGCD(AID.EdgeOfDarkness, edgeTarget ?? primaryTarget, prio);
         }

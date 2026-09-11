@@ -27,7 +27,7 @@ public sealed class FollowSlot(RotationModuleManager manager, Actor player) : Ty
         if (Hints.GoalZones.Count == 0 && primaryTarget is { IsAlly: false })
         {
             var effectiveRange = Player.Role is Role.Melee or Role.Tank ? 3 : 25;
-            Hints.GoalZones.Add(AIHints.GoalSingleTarget(primaryTarget, effectiveRange));
+            Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget, Player, World.Actors, effectiveRange));
         }
 
         var masterSlot = strategy.Master;
