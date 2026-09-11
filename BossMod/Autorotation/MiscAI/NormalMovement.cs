@@ -198,8 +198,19 @@ public sealed class NormalMovement : RotationModule
         switch (destinationStrategy)
         {
             case DestinationStrategy.Pathfind:
-                navi = GetDecision(speed, cushionSize);
-                resetStats = false;
+                // Enter active dungeon arenas through the normal movement/cast restrictions.
+                // Other duty types can have disconnected platforms; special movement still needs pathfinding.
+                if (!isSpinning && Player.FindStatus(SID.ThinIce) == null && Hints.ImminentSpecialMode.mode is not (AIHints.SpecialMode.Misdirection or AIHints.SpecialMode.NoMovement)
+                    && Bossmods.ActiveModule is { Info.Category: BossModuleInfo.Category.Dungeon or BossModuleInfo.Category.VariantCriterion, StateMachine.ActivePhase: not null } module
+                    && !module.Arena.InBounds(Player.Position))
+                {
+                    navi = new() { Destination = module.Arena.Center, LeewaySeconds = float.MaxValue };
+                }
+                else
+                {
+                    navi = GetDecision(speed, cushionSize);
+                    resetStats = false;
+                }
                 if (delay > 0)
                     TimeToMove ??= World.FutureTime(delay);
                 break;

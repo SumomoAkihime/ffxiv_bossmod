@@ -80,6 +80,9 @@ public enum PhantomID : uint
     Mesmerize = 46605,
 
     InquiringMind = 46606,
+
+    OccultJump = 49077,
+    Lance = 49079,
 }
 
 public enum PhantomSID : uint

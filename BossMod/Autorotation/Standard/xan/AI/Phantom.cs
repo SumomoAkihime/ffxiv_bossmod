@@ -44,6 +44,9 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase<Pha
 
         [Track("Dancer: Dance", Actions = [PhantomID.Dance, PhantomID.PhantomSwordDance, PhantomID.TemptingTango, PhantomID.Jitterbug, PhantomID.MysteryWaltz, PhantomID.Quickstep])]
         public Track<EnabledByDefault> Dancer;
+
+        [Track("Dragoon: Jump, Lance", Actions = [PhantomID.OccultJump, PhantomID.Lance])]
+        public Track<EnabledByDefault> Dragoon;
     }
 
     public enum RaiseStrategy
@@ -349,6 +352,13 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase<Pha
             }
         }
 
+        if (strategy.Dragoon.IsEnabled() && primaryTarget?.IsAlly == false)
+        {
+            if (!isMidCombo)
+                UseAction(PhantomID.OccultJump, primaryTarget, ActionQueue.Priority.VeryHigh - 10);
+            UseAction(PhantomID.Lance, primaryTarget, ActionQueue.Priority.High);
+        }
+
         if (DesiredRange < float.MaxValue && primaryTarget != null)
             Hints.GoalZones.Add(Hints.GoalSingleTarget(primaryTarget, Player, World.Actors, DesiredRange, 1));
     }
@@ -420,11 +430,13 @@ public class PhantomAI(RotationModuleManager manager, Actor player) : AIBase<Pha
         (uint)BossMod.NIN.SID.TenChiJin,
         (uint)BossMod.RDM.SID.Dualcast,
         (uint)BossMod.DRG.SID.DraconianFire,
-        (uint)BossMod.RPR.SID.SoulReaver
+        (uint)BossMod.RPR.SID.SoulReaver,
+        (uint)BossMod.RPR.SID.Executioner
     ];
 
     private bool CheckMidCombo()
     {
-        return Player.Statuses.Any(s => BreakableComboStatus.Contains(s.ID));
+        return Player.Statuses.Any(s => BreakableComboStatus.Contains(s.ID))
+            || Player.Class == Class.RDM && World.Client.GetGauge<FFXIVClientStructs.FFXIV.Client.Game.Gauge.RedMageGauge>().ManaStacks > 0;
     }
 }

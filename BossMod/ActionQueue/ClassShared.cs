@@ -339,6 +339,9 @@ public sealed class Definitions : Defs
             return ActionDefinitions.IsDashDangerous(player.Position, player.Position + dir, hints);
         };
 
+        // Occult Jump locks the player in place for almost 2.5 seconds.
+        d.Spell(PhantomID.OccultJump)!.ForbidExecute = (_, player, _, hints) => hints.ForbiddenZones.Any(z => z.shapeDistance.Contains(player.Position));
+
         d.Spell(PhantomID.OccultFeatherfoot)!.ForbidExecute = ActionDefinitions.DashFixedDistanceCheck(15);
         d.Spell(PhantomID.OccultFeatherfoot)!.TransformAngle = (ws, _, _, _) => _config.AlignDashToCamera ? ws.Client.CameraAzimuth + 180.Degrees() : null;
     }
