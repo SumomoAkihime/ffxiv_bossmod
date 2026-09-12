@@ -1,27 +1,80 @@
 ﻿namespace BossMod.Stormblood.Alliance.A33ThunderGod;
 
-class HallowedBolt(BossModule module) : Components.ConcentricAOEs(module, _shapes)
+class Colosseum : BossComponent
 {
-    private static readonly AOEShape[] _shapes = [new AOEShapeCircle(15f), new AOEShapeDonut(15f, 30f)];
+    public Colosseum(BossModule module) : base(module) => SetArena(false);
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == (uint)AID.Colosseum)
+            SetArena(true);
+        else if (spell.Action.ID == (uint)AID.BalanceAsunder2)
+            SetArena(false);
+    }
+
+    private void SetArena(bool upper)
+    {
+        Arena.Bounds = upper ? A33ThunderGod.UpperBounds : A33ThunderGod.DefaultBounds;
+        Arena.Center = upper ? A33ThunderGod.ArenaCenter : A33ThunderGod.DefaultBounds.Center;
+    }
+}
+
+class HallowedBolt(BossModule module) : Components.GenericAOEs(module)
+{
+    private static readonly AOEShapeCircle _circle = new(15f);
+    private static readonly AOEShapeDonut _donut = new(15f, 30f);
+    private readonly List<AOEInstance> _casts = [];
+    private readonly List<AOEInstance> _aoes = [];
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.HallowedBolt1)
-            AddSequence(spell.LocXZ, Module.CastFinishAt(spell));
+        AOEShape? shape = spell.Action.ID switch
+        {
+            (uint)AID.HallowedBolt1 => _circle,
+            (uint)AID.HallowedBolt2 => _donut,
+            _ => null
+        };
+        if (shape != null)
+        {
+            _casts.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
+            _casts.Add(new(shape, caster.Position, activation: Module.CastFinishAt(spell), actorID: caster.InstanceID));
+            Refresh();
+        }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (Sequences.Count != 0)
+        if (spell.Action.ID is (uint)AID.HallowedBolt1 or (uint)AID.HallowedBolt2)
+            RemoveCaster(caster);
+    }
+
+    public override void OnActorDestroyed(Actor actor) => RemoveCaster(actor);
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID is (uint)AID.Colosseum or (uint)AID.BalanceAsunder2)
         {
-            var order = spell.Action.ID switch
-            {
-                (uint)AID.HallowedBolt1 => 0,
-                (uint)AID.HallowedBolt2 => 1,
-                _ => -1
-            };
-            AdvanceSequence(order, spell.LocXZ, WorldState.FutureTime(2d));
+            _casts.Clear();
+            _aoes.Clear();
         }
+    }
+
+    private void RemoveCaster(Actor caster)
+    {
+        if (_casts.RemoveAll(aoe => aoe.ActorID == caster.InstanceID) != 0)
+            Refresh();
+    }
+
+    private void Refresh()
+    {
+        _casts.Sort((a, b) => a.Activation.CompareTo(b.Activation));
+        _aoes.Clear();
+        // Both circle -> donut and donut -> circle occur; show the first unfinished cast at each origin.
+        foreach (var aoe in _casts)
+            if (!_aoes.Any(active => active.Origin.AlmostEqual(aoe.Origin, 1f)))
+                _aoes.Add(aoe);
     }
 }
 
@@ -155,9 +208,12 @@ class CrushArmor(BossModule module) : BossComponent(module)
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "The Combat Reborn Team", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 636, NameID = 7899)] //7917
-public class A33ThunderGod(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
+public class A33ThunderGod(WorldState ws, Actor primary) : BossModule(ws, primary, DefaultBounds.Center, DefaultBounds)
 {
-    private static readonly ArenaBoundsCustom arena = new([new Circle(new(-612.5f, -578.4f), 10), new Circle(new(-587.5f, -578.4f), 10), new Circle(new(-575, -600), 10), new Circle(new(-587.5f, -621.5f), 10), new Circle(new(-612.5f, -621.5f), 10), new Circle(new(-625, -600), 10), new Donut(new(-600, -600), 20, 27)]);
+    public static readonly WPos ArenaCenter = new(-600f, -600f);
+    // z3r3_a3_boss2.mdl: upper floor surface radius 35, placed 16 units above the lower arena.
+    public static readonly ArenaBoundsCircle UpperBounds = new(35f);
+    public static readonly ArenaBoundsCustom DefaultBounds = new([new Circle(new(-612.5f, -578.4f), 10), new Circle(new(-587.5f, -578.4f), 10), new Circle(new(-575, -600), 10), new Circle(new(-587.5f, -621.5f), 10), new Circle(new(-612.5f, -621.5f), 10), new Circle(new(-625, -600), 10), new Donut(new(-600, -600), 20, 27)]);
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {

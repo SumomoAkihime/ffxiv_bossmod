@@ -23,6 +23,9 @@ static class RadarDrawingTests
         ThanatosCenter(check);
         AdelphelCenter(check);
         ThunderGodCenter(check);
+        ThunderGodColosseum(check);
+        MustadioSatelliteBeam(check);
+        ThunderGodHallowedBolt(check);
     }
 
     static void HobbesCenter(Action<bool, string> check)
@@ -201,10 +204,30 @@ static class RadarDrawingTests
         Registered(module, typeof(ThunderGod), 0x25D7, check, "雷神");
         Center(module, check, "雷神");
         check(module.Arena.InBounds(new(-612.5f, -578.4f)) && !module.Arena.InBounds(new(-600, -600)) && !module.Arena.InBounds(new(-600, -570)), "雷神平台、中央空洞及场外世界坐标正确");
-        var bolt = Activate<ConcentricAOEs>(module, "BossMod.Stormblood.Alliance.A33ThunderGod.HallowedBolt");
+        var bolt = Activate<GenericAOEs>(module, "BossMod.Stormblood.Alliance.A33ThunderGod.HallowedBolt");
         bolt.OnCastStarted(boss, Cast(14182, boss.Position, default, 3));
         bolt.Update();
         check(bolt.ActiveAOEs(0, f.Player).Length == 1, "雷神激活后的中心 AOE 使用修正场地");
+    }
+
+    static void ThunderGodColosseum(Action<bool, string> check)
+    {
+        using var f = new Fixture();
+        var boss = f.Create(0x25D7, new(-600, -600));
+        using var module = new ThunderGod(f.World, boss);
+        var arena = Activate<BossComponent>(module, "BossMod.Stormblood.Alliance.A33ThunderGod.Colosseum");
+        var lower = module.Bounds;
+        var lowerCenter = module.Center;
+        arena.OnEventCast(boss, Event(14178));
+        check(module.Bounds is ArenaBoundsCircle && module.Center.AlmostEqual(new(-600, -600), 0.001f), "雷神竞技场进入完整圆形并切换正确中心");
+        check(module.Arena.InBounds(new(-600, -600)) && module.Arena.InBounds(new(-567.544f, -608.598f)), "雷神上层包含中心及最新回放的最远有效站位");
+        check(module.Arena.InBounds(new(-565.1f, -600)) && !module.Arena.InBounds(new(-564.9f, -600)), "雷神上层按游戏模型使用35米圆形边界");
+        arena.OnEventCast(boss, Event(14186));
+        check(module.Bounds is ArenaBoundsCircle, "雷神上层终结演出开始时保留上层场地");
+        arena.OnEventCast(boss, Event(14187));
+        check(ReferenceEquals(module.Bounds, lower) && module.Center == lowerCenter && !module.Arena.InBounds(new(-600, -600)), "雷神返回时恢复六平台边界和绘图中心");
+        arena.OnEventCast(boss, Event(14187));
+        check(ReferenceEquals(module.Bounds, lower), "雷神重复返回事件保持边界稳定");
     }
 
     static void Registered(BossModule module, Type type, uint oid, Action<bool, string> check, string name)
@@ -221,6 +244,60 @@ static class RadarDrawingTests
         var type = typeof(BossModule).Assembly.GetType(typeName, true)!;
         ActivateMethod.MakeGenericMethod(type).Invoke(module, null);
         return (T)module.Components.Single(c => c.GetType() == type);
+    }
+
+    static void MustadioSatelliteBeam(Action<bool, string> check)
+    {
+        using var f = new Fixture();
+        var boss = f.Create(0x25B7, new(600, 290));
+        var turret = f.Create(0x25B8, new(621.2f, 290), 135f.Degrees());
+        using var module = new BossMod.Stormblood.Alliance.A31Mustadio.A31Mustadio(f.World, boss);
+        var beam = Activate<GenericAOEs>(module, "BossMod.Stormblood.Alliance.A31Mustadio.SatelliteBeam");
+        beam.OnCastStarted(turret, Cast(14145, new(610.590f, 300.588f), turret.Rotation, 1.7f));
+        var aoes = beam.ActiveAOEs(0, f.Player);
+        check(aoes.Length == 1 && aoes[0].Origin.AlmostEqual(turret.Position, 0.01f), "姆斯塔迪奥卫星射线使用机械兵坐标，不使用后移15米的读条目标点");
+        check(aoes[0].Check(turret.Position + turret.Rotation.ToDirection() * 29) && !aoes[0].Check(turret.Position - turret.Rotation.ToDirection()), "姆斯塔迪奥卫星射线朝机械兵前方覆盖四分之一场地");
+        beam.OnEventCast(turret, Event(14145));
+        check(beam.ActiveAOEs(0, f.Player).IsEmpty, "姆斯塔迪奥卫星射线结算清除");
+        beam.OnCastStarted(turret, Cast(14145, new(610.590f, 300.588f), turret.Rotation, 1.7f));
+        beam.OnActorDestroyed(turret);
+        check(beam.ActiveAOEs(0, f.Player).IsEmpty, "姆斯塔迪奥机械兵提前销毁清除预警");
+    }
+
+    static void ThunderGodHallowedBolt(Action<bool, string> check)
+    {
+        using var f = new Fixture();
+        var boss = f.Create(0x25D7, new(-600, -600));
+        using var module = new ThunderGod(f.World, boss);
+        var bolt = Activate<GenericAOEs>(module, "BossMod.Stormblood.Alliance.A33ThunderGod.HallowedBolt");
+        foreach (var circleFirst in new[] { true, false })
+        {
+            var first = f.Create(0x233C, new(-608.44037f, -620.14124f));
+            var second = f.Create(0x233C, first.Position);
+            var cast1 = Cast(circleFirst ? 14182u : 14183u, first.Position, default, 4.7f);
+            var cast2 = Cast(circleFirst ? 14183u : 14182u, second.Position, default, 4.7f);
+            bolt.OnCastStarted(first, cast1);
+            f.Advance(2);
+            bolt.OnCastStarted(second, cast2);
+            var initial = bolt.ActiveAOEs(0, f.Player);
+            check(initial.Length == 1 && (initial[0].Shape is AOEShapeCircle) == circleFirst, "雷神两种圆环顺序均只显示当前段");
+            bolt.OnCastFinished(first, cast1);
+            var next = bolt.ActiveAOEs(0, f.Player);
+            check(next.Length == 1 && (next[0].Shape is AOEShapeCircle) != circleFirst, "雷神当前段结束立即显示实际第二段");
+            bolt.OnCastFinished(second, cast2);
+            check(bolt.ActiveAOEs(0, f.Player).IsEmpty, "雷神两种圆环顺序结算后均无残留");
+        }
+        var helper = f.Create(0x233C, new(-580.1771f, -617.84082f));
+        var cancelled = Cast(14182, helper.Position, default, 4.7f);
+        bolt.OnCastStarted(helper, cancelled);
+        bolt.OnCastFinished(helper, cancelled);
+        check(bolt.ActiveAOEs(0, f.Player).IsEmpty, "雷神取消读条不生成虚构的下一环");
+        bolt.OnCastStarted(helper, cancelled);
+        bolt.OnActorDestroyed(helper);
+        check(bolt.ActiveAOEs(0, f.Player).IsEmpty, "雷神辅助实体销毁清除范围");
+        bolt.OnCastStarted(helper, cancelled);
+        bolt.OnEventCast(boss, Event(14187));
+        check(bolt.ActiveAOEs(0, f.Player).IsEmpty, "雷神返回下层时清除上层预警");
     }
 
     static ActorCastInfo Cast(uint aid, WPos location, Angle rotation, float total) => new()

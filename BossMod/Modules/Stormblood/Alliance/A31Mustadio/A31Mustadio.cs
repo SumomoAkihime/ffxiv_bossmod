@@ -46,7 +46,7 @@ abstract class MaintenanceAOE(BossModule module, uint oid, uint tetherID, uint a
     {
         if (spell.Action.ID == WatchedAction)
         {
-            var aoe = new AOEInstance(shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID);
+            var aoe = new AOEInstance(shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID);
             var index = _aoes.FindIndex(existing => existing.ActorID == caster.InstanceID);
             if (index >= 0)
                 _aoes[index] = aoe;
@@ -130,5 +130,5 @@ class Searchlight(BossModule module) : Components.GenericAOEs(module, (uint)AID.
 
 class LastTestament(BossModule module) : Components.CastWeakpoint(module, (uint)AID.LastTestament, new AOEShapeRect(100f, 30f), default, (uint)SID.BackUnseen, (uint)SID.LeftUnseen, (uint)SID.RightUnseen);
 
-[ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "The Combat Reborn Team", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 636, NameID = 7915)] // 7919
+[ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "The Combat Reborn Team", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 636, NameID = 7919)]
 public class A31Mustadio(WorldState ws, Actor primary) : BossModule(ws, primary, new(600, 290), new ArenaBoundsSquare(30, 45.Degrees()));

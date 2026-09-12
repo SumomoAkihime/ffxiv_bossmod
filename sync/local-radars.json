@@ -132,8 +132,8 @@
     },
     {
       "path": "BossMod/Modules/Stormblood/Alliance/A31Mustadio",
-      "identity": "GroupType=CFC; GroupID=636; NameID=7915 (源码 ModuleInfo，按 CFC 身份字段记录); PrimaryActorOID=0x25B7",
-      "reason": "保留当前本地模块与机制实现；注册字段按源码记录，同行注释中的另一数值只作为后续数据核对提示，不自动改写。",
+      "identity": "GroupType=CFC; GroupID=636; NameID=7919 (2026-09-12 修道院回放确认); PrimaryActorOID=0x25B7",
+      "reason": "保留当前本地模块与机制实现；主 OID 0x25B7 的 NameID 已由最新回放确认为 7919。卫星射线14145必须使用机械兵实体坐标，不能用后移约15米的读条目标位置。",
       "evidence": [
         "BossMod/Modules/Stormblood/Alliance/A31Mustadio/A31Mustadio.cs",
         "BossMod/Modules/Stormblood/Alliance/A31Mustadio/A31MustadioEnums.cs",
@@ -143,7 +143,7 @@
     {
       "path": "BossMod/Modules/Stormblood/Alliance/A33ThunderGod",
       "identity": "GroupType=CFC; GroupID=636; NameID=7899 (源码 ModuleInfo，按 CFC 身份字段记录); PrimaryActorOID=0x25D7",
-      "reason": "保留六座三人塔的事件物体、半径 3 站位提示及 AID 14157 按施法朝向三次平台爆炸映射；身份冲突未核实前不得覆盖注册信息。",
+      "reason": "保留六座三人塔的事件物体、半径 3 站位提示及 AID 14157 按施法朝向三次平台爆炸映射；主 OID 0x25D7 的 NameID 已由最新回放确认为7899。14182/14183必须按实际读条兼容圆→环与环→圆，同圆心仅显示最早未完成段，取消/实体销毁/转场清理，不能恢复固定圆→环预测。上层14178切换为以(-600,-600)为中心、半径35米的完整圆形（游戏模型确认），14187恢复六平台边界及其Center；不能恢复固定下层场地。",
       "evidence": [
         "BossMod/Modules/Stormblood/Alliance/A33ThunderGod/A33ThunderGod.cs",
         "BossMod/Modules/Stormblood/Alliance/A33ThunderGod/A33ThunderGodEnums.cs",
