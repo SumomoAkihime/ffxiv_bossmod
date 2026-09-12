@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage27;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage27;
 
 public enum OID : uint
 {
@@ -32,7 +32,9 @@ sealed class Fungah(BossModule module) : Components.GenericKnockback(module, sto
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
         if (_activation != default || otherpatterns)
+        {
             return new Knockback[1] { new(Module.PrimaryActor.Position, 15f, _activation, cone, direction: Angle.FromDirection(actor.Position - Module.PrimaryActor.Position)) };
+        }
         return [];
     }
 
@@ -55,9 +57,13 @@ sealed class Fungah(BossModule module) : Components.GenericKnockback(module, sto
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
         if (spell.Action.ID == (uint)AID.Explosion)
+        {
             _activation = default;
+        }
         else if (spell.Action.ID is (uint)AID.Fungah or (uint)AID.Fungahhh)
+        {
             otherpatterns = false;
+        }
     }
 
     public override bool DestinationUnsafe(int slot, Actor actor, WPos pos)
@@ -147,14 +153,6 @@ sealed class Explosion(BossModule module) : Components.GenericAOEs(module)
     }
 }
 
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add($"{Module.PrimaryActor.Name} will spawn Bombs and Magitek Explosives throughout the fight.\nUse Snort to push away Bombs from Magitek Explosives and bait Fireballs\naway from the MEs. Meanwhile destroy the MEs asap because they will blow\nup on their own after about 35s. If any ME detonates you will be wiped.\nThe MEs are weak against water abilities and strong against fire attacks.");
-    }
-}
-
 sealed class Hints2(BossModule module) : BossComponent(module)
 {
     private DateTime _activation;
@@ -203,8 +201,7 @@ sealed class Stage27States : StateMachineBuilder
             .ActivateOnEnter<Snort>()
             .ActivateOnEnter<Explosion>()
             .ActivateOnEnter<Fungah>()
-            .ActivateOnEnter<Hints2>()
-            .DeactivateOnEnter<Hints>();
+            .ActivateOnEnter<Hints2>();
     }
 }
 
@@ -213,7 +210,12 @@ public sealed class Stage27 : BossModule
 {
     public Stage27(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleBig)
     {
-        ActivateComponent<Hints>();
+        _prePullHints =
+        [
+            $"{PrimaryActor.Name} will spawn Bombs and Magitek Explosives throughout the fight. Use Snort to push away Bombs from Magitek Explosives and bait Fireballs away from them.",
+            "Meanwhile destroy the explosives as soon as possible, because they will blow up on their own after about 35s.",
+            "If any magitek explosive detonates you will be wiped. The explosives are vulnerable against water abilities and strong against fire attacks."
+        ];
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
@@ -237,4 +239,8 @@ public sealed class Stage27 : BossModule
             };
         }
     }
+
+    private readonly string[] _prePullHints;
+
+    public override string[] PrePullHints => _prePullHints;
 }

@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage32.Act1;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage32.Act1;
 
 public enum OID : uint
 {
@@ -128,19 +128,6 @@ sealed class Hints2(BossModule module) : BossComponent(module)
     }
 }
 
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add($"For this fight The Ram's Voice, Ultravibration, Diamondback,\nExuviation, Flying Sardine, Loom, a physical dmg ability and a healing\nability (preferably Pom Cure with healer mimicry) are mandatory.");
-    }
-
-    public override void AddHints(int slot, Actor actor, TextHints hints)
-    {
-        hints.Add("Requirements for achievement: Don't destroy the crystal in act 2,\nuse no sprint, use all 6 magic elements, take no optional damage.", false);
-    }
-}
-
 sealed class Stage32Act1States : StateMachineBuilder
 {
     public Stage32Act1States(BossModule module) : base(module)
@@ -158,23 +145,25 @@ sealed class Stage32Act1States : StateMachineBuilder
             .ActivateOnEnter<GoldorThunderIII>()
             .ActivateOnEnter<GoldorThunderIII2>()
             .ActivateOnEnter<GoldorBlizzardIII>()
-            .ActivateOnEnter<Hints2>()
-            .DeactivateOnEnter<Hints>();
+            .ActivateOnEnter<Hints2>();
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 948, NameID = 12471, SortOrder = 1)]
-public sealed class Stage32Act1 : BossModule
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 948u, NameID = 12471u, SortOrder = 1)]
+public sealed class Stage32Act1(WorldState ws, Actor primary) : BossModule(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
 {
-    public Stage32Act1(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
-    {
-        ActivateComponent<Hints>();
-    }
-
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
         Arena.Actor(PrimaryActor);
         Arena.Actors(Enemies((uint)OID.BallOfFire), Colors.Object);
         Arena.Actors(Enemies((uint)OID.GlitteringSlime), Colors.Object);
     }
+
+    private readonly string[] _prePullHints =
+    [
+        $"For this fight The Ram's Voice, Ultravibration, Diamondback, Exuviation, Flying Sardine, Loom, a physical dmg ability and a healing ability (preferably Pom Cure with healer mimicry) are mandatory.",
+        "Requirements for achievement: Don't destroy the crystal in act 2, use no sprint, use all 6 magic elements, take no optional damage. This means using only physical damage abilities in act 2."
+    ];
+
+    public override string[] PrePullHints => _prePullHints;
 }

@@ -184,9 +184,10 @@ sealed class QuoteRavenDive(UCOB module) : Components.UniformStackSpread(module,
     }
 }
 
-sealed class QuoteMeteorStream(BossModule module) : Components.UniformStackSpread(module, default, 4f)
+sealed class QuoteMeteorStream(UCOB module) : Components.UniformStackSpread(module, default, 4f)
 {
     private readonly Quote? _quote = module.FindComponent<Quote>();
+    public bool Fixed;
 
     public override void Update()
     {
@@ -200,6 +201,35 @@ sealed class QuoteMeteorStream(BossModule module) : Components.UniformStackSprea
             Spreads.Clear();
         }
         base.Update();
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Fixed && IsSpreadTarget(actor) && module.BahamutPrime() is { } bahamut && SpreadSpot(bahamut, assignment) is var spot && spot != default)
+        {
+            hints.AddForbiddenZone(new SDInvertedCircle(spot, 1f), Spreads.Ref(0).Activation);
+            return;
+        }
+
+        base.AddAIHints(slot, actor, assignment, hints);
+    }
+
+    private WPos SpreadSpot(Actor bahamut, PartyRolesConfig.Assignment assignment)
+    {
+        var relN = (bahamut.Position - Arena.Center).ToAngle();
+        var a45 = 45f.Degrees();
+        return assignment switch
+        {
+            PartyRolesConfig.Assignment.MT => bahamut.Position + (relN + a45).ToDirection() * 5f,
+            PartyRolesConfig.Assignment.OT => bahamut.Position + (relN - a45).ToDirection() * 5f,
+            PartyRolesConfig.Assignment.M1 => bahamut.Position + (relN - a45).ToDirection() * -5f,
+            PartyRolesConfig.Assignment.M2 => bahamut.Position + (relN + a45).ToDirection() * -5f,
+            PartyRolesConfig.Assignment.H1 => bahamut.Position + (relN - a45).ToDirection() * -5f + relN.ToDirection() * -8f,
+            PartyRolesConfig.Assignment.H2 => bahamut.Position + (relN + a45).ToDirection() * -5f + relN.ToDirection() * -8f,
+            PartyRolesConfig.Assignment.R1 => bahamut.Position + (relN - a45).ToDirection() * -12f + relN.ToDirection() * -8f,
+            PartyRolesConfig.Assignment.R2 => bahamut.Position + (relN + a45).ToDirection() * -12f + relN.ToDirection() * -8f,
+            _ => default,
+        };
     }
 }
 

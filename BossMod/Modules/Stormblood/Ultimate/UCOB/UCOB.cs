@@ -35,7 +35,7 @@ sealed class P1Plummet(BossModule module) : Components.Cleave(module, (uint)AID.
 }
 
 sealed class P2BahamutsClaw(BossModule module) : Components.CastCounter(module, (uint)AID.BahamutsClaw);
-sealed class P3FlareBreath(BossModule module) : Components.Cleave(module, (uint)AID.FlareBreath, new AOEShapeCone(29.2f, 45f.Degrees()), [(uint)OID.BahamutPrime]); // TODO: verify angle
+sealed class P3FlareBreath(BossModule module) : Components.Cleave(module, (uint)AID.FlareBreath, new AOEShapeCone(29.2f, 46f.Degrees()), [(uint)OID.BahamutPrime]); // TODO: verify angle
 sealed class P5MornAfah(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.MornAfah, 4f, 8, 8); // TODO: verify radius
 
 [ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.Twintania, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 280u, NameID = 3210u, PlanLevel = 70)]
@@ -66,12 +66,17 @@ public sealed class UCOB(WorldState ws, Actor primary) : BossModule(ws, primary,
                 continue;
 
             enemy.TankDistance = 0f;
-            var position = enemy.Actor.Position;
-            var rotation = enemy.DesiredRotation;
-            hints.GoalZones.Add(p => p.InRect(position, rotation, 100f, 0f, 1f) ? 0.5f : 0f);
             if (enemy.CanMove)
                 hints.GoalZones.Add(hints.PullTargetToLocation(enemy.Actor, enemy.DesiredPosition, actor, WorldState.Client.Cooldowns[ActionDefinitions.GCDGroup].Remaining, 0.5f));
+
+            var position = enemy.Actor.Position;
+            var distance = (position - actor.Position).Length();
+            var goal = position + enemy.DesiredRotation.ToDirection() * distance;
+            var shape = new SDPrecisePosition(goal, new(0f, 1f), hints.PathfindMapBounds.MapResolution, actor.Position, 0.1f);
+            hints.GoalZones.Add(p => shape.Distance(p) > 0f ? 0.5f : 0f);
         }
+
+        hints.GoalZones.Add(_ => 0.1f);
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)

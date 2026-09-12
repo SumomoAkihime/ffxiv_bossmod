@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage29.Act2;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage29.Act2;
 
 public enum OID : uint
 {
@@ -164,14 +164,6 @@ sealed class Hints2(BossModule module) : BossComponent(module)
     }
 }
 
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add($"{Module.PrimaryActor.Name} will cast Throttle on you which needs to be\ncleansed with Excuviation. It will also spawn two hands which need to be\nkilled asap. Focus the left hand first because it will drain all your MP.");
-    }
-}
-
 sealed class Stage29Act2States : StateMachineBuilder
 {
     public Stage29Act2States(BossModule module) : base(module)
@@ -189,8 +181,7 @@ sealed class Stage29Act2States : StateMachineBuilder
             .ActivateOnEnter<KnockbackPull>()
             .ActivateOnEnter<FluidBall>()
             .ActivateOnEnter<Unwind>()
-            .ActivateOnEnter<Hints2>()
-            .DeactivateOnEnter<Hints>();
+            .ActivateOnEnter<Hints2>();
     }
 }
 
@@ -199,7 +190,11 @@ public sealed class Stage29Act2 : BossModule
 {
     public Stage29Act2(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
     {
-        ActivateComponent<Hints>();
+        _prePullHints =
+        [
+            $"{PrimaryActor.Name} will cast Throttle on you which needs to be cleansed with Excuviation.",
+            "It will also spawn two hands which need to be killed asap. Focus the left hand first because it will drain all your MP."
+        ];
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
@@ -208,4 +203,8 @@ public sealed class Stage29Act2 : BossModule
         Arena.Actors(Enemies((uint)OID.LeftHand));
         Arena.Actors(Enemies((uint)OID.RightHand));
     }
+
+    private readonly string[] _prePullHints;
+
+    public override string[] PrePullHints => _prePullHints;
 }

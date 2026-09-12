@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage06.Act2;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage06.Act2;
 
 public enum OID : uint
 {
@@ -127,14 +127,6 @@ sealed class DreadGaze(BossModule module) : Components.SimpleAOEs(module, (uint)
     }
 }
 
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add("The eyes are weak to lightning spells.");
-    }
-}
-
 sealed class Stage06Act2States : StateMachineBuilder
 {
     public Stage06Act2States(BossModule module) : base(module)
@@ -146,14 +138,13 @@ sealed class Stage06Act2States : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 616, NameID = 8092, SortOrder = 2)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 616u, NameID = 8092u, SortOrder = 2)]
 public sealed class Stage06Act2 : BossModule
 {
     public Stage06Act2(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleBig)
     {
         ActivateComponent<DemonEye>();
         ActivateComponent<TearyTwirl>();
-        ActivateComponent<Hints>();
     }
     public static readonly uint[] Trash = [(uint)OID.Boss, (uint)OID.Mandragora, (uint)OID.Eye];
 
@@ -179,4 +170,11 @@ public sealed class Stage06Act2 : BossModule
             };
         }
     }
+
+    private readonly string[] _prePullHints =
+    [
+        "The eyes are weak to lightning spells."
+    ];
+
+    public override string[] PrePullHints => _prePullHints;
 }

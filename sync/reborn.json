@@ -1,11 +1,11 @@
 ﻿{
   "schemaVersion": 1,
-  "updated": "2026-09-11",
+  "updated": "2026-09-12",
   "source": {
     "repository": "https://github.com/FFXIV-CombatReborn/BossmodReborn",
-    "commit": "20b8092f4a5673f8b7d1a3959f4671732a67710c",
-    "releaseTag": "7.5.6.2",
-    "releaseCommit": "326f699dcb9d7b208ffa00e193f87269d2501958",
+    "commit": "0a54e01c4808f7151deb4d4e2ee0ce101024efcb",
+    "releaseTag": "7.5.6.4",
+    "releaseCommit": "4c47f7fd49f87ce79858b1f0458a3984f9da9c7c",
     "status": "选择性整合，主分支含发布标签后内容；不表示整树一致"
   },
   "forkBaseline": "787148f34",
@@ -38,6 +38,12 @@
     {
       "commit": "包含本清单的提交",
       "scope": "Reborn 20b8092f4 辅助职业：盗窃、忍者、白魔法师、黑魔法师、召唤师、青魔法师、赤魔法师及动作/状态依赖；保留辅助龙骑士保护"
+    },
+    {
+      "commit": "包含本清单的提交",
+      "sourceCommit": "0a54e01c4808f7151deb4d4e2ee0ce101024efcb",
+      "awgilCommit": "f102023df08f809880314e1e97b7ea8256c6f4db",
+      "scope": "第一棋盘六个 Contributed 模块；绝巴哈天堂陨落、连线、分散与坦克朝向；普通坦克定距朝向；模块分级开关、待加载实例恢复、100码加载下限、模块浏览与战前提示设置；青魔斗场仅迁移战前提示，战中机制保留本地实现。原版来源仅选择性整合，不表示整体追平。"
     }
   ],
   "requiredPatches": [
@@ -103,13 +109,79 @@
         "BossMod/Modules/Stormblood/Alliance/A33ThunderGod/A33ThunderGod.cs"
       ],
       "behavior": "保留原版模块适配 Reborn 的边界中心与固定机制中心区分、ConcentricAOEs/Exaflare 父类更新及末段清理；A15 激光按战车 TargetID 匹配来源并跟随原标记者。同步后运行 RadarDrawingTests，不能仅以编译成功验收。上游存在等价修复后再移除本地补丁。"
+    },
+    {
+      "paths": [
+        "BossMod/BossModule/BossModuleConfig.cs",
+        "BossMod/BossModule/BossModuleManager.cs",
+        "BossMod/BossModule/BossModuleRegistry.cs"
+      ],
+      "behavior": "界面按 OID 禁用与 AutoDuty 等通过类名 IPC 禁用取交集，任一路恢复不能绕过另一路禁用；成熟度仍在加载/更新入口检查；恢复原实例，防止重复创建。"
+    },
+    {
+      "paths": [
+        "BossMod/Modules/Global/CrucibleOfTheUnbroken/FirstBoard"
+      ],
+      "behavior": "本地棋盘采用 Expansion.Global + Category.CrucibleOfTheUnbroken + GroupType.CFC，保留上游 GroupID/OID/NameID；不能复制本地不存在的 GroupType.CrucibleOfTheUnbroken。"
+    },
+    {
+      "paths": [
+        "BossMod/Modules/Stormblood/Ultimate/UCOB",
+        "BossMod/Autorotation/MiscAI/NormalMovement.cs"
+      ],
+      "behavior": "绝巴哈固定分散与预站位动态检查巴哈实体，三重奏安全点初始化完成后才提示；保留旧缺实体/未知目标防护。坦克朝向保持当前径向距离，绝巴哈自行提供目标以防重复，通用0.1目标仍保留。"
+    },
+    {
+      "paths": [
+        "BossMod/Modules/Global/MaskedCarnivale"
+      ],
+      "behavior": "本批只迁移 PrePullHints；保留本地战中 AOE、击退、状态按实体查询及实体发现逻辑。排除 Stage27 每帧追加未清空的 AOE 缓存及未区分 Actor 的状态布尔缓存；保留 Stage07 视线提前量、Stage20 WallopKB、Stage19/32本地修复。后续同步运行 PrePullMigrationTests。"
     }
   ],
   "localRadars": "local-radars.json",
   "pending": [
     {
-      "scope": "其他上游差异",
-      "reason": "按本轮准确提交继续分类对照；历史输出中的未合并清单不自动代表当前状态。"
+      "scope": "本批七个新增 WIP 棋盘模块",
+      "modules": [
+        "GargoylePiece",
+        "MorbolPiece",
+        "StrixPiece",
+        "TaurusPiece",
+        "GuttlerTheGutter",
+        "LakhamuPiece",
+        "SirenPiece"
+      ],
+      "reason": "未达到本轮成熟模块门槛，暂不加入发布树。"
+    },
+    {
+      "scope": "本批八个既有 WIP/Dummy 棋盘模块差异",
+      "modules": [
+        "LooserfroxInkyjots",
+        "MantiCorePiece",
+        "WyvernPiece",
+        "YoungerTablitaurPiece",
+        "CatoblepasPiece",
+        "CavalierPiece",
+        "YmirPiece",
+        "ZuPiece"
+      ],
+      "reason": "继续保留现有版本；Looserfrox 从 Dummy 改 WIP 不等于已经成熟。"
+    },
+    {
+      "scope": "普通 E05Ramuh",
+      "reason": "仍为 WIP，DeadlyDischargeKnockback 未由状态机激活，不作为完整击退数据合并。"
+    },
+    {
+      "scope": "BST 驯兽师实验数据、宠物同步及回放扩展",
+      "reason": "本轮只接受成熟雷达及必要融合更新，实验性系统单独审查。"
+    },
+    {
+      "scope": "普通/高难魔之塔上游生命周期与机制差异",
+      "reason": "保留本地实测模块；WIP或占位实现不能覆盖本地可用雷达。"
+    },
+    {
+      "scope": "本检查区间以外的历史差异",
+      "reason": "本清单仅覆盖 Reborn 20b8092f4..0a54e01c4 本批分类，不代表历史整树差异全部消除。"
     }
   ],
   "excluded": [
@@ -147,16 +219,17 @@
     "legacy": "AI.SetPreset/GetPreset 继续为空兼容；当前官方 AutoDuty 未调用，不恢复旧 AI 自动选预设"
   },
   "lastValidation": {
-    "date": "2026-09-11",
+    "date": "2026-09-12",
     "releaseBuild": "零警告、零错误",
-    "movementAndIPCAssertions": 142,
-    "entryAndRotationAssertions": 1675,
+    "movementAndIPCAssertions": 324,
+    "registeredIPCInterfaces": 66,
     "ucobAssertions": 1032,
     "polygonAssertions": 67922,
-    "protectedSourceFilesUnchanged": 40,
-    "gameTest": "辅助职业实际施放与移动组合待实机验证；尚未升版发布。",
     "supportJobsAssertions": 331,
-    "unchangedAreaValidation": "UCOB 与多边形沿用上一批通过结果；本轮未修改其源码，未重复运行。"
+    "protectedSourceFilesUnchanged": 40,
+    "gameTest": "本批为离线回归，尚未实机验证。只提交测试分支，不升版、不更新发布 ZIP；正式版本仍为 7.5.5.5207。",
+    "validationEvidence": "D:/mod-source/outputs/sync-20260912",
+    "scope": "本轮重跑循环/移动/IPC、六模块绘图、机制安全、棋盘、绝巴哈、模块启停、战前提示、辅助职业及两种多边形查询。历史 entryAndRotation 1675 项不计入本轮结果。"
   },
   "supportJobs": {
     "sourceCommit": "20b8092f4a5673f8b7d1a3959f4671732a67710c",

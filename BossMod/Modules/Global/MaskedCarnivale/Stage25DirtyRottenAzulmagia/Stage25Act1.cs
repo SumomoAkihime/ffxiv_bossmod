@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage25.Act1;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage25.Act1;
 
 public enum OID : uint
 {
@@ -32,19 +32,6 @@ sealed class Plaincracker(BossModule module) : Components.SimpleAOEs(module, (ui
 sealed class TremblingEarth1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TremblingEarth1, new AOEShapeDonut(10f, 20f));
 sealed class TremblingEarth2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TremblingEarth2, new AOEShapeDonut(20f, 30f));
 
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add($"{Module.PrimaryActor.Name} will reflect all physical damage in act 1, all magic damage in act 2\nand switch between both in act 3. Loom, Exuviation and Diamondback\nare recommended. In act 3 can start the Final Sting combination\nat about 50% health left. (Off-guard->Bristle->Moonflute->Final Sting)");
-    }
-
-    public override void AddHints(int slot, Actor actor, TextHints hints)
-    {
-        hints.Add("Requirements for achievement: Take no damage, use all 6 magic elements,\nuse all 3 melee types and finish faster than ideal time", false);
-    }
-}
-
 sealed class Hints2(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
@@ -76,16 +63,25 @@ sealed class Stage25Act1States : StateMachineBuilder
             .ActivateOnEnter<Plaincracker>()
             .ActivateOnEnter<TremblingEarth1>()
             .ActivateOnEnter<TremblingEarth2>()
-            .ActivateOnEnter<Hints2>()
-            .DeactivateOnEnter<Hints>();
+            .ActivateOnEnter<Hints2>();
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 635, NameID = 8129, SortOrder = 1)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 635u, NameID = 8129u, SortOrder = 1)]
 public sealed class Stage25Act1 : BossModule
 {
     public Stage25Act1(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleBig)
     {
-        ActivateComponent<Hints>();
+        _prePullHints =
+        [
+            $"{PrimaryActor.Name} will reflect all physical damage in act 1, all magic damage in act 2 and switch between both in act 3.",
+            "Loom, Exuviation and Diamondback are recommended.",
+            "In act 3 can start the Final Sting combination at about 50% health left. (Off-guard->Bristle->Moonflute->Final Sting)",
+            "Requirements for achievement: Take no damage, use no healing, use all 6 magic elements, use all 3 melee types and finish faster than 7min 15s"
+        ];
     }
+
+    private readonly string[] _prePullHints;
+
+    public override string[] PrePullHints => _prePullHints;
 }

@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage25.Act2;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage25.Act2;
 
 public enum OID : uint
 {
@@ -28,14 +28,6 @@ sealed class ApocalypticBolt(BossModule module) : Components.SimpleAOEs(module, 
 sealed class ApocalypticRoar(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ApocalypticRoar, new AOEShapeCone(36.2f, 60f.Degrees()));
 sealed class TheRamsVoice(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TheRamsVoice, 8f);
 sealed class TheDragonsVoice(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TheDragonsVoice, new AOEShapeDonut(6f, 30f));
-
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add($"In this act {Module.PrimaryActor.Name} will reflect all magic attacks.\nHe will also spawn adds that need to be dealed with swiftly\nsince they will spam raidwides. The adds are immune against magic\nand fire attacks.");
-    }
-}
 
 sealed class Hints2(BossModule module) : BossComponent(module)
 {
@@ -79,17 +71,21 @@ sealed class Stage25Act2States : StateMachineBuilder
             .ActivateOnEnter<ApocalypticRoar>()
             .ActivateOnEnter<TheRamsVoice>()
             .ActivateOnEnter<TheDragonsVoice>()
-            .ActivateOnEnter<Hints2>()
-            .DeactivateOnEnter<Hints>();
+            .ActivateOnEnter<Hints2>();
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 635, NameID = 8129, SortOrder = 2)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 635u, NameID = 8129u, SortOrder = 2)]
 public sealed class Stage25Act2 : BossModule
 {
     public Stage25Act2(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleBig)
     {
-        ActivateComponent<Hints>();
+        _prePullHints =
+        [
+            $"In this act {PrimaryActor.Name} will reflect all magic attacks.",
+            "He will also spawn adds that need to be dealed with swiftly, since they will spam raidwides.",
+            "The adds are immune against magic and fire attacks."
+        ];
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -112,4 +108,8 @@ public sealed class Stage25Act2 : BossModule
         Arena.Actor(PrimaryActor);
         Arena.Actors(Enemies((uint)OID.BlazingAngon), Colors.Object);
     }
+
+    private readonly string[] _prePullHints;
+
+    public override string[] PrePullHints => _prePullHints;
 }

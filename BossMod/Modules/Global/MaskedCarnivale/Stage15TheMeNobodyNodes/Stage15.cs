@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage15;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage15;
 
 public enum OID : uint
 {
@@ -66,14 +66,6 @@ sealed class Superstorm(BossModule module) : Components.SimpleAOEs(module, (uint
 sealed class Spellsword(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Spellsword, new AOEShapeCone(7.1f, 60f.Degrees()));
 sealed class Disseminate(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Disseminate, 7.2f);
 
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add("For this stage Flying Sardine and Acorn Bomb are highly recommended.\nUse Flying Sardine to interrupt High Voltage.\nUse Acorn Bomb to put Shabtis to sleep until their buff runs out.");
-    }
-}
-
 sealed class Stage15States : StateMachineBuilder
 {
     public Stage15States(BossModule module) : base(module)
@@ -85,19 +77,13 @@ sealed class Stage15States : StateMachineBuilder
             .ActivateOnEnter<RepellingCannons>()
             .ActivateOnEnter<Superstorm>()
             .ActivateOnEnter<Spellsword>()
-            .ActivateOnEnter<Disseminate>()
-            .DeactivateOnEnter<Hints>();
+            .ActivateOnEnter<Disseminate>();
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 625, NameID = 8109)]
-public sealed class Stage15 : BossModule
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 625u, NameID = 8109u)]
+public sealed class Stage15(WorldState ws, Actor primary) : BossModule(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
 {
-    public Stage15(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
-    {
-        ActivateComponent<Hints>();
-    }
-
     protected override void DrawEnemies(int pcSlot, Actor pc)
     {
         Arena.Actor(PrimaryActor);
@@ -119,4 +105,11 @@ public sealed class Stage15 : BossModule
             };
         }
     }
+
+    private readonly string[] _prePullHints =
+    [
+        "For this stage Flying Sardine and Acorn Bomb are highly recommended. Use Flying Sardine to interrupt High Voltage. Use Acorn Bomb to put Shabtis to sleep until their buff runs out."
+    ];
+
+    public override string[] PrePullHints => _prePullHints;
 }

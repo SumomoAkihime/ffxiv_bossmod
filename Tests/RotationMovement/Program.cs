@@ -177,6 +177,11 @@ class Program
             IPCTests.Run(manager, bossmods, hints, ai, Check, autoDutyDirectory);
             MechanicSafetyTests.Run(module, player, Check);
             RadarDrawingTests.Run(Check);
+            TankFacingTests.Run(manager, player, boss, Check);
+            BoardUpstreamTests.Run(Check);
+            UCOBUpstreamTests.Run(Check);
+            ModuleManagementTests.Run(bossmods, boss, Check);
+        PrePullMigrationTests.Run(Check);
             Console.WriteLine("循环/移动开关、预设改名与顺序、跟随、旧任务失效、视线及排序检查完成。");
         }
         finally { ImGui.DestroyContext(imgui); }

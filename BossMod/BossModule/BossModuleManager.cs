@@ -60,6 +60,12 @@ public sealed class BossModuleManager : IDisposable
 
         LoadedModules.Clear();
 
+        foreach (var m in PendingModules)
+        {
+            m.Dispose();
+        }
+        PendingModules.Clear();
+
         _subsciptions.Dispose();
         RaidCooldowns.Dispose();
     }
@@ -71,10 +77,10 @@ public sealed class BossModuleManager : IDisposable
         BossModule? bestModule = null;
         var anyModuleActivated = false;
 
-        var maxDist = Config.MaxLoadDistance;
         if (WorldState.Party[0]?.PosRot.AsVector3() is Vector3 playerPos)
         {
             var countP = PendingModules.Count - 1;
+            var maxDist = Math.Max(Config.MaxLoadDistance, 100f);
             var maxSq = maxDist * maxDist;
             for (var i = countP; i >= 0; --i)
             {
@@ -86,7 +92,7 @@ public sealed class BossModuleManager : IDisposable
                     m.Dispose();
                     continue;
                 }
-                if (m.OnlyLoadIfTargetable && !m.PrimaryActor.IsTargetable)
+                if (!ModuleEligible(m) || m.OnlyLoadIfTargetable && !prim.IsTargetable)
                 {
                     continue;
                 }
@@ -117,6 +123,12 @@ public sealed class BossModuleManager : IDisposable
             for (var i = 0; i < LoadedModules.Count; ++i)
             {
                 var m = LoadedModules[i];
+                if (!ModuleEligible(m))
+                {
+                    MoveModuleToPending(i--);
+                    continue;
+                }
+
                 var wasActive = m.StateMachine.ActiveState != null;
                 bool allowUpdate = !_wipeInProgress && (wasActive || !LoadedModules.Any(other => other.StateMachine.ActiveState != null && other.GetType() == m.GetType()));
                 bool isActive;
@@ -140,14 +152,10 @@ public sealed class BossModuleManager : IDisposable
                 }
 
                 var actor = m.PrimaryActor;
-                // unload module because it is not active and player is out of desired range
-                if (!isActive && (playerPos - actor.PosRot.AsVector3()).LengthSquared() > maxSq && actor.SpawnIndex != -99)
+                // keep the instance pending while the player is outside the configured loading distance
+                if ((playerPos - actor.PosRot.AsVector3()).LengthSquared() > maxSq && actor.SpawnIndex != -99)
                 {
-                    UnloadModule(i--);
-                    if (!actor.IsDestroyed)
-                    {
-                        ActorAdded(actor);
-                    }
+                    MoveModuleToPending(i--);
                     continue;
                 }
 
@@ -198,8 +206,8 @@ public sealed class BossModuleManager : IDisposable
 
     private void LoadModule(BossModule m, bool oidExists = false)
     {
-        var maxDist = Config.MaxLoadDistance;
-        if (!oidExists && WorldState.Party[0]?.PosRot.AsVector3() is Vector3 playerPos && (playerPos - m.PrimaryActor.PosRot.AsVector3()).LengthSquared() <= maxDist * maxDist)
+        var maxDist = Math.Max(Config.MaxLoadDistance, 100f);
+        if (ModuleEligible(m) && !oidExists && WorldState.Party[0]?.PosRot.AsVector3() is Vector3 playerPos && (playerPos - m.PrimaryActor.PosRot.AsVector3()).LengthSquared() <= maxDist * maxDist)
         {
             LoadedModules.Add(m);
             Service.Log($"[BMM] Boss module '{m.GetType()}' loaded for actor {m.PrimaryActor}");
@@ -211,6 +219,9 @@ public sealed class BossModuleManager : IDisposable
             Service.Log($"[BMM] Boss module '{m.GetType()}' loaded as pending for actor {m.PrimaryActor}");
         }
     }
+
+    private static bool ModuleEligible(BossModule m)
+        => m is DemoModule || m.Info == null || m.Info.Maturity >= Config.MinMaturity && Config.IsModuleEnabled(m.Info.PrimaryActorOID);
 
     private void UnloadModule(int index)
     {
@@ -224,6 +235,23 @@ public sealed class BossModuleManager : IDisposable
         }
         m.Dispose();
         LoadedModules.RemoveAt(index);
+    }
+
+    private void MoveModuleToPending(int index)
+    {
+        var m = LoadedModules[index];
+        Service.Log($"[BMM] Boss module '{m.GetType()}' for actor {m.PrimaryActor} was moved to pending status");
+        if (_activeModule == m)
+        {
+            _activeModule = null;
+            _activeModuleOverridden = false;
+            if (m.StateMachine.ActiveState != null)
+            {
+                ModuleDeactivated.Fire(m);
+            }
+        }
+        LoadedModules.RemoveAt(index);
+        PendingModules.Add(m);
     }
 
     private static int ModuleDisplayPriority(BossModule? m)
@@ -255,27 +283,37 @@ public sealed class BossModuleManager : IDisposable
 
     private void ActorAdded(Actor actor)
     {
-        var m = BossModuleRegistry.CreateModuleForActor(WorldState, actor, Config.MinMaturity);
-        if (m != null)
+        // Actor objects can be replaced while retaining instance id (for example after a teleport).
+        // Update both loaded and pending instances before considering a new module.
+        var oid = actor.OID;
+        var iid = actor.InstanceID;
+        for (var i = 0; i < LoadedModules.Count; ++i)
         {
-            var count = LoadedModules.Count;
-            for (var i = 0; i < count; ++i)
+            ref var primary = ref LoadedModules[i].PrimaryActor;
+            if (primary.OID == oid && primary.InstanceID == iid)
             {
-                var module = LoadedModules[i];
-                var prim = module.PrimaryActor;
-                if (prim.OID == actor.OID)
-                {
-                    if (prim.InstanceID == actor.InstanceID)  // module already exists, but actor reference was no longer valid (eg due to teleports at Necron)
-                    {
-                        module.PrimaryActor = actor;
-                        return;
-                    }
-                    LoadModule(m, true); // module for oid already loaded, usually means its a trash mob
-                    return;
-                }
+                primary = actor;
+                return;
             }
-            LoadModule(m, m.OnlyLoadIfTargetable);
         }
+        for (var i = 0; i < PendingModules.Count; ++i)
+        {
+            ref var primary = ref PendingModules[i].PrimaryActor;
+            if (primary.OID == oid && primary.InstanceID == iid)
+            {
+                primary = actor;
+                return;
+            }
+        }
+
+        var m = BossModuleRegistry.CreateModuleForActor(WorldState, actor);
+        if (m == null)
+        {
+            return;
+        }
+
+        var oidLoaded = LoadedModules.Any(module => module.PrimaryActor.OID == oid);
+        LoadModule(m, oidLoaded || m.OnlyLoadIfTargetable);
     }
 
     private void ConfigChanged()
@@ -288,6 +326,15 @@ public sealed class BossModuleManager : IDisposable
         else if (!Config.ShowDemo && demoIndex >= 0)
         {
             UnloadModule(demoIndex);
+        }
+
+        for (var i = LoadedModules.Count - 1; i >= 0; --i)
+        {
+            var m = LoadedModules[i];
+            if (m is not DemoModule && !ModuleEligible(m))
+            {
+                MoveModuleToPending(i);
+            }
         }
     }
 

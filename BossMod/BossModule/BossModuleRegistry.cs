@@ -208,15 +208,22 @@ public static class BossModuleRegistry
 
     public static BossModule? CreateModule(Info? info, WorldState ws, Actor primary) => info?.ModuleFactory(ws, primary);
 
-    public static BossModule? CreateModuleForActor(WorldState ws, Actor primary, BossModuleInfo.Maturity minMaturity)
+    public static BossModule? CreateModuleForActor(WorldState ws, Actor primary)
     {
         if (primary.Type is not ActorType.Enemy and not ActorType.EventObj)
         {
             return null;
         }
 
+        return CreateModule(FindByOID(primary.OID), ws, primary);
+    }
+
+    // Compatibility overload for external callers that still expect discovery-time filtering.
+    public static BossModule? CreateModuleForActor(WorldState ws, Actor primary, BossModuleInfo.Maturity minMaturity)
+    {
         var info = FindByOID(primary.OID);
-        return info?.Maturity >= minMaturity && !Service.Config.Get<BossModuleConfig>().DisabledModules.Contains(info.ModuleType.ToString()) ? CreateModule(info, ws, primary) : null;
+        return primary.Type is ActorType.Enemy or ActorType.EventObj && info?.Maturity >= minMaturity
+            && Service.Config.Get<BossModuleConfig>().IsModuleEnabled(info.PrimaryActorOID) ? CreateModule(info, ws, primary) : null;
     }
 
     // TODO: this is a hack...

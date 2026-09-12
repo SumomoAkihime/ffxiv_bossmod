@@ -411,7 +411,12 @@ sealed class P3TempestWing(BossModule module) : Components.TankbusterTether(modu
                 var side = _tethers[i];
                 if (side.Player.Role == Role.Tank)
                 {
-                    hints.AddForbiddenZone(new SDRect(side.Enemy.Position, side.Player.Position, 1), TetherDeadline);
+                    hints.AddForbiddenZone(new SDRect(side.Enemy.Position, side.Player.Position, 1f), TetherDeadline);
+                }
+
+                if (side.Player == actor)
+                {
+                    hints.AddForbiddenZone(new SDCircle(side.Enemy.Position, 2f));
                 }
             }
             if (EnableRaidHints)

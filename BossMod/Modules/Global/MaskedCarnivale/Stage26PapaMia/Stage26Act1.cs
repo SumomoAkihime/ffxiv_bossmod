@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage26.Act1;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage26.Act1;
 
 public enum OID : uint
 {
@@ -25,14 +25,6 @@ public enum SID : uint
 sealed class Gust(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Gust, 3f);
 sealed class AlternatePlumage(BossModule module) : Components.CastHint(module, (uint)AID.AlternatePlumage, "Prepare to dispel buff");
 sealed class CaberToss(BossModule module) : Components.CastInterruptHint(module, (uint)AID.CaberToss);
-
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add($"{Module.PrimaryActor.Name} will cast Alternate Plumage, which makes him almost\nimmune to damage. Use Eerie Soundwave to dispel it. Caber Toss must be\ninterrupted or you will wipe.\nAdditionally Exuviation and earth spells are recommended for act 2.");
-    }
-}
 
 sealed class Hints2(BossModule module) : BossComponent(module)
 {
@@ -61,16 +53,24 @@ sealed class Stage26Act1States : StateMachineBuilder
             .ActivateOnEnter<CaberToss>()
             .ActivateOnEnter<Gust>()
             .ActivateOnEnter<AlternatePlumage>()
-            .ActivateOnEnter<Hints2>()
-            .DeactivateOnEnter<Hints>();
+            .ActivateOnEnter<Hints2>();
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 695, NameID = 9230, SortOrder = 1)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 695u, NameID = 9230u, SortOrder = 1)]
 public sealed class Stage26Act1 : BossModule
 {
     public Stage26Act1(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleBig)
     {
-        ActivateComponent<Hints>();
+        _prePullHints =
+        [
+            $"{PrimaryActor.Name} will cast Alternate Plumage, which makes him almost immune to damage.",
+            "Use Eerie Soundwave to dispel it. Caber Toss must be interrupted or you will wipe.",
+            "Additionally Exuviation and earth spells are recommended for act 2."
+        ];
     }
+
+    private readonly string[] _prePullHints;
+
+    public override string[] PrePullHints => _prePullHints;
 }

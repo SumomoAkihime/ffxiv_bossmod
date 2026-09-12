@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage31.Act1;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage31.Act1;
 
 public enum OID : uint
 {
@@ -62,19 +62,6 @@ sealed class Hints2(BossModule module) : BossComponent(module)
     }
 }
 
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add($"For this fight Diamondback, Exuviation, Flying Sardine and a healing\nability (preferably Pom Cure with healer mimicry) are mandatory.\nEerie Soundwave is also recommended.");
-    }
-
-    public override void AddHints(int slot, Actor actor, TextHints hints)
-    {
-        hints.Add("Requirements for achievement: Take no optional damage and finish faster\nthan ideal time.", false);
-    }
-}
-
 sealed class Stage31Act1States : StateMachineBuilder
 {
     public Stage31Act1States(BossModule module) : base(module)
@@ -89,16 +76,18 @@ sealed class Stage31Act1States : StateMachineBuilder
             .ActivateOnEnter<MimickedFireBlast>()
             .ActivateOnEnter<MimickedRawInstinct>()
             .ActivateOnEnter<DiamondBackHint>()
-            .ActivateOnEnter<Hints2>()
-            .DeactivateOnEnter<Hints>();
+            .ActivateOnEnter<Hints2>();
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 754, NameID = 9908, SortOrder = 1)]
-public sealed class Stage31Act1 : BossModule
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 754u, NameID = 9908u, SortOrder = 1)]
+public sealed class Stage31Act1(WorldState ws, Actor primary) : BossModule(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
 {
-    public Stage31Act1(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
-    {
-        ActivateComponent<Hints>();
-    }
+    private readonly string[] _prePullHints =
+    [
+        "For this fight Diamondback, Exuviation, Flying Sardine and a healing ability (preferably Pom Cure with healer mimicry) are mandatory. Eerie Soundwave is also recommended.",
+        "Requirements for achievement: Take no optional damage and finish in less than 6min 50s."
+    ];
+
+    public override string[] PrePullHints => _prePullHints;
 }

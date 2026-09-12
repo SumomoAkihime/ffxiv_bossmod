@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage20.Act3;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage20.Act3;
 
 public enum OID : uint
 {
@@ -33,25 +33,11 @@ sealed class ImpSong(BossModule module) : Components.CastInterruptHint(module, (
 sealed class Snort(BossModule module) : Components.CastHint(module, (uint)AID.Snort, "Use Diamondback!");
 sealed class SnortKB(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.Snort, 30f);
 
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add($"This act is act 1+2 combined with tentacles on top.\nThe Final Sting combo (Off-guard->Bristle->Moonflute->Final Sting) makes\nthis act including the achievement much easier. {Module.PrimaryActor.Name} is weak to fire.");
-    }
-
-    public override void AddHints(int slot, Actor actor, TextHints hints)
-    {
-        hints.Add("Requirement for achievement: Don't kill any tentacles in this act", false);
-    }
-}
-
 sealed class Stage20Act3States : StateMachineBuilder
 {
     public Stage20Act3States(BossModule module) : base(module)
     {
         TrivialPhase()
-            .DeactivateOnEnter<Hints>()
             .ActivateOnEnter<TentacleFireball>()
             .ActivateOnEnter<Megavolt>()
             .ActivateOnEnter<AquaBreath>()
@@ -63,12 +49,18 @@ sealed class Stage20Act3States : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 630, NameID = 3046, SortOrder = 3)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 630u, NameID = 3046u, SortOrder = 3)]
 public sealed class Stage20Act3 : BossModule
 {
     public Stage20Act3(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
     {
-        ActivateComponent<Hints>();
+        _prePullHints =
+        [
+            "This act is act 1+2 combined with tentacles on top.",
+            "The Final Sting combo (Off-guard->Bristle->Moonflute->Final Sting) makes this act including the achievement much easier.",
+            $"{PrimaryActor.Name} is weak to fire.",
+            "Requirement for achievement: Don't kill any tentacles in this act"
+        ];
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
@@ -92,4 +84,8 @@ public sealed class Stage20Act3 : BossModule
             };
         }
     }
+
+    private readonly string[] _prePullHints;
+
+    public override string[] PrePullHints => _prePullHints;
 }

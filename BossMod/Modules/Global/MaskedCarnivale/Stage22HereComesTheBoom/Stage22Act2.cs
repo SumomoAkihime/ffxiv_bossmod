@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage22.Act2;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage22.Act2;
 
 public enum OID : uint
 {
@@ -26,14 +26,6 @@ sealed class Sap(BossModule module) : Components.SimpleAOEGroups(module, [(uint)
 sealed class ScaldingScolding(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ScaldingScolding, new AOEShapeCone(11.75f, 60f.Degrees()));
 sealed class Flashthoom(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Flashthoom, 7.2f);
 sealed class Ignition(BossModule module) : Components.RaidwideCast(module, (uint)AID.Ignition, "Wipe if Grenade is not killed yet, otherwise Raidwide");
-
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add($"{Module.PrimaryActor.Name} spawns grenades and gas bombs during the fight. Just as in\nact 1 the grenades must be killed in one hit each or they will wipe you.\nUse Sticky Tongue to pull Gas Bombs to the boss so they interrupt the enrage.\nYou can start the Final Sting combination at about 50% health left.\n(Off-guard->Bristle->Moonflute->Final Sting)");
-    }
-}
 
 sealed class Hints2(BossModule module) : BossComponent(module)
 {
@@ -79,17 +71,21 @@ sealed class Stage22Act2States : StateMachineBuilder
             .ActivateOnEnter<Ignition>()
             .ActivateOnEnter<ScaldingScolding>()
             .ActivateOnEnter<Flashthoom>()
-            .ActivateOnEnter<Hints2>()
-            .DeactivateOnEnter<Hints>();
+            .ActivateOnEnter<Hints2>();
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 632, NameID = 8123, SortOrder = 2)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 632u, NameID = 8123u, SortOrder = 2)]
 public sealed class Stage22Act2 : BossModule
 {
     public Stage22Act2(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
     {
-        ActivateComponent<Hints>();
+        _prePullHints =
+        [
+            $"{PrimaryActor.Name} spawns grenades and gas bombs during the fight. Just as in act 1 the grenades must be killed in one hit each or they will wipe you.",
+            "Use Sticky Tongue to pull Gas Bombs to the boss so they interrupt the enrage.",
+            "You can start the Final Sting combination at about 50% health left. (Off-guard->Bristle->Moonflute->Final Sting)"
+        ];
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
@@ -98,4 +94,8 @@ public sealed class Stage22Act2 : BossModule
         Arena.Actors(Enemies((uint)OID.ArenaGrenade), Colors.Object);
         Arena.Actors(Enemies((uint)OID.ArenaGasBomb), Colors.Object);
     }
+
+    private readonly string[] _prePullHints;
+
+    public override string[] PrePullHints => _prePullHints;
 }

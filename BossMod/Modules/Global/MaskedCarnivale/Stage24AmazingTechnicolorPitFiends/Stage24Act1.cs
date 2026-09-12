@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage24.Act1;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage24.Act1;
 
 public enum OID : uint
 {
@@ -40,20 +40,11 @@ sealed class Hints2(BossModule module) : BossComponent(module)
     }
 }
 
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add($"The {Module.PrimaryActor.Name} is immune to magic, the {Module.Enemies((uint)OID.ArenaViking)[0].Name} is immune to\nphysical attacks. For the 2nd act Diamondback is highly recommended.\nFor the 3rd act a ranged physical spell such as Fire Angon\nis highly recommended.");
-    }
-}
-
 sealed class Stage24Act1States : StateMachineBuilder
 {
     public Stage24Act1States(BossModule module) : base(module)
     {
         TrivialPhase()
-            .DeactivateOnEnter<Hints>()
             .ActivateOnEnter<Starstorm>()
             .ActivateOnEnter<RagingAxe>()
             .ActivateOnEnter<LightningSpark>()
@@ -62,12 +53,17 @@ sealed class Stage24Act1States : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 634, NameID = 8127, SortOrder = 1)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 634u, NameID = 8127u, SortOrder = 1)]
 public sealed class Stage24Act1 : BossModule
 {
     public Stage24Act1(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleBig)
     {
-        ActivateComponent<Hints>();
+        _prePullHints =
+        [
+            $"The {PrimaryActor.Name} is immune to magic, the viking is immune to physical attacks.",
+            "For the 2nd act Diamondback is highly recommended.",
+            "For the 3rd act a ranged physical spell such as Fire Angon is highly recommended."
+        ];
     }
     public static readonly uint[] Trash = [(uint)OID.ArenaViking, (uint)OID.Boss];
 
@@ -91,4 +87,8 @@ public sealed class Stage24Act1 : BossModule
     //         };
     //     }
     // }
+
+    private readonly string[] _prePullHints;
+
+    public override string[] PrePullHints => _prePullHints;
 }

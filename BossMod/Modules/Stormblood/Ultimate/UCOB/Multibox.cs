@@ -16,7 +16,7 @@ sealed class Multibox(RotationModuleManager manager, Actor player) : RotationMod
         if (Bossmods.ActiveModule is not UCOB module)
             return;
 
-        if (module.StateMachine.ActiveState != null && World.Party.WithoutSlot(includeDead: true).Any(p => p.IsDead || p.FindStatus((uint)SID.Paralysis) != null) && module.StateMachine.ActivePhaseIndex < 4)
+        if (module.StateMachine.ActiveState != null && World.Party.WithoutSlot(true, true, true).Any(p => p.IsDead || p.FindStatus((uint)SID.Paralysis) != null) && module.StateMachine.ActivePhaseIndex < 4)
         {
             Hints.ForcedMovement = -Player.DirectionTo(default(WPos)).ToVec3();
         }

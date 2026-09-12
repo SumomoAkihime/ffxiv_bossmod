@@ -1,4 +1,4 @@
-{
+﻿{
   "Settings": "设置",
   "Supported fights": "支持的战斗",
   "Supported bosses": "支持的首领",
@@ -161,6 +161,18 @@
   "Pathfinding debug colors 8": "寻路调试颜色 8",
 
   "Search:": "搜索：",
+  "Enabled": "启用",
+  "Some modules in this expansion are disabled. Click to enable all.": "此资料片有部分模块已禁用。点击启用全部模块。",
+  "Disable all modules in this expansion.": "禁用此资料片的全部模块。",
+  "Enable all modules in this expansion.": "启用此资料片的全部模块。",
+  "Some modules in this category are disabled. Click to enable all.": "此任务类型有部分模块已禁用。点击启用全部模块。",
+  "Disable all modules in this category.": "禁用此任务类型的全部模块。",
+  "Enable all modules in this category.": "启用此任务类型的全部模块。",
+  "Some modules in this group are disabled. Click to enable all.": "此副本组有部分模块已禁用。点击启用全部模块。",
+  "Disable all modules in this group.": "禁用此副本组的全部模块。",
+  "Enable all modules in this group.": "启用此副本组的全部模块。",
+  "Disable this module.": "禁用此模块。",
+  "Enable this module.": "启用此模块。",
   "Expansion": "资料片",
   "Content": "任务类型",
   "e.g. \"Ultimate\"": "例如“绝境战”",
@@ -178,6 +190,8 @@
   "Gold saucer": "金碟游乐场",
   "Ungrouped": "未分组",
   "Cooldown planning: {0}": "减伤/爆发计划：{0}",
+  "Cooldown planning: {0}\n": "减伤/爆发计划：{0}\n",
+  "Cooldown planning: {0}\nContributors: {1}\n": "减伤/爆发计划：{0}\n贡献者：{1}\n",
   "not supported": "不支持",
   "Contributors: {0}": "贡献者：{0}",
   "Edit {0} '{1}' ({2})": "编辑 {0}“{1}”（{2}）",

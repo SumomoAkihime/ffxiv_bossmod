@@ -182,11 +182,14 @@ public sealed class NormalMovement : RotationModule
         // UCOB already applies its tank goals after encounter components.
         if (Bossmods.ActiveModule is not Stormblood.Ultimate.UCOB.UCOB && Hints.FindEnemy(primaryTarget) is { } enemy && enemy.Actor.TargetID == Player.InstanceID)
         {
-            var position = enemy.Actor.Position;
-            var rotation = enemy.DesiredRotation;
-            Hints.GoalZones.Add(p => p.InRect(position, rotation, 100f, 0f, 1f) ? 0.5f : 0f);
             if (enemy.CanMove)
                 Hints.GoalZones.Add(Hints.PullTargetToLocation(enemy.Actor, enemy.DesiredPosition, Player, GCD, 0.5f));
+
+            var position = enemy.Actor.Position;
+            var distance = (position - Player.Position).Length();
+            var goal = position + enemy.DesiredRotation.ToDirection() * distance;
+            var shape = new SDPrecisePosition(goal, new(0f, 1f), Hints.PathfindMapBounds.MapResolution, Player.Position, 0.1f);
+            Hints.GoalZones.Add(p => shape.Distance(p) > 0f ? 0.5f : 0f);
         }
 
         var isSpinning = Player.FindStatus(SID.Spinning) != null;

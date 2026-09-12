@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage25.Act3;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage25.Act3;
 
 public enum OID : uint
 {
@@ -99,14 +99,6 @@ sealed class MeteorVoidzone(BossModule module) : Components.VoidzoneAtCastTarget
     }
 }
 
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add($"In this act {Module.PrimaryActor.Name} will switch between magic and physical reflects.\nSpend attention to that so you don't accidently kill yourself.\nAs soon as he starts casting Web go to the edge to bait Meteor, then use Loom\nto escape. You can start the Final Sting combination at about 50% health left.\n(Off-guard->Bristle->Moonflute->Final Sting)");
-    }
-}
-
 sealed class Hints2(BossModule module) : BossComponent(module)
 {
     public override void AddGlobalHints(GlobalHints hints)
@@ -148,16 +140,24 @@ sealed class Stage25Act3States : StateMachineBuilder
             .ActivateOnEnter<MeteorVoidzone>()
             .ActivateOnEnter<Maelstrom>()
             .ActivateOnEnter<Web>()
-            .ActivateOnEnter<Hints2>()
-            .DeactivateOnEnter<Hints>();
+            .ActivateOnEnter<Hints2>();
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 635, NameID = 8129, SortOrder = 3)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 635u, NameID = 8129u, SortOrder = 3)]
 public sealed class Stage25Act3 : BossModule
 {
     public Stage25Act3(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
     {
-        ActivateComponent<Hints>();
+        _prePullHints =
+        [
+            $"In this act {PrimaryActor.Name} will switch between magic and physical reflects. Spend attention to that so you don't accidently kill yourself.",
+            "As soon as he starts casting Web go to the edge to bait Meteor, then use Loom to escape.",
+            "You can start the Final Sting combination at about 50% health left. (Off-guard->Bristle->Moonflute->Final Sting)"
+        ];
     }
+
+    private readonly string[] _prePullHints;
+
+    public override string[] PrePullHints => _prePullHints;
 }

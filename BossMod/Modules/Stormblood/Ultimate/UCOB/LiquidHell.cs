@@ -127,7 +127,7 @@ sealed class P1LiquidHell(BossModule module) : LiquidHellBase(module)
                     {
                         continue;
                     }
-                    hints.AddForbiddenZone(new SDCircle(p.Position, 0.5f), DateTime.MaxValue);
+                    hints.AddForbiddenZone(new SDCircle(p.Position, 1f), DateTime.MaxValue);
                 }
             }
             if (_fireball == null)

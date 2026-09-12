@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage17.Act2;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage17.Act2;
 
 public enum OID : uint
 {
@@ -82,14 +82,6 @@ sealed class Hints2(BossModule module) : BossComponent(module)
     }
 }
 
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add($"{Module.PrimaryActor.Name} is weak to lightning spells.\nDuring the fight he will spawn one of each claws as known from act 1.\nIf available use the Ram's Voice + Ultravibration combo for instant kill.");
-    }
-}
-
 sealed class Stage17Act2States : StateMachineBuilder
 {
     public Stage17Act2States(BossModule module) : base(module)
@@ -100,17 +92,20 @@ sealed class Stage17Act2States : StateMachineBuilder
             .ActivateOnEnter<TheHand>()
             .ActivateOnEnter<GrandStrike>()
             .ActivateOnEnter<Shred>()
-            .ActivateOnEnter<Hints2>()
-            .DeactivateOnEnter<Hints>();
+            .ActivateOnEnter<Hints2>();
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 627, NameID = 8087, SortOrder = 2)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 627u, NameID = 8087u, SortOrder = 2)]
 public sealed class Stage17Act2 : BossModule
 {
     public Stage17Act2(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
     {
-        ActivateComponent<Hints>();
+        _prePullHints =
+        [
+            $"{PrimaryActor.Name} is weak to lightning spells. During the fight he will spawn one of each claws as known from act 1.",
+            "If available use the Ram's Voice + Ultravibration combo for instant kill."
+        ];
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc)
@@ -133,4 +128,8 @@ public sealed class Stage17Act2 : BossModule
             };
         }
     }
+
+    private readonly string[] _prePullHints;
+
+    public override string[] PrePullHints => _prePullHints;
 }

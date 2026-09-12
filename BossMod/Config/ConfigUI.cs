@@ -7,14 +7,15 @@ namespace BossMod;
 
 public sealed class ConfigUI : IDisposable
 {
-    private class UINode(ConfigNode node)
+    private class UINode(ConfigNode? node)
     {
-        public ConfigNode Node = node;
+        public ConfigNode? Node = node;
         public string Name = "";
         public int Order;
         public UINode? Parent;
         public List<UINode> Children = [];
         public string[] Tags = [];
+        public List<BossModuleRegistry.Info> PrePullHintModules = [];
 
         public List<string> Path = [];
     }
@@ -63,6 +64,29 @@ public sealed class ConfigUI : IDisposable
 
             var parentNodes = n.Parent?.Children ?? _roots;
             parentNodes.Add(n);
+        }
+
+        foreach (var info in BossModuleRegistry.RegisteredModules.Values)
+        {
+            if (!info.HasPrePullHints)
+            {
+                continue;
+            }
+
+            if (info.ConfigType != null && nodes.TryGetValue(info.ConfigType, out var configNode))
+            {
+                configNode.PrePullHintModules.Add(info);
+                continue;
+            }
+
+            var hintNode = new UINode(null)
+            {
+                Name = GenerateNodeName(info.ModuleType),
+                Order = SupportedFightNodeOrder(info),
+                Parent = nodes.GetValueOrDefault(ExpansionConfigType(info.Expansion)) ?? nodes.GetValueOrDefault(typeof(ModuleConfig))
+            };
+            hintNode.PrePullHintModules.Add(info);
+            (hintNode.Parent?.Children ?? _roots).Add(hintNode);
         }
 
         SortByOrder(_roots);
@@ -227,13 +251,26 @@ public sealed class ConfigUI : IDisposable
             return;
         }
 
-        foreach (var field in GeneratedConfigMetadata.Get(node.Node).DisplayFields)
+        if (node.Node != null)
         {
-            var props = field.Display!;
-            if (TextMatchesLocalized(props.Label) || TagsMatch(props.Tags) || (field.SectionStart is { Label.Length: > 0 } section && TextMatchesLocalized(section.Label)))
+            foreach (var field in GeneratedConfigMetadata.Get(node.Node).DisplayFields)
             {
-                var matchPath = new List<string>(path) { node.Name, Loc.Tr(props.Label) };
-                results.Add(matchPath);
+                var props = field.Display!;
+                if (TextMatchesLocalized(props.Label) || TagsMatch(props.Tags) || field.SectionStart is { Label.Length: > 0 } section && TextMatchesLocalized(section.Label))
+                {
+                    var matchPath = new List<string>(path) { node.Name, Loc.Tr(props.Label) };
+                    results.Add(matchPath);
+                }
+            }
+        }
+
+        var hintCount = node.PrePullHintModules.Count;
+        for (var i = 0; i < hintCount; ++i)
+        {
+            var label = PrePullHintSettingLabel(node.PrePullHintModules[i], hintCount > 1);
+            if (TextMatchesLocalized(label))
+            {
+                results.Add([.. path, node.Name, Loc.Tr(label)]);
             }
         }
 
@@ -350,11 +387,51 @@ public sealed class ConfigUI : IDisposable
     private static PropertyRenderer GetPropertyRenderer(Type type)
         => _propertyRenderers.TryGetValue(type, out var renderer) ? renderer : (_propertyRenderers[type] = GeneratedFactories.CreatePropertyRenderer(type));
 
+    internal static void DrawPrePullHintSetting(BossModuleRegistry.Info info, string label = "显示此副本的战前提示")
+    {
+        var show = BossModuleManager.Config.ShowPrePullHintsFor(info.PrimaryActorOID);
+        if (ImGui.Checkbox($"{Loc.Tr(label)}##PrePullHints{info.PrimaryActorOID:X8}", ref show))
+        {
+            BossModuleManager.Config.SetShowPrePullHintsFor(info.PrimaryActorOID, show);
+        }
+
+        if (!BossModuleManager.Config.ShowPrePullHints)
+        {
+            ImGui.SameLine();
+            ImGui.TextDisabled("（全局已关闭）");
+        }
+    }
+
+    private static string PrePullHintSettingLabel(BossModuleRegistry.Info info, bool disambiguate)
+        => disambiguate ? $"显示 {GenerateNodeName(info.ModuleType)} 的战前提示" : "显示此副本的战前提示";
+
+    private static Type ExpansionConfigType(BossModuleInfo.Expansion expansion) => expansion switch
+    {
+        BossModuleInfo.Expansion.RealmReborn => typeof(RealmReborn.RealmRebornConfig),
+        BossModuleInfo.Expansion.Heavensward => typeof(Heavensward.HeavenswardConfig),
+        BossModuleInfo.Expansion.Stormblood => typeof(Stormblood.StormbloodConfig),
+        BossModuleInfo.Expansion.Shadowbringers => typeof(Shadowbringers.ShadowbringersConfig),
+        BossModuleInfo.Expansion.Endwalker => typeof(Endwalker.EndwalkerConfig),
+        BossModuleInfo.Expansion.Dawntrail => typeof(Dawntrail.DawntrailConfig),
+        BossModuleInfo.Expansion.Global => typeof(Global.GlobalConfig),
+        _ => typeof(ModuleConfig)
+    };
+
     private static string GenerateNodeName(Type t) => t.Name.EndsWith("Config", StringComparison.Ordinal) ? t.Name[..^"Config".Length] : t.Name;
+
+    private int SupportedFightNodeOrder(BossModuleRegistry.Info info)
+    {
+        var order = _mv.SupportedListOrder(info);
+        return order == int.MaxValue ? 0x20000000 : 0x100000 + order;
+    }
 
     private static void SortByOrder(List<UINode> nodes)
     {
-        nodes.Sort(static (a, b) => a.Order.CompareTo(b.Order));
+        nodes.Sort(static (a, b) =>
+        {
+            var order = a.Order.CompareTo(b.Order);
+            return order != 0 ? order : string.Compare(a.Name, b.Name, StringComparison.Ordinal);
+        });
         foreach (var n in nodes)
         {
             SortByOrder(n.Children);
@@ -374,7 +451,21 @@ public sealed class ConfigUI : IDisposable
 
         foreach (var n in _tree.Nodes(filteredNodes, n => new(n.Name)))
         {
-            DrawNode(n.Node, _root, _tree, _ws, props => MatchesFilter([.. n.Path, Loc.Tr(props.Label)]));
+            var hintCount = n.PrePullHintModules.Count;
+            for (var i = 0; i < hintCount; ++i)
+            {
+                var info = n.PrePullHintModules[i];
+                var label = PrePullHintSettingLabel(info, hintCount > 1);
+                if (MatchesFilter([.. n.Path, Loc.Tr(label)]))
+                {
+                    DrawPrePullHintSetting(info, label);
+                }
+            }
+
+            if (n.Node != null)
+            {
+                DrawNode(n.Node, _root, _tree, _ws, props => MatchesFilter([.. n.Path, Loc.Tr(props.Label)]));
+            }
             DrawNodes(n.Children);
         }
     }

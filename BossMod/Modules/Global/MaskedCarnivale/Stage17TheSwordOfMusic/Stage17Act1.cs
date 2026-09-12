@@ -1,4 +1,4 @@
-namespace BossMod.Global.MaskedCarnivale.Stage17.Act1;
+﻿namespace BossMod.Global.MaskedCarnivale.Stage17.Act1;
 
 public enum OID : uint
 {
@@ -32,34 +32,31 @@ sealed class Hints2(BossModule module) : BossComponent(module)
     }
 }
 
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add($"The {Module.PrimaryActor.Name} counters magical attacks, the {Module.Enemies((uint)OID.RightClaw)[0].Name} counters physical\nattacks. If you have healing spells you can just tank the counter damage\nand kill them however you like anyway. All opponents in this stage are\nweak to lightning.\nThe Ram's Voice and Ultravibration combo can be used in Act 2.");
-    }
-}
-
 sealed class Stage17Act1States : StateMachineBuilder
 {
     public Stage17Act1States(BossModule module) : base(module)
     {
         TrivialPhase()
-            .DeactivateOnEnter<Hints>()
+            .ActivateOnEnter<Hints2>()
             .ActivateOnEnter<Shred>()
             .ActivateOnEnter<TheHand>()
-            .ActivateOnEnter<Hints2>()
             .Raw.Update = () => AllDeadOrDestroyed(Stage17Act1.Hands);
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 627, NameID = 8115, SortOrder = 1)]
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 627u, NameID = 8115u, SortOrder = 1)]
 public sealed class Stage17Act1 : BossModule
 {
     public Stage17Act1(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
     {
-        ActivateComponent<Hints>();
+        _prePullHints =
+        [
+            $"The {PrimaryActor.Name} counters magical attacks, the other claw counters physical attacks.",
+            "If you have healing spells you can just tank the counter damage and kill them however you like anyway.",
+            "All opponents in this stage are weak to lightning. The Ram's Voice and Ultravibration combo can be used in act 2."
+        ];
     }
+
     public static readonly uint[] Hands = [(uint)OID.Boss, (uint)OID.RightClaw];
 
     protected override bool CheckPull() => IsAnyActorInCombat(Hands);
@@ -83,4 +80,8 @@ public sealed class Stage17Act1 : BossModule
     //         };
     //     }
     // }
+
+    private readonly string[] _prePullHints;
+
+    public override string[] PrePullHints => _prePullHints;
 }
