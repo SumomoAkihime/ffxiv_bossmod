@@ -307,7 +307,7 @@ public sealed class ClientState
                     var holster = BozjaHolster[j];
                     if (holster != default)
                     {
-                        bozjaHolster.Add(((BozjaHolsterID)i, holster));
+                        bozjaHolster.Add(((BozjaHolsterID)j, holster));
                     }
                 }
                 ops.Add(new OpBozjaHolsterChange(bozjaHolster));
@@ -369,6 +369,11 @@ public sealed class ClientState
                     break;
                 }
             }
+        }
+        foreach (var (id, quantity) in Inventory)
+        {
+            if (quantity > 0u)
+                ops.Add(new OpInventoryChange(id, quantity));
         }
         return ops;
     }

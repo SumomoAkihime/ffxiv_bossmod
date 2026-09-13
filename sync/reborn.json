@@ -1,11 +1,11 @@
 ﻿{
   "schemaVersion": 1,
-  "updated": "2026-09-12",
+  "updated": "2026-09-13",
   "source": {
     "repository": "https://github.com/FFXIV-CombatReborn/BossmodReborn",
-    "commit": "0a54e01c4808f7151deb4d4e2ee0ce101024efcb",
-    "releaseTag": "7.5.6.4",
-    "releaseCommit": "4c47f7fd49f87ce79858b1f0458a3984f9da9c7c",
+    "commit": "1bb36741f8504b721ffd77563a5197bf07b21201",
+    "releaseTag": "7.5.6.5",
+    "releaseCommit": "2016b08eb482b9f4174dad6fd5746f6a72045588",
     "status": "选择性整合，主分支含发布标签后内容；不表示整树一致"
   },
   "forkBaseline": "787148f34",
@@ -44,6 +44,11 @@
       "sourceCommit": "0a54e01c4808f7151deb4d4e2ee0ce101024efcb",
       "awgilCommit": "f102023df08f809880314e1e97b7ea8256c6f4db",
       "scope": "第一棋盘六个 Contributed 模块；绝巴哈天堂陨落、连线、分散与坦克朝向；普通坦克定距朝向；模块分级开关、待加载实例恢复、100码加载下限、模块浏览与战前提示设置；青魔斗场仅迁移战前提示，战中机制保留本地实现。原版来源仅选择性整合，不表示整体追平。"
+    },
+    {
+      "commit": "包含本清单的提交",
+      "sourceCommit": "1bb36741f8504b721ffd77563a5197bf07b21201",
+      "scope": "Reborn 0a54e01c4..1bb36741f：录制开始时写入非零物品数量快照；新手战术训练连续半场按时间排序和陨石站位修正；第一棋盘独舞双心中点提前预警。保留本地实际伤害读条并按双心实体独立清理；修复本地/上游共有的博兹雅初始物品ID索引错误。"
     }
   ],
   "requiredPatches": [
@@ -136,6 +141,18 @@
         "BossMod/Modules/Global/MaskedCarnivale"
       ],
       "behavior": "本批只迁移 PrePullHints；保留本地战中 AOE、击退、状态按实体查询及实体发现逻辑。排除 Stage27 每帧追加未清空的 AOE 缓存及未区分 Actor 的状态布尔缓存；保留 Stage07 视线提前量、Stage20 WallopKB、Stage19/32本地修复。后续同步运行 PrePullMigrationTests。"
+    },
+    {
+      "paths": [
+        "BossMod/Data/ClientState.cs"
+      ],
+      "behavior": "CompareToInitial写入非零Inventory快照，BozjaHolster内层循环的ID与数量均使用j，不能恢复外层i导致多物品ID重复。未引入BST/CBST实验数据。"
+    },
+    {
+      "paths": [
+        "BossMod/Modules/Global/CrucibleOfTheUnbroken/FirstBoard/PasDeSeul.cs"
+      ],
+      "behavior": "HeartShatter沿用Reborn双心按生成顺序配对、中点及13.5秒提前量；按成对ActorID清理，不因任意一颗心结算清空全部。保留46938真实伤害读条，匹配1米内同圆心预测时避免重复显示；销毁清理未配对实体和对应预测。配对和提前量来自上游，尚无本地实机回放验证。"
     }
   ],
   "localRadars": "local-radars.json",
@@ -173,7 +190,7 @@
     },
     {
       "scope": "BST 驯兽师实验数据、宠物同步及回放扩展",
-      "reason": "本轮只接受成熟雷达及必要融合更新，实验性系统单独审查。"
+      "reason": "本轮只接受成熟雷达及必要融合更新，实验性系统单独审查。 Reborn 7.5.6.5的CBST长度由int改byte仅适用于尚未引入的BeastmasterBeasts数据，本次不移植。"
     },
     {
       "scope": "普通/高难魔之塔上游生命周期与机制差异",
@@ -181,7 +198,7 @@
     },
     {
       "scope": "本检查区间以外的历史差异",
-      "reason": "本清单仅覆盖 Reborn 20b8092f4..0a54e01c4 本批分类，不代表历史整树差异全部消除。"
+      "reason": "当前记录已分类检查至Reborn 1bb36741f，不代表历史整树差异全部消除。"
     }
   ],
   "excluded": [
@@ -192,6 +209,10 @@
     {
       "scope": "发布身份、版本、双仓 ZIP 与发布流程",
       "reason": "单独发布；本次测试分支调整不升版、不更新发布包。"
+    },
+    {
+      "scope": "2026-09-13 M04SWickedThunder/AI/AIExperiment调试模块的站位条件简化",
+      "reason": "整个文件仅DEBUG参与编译；本次只同步可用机制及回放必要修复，不扩展实验AI。"
     }
   ],
   "validation": [
@@ -219,17 +240,14 @@
     "legacy": "AI.SetPreset/GetPreset 继续为空兼容；当前官方 AutoDuty 未调用，不恢复旧 AI 自动选预设"
   },
   "lastValidation": {
-    "date": "2026-09-12",
+    "date": "2026-09-13",
     "releaseBuild": "零警告、零错误",
-    "movementAndIPCAssertions": 324,
+    "movementAndIPCAssertions": 359,
     "registeredIPCInterfaces": 66,
-    "ucobAssertions": 1032,
-    "polygonAssertions": 67922,
-    "supportJobsAssertions": 331,
-    "protectedSourceFilesUnchanged": 40,
-    "gameTest": "本批为离线回归，尚未实机验证。只提交测试分支，不升版、不更新发布 ZIP；正式版本仍为 7.5.5.5207。",
-    "validationEvidence": "D:/mod-source/outputs/sync-20260912",
-    "scope": "本轮重跑循环/移动/IPC、六模块绘图、机制安全、棋盘、绝巴哈、模块启停、战前提示、辅助职业及两种多边形查询。历史 entryAndRotation 1675 项不计入本轮结果。"
+    "protectedSourceFilesUnchanged": 37,
+    "gameTest": "尚未实机验证；只推测试分支，不升版、不更新发布ZIP。线上版本仍7.5.6.402。",
+    "validationEvidence": "D:/mod-source/outputs/sync-20260913",
+    "scope": "本轮运行RotationMovement完整套件（含循环/移动/IPC、奥本绘图、机制安全、棋盘、UCOB组件、模块管理、战前提示及新增快照/双心/新手半场用例）；未重跑独立辅助职业、多边形和旧UCOB独立套件。DLL与本轮Release一致。"
   },
   "supportJobs": {
     "sourceCommit": "20b8092f4a5673f8b7d1a3959f4671732a67710c",
@@ -241,5 +259,20 @@
     "defaults": "盗窃默认关闭；辅助白魔复活默认关闭；其余新增输出与自疗按上游默认开启，并受装备技能及对应条件限制",
     "terminologySource": "https://ff14.huijiwiki.com/wiki/辅助职业",
     "localCompatibility": "保留普通赤魔 Dualcast 连段，辅助法术不会消耗该状态；Swiftcast 等其余即刻状态仍按上游处理，召唤技能始终按 4 秒读条。"
-  }
+  },
+  "validationHistory": [
+    {
+      "date": "2026-09-12",
+      "releaseBuild": "零警告、零错误",
+      "movementAndIPCAssertions": 324,
+      "registeredIPCInterfaces": 66,
+      "ucobAssertions": 1032,
+      "polygonAssertions": 67922,
+      "supportJobsAssertions": 331,
+      "protectedSourceFilesUnchanged": 40,
+      "gameTest": "本批为离线回归，尚未实机验证。只提交测试分支，不升版、不更新发布 ZIP；正式版本仍为 7.5.5.5207。",
+      "validationEvidence": "D:/mod-source/outputs/sync-20260912",
+      "scope": "本轮重跑循环/移动/IPC、六模块绘图、机制安全、棋盘、绝巴哈、模块启停、战前提示、辅助职业及两种多边形查询。历史 entryAndRotation 1675 项不计入本轮结果。"
+    }
+  ]
 }

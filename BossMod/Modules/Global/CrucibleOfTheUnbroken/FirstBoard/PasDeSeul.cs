@@ -50,7 +50,61 @@ sealed class SuccubusKnightAdd(BossModule module) : Components.Adds(module, (uin
 sealed class VoidFireII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.VoidFireII, 10f);
 
 //HeartShatter1 = 46938, // 233C->self, 1.0s cast, range 24 circle
-sealed class HeartShatter(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HeartShatter1, 24f);
+sealed class HeartShatter(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HeartShatter1, 24f)
+{
+    private Actor? _pendingOrb;
+    private readonly List<(ulong First, ulong Second, AOEInstance AOE)> _predictions = [];
+    private readonly List<AOEInstance> _aoes = [];
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if (actor.OID != (uint)OID.Pheromone)
+            return;
+
+        if (_pendingOrb == null)
+            _pendingOrb = actor;
+        else
+        {
+            // Reborn predicts each pair's meeting point 13.5 seconds after the second heart appears.
+            var origin = _pendingOrb.Position + (actor.Position - _pendingOrb.Position) * 0.5f;
+            _predictions.Add((_pendingOrb.InstanceID, actor.InstanceID, new(Shape, origin, activation: WorldState.FutureTime(13.5d))));
+            _pendingOrb = null;
+        }
+    }
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        _aoes.Clear();
+        foreach (var aoe in base.ActiveAOEs(slot, actor))
+            _aoes.Add(aoe);
+        foreach (var prediction in _predictions)
+            if (!Casters.Any(cast => cast.Origin.AlmostEqual(prediction.AOE.Origin, 1f)))
+                _aoes.Add(prediction.AOE);
+        return CollectionsMarshal.AsSpan(_aoes);
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        base.OnCastFinished(caster, spell);
+        if (spell.Action.ID == (uint)AID.HeartShatter)
+            RemoveOrb(caster.InstanceID);
+        else if (spell.Action.ID == (uint)AID.HeartShatter1)
+            _predictions.RemoveAll(p => p.AOE.Origin.AlmostEqual(spell.LocXZ, 1f));
+    }
+
+    public override void OnActorDestroyed(Actor actor)
+    {
+        RemoveOrb(actor.InstanceID);
+        Casters.RemoveAll(cast => cast.ActorID == actor.InstanceID);
+    }
+
+    private void RemoveOrb(ulong id)
+    {
+        if (_pendingOrb?.InstanceID == id)
+            _pendingOrb = null;
+        _predictions.RemoveAll(p => p.First == id || p.Second == id);
+    }
+}
 //SweetSteel = 46930, // SuccubusKnight->self, 6.0s cast, range 10 120.000-degree cone
 sealed class SweetSteel(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SweetSteel, new AOEShapeCone(10f, 60f.Degrees()));
 
