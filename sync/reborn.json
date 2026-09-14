@@ -1,11 +1,11 @@
 ﻿{
   "schemaVersion": 1,
-  "updated": "2026-09-13",
+  "updated": "2026-09-14",
   "source": {
     "repository": "https://github.com/FFXIV-CombatReborn/BossmodReborn",
-    "commit": "1bb36741f8504b721ffd77563a5197bf07b21201",
-    "releaseTag": "7.5.6.5",
-    "releaseCommit": "2016b08eb482b9f4174dad6fd5746f6a72045588",
+    "commit": "653bef79adfe0b6567d9ebc016f1aa44b53d4a29",
+    "releaseTag": "7.5.6.6",
+    "releaseCommit": "aa063ad299789cb11cbed3c69c4278c36eb01184",
     "status": "选择性整合，主分支含发布标签后内容；不表示整树一致"
   },
   "forkBaseline": "787148f34",
@@ -49,6 +49,11 @@
       "commit": "包含本清单的提交",
       "sourceCommit": "1bb36741f8504b721ffd77563a5197bf07b21201",
       "scope": "Reborn 0a54e01c4..1bb36741f：录制开始时写入非零物品数量快照；新手战术训练连续半场按时间排序和陨石站位修正；第一棋盘独舞双心中点提前预警。保留本地实际伤害读条并按双心实体独立清理；修复本地/上游共有的博兹雅初始物品ID索引错误。"
+    },
+    {
+      "commit": "包含本清单的提交",
+      "sourceCommit": "653bef79adfe0b6567d9ebc016f1aa44b53d4a29",
+      "scope": "Reborn 1bb36741f..653bef79a：第三棋盘七个Contributed模块（Cavalier、Ymir、Zu、Lakhamu、Siren、Guttler、Campeador）及其AI提示；堡垒D053彗星击退落点检查改用正确扇形列表；模块颜色/成熟度悬停说明及帮助文本，补中文翻译与配对调用。另修复上游Lakhamu诱导清理时间残留。目标主线含7.5.6.6标签后七个提交，不代表整树追平。"
     }
   ],
   "requiredPatches": [
@@ -153,34 +158,47 @@
         "BossMod/Modules/Global/CrucibleOfTheUnbroken/FirstBoard/PasDeSeul.cs"
       ],
       "behavior": "HeartShatter沿用Reborn双心按生成顺序配对、中点及13.5秒提前量；按成对ActorID清理，不因任意一颗心结算清空全部。保留46938真实伤害读条，匹配1米内同圆心预测时避免重复显示；销毁清理未配对实体和对应预测。配对和提前量来自上游，尚无本地实机回放验证。"
+    },
+    {
+      "paths": [
+        "BossMod/Config/ModuleViewer.cs",
+        "BossMod/Localization/zh-CN.json"
+      ],
+      "behavior": "成熟度提示使用现有Loc翻译；PushTextWrapPos必须与PopTextWrapPos配对。无贡献者时也显示成熟度；保留本地ModuleGroupInfo按Id计算哈希及中文分组。"
+    },
+    {
+      "paths": [
+        "BossMod/Modules/Stormblood/Dungeon/D05CastrumAbania/D053Inferno.cs"
+      ],
+      "behavior": "RahuCometKB.DestinationUnsafe的第二列表必须读取KetuCutter（_aoe2.Casters）；不能重复读取KetuWave，避免扇形漏判和数量不等时越界。已以两种击退组件覆盖仅扇形、圆/扇复合、数量不同及结束清理。"
+    },
+    {
+      "paths": [
+        "BossMod/Modules/Global/CrucibleOfTheUnbroken/ThirdBoard"
+      ],
+      "behavior": "成熟七模块沿用本地Expansion.Global + Category.CrucibleOfTheUnbroken + GroupType.CFC身份映射，保留上游GroupID/OID/NameID与正文注释；保留击退AI约束和免疫处理。Lakhamu.EarthShaker延迟清空诱导后必须同时重置eventCastActivation，避免下一轮沿用旧时间立即清空。Contributed不等于AISupport或本地实机通过。"
     }
   ],
   "localRadars": "local-radars.json",
   "pending": [
     {
-      "scope": "本批七个新增 WIP 棋盘模块",
+      "scope": "剩余新增 WIP 棋盘模块",
       "modules": [
         "GargoylePiece",
         "MorbolPiece",
         "StrixPiece",
-        "TaurusPiece",
-        "GuttlerTheGutter",
-        "LakhamuPiece",
-        "SirenPiece"
+        "TaurusPiece"
       ],
       "reason": "未达到本轮成熟模块门槛，暂不加入发布树。"
     },
     {
-      "scope": "本批八个既有 WIP/Dummy 棋盘模块差异",
+      "scope": "剩余既有 WIP/Dummy 棋盘模块差异",
       "modules": [
         "LooserfroxInkyjots",
         "MantiCorePiece",
         "WyvernPiece",
         "YoungerTablitaurPiece",
-        "CatoblepasPiece",
-        "CavalierPiece",
-        "YmirPiece",
-        "ZuPiece"
+        "CatoblepasPiece"
       ],
       "reason": "继续保留现有版本；Looserfrox 从 Dummy 改 WIP 不等于已经成熟。"
     },
@@ -198,7 +216,7 @@
     },
     {
       "scope": "本检查区间以外的历史差异",
-      "reason": "当前记录已分类检查至Reborn 1bb36741f，不代表历史整树差异全部消除。"
+      "reason": "当前记录已分类检查至Reborn 653bef79a，不代表历史整树差异全部消除。"
     }
   ],
   "excluded": [
@@ -213,6 +231,10 @@
     {
       "scope": "2026-09-13 M04SWickedThunder/AI/AIExperiment调试模块的站位条件简化",
       "reason": "整个文件仅DEBUG参与编译；本次只同步可用机制及回放必要修复，不扩展实验AI。"
+    },
+    {
+      "scope": "2026-09-14 堡垒D051/D052/D053的非必要结构调整",
+      "reason": "本批只移植D053落点列表修复；sealed、静态形状改实例、每实例场地构造、同类组件合并及格式变化未带入，保留现有机制行为。"
     }
   ],
   "validation": [
@@ -240,14 +262,16 @@
     "legacy": "AI.SetPreset/GetPreset 继续为空兼容；当前官方 AutoDuty 未调用，不恢复旧 AI 自动选预设"
   },
   "lastValidation": {
-    "date": "2026-09-13",
+    "date": "2026-09-14",
     "releaseBuild": "零警告、零错误",
-    "movementAndIPCAssertions": 359,
+    "movementAndIPCAssertions": 410,
     "registeredIPCInterfaces": 66,
-    "protectedSourceFilesUnchanged": 37,
-    "gameTest": "尚未实机验证；只推测试分支，不升版、不更新发布ZIP。线上版本仍7.5.6.402。",
-    "validationEvidence": "D:/mod-source/outputs/sync-20260913",
-    "scope": "本轮运行RotationMovement完整套件（含循环/移动/IPC、奥本绘图、机制安全、棋盘、UCOB组件、模块管理、战前提示及新增快照/双心/新手半场用例）；未重跑独立辅助职业、多边形和旧UCOB独立套件。DLL与本轮Release一致。"
+    "protectedSourceFilesUnchanged": 40,
+    "protectedSourceScope": "37个雷达源码及3个共享支撑文件，按tools/check_local_radars.py完整清单比较。",
+    "releaseDLLSHA256": "C22CC1A2A68F9C7E1D798CE4CB78B475344B70024B838FBD8EC1025C64C34CBE",
+    "gameTest": "尚未实机验证；只推测试分支，不升版、不更新发布ZIP。线上版本仍7.5.6.501。",
+    "validationEvidence": "D:/mod-source/outputs/sync-20260914",
+    "scope": "本轮运行RotationMovement完整套件，含新增第三棋盘与堡垒击退用例，以及既有循环/移动/IPC、奥本绘图、机制安全、UCOB、模块管理等回归。测试DLL与本轮Release一致。未重跑独立辅助职业、多边形或旧UCOB独立套件。"
   },
   "supportJobs": {
     "sourceCommit": "20b8092f4a5673f8b7d1a3959f4671732a67710c",
@@ -273,6 +297,16 @@
       "gameTest": "本批为离线回归，尚未实机验证。只提交测试分支，不升版、不更新发布 ZIP；正式版本仍为 7.5.5.5207。",
       "validationEvidence": "D:/mod-source/outputs/sync-20260912",
       "scope": "本轮重跑循环/移动/IPC、六模块绘图、机制安全、棋盘、绝巴哈、模块启停、战前提示、辅助职业及两种多边形查询。历史 entryAndRotation 1675 项不计入本轮结果。"
+    },
+    {
+      "date": "2026-09-13",
+      "releaseBuild": "零警告、零错误",
+      "movementAndIPCAssertions": 359,
+      "registeredIPCInterfaces": 66,
+      "protectedSourceFilesUnchanged": 37,
+      "gameTest": "尚未实机验证；只推测试分支，不升版、不更新发布ZIP。线上版本仍7.5.6.402。",
+      "validationEvidence": "D:/mod-source/outputs/sync-20260913",
+      "scope": "本轮运行RotationMovement完整套件（含循环/移动/IPC、奥本绘图、机制安全、棋盘、UCOB组件、模块管理、战前提示及新增快照/双心/新手半场用例）；未重跑独立辅助职业、多边形和旧UCOB独立套件。DLL与本轮Release一致。"
     }
   ]
 }

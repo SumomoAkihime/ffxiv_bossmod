@@ -91,7 +91,7 @@ class RahuCometKB(BossModule module, uint aid, float distance) : Components.Simp
             }
         }
         var count2 = _aoe2.Casters.Count;
-        var aoes2 = CollectionsMarshal.AsSpan(_aoe1.Casters);
+        var aoes2 = CollectionsMarshal.AsSpan(_aoe2.Casters);
         for (var i = 0; i < count2; ++i)
         {
             if (aoes2[i].Check(pos))

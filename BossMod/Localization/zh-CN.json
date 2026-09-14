@@ -232,5 +232,10 @@
   "Idle": "待机",
   "AI: {0}": "AI：{0}",
   "On": "开",
-  "Off": "关"
+  "Off": "关",
+
+  "Work in progress; might be incomplete or have severe bugs.": "开发中：机制可能不完整，或存在严重错误。",
+  "Third-party contributed module that wasn't verified by the plugin author; might be working fine, might have any sorts of inconsistencies with other modules - YMMV.": "社区贡献：尚未经插件作者验证，可能正常工作，也可能与其他模块存在差异。",
+  "First-party module created by the plugin author, or a third-party contributed module that was thoroughly verified.": "已验证：由插件作者制作，或已经过充分验证的社区模块。",
+  "Module that has been verified to work well with AI enabled.": "支持 AI：已经过启用 AI 时的运行验证。"
 }

@@ -180,6 +180,8 @@ class Program
             TankFacingTests.Run(manager, player, boss, Check);
             BoardUpstreamTests.Run(Check);
             UpstreamSeptemberTests.Run(Check);
+            CastrumUpstreamTests.Run(Check);
+            ThirdBoardUpstreamTests.Run(Check);
             UCOBUpstreamTests.Run(Check);
             ModuleManagementTests.Run(bossmods, boss, Check);
         PrePullMigrationTests.Run(Check);

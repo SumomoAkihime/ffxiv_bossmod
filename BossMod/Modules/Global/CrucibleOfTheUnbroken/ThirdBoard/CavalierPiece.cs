@@ -32,15 +32,55 @@ public enum TetherID : uint {
     DoublingTether = 398, // 4C92->CavalierPiece
 }
 
-sealed class Hint(BossModule module) : BossComponent(module) {
-    public override void AddGlobalHints(Actor actor, GlobalHints hints) {
-        hints.Add("This fight is easy if you kill every pack wave together and before the 4th pack spawn otherwise it starts getting complicated.");
+sealed class Steelripper(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Steelripper, new AOEShapeCone(60.0f, 65.0f.Degrees()));
+
+sealed class MenaceValfodr(BossModule module) : Components.GenericAOEs(module) {
+    private readonly List<AOEInstance> aoes = [];
+    private readonly AOEShapeCircle circle = new(20.0f);
+    private readonly AOEShapeRect rectangle = new(60.0f, 4.0f);
+    private const float riskyWindow = 7.0f;
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell) {
+        if (spell.Action.ID == (uint)AID.FeintedCavalierTeleport) {
+            if (caster.Position.InRect(Arena.Center, 20.0f, 20.0f)) {
+                aoes.Add(new(circle, caster.Position, caster.Rotation, WorldState.FutureTime(12.3f)));
+            }
+
+            if (!caster.Position.InRect(Arena.Center, 20.0f, 20.0f)) {
+                // Actors can spawn at angles, but will always look forward where ever they spawn, so we just correct it here
+                var angleCorrection = (MathF.Round(caster.Rotation.Deg / 90.0f) * 90.0f).Degrees();
+                if (angleCorrection.ToDirection().Dot(caster.Position - Arena.Center) > 0) {
+                    angleCorrection = angleCorrection + 180.0f.Degrees();
+                }
+
+                aoes.Add(new(rectangle, caster.Position, angleCorrection, WorldState.FutureTime(11.7f)));
+            }
+        }
+
+        if (spell.Action.ID == (uint)AID.Menace || spell.Action.ID == (uint)AID.Valfodr) {
+            if (aoes.Count > 0) {
+                aoes.RemoveAt(0);
+            }
+        }
+    }
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
+        var count = aoes.Count;
+        if (count == 0) {
+            return [];
+        }
+
+        var incomingAOEs = CollectionsMarshal.AsSpan(aoes);
+        var time = WorldState.CurrentTime;
+
+        for (var i = 0; i < count; i++) {
+            ref var aoe = ref incomingAOEs[i];
+            aoe.Risky = aoe.Activation.AddSeconds(-riskyWindow) <= time;
+        }
+
+        return incomingAOEs;
     }
 }
-
-sealed class Steelripper(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Steelripper, new AOEShapeCone(60.0f, 65.0f.Degrees()));
-sealed class Menace(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Menace, 20.0f);
-sealed class Valfodr(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Valfodr, new AOEShapeRect(60.0f, 4.0f));
 
 sealed class CrushingBlade(BossModule module) : Components.GenericKnockback(module) {
     private const float KnockbackDistance = 15.0f;
@@ -74,36 +114,47 @@ sealed class CrushingBlade(BossModule module) : Components.GenericKnockback(modu
 
         return [];
     }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
+        if (!affectedPlayers[slot] || activation == default || source == null || IsImmune(slot, activation)) {
+            return;
+        }
+
+        hints.AddForbiddenZone(new SDKnockbackInAABBRectAwayFromOrigin(Arena.Center, source.Position, KnockbackDistance, 20.0f, 20.0f));
+    }
 }
 
 sealed class CavalierPieceStates : StateMachineBuilder {
     public CavalierPieceStates(BossModule module) : base(module) {
         TrivialPhase()
-            .DeactivateOnEnter<Hint>()
             .ActivateOnEnter<Steelripper>()
-            .ActivateOnEnter<Menace>()
-            .ActivateOnEnter<Valfodr>()
+            .ActivateOnEnter<MenaceValfodr>()
             .ActivateOnEnter<CrushingBlade>();
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.WIP,
-    PrimaryActorOID = (uint)OID.CavalierPiece,
-    Contributors = "Equilius",
-    Category = BossModuleInfo.Category.CrucibleOfTheUnbroken,
-    GroupType = BossModuleInfo.GroupType.CFC,
-    GroupID = 1090u,
-    NameID = 14564u,
-    SortOrder = 10)]
-public sealed class CavalierPiece : BossModule {
-    public override bool ShouldPrioritizeAllEnemies => true;
-
-    public CavalierPiece(WorldState ws, Actor primary) : base(ws, primary, new(120f, 0f), new ArenaBoundsRect(20f, 20f)) {
-        ActivateComponent<Hint>();
+[ModuleInfo(BossModuleInfo.Maturity.Contributed, PrimaryActorOID = (uint)OID.CavalierPiece, Contributors = "Equilius", Expansion = BossModuleInfo.Expansion.Global, Category = BossModuleInfo.Category.CrucibleOfTheUnbroken, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1090u, NameID = 14564u, SortOrder = 1)]
+public sealed class CavalierPiece(WorldState ws, Actor primary) : BossModule(ws, primary, new(120f, 0f), new ArenaBoundsSquare(20f)) {
+    protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
+        var count = hints.PotentialTargets.Count;
+        for (var i = 0; i < count; ++i) {
+            var e = hints.PotentialTargets[i];
+            e.Priority = e.Actor.OID switch {
+                (uint)OID.BoneBishop => 2,
+                (uint)OID.CavalierPiece => 1,
+                _ => 0
+            };
+        }
     }
 
     protected override void DrawEnemies(int pcSlot, Actor pc) {
         Arena.Actor(PrimaryActor);
         Arena.Actors(Enemies((uint)OID.BoneBishop));
     }
+
+    private readonly string[] _prePullHints = [
+        "This fight is easy if you kill every pack wave together and before the 4th pack spawn otherwise it starts getting complicated."
+    ];
+
+    public override string[] PrePullHints => _prePullHints;
 }

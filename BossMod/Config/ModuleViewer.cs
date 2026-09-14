@@ -553,6 +553,13 @@ public sealed class ModuleViewer : IDisposable
                             using (ImRaii.PushColor(ImGuiCol.Text, textColor))
                             {
                                 ImGui.TextUnformatted(mod.DisplayName);
+                                if (ImGui.IsItemHovered())
+                                {
+                                    using var tooltip = ImRaii.Tooltip();
+                                    ImGui.PushTextWrapPos(900f);
+                                    ImGui.TextUnformatted(MaturityHelpText(mod.Info.Maturity));
+                                    ImGui.PopTextWrapPos();
+                                }
                             }
 
                             using (var popup = ImRaii.Popup(mod.PopupID))
@@ -640,12 +647,15 @@ public sealed class ModuleViewer : IDisposable
         }
     }
 
+    private static string MaturityHelpText(BossModuleInfo.Maturity maturity) => Loc.Tr(maturity.GetAttribute<PropertyDisplayAttribute>()!.Label);
+
     private static string BuildModuleHelpText(BossModuleRegistry.Info info)
     {
         var planning = info.PlanLevel > 0 ? $"L{info.PlanLevel}" : Loc.Tr("not supported");
-        return info.Contributors.Length > 0
+        var details = info.Contributors.Length > 0
             ? Loc.Tr("Cooldown planning: {0}\nContributors: {1}\n", planning, info.Contributors)
             : Loc.Tr("Cooldown planning: {0}\n", planning);
+        return details + MaturityHelpText(info.Maturity);
     }
 
     private void ModulePlansPopup(BossModuleRegistry.Info info)
