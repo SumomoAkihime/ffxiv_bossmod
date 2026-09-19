@@ -321,7 +321,8 @@ sealed class P3MegaflareTower(BossModule module) : Components.CastTowers(module,
 
 sealed class P3MegaflareStack(BossModule module) : Components.UniformStackSpread(module, 5f, 0f, 4, 4)
 {
-    private readonly P3BlackfireTrio _blackfire = module.FindComponent<P3BlackfireTrio>()!;
+    private readonly P3BlackfireTrio? _blackfire = module.FindComponent<P3BlackfireTrio>();
+    private bool _twinBait;
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
@@ -340,6 +341,14 @@ sealed class P3MegaflareStack(BossModule module) : Components.UniformStackSpread
         if (spell.Action.ID == (uint)AID.MegaflareStack)
         {
             Stacks.Clear();
+        }
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.TwistingDive)
+        {
+            _twinBait = true;
         }
     }
 
@@ -366,9 +375,19 @@ sealed class P3MegaflareStack(BossModule module) : Components.UniformStackSpread
                 }
             }
         }
-        else // bft: stack spot is relative south of puddles
+        else if (_blackfire != null) // bft: stack spot is relative south of puddles
         {
             hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center + (_blackfire.RelativeNorth + 180f.Degrees()).ToDirection() * 8f, 2.5f), stack.Activation);
+        }
+        else if (Module.FindComponent<P3GrandOctet>() is { Twintania: { } twintania } octet)
+        {
+            if (octet.BaitOrder[slot] == 8 && !_twinBait)
+            {
+                return;
+            }
+
+            var direction = (twintania.Position - Arena.Center).ToAngle() - (20f * octet.DiveOrder).Degrees();
+            hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center + direction.ToDirection() * 19f, 1f), stack.Activation);
         }
     }
 }

@@ -287,6 +287,9 @@ public sealed class ActionDefinitions
 
     public static bool DashToTargetCheck(WorldState ws, Actor player, ActionQueue.Entry action, AIHints hints)
     {
+        if (hints.ForbidDashes)
+            return true;
+
         var cfg = Service.Config.Get<ActionTweaksConfig>();
         var target = action.Target;
         if (target == null || !cfg.DashSafety)
@@ -316,6 +319,9 @@ public sealed class ActionDefinitions
 
     public static bool DashToPositionCheck(WorldState _, Actor player, ActionQueue.Entry action, AIHints hints)
     {
+        if (hints.ForbidDashes)
+            return true;
+
         var cfg = Service.Config.Get<ActionTweaksConfig>();
         if (action.TargetPos == default || !cfg.DashSafety || !cfg.DashSafetyExtra)
             return false;
@@ -329,6 +335,9 @@ public sealed class ActionDefinitions
     public static ActionDefinition.ConditionDelegate DashFixedDistanceCheck(float range, bool backwards = false)
         => (ws, player, act, hints) =>
         {
+            if (hints.ForbidDashes)
+                return true;
+
             var cfg = Service.Config.Get<ActionTweaksConfig>();
             if (!cfg.DashSafety || !cfg.DashSafetyExtra)
                 return false;
@@ -346,6 +355,9 @@ public sealed class ActionDefinitions
     public static ActionDefinition.ConditionDelegate BackdashCheck(float range)
          => (ws, player, act, hints) =>
         {
+            if (hints.ForbidDashes)
+                return true;
+
             var cfg = Service.Config.Get<ActionTweaksConfig>();
             if (act.Target == null || !cfg.DashSafety || !cfg.DashSafetyExtra)
                 return false;

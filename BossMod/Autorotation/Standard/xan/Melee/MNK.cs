@@ -131,7 +131,9 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         [Option("Downtime prep: Solar", MinLevel = 60, Effect = 39)]
         DowntimeSolar,
         [Option("Downtime prep: Lunar", MinLevel = 60, Effect = 39)]
-        DowntimeLunar
+        DowntimeLunar,
+        [Option("Use ASAP unless under the effect of Form Shift")]
+        ForceNoShift
     }
     public enum TCStrategy
     {
@@ -424,7 +426,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
 
         UpdatePositionals(primaryTarget, ref pos);
 
-        GoalZoneCombined(strategy, 3, Hints.GoalAOECircle(5), AID.ArmOfTheDestroyer, AOEBreakpoint, maximumActionRange: 20);
+        GoalZoneCombined(strategy, 3, Hints.GoalAOECircle(5), AID.ArmOfTheDestroyer, BeastCount > 0 ? 2 : AOEBreakpoint, maximumActionRange: 20);
 
         if (Player.InCombat)
             OGCD(strategy, primaryTarget);
@@ -523,7 +525,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         if (BeastChakra[0] != BeastChakraType.None || NextGCD == AID.FiresReply || pbstrat == PBStrategy.Delay || PerfectBalanceLeft > 0)
             return;
 
-        if (pbstrat == PBStrategy.Force || pbstrat is PBStrategy.DowntimeSolar or PBStrategy.DowntimeLunar && primaryTarget is null)
+        if (pbstrat == PBStrategy.Force || pbstrat is PBStrategy.DowntimeSolar or PBStrategy.DowntimeLunar && primaryTarget is null || pbstrat == PBStrategy.ForceNoShift && FormShiftLeft == 0)
         {
             PushOGCD(AID.PerfectBalance, Player, OGCDPriority.PerfectBalance);
             return;

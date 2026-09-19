@@ -164,6 +164,7 @@ public sealed class AIHints
     // this is used by the action queue to skip casts that we won't be able to finish and execute lower-priority fallback actions instead
     public float MaxCastTime = float.MaxValue;
     public bool ForceCancelCast;
+    public bool ForbidDashes; // mechanic restriction, independent of geometric dash safety
 
     // actions that we want to be executed, gathered from various sources (manual input, autorotation, planner, ai, modules, etc.)
     public readonly ActionQueue ActionsToExecute = new();
@@ -204,6 +205,7 @@ public sealed class AIHints
         ShouldCleanse.Reset();
         MaxCastTime = float.MaxValue;
         ForceCancelCast = false;
+        ForbidDashes = false;
         ActionsToExecute.Clear();
         StatusesToCancel.Clear();
         WantJump = false;

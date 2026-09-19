@@ -20,19 +20,6 @@ sealed class P2Heavensfall(BossModule module) : Heavensfall(module)
     }
 }
 
-sealed class P3Heavensfall(BossModule module) : Heavensfall(module)
-{
-    public bool EnableHints;
-
-    public override void AddAIHints(int slot, Actor actor, Assignment assignment, AIHints hints)
-    {
-        if (EnableHints)
-        {
-            hints.AddForbiddenZone(new SDInvertedDonut(Arena.Center, 8.5f, 10f), Activation);
-        }
-    }
-}
-
 sealed class P2HeavensfallPillar(BossModule module) : Components.GenericAOEs(module)
 {
     private AOEInstance[] _aoe = [];
@@ -64,16 +51,13 @@ sealed class P2HeavensfallPillar(BossModule module) : Components.GenericAOEs(mod
     }
 }
 
-sealed class P2ThermionicBurst(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ThermionicBurst, new AOEShapeCone(24.5f, 11.25f.Degrees()));
+abstract class ThermionicBurst(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ThermionicBurst, new AOEShapeCone(24.5f, 11.25f.Degrees()));
 
-sealed class P2MeteorStream : Components.UniformStackSpread
+sealed class P2ThermionicBurst(BossModule module) : ThermionicBurst(module);
+
+abstract class MeteorStream(BossModule module) : Components.UniformStackSpread(module, 0f, 4f)
 {
     public int NumCasts;
-
-    public P2MeteorStream(BossModule module) : base(module, default, 4f)
-    {
-        AddSpreads(Raid.WithoutSlot(true, true, true), WorldState.FutureTime(5.6d));
-    }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
@@ -103,6 +87,14 @@ sealed class P2MeteorStream : Components.UniformStackSpread
                 }
             }
         }
+    }
+}
+
+sealed class P2MeteorStream : MeteorStream
+{
+    public P2MeteorStream(BossModule module) : base(module)
+    {
+        AddSpreads(Raid.WithoutSlot(true), WorldState.FutureTime(5.6d));
     }
 
     public override void AddAIHints(int slot, Actor actor, Assignment assignment, AIHints hints)

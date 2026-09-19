@@ -24,7 +24,7 @@ public enum AID : uint
     TwistingDive = 31471 // Boss->self, 5.0s cast, range 50 width 15 rect
 }
 
-class Twister(BossModule module) : Components.CastTwister(module, 1.5f, (uint)OID.Twister, (uint)AID.TwisterVisual, 0.4f, 0.25f);
+class Twister(BossModule module) : Components.CastTwister(module, 1.5f, (uint)OID.Twister, (uint)AID.TwisterVisual, 0.4f, 0.65f);
 class BitingWind(BossModule module) : Components.VoidzoneAtCastTarget(module, 5f, (uint)AID.Gust, GetVoidzones, 0.9f)
 {
     private static Actor[] GetVoidzones(BossModule module)
@@ -51,7 +51,7 @@ class MeracydianSquall(BossModule module) : Components.SimpleAOEs(module, (uint)
 class TwistersHint(BossModule module, uint aid) : Components.CastHint(module, aid, "Twisters soon, get moving!");
 class Twisters1(BossModule module) : TwistersHint(module, (uint)AID.TwisterVisual);
 class Twisters2(BossModule module) : TwistersHint(module, (uint)AID.TwistingDive);
-class DiveTwister(BossModule module) : Components.CastTwister(module, 1.5f, (uint)OID.Twister, (uint)AID.TwistingDive, 0.4f, 0.25f);
+class DiveTwister(BossModule module) : Components.CastTwister(module, 1.5f, (uint)OID.Twister, (uint)AID.TwistingDive, 0.4f, 0.65f);
 
 class TwistingDive(BossModule module) : Components.GenericAOEs(module)
 {

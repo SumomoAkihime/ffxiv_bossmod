@@ -23,6 +23,9 @@ public sealed class UCOBConfig() : ConfigNode()
     [SectionStart("AI-only settings")]
     [PropertyDisplay("P1: players assigned to soak Plummet (for LB)", renderer: typeof(RolesRenderer))]
     public BitMask P1PlummetTargets = new();
+
+    [PropertyDisplay("Jump during twister resolve to force position update")]
+    public bool TwisterForceJump = true;
 }
 
 public sealed class RolesRenderer : PropertyRenderer

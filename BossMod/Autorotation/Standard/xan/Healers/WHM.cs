@@ -92,7 +92,9 @@ public sealed class WHM(RotationModuleManager manager, Actor player) : Castxan<A
             return;
         }
 
-        GoalZoneCombined(strategy, 25, Hints.GoalAOECircle(8), AID.Holy, 3);
+        var minHolyTargets = Player.Level == 70 ? 2 : 3;
+
+        GoalZoneCombined(strategy, 25, Hints.GoalAOECircle(8), AID.Holy, minHolyTargets);
 
         if (!CanFitGCD(TargetDotLeft, 1))
             PushGCD(AID.Aero, BestDotTarget, GCDPriority.Filler, useOnDyingTarget: false);
@@ -114,7 +116,7 @@ public sealed class WHM(RotationModuleManager manager, Actor player) : Castxan<A
         if (SacredSight > 0)
             PushGCD(AID.GlareIV, BestRangedAOETarget);
 
-        if (NumHolyTargets > 2)
+        if (NumHolyTargets >= minHolyTargets)
             PushGCD(AID.Holy, Player);
 
         // TODO make a track for this

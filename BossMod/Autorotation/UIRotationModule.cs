@@ -12,7 +12,7 @@ public sealed class UIRotationModule
         ImGui.TextUnformatted(definition.Description);
         ImGui.TextUnformatted($"L{definition.MinLevel}-{definition.MaxLevel} {string.Join(" ", definition.Classes.SetBits().Select(b => (Class)b))}");
         ImGui.TextUnformatted($"Author/contributors: {definition.Author}");
-        ImGui.TextUnformatted($"Quality: {(int)definition.Quality}/{(int)RotationModuleQuality.Count - 1} {definition.Quality.GetAttribute<PropertyDisplayAttribute>()?.Label ?? ""}");
+        ImGui.TextUnformatted($"Quality: {(int)definition.Quality}/{(int)RotationModuleQuality.Count - 1} {GeneratedEnumMetadata.For(definition.Quality).Attribute<PropertyDisplayAttribute>()?.Label ?? ""}");
         using (ImRaii.Disabled())
         {
             ImGui.TextUnformatted($"Class: {type.FullName}");

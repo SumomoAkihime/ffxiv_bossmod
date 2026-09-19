@@ -183,6 +183,10 @@ class Program
             CastrumUpstreamTests.Run(Check);
             ThirdBoardUpstreamTests.Run(Check);
             UCOBUpstreamTests.Run(Check);
+            CoreSeptemberTests.Run(Check);
+            NewRadarSeptemberTests.Run(Check);
+            UCOBSeptemberTests.Run(Check);
+            RotationSeptemberTests.Run(manager, player, hints, Check);
             ModuleManagementTests.Run(bossmods, boss, Check);
         PrePullMigrationTests.Run(Check);
             Console.WriteLine("循环/移动开关、预设改名与顺序、跟随、旧任务失效、视线及排序检查完成。");

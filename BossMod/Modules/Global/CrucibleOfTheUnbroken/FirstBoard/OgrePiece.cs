@@ -95,6 +95,6 @@ sealed class OgrePieceStates : StateMachineBuilder
     Expansion = BossModuleInfo.Expansion.Global, Category = BossModuleInfo.Category.CrucibleOfTheUnbroken, GroupType = BossModuleInfo.GroupType.CFC,
     GroupID = 1088u,
     NameID = 14538u,
-    SortOrder = 1)]
+    SortOrder = 4)]
 
 public sealed class OgrePiece(WorldState ws, Actor primary) : BossModule(ws, primary, new(120f, -420f), new ArenaBoundsCircle(20f));

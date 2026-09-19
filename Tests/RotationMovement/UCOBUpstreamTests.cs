@@ -47,7 +47,7 @@ static class UCOBUpstreamTests
             check(hints.ForbiddenZones.Count == 0, "绝巴哈天堂陨落预站位缺巴哈实体时不猜测目标");
 
             var trio = Component(module, "P3HeavensfallTrio");
-            Set(trio, "_divesStarted", true);
+            Set(trio, "_divesActive", true);
             hints.Clear();
             trio.AddAIHints(99, player, Role.MT, hints);
             check(hints.ForbiddenZones.Count == 0, "绝巴哈天堂陨落未完成初始化不产生默认安全点");
@@ -57,11 +57,8 @@ static class UCOBUpstreamTests
             Set(heavensfall, "Activation", activation);
             hints.Clear();
             heavensfall.AddAIHints(0, player, Role.MT, hints);
-            check(hints.ForbiddenZones.Count == 0, "绝巴哈天堂陨落关闭提示时不输出站位");
-            Set(heavensfall, "EnableHints", true);
-            heavensfall.AddAIHints(0, player, Role.MT, hints);
-            check(hints.ForbiddenZones.Count == 1 && hints.ForbiddenZones[0].activation == activation && heavensfall.ActiveKnockbacks(0, player)[0].Activation == activation,
-                "绝巴哈天堂陨落开启提示时使用状态机设定的结算时间");
+            check(hints.ForbiddenZones.Count == 0 && heavensfall.ActiveKnockbacks(0, player)[0].Activation == activation,
+                "绝巴哈天堂陨落保留击退结算时间，站位约束交由塔组件统一处理");
 
             var towers = (GenericTowers)Component(module, "P3HeavensfallTowers");
             var towerActivation = world.FutureTime(10f);

@@ -132,7 +132,7 @@ sealed class PasDeSeulStates : StateMachineBuilder
     Expansion = BossModuleInfo.Expansion.Global, Category = BossModuleInfo.Category.CrucibleOfTheUnbroken, GroupType = BossModuleInfo.GroupType.CFC,
     GroupID = 1088u,
     NameID = 14541u,
-    SortOrder = 1)]
+    SortOrder = 6)]
 
 
 public sealed class PasDeSeul : BossModule

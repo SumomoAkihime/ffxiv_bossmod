@@ -11,7 +11,7 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase<Heal
         Enabled,
         [Option("Don't heal")]
         Disabled,
-        [Option("Babysit main tank (i.e. target-of-target)")]
+        [Option("Babysit specific target (default: current main tank)", Targets = ActionTargets.Self | ActionTargets.Party)]
         Babysit
     }
 
@@ -67,6 +67,12 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase<Heal
         return new RotationModuleDefinition("Healer AI", "Auto-healer", "AI (xan)", "xan", RotationModuleQuality.WIP, BitMask.Build(Class.CNJ, Class.WHM, Class.SCH, Class.SGE, Class.AST), 100).WithStrategies<Strategy>();
     }
 
+    private int ResolveHealTarget(in Strategy strategy) => strategy.Heal.TrackRaw.Target switch
+    {
+        StrategyTarget.Automatic => World.Actors.Find(Player.TargetID) is { } t ? World.Party.FindSlot(t.TargetID) : -1,
+        _ => World.Party.FindSlot(Manager.ResolveTargetOverride(strategy.Heal.TrackRaw.Target, strategy.Heal.TrackRaw.TargetParam)?.InstanceID ?? 0)
+    };
+
     private void HealSingleSoon(in Strategy strategy, Action<Actor, float> healFun)
     {
         switch (strategy.Heal.Value)
@@ -76,7 +82,7 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase<Heal
                     healFun(a, b.PredictedHPRatio);
                 break;
             case HealMode.Babysit:
-                var targetSlot = World.Actors.Find(Player.TargetID) is { } t ? World.Party.FindSlot(t.TargetID) : -1;
+                var targetSlot = ResolveHealTarget(strategy);
                 if (targetSlot >= 0 && World.Party[targetSlot] is { IsDead: false } target)
                     healFun(target, Health.PartyMemberStates[targetSlot].PredictedHPRatio);
                 break;
@@ -92,7 +98,7 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase<Heal
                     healFun(a, b.CurrentHPRatio);
                 break;
             case HealMode.Babysit:
-                var targetSlot = World.Actors.Find(Player.TargetID) is { } t ? World.Party.FindSlot(t.TargetID) : -1;
+                var targetSlot = ResolveHealTarget(strategy);
                 if (targetSlot >= 0 && World.Party[targetSlot] is { IsDead: false } target)
                     healFun(target, Health.PartyMemberStates[targetSlot].CurrentHPRatio);
                 break;

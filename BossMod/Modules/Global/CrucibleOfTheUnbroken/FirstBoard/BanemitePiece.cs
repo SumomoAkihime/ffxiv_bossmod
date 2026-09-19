@@ -90,6 +90,6 @@ sealed class BanemitePieceStates : StateMachineBuilder
     Expansion = BossModuleInfo.Expansion.Global, Category = BossModuleInfo.Category.CrucibleOfTheUnbroken, GroupType = BossModuleInfo.GroupType.CFC,
     GroupID = 1088u,
     NameID = 14536u,
-    SortOrder = 1)]
+    SortOrder = 2)]
 
 public sealed class BanemitePiece(WorldState ws, Actor primary) : BossModule(ws, primary, new(120f, -420f), new ArenaBoundsCircle(20f));

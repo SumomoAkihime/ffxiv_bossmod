@@ -327,6 +327,9 @@ public sealed class Definitions : Defs
         // regular dash check doesn't work since this one is awkwardly fixed distance
         d.Spell(PhantomID.PhantomKick)!.ForbidExecute = (_, player, action, hints) =>
         {
+            if (hints.ForbidDashes)
+                return true;
+
             var cfg = Service.Config.Get<ActionTweaksConfig>();
             var target = action.Target;
             if (target == null || !cfg.DashSafety)
