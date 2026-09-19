@@ -30,8 +30,8 @@ public sealed class ModuleViewer(PlanDatabase? planDB, WorldState ws) : IDisposa
             var typeName = info.ModuleType.FullName ?? info.ModuleType.Name;
             DisplayName = $"{name} [{info.ModuleType.Name}]";
             EnableID = $"##enable-module-{info.PrimaryActorOID:X8}";
-            ConfigID = $"{typeName}_cfg";
-            PlansID = $"{typeName}_plans";
+            ConfigID = $"##{typeName}_cfg";
+            PlansID = $"##{typeName}_plans";
             PopupID = $"{typeName}_popup";
             HelpText = BuildModuleHelpText(info);
         }
