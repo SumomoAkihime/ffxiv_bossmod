@@ -3,6 +3,7 @@
 sealed class P3BlackfireTrio(BossModule module) : Components.CastCounter(module, (uint)AID.BlackfireTrio)
 {
     private Actor? _nael;
+    private int _numHypernovas;
     public DateTime BaitAt = module.WorldState.FutureTime(8.5d);
     public Angle RelativeNorth;
     private readonly P3BahamutPositioning _positioning = module.FindComponent<P3BahamutPositioning>()!;
@@ -31,11 +32,24 @@ sealed class P3BlackfireTrio(BossModule module) : Components.CastCounter(module,
         }
     }
 
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        base.OnEventCast(caster, spell);
+        if (spell.Action.ID == (uint)AID.Hypernova)
+        {
+            ++_numHypernovas;
+        }
+    }
+
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         if (BaitAt != default)
         {
             hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center, 1f), BaitAt);
+        }
+        if (_numHypernovas >= 2)
+        {
+            hints.GoalZones.Add(AIHints.GoalSingleTarget(Arena.Center, 7.7f, 0.5f));
         }
     }
 }

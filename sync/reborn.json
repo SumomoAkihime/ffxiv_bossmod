@@ -1,12 +1,12 @@
 ﻿{
   "schemaVersion": 1,
-  "updated": "2026-09-19",
+  "updated": "2026-09-22",
   "source": {
     "repository": "https://github.com/FFXIV-CombatReborn/BossmodReborn",
-    "commit": "1d1fff5e1f28efb744aa83e05967c2f1f8e5cc76",
-    "releaseTag": "7.5.6.13",
-    "releaseCommit": "1d1fff5e1f28efb744aa83e05967c2f1f8e5cc76",
-    "status": "选择性整合至7.5.6.13；用户明确排除高难魔之塔，保留本地融合与实测修正；不表示整树一致"
+    "commit": "615b38b5438a75fe4010b853423324dd983e43f9",
+    "releaseTag": "7.5.6.16",
+    "releaseCommit": "1e0d4a9bb0f127f070423fe77d2269c21a968b9e",
+    "status": "选择性整合至7.5.6.16及检查点615b38b54；高难魔之塔与WIP继续排除，保留本地融合及实测修正；不表示整树一致"
   },
   "forkBaseline": "787148f34",
   "purpose": "以 Reborn 雷达与共享支撑为主体，融合 awgil 职业循环及移动、保留多预设与外部插件联动、自建雷达和已验证修复。",
@@ -60,6 +60,12 @@
       "sourceCommit": "1d1fff5e1f28efb744aa83e05967c2f1f8e5cc76",
       "awgilCommit": "0d922f7ab1149a10b091993124c7a165928175b3",
       "scope": "第二大师棋盘七个成熟模块；原版普通伊甸E01/E02/E03及多变亚罗亚罗岛五首领；绝巴哈机制、预站位和旋风更新；机制禁位移动作保护；治疗/NPC统计、学者/白魔/武僧循环；副本列表延迟初始化及枚举缓存。适配本地Reborn API、多预设和IPC，保留中文与本地机制修正；高难魔之塔按用户要求排除。"
+    },
+    {
+      "commit": "包含本清单的提交",
+      "sourceCommit": "615b38b5438a75fe4010b853423324dd983e43f9",
+      "awgilCommit": "11d8147cc9650f12a5b200b2ce6180edc2a3c261",
+      "scope": "Drake成熟雷达；Bone Bishop黑色爆发、Guttler范围；法系LB地面动作/目标、禁疗及治疗覆盖算法；绝巴哈旋风禁读条、俯冲清理/回位、击退后踩塔、P5集合及分摊，火圈避让障碍与中心集合；动作取消读条即时释放移动及非GCD读条预判、不可移动敌人判定。另随发布包含本地提坦主场绕序修复。"
     }
   ],
   "requiredPatches": [
@@ -225,6 +231,24 @@
         "BossMod/Autorotation/PartyHealth.cs"
       ],
       "behavior": "ForceNoShift追加末尾保持旧枚举值，按FormShiftLeft为零强制震脚；NPC排除群体血量统计，但仍可成为更低血单体治疗目标。"
+    },
+    {
+      "paths": [
+        "BossMod/Modules/RealmReborn/Alliance/A16Phlegethon/A16Phlegethon.cs"
+      ],
+      "behavior": "Cone使用-97.5到97.5的同向轮廓避免NonZero抵消主场；绘图中心为PhlegBounds.Center，古代耀星/动态外圈仍用ArenaCenter。"
+    },
+    {
+      "paths": [
+        "BossMod/Framework/ActionManagerEx.cs"
+      ],
+      "behavior": "取消读条立即释放读条移动锁，但保留独立的热病/禁止移动约束；非GCD读条无需等待GCD，保留本地视线检查与机制保护。"
+    },
+    {
+      "paths": [
+        "BossMod/Modules/Global/CrucibleOfTheUnbroken/FirstBoard/BoneBishop.cs"
+      ],
+      "behavior": "ForwardGuard动态取骑士并判空；BlackEruption2按真实施法位置校正Origin时同时重算ShapeDistance，防止绘图与AI禁区圆心分离。"
     }
   ],
   "localRadars": "local-radars.json",
@@ -243,7 +267,9 @@
         "IceDragonPiece",
         "ProgenitrixPiece",
         "TreantPiece",
-        "DrakePiece"
+        "ChimeraPiece",
+        "LaudaTheSpellcleaver",
+        "MedusaPiece"
       ],
       "reason": "未达到本轮成熟模块门槛，暂不加入发布树。"
     },
@@ -268,11 +294,15 @@
     },
     {
       "scope": "高难魔之塔上游生命周期与机制差异",
-      "reason": "用户明确排除本次同步；上游本批虽提升Contributed，仍保留本地实测机制及连续击退安全约束。普通魔之塔本检查区间没有直接变更。"
+      "reason": "用户明确排除；继续保留本地实测机制及连续击退安全约束。本批普通魔之塔为循环写法/计数接口整理，未覆盖本地机制。"
     },
     {
       "scope": "本检查区间以外的历史差异",
-      "reason": "已分类检查至Reborn 1d1fff5e1及awgil 0d922f7ab；按本记录选择性整合，不代表历史整树差异全部消除。"
+      "reason": "已分类检查至Reborn 615b38b54及awgil 11d8147cc；按本记录选择性整合，不代表历史整树差异全部消除。"
+    },
+    {
+      "scope": "绝巴哈P3 Heavensfall策略重写",
+      "reason": "原版11d8147cc改变旋转判定、塔位及Hypernova启用时机，需结合回放成套验证；本轮仅加入击退结束后踩塔等独立修正，保留本地分配逻辑。"
     }
   ],
   "excluded": [
@@ -295,6 +325,10 @@
     {
       "scope": "2026-09-19 NormalMovement贴身朝向及非必要结构调整",
       "reason": "上游将朝向站位距离改为敌人HitboxRadius，与本地保持当前距离修复冲突，保留本地。StateMachineTree已有等价正确FindIndex；Camera改名、棋盘格式/等价语法及纯告警整理未整批搬入。"
+    },
+    {
+      "scope": "2026-09-22非必要结构整理与核心行为扩展",
+      "reason": "棋盘目录01～05改名、循环语法、Adds计数/不可选中接口、BaitAwayIcon自定义朝向、WorldStateGameSync读条采集/宠物/飞行重写及其视线近零分支（本地无同路径）、BST实验、EnemyBehavior表合并不整批搬入；ActionManagerEx.Force绕过机制保护不引入；T07Doomtrain首领绘图需另核对坐标。"
     }
   ],
   "validation": [
@@ -320,19 +354,6 @@
       "vnav.PathIsRunning 移动让出"
     ],
     "legacy": "AI.SetPreset/GetPreset 继续为空兼容；当前官方 AutoDuty 未调用，不恢复旧 AI 自动选预设"
-  },
-  "lastValidation": {
-    "date": "2026-09-19",
-    "releaseBuild": "零警告、零错误",
-    "movementAndIPCAssertions": 889,
-    "registeredIPCInterfaces": 66,
-    "supportJobsAssertions": 331,
-    "protectedSourceFilesUnchanged": 40,
-    "protectedSourceScope": "37个雷达源码及3个共享支撑文件，按tools/check_local_radars.py完整清单比较。",
-    "releaseDLLSHA256": "E29D064AD5F15156EB0C5FBBE8EC98CBDEB5272C88F649A082C3270E547BDBBB",
-    "gameTest": "尚未实机验证；仅测试分支同步，不升版、不更新发布ZIP，线上仍7.5.6.601。",
-    "validationEvidence": "D:/mod-source/outputs/sync-20260919",
-    "scope": "运行RotationMovement完整套件，含15个新增模块注册/状态机与代表机制生命周期、位移保护、旋风时刻、绝巴哈、NPC治疗、武僧策略和界面缓存检查，以及既有绘图/机制安全/移动/IPC回归；独立SupportJobs通过331项。两套测试DLL与本轮Release一致。未重跑多边形或旧UCOB独立套件。"
   },
   "supportJobs": {
     "sourceCommit": "20b8092f4a5673f8b7d1a3959f4671732a67710c",
@@ -380,6 +401,33 @@
       "gameTest": "尚未实机验证；只推测试分支，不升版、不更新发布ZIP。线上版本仍7.5.6.501。",
       "validationEvidence": "D:/mod-source/outputs/sync-20260914",
       "scope": "本轮运行RotationMovement完整套件，含新增第三棋盘与堡垒击退用例，以及既有循环/移动/IPC、奥本绘图、机制安全、UCOB、模块管理等回归。测试DLL与本轮Release一致。未重跑独立辅助职业、多边形或旧UCOB独立套件。"
+    },
+    {
+      "date": "2026-09-19",
+      "releaseBuild": "零警告、零错误",
+      "movementAndIPCAssertions": 889,
+      "registeredIPCInterfaces": 66,
+      "supportJobsAssertions": 331,
+      "protectedSourceFilesUnchanged": 40,
+      "protectedSourceScope": "37个雷达源码及3个共享支撑文件，按tools/check_local_radars.py完整清单比较。",
+      "releaseDLLSHA256": "E29D064AD5F15156EB0C5FBBE8EC98CBDEB5272C88F649A082C3270E547BDBBB",
+      "gameTest": "尚未实机验证；仅测试分支同步，不升版、不更新发布ZIP，线上仍7.5.6.601。",
+      "validationEvidence": "D:/mod-source/outputs/sync-20260919",
+      "scope": "运行RotationMovement完整套件，含15个新增模块注册/状态机与代表机制生命周期、位移保护、旋风时刻、绝巴哈、NPC治疗、武僧策略和界面缓存检查，以及既有绘图/机制安全/移动/IPC回归；独立SupportJobs通过331项。两套测试DLL与本轮Release一致。未重跑多边形或旧UCOB独立套件。"
     }
-  ]
+  ],
+  "lastValidation": {
+    "date": "2026-09-22",
+    "releaseBuild": "零警告、零错误",
+    "movementAndIPCAssertions": 940,
+    "registeredIPCInterfaces": 66,
+    "supportJobsAssertions": 331,
+    "polygonAssertions": 67922,
+    "protectedSourceFilesUnchanged": 40,
+    "protectedSourceScope": "相对本次同步前工作区快照，包含此前提坦修复；高难魔之塔及自建雷达保持。",
+    "releaseDLLSHA256": "B9BA9C20D394E7E8877434F8F4C71C951EBCF04CDEE45551B04244B5024C976C",
+    "gameTest": "离线验证通过；发布7.5.6.1601，尚未实机验证。",
+    "validationEvidence": "D:\\mod-source\\outputs\\release-7.5.6.1601",
+    "scope": "完整RotationMovement（含本次Drake/Bone Bishop/Guttler、法系LB/禁疗/覆盖算法、绝巴哈与提坦几何回归及66个IPC流程）；独立SupportJobs与两种PolygonQueries。三套测试DLL均与Release一致。"
+  }
 }

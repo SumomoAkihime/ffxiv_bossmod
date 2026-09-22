@@ -209,7 +209,7 @@ sealed class P3HeavensfallTowers(UCOB module) : Components.CastTowers(module, (u
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (_knockbackDone)
+        if (_knockbackDone && actor.PendingKnockbacks.Count == 0)
         {
             base.AddAIHints(slot, actor, assignment, hints);
             return;

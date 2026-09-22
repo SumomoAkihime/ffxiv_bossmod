@@ -133,6 +133,6 @@ public class A16Phlegethon(WorldState ws, Actor primary) : BossModule(ws, primar
     private static readonly ArenaBoundsCustom PhlegBounds = MakeBounds();
 
     private static ArenaBoundsCustom MakeBounds() => new(
-        [new Circle(ArenaCenter, 32.45f), new Cone(ArenaCenter, 44.5f, 97.5f.Degrees(), -97.5f.Degrees())],
+        [new Circle(ArenaCenter, 32.45f), new Cone(ArenaCenter, 44.5f, -97.5f.Degrees(), 97.5f.Degrees())],
         MapResolution: 1);
 }

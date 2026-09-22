@@ -264,12 +264,12 @@ sealed class UCOBStates : StateMachineBuilder
             .DeactivateOnExit<P2ThermionicBurst>();
 
         ComponentCondition<P2HeavensfallDalamudDive>(id + 0x30u, 0.4f, static comp => comp.NumCasts > 0, "Tankbuster")
-            .DeactivateOnExit<P2HeavensfallDalamudDive>()
             .SetHint(StateMachine.StateHint.Tankbuster);
         ActorTargetable(id + 0x31u, _module.Nael, true, 2f, "Boss appears")
             // boss can become targetable in the same frame as the 1st claw hit, so we need to activate early or 1st hit will be missed
             .ActivateOnEnter<P2BahamutsClaw>()
             .ExecOnEnter<Hatch>(static comp => comp.Active = true)
+            .DeactivateOnExit<P2HeavensfallDalamudDive>()
             .SetHint(StateMachine.StateHint.DowntimeEnd);
 
         P2BahamutsClaw(id + 0x40u, 0.8f)
@@ -906,8 +906,10 @@ sealed class UCOBStates : StateMachineBuilder
 
     private void P5AhkMorn(uint id, float delay, int count)
     {
+        var iteration = count - 2;
         ActorCast(id, _module.BahamutPrime, (uint)AID.AkhMorn, delay, 4f, true, "Tankbuster hit 1")
             .ActivateOnEnter<P5AhkMorn>()
+            .ExecOnEnter<P5AhkMorn>(comp => comp.Shared = iteration is 1 or 4)
             .SetHint(StateMachine.StateHint.Tankbuster);
         ComponentCondition<P5AhkMorn>(id + 0x10u, 2.1f, static comp => comp.NumCasts >= 2)
             .SetHint(StateMachine.StateHint.Tankbuster);

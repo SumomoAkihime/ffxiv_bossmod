@@ -15,6 +15,7 @@ public class GenericSharedTankbuster(BossModule module, uint aid, AOEShape shape
 
     public bool Active => Source != null;
     protected int? ResolvedArenaProjectionLayer => Module.ResolveTargetArenaProjectionLayer(Target, ArenaProjectionLayer, RestrictToArenaProjectionLayer);
+    public virtual bool IsShared => true;
 
     // circle shapes typically have origin at target
     public GenericSharedTankbuster(BossModule module, uint aid, float radius, int? arenaProjectionLayer = null, bool? restrictToArenaProjectionLayer = true)
@@ -46,7 +47,10 @@ public class GenericSharedTankbuster(BossModule module, uint aid, AOEShape shape
         }
         else if (actor.Role == Role.Tank)
         {
-            hints.Add("Stack with tank!", !InAOE(actor));
+            if (IsShared)
+            {
+                hints.Add("Stack with tank!", !InAOE(actor));
+            }
         }
         else
         {
@@ -61,7 +65,7 @@ public class GenericSharedTankbuster(BossModule module, uint aid, AOEShape shape
 
         if (Source != null && Target != null && Target != actor)
         {
-            if (actor.Role == Role.Tank && ArenaProjectionLayerParticipantApplies(actor, ResolvedArenaProjectionLayer, RestrictToArenaProjectionLayer))
+            if (actor.Role == Role.Tank && IsShared && ArenaProjectionLayerParticipantApplies(actor, ResolvedArenaProjectionLayer, RestrictToArenaProjectionLayer))
             {
                 hints.AddForbiddenZone(OriginAtTarget ? Shape.InvertedDistance(Target.Position, Target.Rotation) : Shape.InvertedDistance(Source.Position, Angle.FromDirection(Target.Position - Source.Position)), Activation,
                     arenaProjectionLayer: ArenaProjectionLayerForAI(ResolvedArenaProjectionLayer, RestrictToArenaProjectionLayer));

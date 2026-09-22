@@ -83,7 +83,7 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase<Heal
                 break;
             case HealMode.Babysit:
                 var targetSlot = ResolveHealTarget(strategy);
-                if (targetSlot >= 0 && World.Party[targetSlot] is { IsDead: false } target)
+                if (targetSlot >= 0 && Health.PartyMemberStates[targetSlot].NoHealStatusRemaining < 1.5f && World.Party[targetSlot] is { IsDead: false } target)
                     healFun(target, Health.PartyMemberStates[targetSlot].PredictedHPRatio);
                 break;
         }
@@ -99,7 +99,7 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase<Heal
                 break;
             case HealMode.Babysit:
                 var targetSlot = ResolveHealTarget(strategy);
-                if (targetSlot >= 0 && World.Party[targetSlot] is { IsDead: false } target)
+                if (targetSlot >= 0 && Health.PartyMemberStates[targetSlot].NoHealStatusRemaining < 1.5f && World.Party[targetSlot] is { IsDead: false } target)
                     healFun(target, Health.PartyMemberStates[targetSlot].CurrentHPRatio);
                 break;
         }
@@ -453,28 +453,84 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase<Heal
     // O(n³) :3
     private Vector3 GetBestPartyCoverage(float radius)
     {
-        var allies = LightParty.Select(p => p.Position).ToList();
-        if (allies.Count < 2)
-            return Player.PosRot.XYZ();
+        var allies = new List<WPos>(8);
+        foreach (var ally in LightParty)
+            allies.Add(ally.Position);
 
-        var rsq = radius * radius;
-        var bestCount = 0;
-        var bestCenter = allies[0];
-        for (var i = 0; i < allies.Count; i++)
+        var n = allies.Count;
+        if (n == 0)
         {
-            for (var j = i; j < allies.Count; j++)
+            return Player.PosRot.XYZ();
+        }
+
+        var playerY = Player.PosRot.Y;
+        var bestCenter = new Vector3(allies[0].X, playerY, allies[0].Z);
+        var bestCount = 0;
+        var radiusSq = radius * radius;
+        var diameterSq = 4f * radiusSq;
+
+        bool ConsiderCenter(float x, float z)
+        {
+            var count = 0;
+
+            for (var k = 0; k < n; ++k)
             {
-                var center = WPos.Lerp(allies[i], allies[j], 0.5f);
-                var thisCount = allies.Count(pos => (pos - center).LengthSq() <= rsq);
-                if (thisCount > bestCount)
-                {
-                    bestCount = thisCount;
-                    bestCenter = center;
-                }
+                var dx = allies[k].X - x;
+                var dz = allies[k].Z - z;
+
+                if (dx * dx + dz * dz <= radiusSq)
+                    ++count;
+
+                if (count + n - k - 1 <= bestCount)
+                    return false;
+            }
+
+            if (count > bestCount)
+            {
+                bestCount = count;
+                bestCenter = new Vector3(x, playerY, z);
+            }
+
+            return bestCount == n;
+        }
+
+        for (var i = 0; i < n; ++i)
+            if (ConsiderCenter(allies[i].X, allies[i].Z))
+                return bestCenter;
+
+        if (radius == 0)
+            return bestCenter;
+
+        for (var i = 0; i < n; ++i)
+        {
+            var a = allies[i];
+
+            for (var j = i + 1; j < n; ++j)
+            {
+                var b = allies[j];
+                var dx = b.X - a.X;
+                var dz = b.Z - a.Z;
+                var distanceSq = dx * dx + dz * dz;
+
+                if (distanceSq == 0f || distanceSq > diameterSq)
+                    continue;
+
+                var midX = a.X + dx * 0.5f;
+                var midZ = a.Z + dz * 0.5f;
+                var heightSq = Math.Max(0f, radiusSq - distanceSq * 0.25f);
+                var scale = MathF.Sqrt(heightSq / distanceSq);
+                var offsetX = -dz * scale;
+                var offsetZ = dx * scale;
+
+                if (ConsiderCenter(midX + offsetX, midZ + offsetZ))
+                    return bestCenter;
+
+                if (heightSq > 0 && ConsiderCenter(midX - offsetX, midZ - offsetZ))
+                    return bestCenter;
             }
         }
 
-        return new Vector3(bestCenter.X, Player.PosRot.Y, bestCenter.Z);
+        return bestCenter;
     }
 
     private void AutoSGE(in Strategy strategy, Actor? primaryTarget)

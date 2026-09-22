@@ -2,6 +2,9 @@
 
 sealed class P5AhkMorn(BossModule module) : Components.CastSharedTankbuster(module, (uint)AID.AkhMorn, 4f)
 {
+    public bool Shared;
+    public override bool IsShared => Shared;
+
     // cast is only a first hit, don't deactivate
     public override void OnCastFinished(Actor caster, ActorCastInfo spell) { }
 

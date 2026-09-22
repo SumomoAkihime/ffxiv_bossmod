@@ -447,6 +447,14 @@ public sealed unsafe class ActionManagerEx : IDisposable
         return avoidGaze ?? restored;
     }
 
+    private static bool IsGCD(ActionID action)
+    {
+        if (action.Type != ActionType.Spell || Service.LuminaRow<Lumina.Excel.Sheets.Action>(action.ID) is not { } row)
+            return false;
+
+        return row.CooldownGroup == 58 || row.AdditionalCooldownGroup == 58;
+    }
+
     private void UpdateDetour(ActionManager* self)
     {
         var fwk = Framework.Instance();
@@ -461,16 +469,16 @@ public sealed unsafe class ActionManagerEx : IDisposable
         // check whether movement is safe; block movement if not and if desired
         MoveMightInterruptCast &= CastTimeRemaining > 0; // previous cast could have ended without action effect
         // if we're not casting, but will start soon, moving might interrupt future cast
-        if (imminentActionAdj && CastTimeRemaining <= 0 && _inst->AnimationLock < 0.1f && GetAdjustedCastTime(imminentActionAdj) > 0 && !CanMoveWhileCasting(imminentActionAdj) && GCD() < 0.1f)
+        if (imminentActionAdj && CastTimeRemaining <= 0 && _inst->AnimationLock < 0.1f && GetAdjustedCastTime(imminentActionAdj) > 0 && !CanMoveWhileCasting(imminentActionAdj) && (!IsGCD(imminentActionAdj) || GCD() < 0.1f))
         {
             // check LoS on target; blocking movement can cause AI mode to get stuck behind a wall trying to cast a spell on an unreachable target forever
             MoveMightInterruptCast |= CheckActionLoS(imminentAction, _inst->ActionQueued ? _inst->QueuedTargetId : (AutoQueue.Target?.InstanceID ?? 0));
         }
-        var blockMovement = Config.PreventMovingWhileCasting && MoveMightInterruptCast && _ws.Party.Player()?.MountId == 0;
-        blockMovement |= Config.PyreticThreshold > 0 && _hints.ImminentSpecialMode.mode is AIHints.SpecialMode.Pyretic or AIHints.SpecialMode.NoMovement && _hints.ImminentSpecialMode.activation < _ws.FutureTime(Config.PyreticThreshold);
+        var blockMovementCast = Config.PreventMovingWhileCasting && MoveMightInterruptCast && _ws.Party.Player()?.MountId == 0;
+        var blockMovementStillness = Config.PyreticThreshold > 0 && _hints.ImminentSpecialMode.mode is AIHints.SpecialMode.Pyretic or AIHints.SpecialMode.NoMovement && _hints.ImminentSpecialMode.activation < _ws.FutureTime(Config.PyreticThreshold);
 
         // note: if we cancel movement and start casting immediately, it will be canceled some time later - instead prefer to delay for one frame
-        var actionImminent = EffectiveAnimationLock <= 0 && AutoQueue.Action && !IsRecastTimerActive(AutoQueue.Action) && !(blockMovement && _movement.IsMoving());
+        var actionImminent = EffectiveAnimationLock <= 0 && AutoQueue.Action && !IsRecastTimerActive(AutoQueue.Action) && !((blockMovementCast || blockMovementStillness) && _movement.IsMoving());
         var desiredRotation = CalculateDesiredOrientation(actionImminent);
 
         // execute rotation, if needed
@@ -504,19 +512,19 @@ public sealed unsafe class ActionManagerEx : IDisposable
             else
             {
                 Service.Log($"[AMEx] Can't execute prio {AutoQueue.Priority} action {AutoQueue.Action} (=> {actionAdj}) @ {targetID:X}: status {status} '{Service.LuminaRow<Lumina.Excel.Sheets.LogMessage>(status)?.Text}'");
-                blockMovement = false;
+                blockMovementCast = blockMovementStillness = false;
             }
         }
 
         autoRotateConfig->Value.UInt = autoRotateOriginal;
         _cooldownTweak.StopAdjustment(); // clear any potential adjustments
-        _movement.MovementBlocked = blockMovement;
-
-        // TODO: what's the reason to do it in AM update, rather than plugin's executehints?..
+        // Canceling the cast is server-side, but movement can be released immediately.
         if (_ws.Party.Player()?.CastInfo != null && _cancelCastTweak.ShouldCancel(_ws.CurrentTime, _hints.ForceCancelCast))
         {
             UIState.Instance()->Hotbar.CancelCast();
+            blockMovementCast = false;
         }
+        _movement.MovementBlocked = blockMovementCast || blockMovementStillness;
 
         var autosEnabled = UIState.Instance()->WeaponState.AutoAttackState.IsAutoAttacking;
         if (_autoAutosTweak.GetDesiredState(autosEnabled, _ws.Party.Player()?.TargetID ?? 0) != autosEnabled)

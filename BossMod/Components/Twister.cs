@@ -106,6 +106,7 @@ public class CastTwister(BossModule module, float radius, uint oid, uint aid, do
     public readonly double PredictionTime = predictBeforeSpawn;
     private DateTime _predictAt = DateTime.MaxValue;
     private DateTime _spawnAt;
+    protected DateTime PredictionAt => _predictAt;
 
     public override void Update()
     {

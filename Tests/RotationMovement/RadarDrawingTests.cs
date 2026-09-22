@@ -15,6 +15,7 @@ static class RadarDrawingTests
 
     public static void Run(Action<bool, string> check)
     {
+        PhlegethonCenter(check);
         HobbesCenter(check);
         GoliathEnergyRing(check);
         WalkingFortressExaflare(check);
@@ -26,6 +27,29 @@ static class RadarDrawingTests
         ThunderGodColosseum(check);
         MustadioSatelliteBeam(check);
         ThunderGodHallowedBolt(check);
+    }
+
+    static void PhlegethonCenter(Action<bool, string> check)
+    {
+        using var f = new Fixture();
+        var center = new WPos(-110, 181.6f);
+        var boss = f.Create(0x938, center);
+        using var module = new BossMod.RealmReborn.Alliance.A16Phlegethon.A16Phlegethon(f.World, boss);
+        Center(module, check, "提坦");
+        var inside = true;
+        for (var x = -31; x <= 31; ++x)
+            for (var z = -31; z <= 31; ++z)
+                if (x * x + z * z < 32 * 32)
+                    inside &= module.Arena.InBounds(center + new WDir(x, z));
+        check(inside, "提坦主场圆与南侧扇区重叠时不抵消边界");
+        check(module.Arena.InBounds(new(-148.65f, 191.975f)) && module.Arena.InBounds(new(-110, 221.59f))
+            && module.Arena.InBounds(new(-71.35f, 191.975f)) && !module.Arena.InBounds(center + new WDir(0, -40)), "提坦三踏板可进入，北侧场外仍不可进入");
+        var flare = Activate<GenericAOEs>(module, "BossMod.RealmReborn.Alliance.A16Phlegethon.AncientFlareVoidzone");
+        flare.OnCastStarted(boss, Cast(1730, center, default, 7));
+        check(flare.ActiveAOEs(0, f.Player)[0].Origin == center, "提坦古代耀星仍使用实际机制圆心");
+        var border = Activate<GenericAOEs>(module, "BossMod.RealmReborn.Alliance.A16Phlegethon.DynamicArenaBorder");
+        border.OnActorEAnim(f.Create(0x1E8894, center), 0x00040008);
+        check(border.ActiveAOEs(0, f.Player)[0].Origin == center, "提坦动态外圈仍使用实际机制圆心");
     }
 
     static void HobbesCenter(Action<bool, string> check)

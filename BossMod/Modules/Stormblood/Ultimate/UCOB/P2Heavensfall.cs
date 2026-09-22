@@ -137,6 +137,15 @@ sealed class P2HeavensfallDalamudDive(BossModule module) : Components.GenericBai
         }
     }
 
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        base.OnEventCast(caster, spell);
+        if (spell.Action.ID == WatchedAction)
+        {
+            CurrentBaits.Clear();
+        }
+    }
+
     public override void AddAIHints(int slot, Actor actor, Assignment assignment, AIHints hints)
     {
         var baits = CollectionsMarshal.AsSpan(CurrentBaits);
@@ -163,9 +172,14 @@ sealed class P2HeavensfallDalamudDive(BossModule module) : Components.GenericBai
                 var t = baits[i].Target;
                 if (t != actor)
                 {
-                    hints.GoalZones.Add(AIHints.GoalSingleTarget(t.Position, 6f));
+                    hints.GoalZones.Add(AIHints.GoalSingleTarget(t.Position, 6f, 1f));
                 }
             }
+        }
+
+        if (NumCasts > 0 && Module.Enemies((uint)OID.NaelDeusDarnus).FirstOrDefault() is { IsTargetable: false } nael)
+        {
+            hints.GoalZones.Add(AIHints.GoalSingleTarget(nael.Position, nael.HitboxRadius));
         }
     }
 }

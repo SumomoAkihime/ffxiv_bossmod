@@ -7,6 +7,10 @@ abstract class TwisterBase(BossModule module) : Components.CastTwister(module, 1
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         base.AddAIHints(slot, actor, assignment, hints);
+        if (PredictionAt < WorldState.FutureTime(0.5d) || PredictedPositions.Count > 0 && ActiveTwisters.Length == 0)
+        {
+            hints.MaxCastTime = 0f;
+        }
         if (_forceJump && PredictedPositions.Count > 0 && PredictedActivation > WorldState.CurrentTime && PredictedActivation < WorldState.FutureTime(0.5d))
         {
             hints.WantJump = true;

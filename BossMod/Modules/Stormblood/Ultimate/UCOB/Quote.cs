@@ -72,6 +72,14 @@ sealed class Quote(BossModule module) : BossComponent(module)
             NextActivation = WorldState.FutureTime(3.1d);
         }
     }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (PendingMechanics.Count > 1 && PendingMechanics[1] == (uint)AID.ThermionicBeam && Source != null)
+        {
+            hints.GoalZones.Add(AIHints.GoalProximity(Source.Position, 10f, 1f));
+        }
+    }
 }
 
 sealed class QuoteIronChariotLunarDynamo(BossModule module) : Components.GenericAOEs(module)

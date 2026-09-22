@@ -9,7 +9,17 @@ abstract class LiquidHellBase(BossModule module) : Components.VoidzoneAtCastTarg
         // we only add hints for spawned fireballs since the activation is so delayed
         // this helps party not kill themselves during blackfire trio, and gives ranged lots of extra room in p1
         foreach (var z in Sources(Module))
-            hints.AddForbiddenZone(Shape, z.Position); // activation: spawn.AddSeconds(ActivationDelay)
+        {
+            var shape = new SDCircle(z.Position, 6f);
+            if (actor.Position.InCircle(z.Position, 6f))
+            {
+                hints.AddForbiddenZone(shape);
+            }
+            else
+            {
+                hints.TemporaryObstacles.Add(shape);
+            }
+        }
     }
 }
 

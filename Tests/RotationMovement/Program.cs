@@ -177,6 +177,9 @@ class Program
             IPCTests.Run(manager, bossmods, hints, ai, Check, autoDutyDirectory);
             MechanicSafetyTests.Run(module, player, Check);
             RadarDrawingTests.Run(Check);
+            UpstreamCore20260922Tests.Run(Check);
+            UpstreamBoard20260922Tests.Run(Check);
+            UpstreamHealing20260922Tests.Run(manager, player, hints, Check);
             TankFacingTests.Run(manager, player, boss, Check);
             BoardUpstreamTests.Run(Check);
             UpstreamSeptemberTests.Run(Check);
@@ -186,6 +189,7 @@ class Program
             CoreSeptemberTests.Run(Check);
             NewRadarSeptemberTests.Run(Check);
             UCOBSeptemberTests.Run(Check);
+            UpstreamUCOB20260922Tests.Run(Check);
             RotationSeptemberTests.Run(manager, player, hints, Check);
             ModuleManagementTests.Run(bossmods, boss, Check);
         PrePullMigrationTests.Run(Check);
