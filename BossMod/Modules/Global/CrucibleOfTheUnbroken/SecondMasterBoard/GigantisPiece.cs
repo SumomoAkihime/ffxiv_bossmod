@@ -49,10 +49,8 @@ public enum IconID : uint {
 sealed class Glower(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Glower, new AOEShapeRect(40.0f, 3.0f));
 
 // Handles the bait and weapon's element
-sealed class SmashingStampBait(BossModule module) : Components.GenericBaitProximity(module) {
+sealed class SmashingStampBait(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeRect(7.0f, 2.0f), (uint)IconID.SmashingStampIcon, activationDelay: 6.1f) {
     private readonly List<Actor> slimes = [];
-    private readonly AOEShapeRect shape = new(7.0f, 2.0f);
-    private bool active = false;
     public bool weaponRecentlyChanged = false;
 
     public enum Element { NONE, LIGHTNING, FIRE }
@@ -75,9 +73,7 @@ sealed class SmashingStampBait(BossModule module) : Components.GenericBaitProxim
         if (status.ID == (uint)SID.WeaponElement && status.Extra == 0x499) {
             weaponElement = Element.LIGHTNING;
             weaponRecentlyChanged = true;
-        }
-
-        if (status.ID == (uint)SID.WeaponElement && status.Extra == 0x49A) {
+        } else if (status.ID == (uint)SID.WeaponElement && status.Extra == 0x49A) {
             weaponElement = Element.FIRE;
             weaponRecentlyChanged = true;
         }
@@ -85,103 +81,66 @@ sealed class SmashingStampBait(BossModule module) : Components.GenericBaitProxim
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID) {
         if (iconID == (uint)IconID.SmashingStampIcon) {
-            active = true;
+            CurrentBaits.Add(new(Module.PrimaryActor, actor, Shape, WorldState.FutureTime(ActivationDelay)));
         }
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell) {
-        if (spell.Action.ID == (uint)AID.SmashingStampBait) {
-            active = false;
+        if (spell.Action.ID == (uint)AID.SmashingStampBait && CurrentBaits.Count > 0) {
+            CurrentBaits.RemoveAt(0);
         }
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints) {
         base.AddHints(slot, actor, hints);
-
         if (CurrentBaits.Count == 0 || slimes.Count == 0) {
             return;
         }
 
         switch (weaponElement) {
-            case Element.NONE:
-                hints.Add("Hit any slime with the bait!", false);
-                break;
-            case Element.LIGHTNING:
-                hints.Add("Hit the orange slime with the bait!", false);
-                break;
-            case Element.FIRE:
-                hints.Add("Hint the purple slime with the bait!", false);
-                break;
+            case Element.NONE: hints.Add("Hit any slime with the bait!", false); break;
+            case Element.LIGHTNING: hints.Add("Hit the orange slime with the bait!", false); break;
+            case Element.FIRE: hints.Add("Hint the purple slime with the bait!", false); break;
         }
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc) {
         base.DrawArenaForeground(pcSlot, pc);
-
         if (CurrentBaits.Count == 0 || slimes.Count == 0) {
             return;
         }
 
-        switch (weaponElement) {
-            case Element.NONE:
-                foreach (var slime in slimes) {
-                    Arena.ZoneCircleOutline(slime.Position, 1.0f, Colors.Safe);
-                }
-                break;
-            case Element.LIGHTNING:
-                foreach (var slime in slimes) {
-                    if (slime.OID == (uint)OID.CongealedKindling) {
-                        Arena.ZoneCircleOutline(slime.Position, 1.0f, Colors.Safe);
-                    }
-                }
-                break;
-            case Element.FIRE:
-                foreach (var slime in slimes) {
-                    if (slime.OID == (uint)OID.CongealedLightning) {
-                        Arena.ZoneCircleOutline(slime.Position, 1.0f, Colors.Safe);
-                    }
-                }
-                break;
+        foreach (var slime in slimes) {
+            if (weaponElement == Element.NONE || weaponElement == Element.LIGHTNING && slime.OID == (uint)OID.CongealedKindling || weaponElement == Element.FIRE && slime.OID == (uint)OID.CongealedLightning) {
+                Arena.ZoneCircleOutline(slime.Position, 1.0f, Colors.Safe);
+            }
         }
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
         base.AddAIHints(slot, actor, assignment, hints);
-
-        if (CurrentBaits.Count == 0 || slimes.Count == 0) {
+        if (CurrentBaits.Count == 0 || slimes.Count == 0 || !IsBaitTarget(actor)) {
             return;
         }
 
-        var currentBait = CurrentBaits[0];
-        if (!IsBaitTarget(ref currentBait, actor)) {
-            return;
-        }
-
-        var safeZones = new List<ShapeDistance>();
+        var targetSlime = weaponElement switch {
+            Element.LIGHTNING => (uint)OID.CongealedKindling,
+            Element.FIRE => (uint)OID.CongealedLightning,
+            _ => 0u
+        };
+        List<ShapeDistance> safeZones = [];
         foreach (var slime in slimes) {
-            if (weaponElement == Element.NONE
-                || weaponElement == Element.LIGHTNING && slime.OID == (uint)OID.CongealedKindling
-                || weaponElement == Element.FIRE && slime.OID == (uint)OID.CongealedLightning) {
+            if (targetSlime == 0 || slime.OID == targetSlime) {
                 safeZones.Add(new SDCircle(slime.Position, 1.0f));
             }
         }
+
         if (safeZones.Count > 0) {
-            hints.AddForbiddenZone(new SDInvertedUnion([.. safeZones]));
+            hints.AddForbiddenZone(new SDInvertedUnion([.. safeZones]), CurrentBaits[0].Activation);
         }
-    }
-
-    public override void Update() {
-        base.Update();
-
-        CurrentBaits.Clear();
-
-        if (!active) {
-            return;
-        }
-
-        CurrentBaits.Add(new(Module.PrimaryActor, shape));
     }
 }
+
 sealed class SmashingStamp(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SmashingStamp, new AOEShapeRect(40.0f, 4.0f));
 sealed class SmashingStampBaitAOE(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SmashingStamp, new AOEShapeRect(7.0f, 2.0f));
 

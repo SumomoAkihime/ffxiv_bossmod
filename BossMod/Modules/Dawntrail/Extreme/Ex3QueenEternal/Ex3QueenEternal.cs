@@ -30,4 +30,8 @@ public sealed class Ex3QueenEternal(WorldState ws, Actor primary) : BossModule(w
         Arena.Actor(PrimaryActor);
         Arena.Actor(_bossP2);
     }
+
+    public override int? ResolveArenaProjectionLayer(Actor actor)
+        => Bounds is ArenaBoundsCustom { WorldProjectionLayers.Length: 2 } && FindComponent<VirtualShiftEarth>()?.AdjustArenaProjectionLayer(actor) is int layer
+            ? layer : base.ResolveArenaProjectionLayer(actor);
 }

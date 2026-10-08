@@ -183,7 +183,7 @@ public sealed class NormalMovement : RotationModule
         if (Bossmods.ActiveModule is not Stormblood.Ultimate.UCOB.UCOB && Hints.FindEnemy(primaryTarget) is { } enemy && enemy.Actor.TargetID == Player.InstanceID)
         {
             if (enemy.CanMove)
-                Hints.GoalZones.Add(Hints.PullTargetToLocation(enemy.Actor, enemy.DesiredPosition, Player, GCD, 0.5f));
+                Hints.GoalZones.Add(Hints.PullTargetToLocation(enemy.Actor, enemy.DesiredPosition, Player, GCD, 0.5f, enemy.Priority >= 0));
 
             var position = enemy.Actor.Position;
             var distance = (position - Player.Position).Length();

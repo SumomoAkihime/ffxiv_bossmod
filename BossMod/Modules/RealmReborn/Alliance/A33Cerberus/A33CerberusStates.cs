@@ -8,10 +8,16 @@ class A33CerberusStates : StateMachineBuilder
             .ActivateOnEnter<TailBlow>()
             .ActivateOnEnter<Slabber>()
             .ActivateOnEnter<Mini>()
-            .ActivateOnEnter<SulphurousBreath1>()
-            .ActivateOnEnter<SulphurousBreath2>()
-            .ActivateOnEnter<LightningBolt2>()
+            .ActivateOnEnter<SulphurousBreath>()
+            .ActivateOnEnter<SulphurousBreathHelper>()
             .ActivateOnEnter<HoundOutOfHell>()
-            .ActivateOnEnter<Ululation>();
+            .ActivateOnEnter<LightningBoltCharge>()
+            .ActivateOnEnter<HexEye>()
+            .ActivateOnEnter<Ululation>()
+            .ActivateOnEnter<Wolfsbane>()
+            .ActivateOnEnter<GastricJuiceAdd>()
+            .ActivateOnEnter<Electrons>()
+            .ActivateOnEnter<StomachAdds>()
+            .ActivateOnEnter<BellyArena>();
     }
 }

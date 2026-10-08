@@ -294,13 +294,15 @@ public sealed class CooldownPlannerColumns : Timeline.ColumnGroup
             AddStrategyColumns(i);
         }
 
+        List<Plan.Entry> targeting = [.. Plan.Targeting];
+
         // clear and readd target overrides
         while (_colTarget.Elements.Count > 0)
         {
             _colTarget.RemoveElement(0);
         }
 
-        foreach (var o in Plan.Targeting)
+        foreach (var o in targeting)
         {
             var state = _tree.Nodes.GetValueOrDefault(o.StateID);
             if (state != null)
@@ -308,6 +310,9 @@ public sealed class CooldownPlannerColumns : Timeline.ColumnGroup
                 _colTarget.AddElement(state, o.TimeSinceActivation, o.WindowLength, o.Disabled, (StrategyValueTrack)o.Value);
             }
         }
+
+        // Removing old elements notifies the current plan and clears its targeting list.
+        Plan.Targeting = targeting;
     }
 
     private Action AddModuleAction(Type type, RotationModuleRegistry.Entry md) => () =>

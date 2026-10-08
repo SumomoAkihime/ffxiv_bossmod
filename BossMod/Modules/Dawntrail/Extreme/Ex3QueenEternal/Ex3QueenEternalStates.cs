@@ -9,9 +9,9 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
         _module = module;
         SimplePhase(default, Phase1, "P1")
             .ActivateOnEnter<ArenaChanges>()
-            .Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed || Module.PrimaryActor.HPMP.CurHP == 1u && (Module.PrimaryActor.CastInfo?.IsSpell(AID.AuthorityEternal) ?? false);
+            .Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed || Module.PrimaryActor.HPMP.CurHP == 1u && _module.FindComponent<ArenaChanges>()?.EnrageCastStarted == true;
         SimplePhase(1u, Phase2, "P2")
-            .Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed && (_module.BossP2()?.IsDeadOrDestroyed ?? true);
+            .Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed && _module.BossP2()?.IsDeadOrDestroyed == true;
     }
 
     private void Phase1(uint id)
@@ -242,7 +242,8 @@ sealed class Ex3QueenEternalStates : StateMachineBuilder
 
     private void P2Intermission(uint id, float delay)
     {
-        Cast(id, (uint)AID.AuthorityEternal, delay, 10);
+        ComponentCondition<ArenaChanges>(id, delay, static comp => comp.EnrageCastStarted);
+        ComponentCondition<ArenaChanges>(id + 0x01u, 10f, static comp => comp.EnrageCastEnded);
         Targetable(id + 0x10, false, 0.2f, "Boss disappears + Raidwide")
             .SetHint(StateMachine.StateHint.Raidwide);
         ActorTargetable(id + 0x20, _module.BossP2, true, 24.8f, "Boss appears")

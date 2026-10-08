@@ -35,3 +35,12 @@ sealed class P5Exaflare(BossModule module) : Components.Exaflare(module, 6f)
         }
     }
 }
+
+sealed class P5Preposition(UCOB module) : BossComponent(module)
+{
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (((UCOB)Module).BahamutPrime() is { IsTargetable: false })
+            hints.GoalZones.Add(AIHints.GoalSingleTarget(Arena.Center, 5f));
+    }
+}

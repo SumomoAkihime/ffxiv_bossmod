@@ -43,15 +43,31 @@ sealed class ChargedLightning(BossModule module) : Components.SimpleAOEs(module,
 sealed class ElectricShock(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ElectricShock, 16.0f);
 sealed class ErraticBlaster(BossModule module) : Components.SingleTargetCast(module, (uint)AID.ErraticBlaster, "TankBuster + applies Paralysis");
 
-sealed class AddMovement(BossModule module) : Components.Adds(module, (uint)OID.LightningSprite) {
+sealed class AddMovement(BossModule module) : Components.Adds(module, (uint)OID.LightningSprite, 2) {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
+        base.AddAIHints(slot, actor, assignment, hints);
+        if (ActiveActorsCount == 0) {
+            return;
+        }
+
         var sprites = ActiveActors;
+        Actor? closest = null;
+        float closestDistance = float.MaxValue;
         foreach (var sprite in sprites) {
-            hints.GoalZones.Add(AIHints.GoalSingleTarget(sprite.Position, 6.0f, 2.0f));
+            var distance = (actor.Position - sprite.Position).LengthSq();
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closest = sprite;
+            }
+        }
+
+        if (closest != null) {
+            hints.GoalZones.Add(AIHints.GoalSingleTarget(closest.Position, 6.0f, 5.0f));
         }
     }
-}
 
+    public override void DrawArenaForeground(int pcSlot, Actor pc) => Arena.Actors(Actors, Colors.Vulnerable);
+}
 sealed class FlaurosPieceStates : StateMachineBuilder {
     public FlaurosPieceStates(BossModule module) : base(module) {
         TrivialPhase()

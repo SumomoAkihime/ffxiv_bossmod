@@ -123,7 +123,7 @@ sealed class P3BlackfireLiquidHell(BossModule module) : LiquidHellBase(module)
             {
                 var relN = _blackfire.RelativeNorth.ToDirection();
                 var safety = actor.Class.IsDD() ? relN.OrthoL() : relN.OrthoR();
-                hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center + relN * 17f + safety * 8f, 2f));
+                hints.AddForbiddenZone(new SDHalfPlane(Arena.Center, safety));
             }
             else
             {
@@ -337,6 +337,7 @@ sealed class P3MegaflareStack(BossModule module) : Components.UniformStackSpread
 {
     private readonly P3BlackfireTrio? _blackfire = module.FindComponent<P3BlackfireTrio>();
     private bool _twinBait;
+    private int _numHypernovas;
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
@@ -356,6 +357,8 @@ sealed class P3MegaflareStack(BossModule module) : Components.UniformStackSpread
         {
             Stacks.Clear();
         }
+        if (spell.Action.ID == (uint)AID.Hypernova)
+            ++_numHypernovas;
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -391,7 +394,7 @@ sealed class P3MegaflareStack(BossModule module) : Components.UniformStackSpread
         }
         else if (_blackfire != null) // bft: stack spot is relative south of puddles
         {
-            hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center + (_blackfire.RelativeNorth + 180f.Degrees()).ToDirection() * 8f, 2.5f), stack.Activation);
+            hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center + (_blackfire.RelativeNorth + 180f.Degrees()).ToDirection() * 8f, _numHypernovas == 0 ? 7.5f : 2.5f), stack.Activation);
         }
         else if (Module.FindComponent<P3GrandOctet>() is { Twintania: { } twintania } octet)
         {

@@ -7,10 +7,16 @@ class A32FiveheadedDragonStates : StateMachineBuilder
         TrivialPhase()
             .ActivateOnEnter<WhiteBreath>()
             .ActivateOnEnter<BreathOfFire>()
+            .ActivateOnEnter<IceFloor>()
             .ActivateOnEnter<BreathOfLight>()
             .ActivateOnEnter<BreathOfPoison>()
-            .ActivateOnEnter<BreathOfIce>()
+            .ActivateOnEnter<Stack>()
+            .ActivateOnEnter<Discordance>()
             .ActivateOnEnter<Radiance>()
-            .ActivateOnEnter<HeatWave>();
+            .ActivateOnEnter<HeatWave>()
+            .ActivateOnEnter<HeatWavePyretic>()
+            .ActivateOnEnter<Heads>()
+            .ActivateOnEnter<Prominence>()
+            .ActivateOnEnter<Slimes>();
     }
 }

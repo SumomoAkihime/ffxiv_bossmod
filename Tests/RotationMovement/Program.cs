@@ -193,6 +193,11 @@ class Program
             RotationSeptemberTests.Run(manager, player, hints, Check);
             ModuleManagementTests.Run(bossmods, boss, Check);
         PrePullMigrationTests.Run(Check);
+            UpstreamBoard20261008Tests.Run(Check);
+            UpstreamQueen20261008Tests.Run(Check);
+            UpstreamRadar20261008Tests.Run(Check);
+            UpstreamUCOB20261008Tests.Run(Check);
+            UpstreamCore20261008Tests.Run(manager, player, boss, hints, Check);
             Console.WriteLine("循环/移动开关、预设改名与顺序、跟随、旧任务失效、视线及排序检查完成。");
         }
         finally { ImGui.DestroyContext(imgui); }

@@ -191,6 +191,7 @@ sealed class OpList(Replay replay, Replay.Encounter? enc, BossModuleRegistry.Inf
         ActorState.OpPlayActionTimelineEvent op => FilterInterestingActor(op.InstanceID, op.Timestamp, true),
         ActorState.OpIncomingEffect => false,
         PartyState.OpLimitBreakChange => false,
+        PartyState.OpAllianceChange => false,
         PartyState.OpModify => false,
         ActorState.OpModelState op => FilterInterestingActor(op.InstanceID, op.Timestamp, false),
         ActorState.OpEventNpcYell op => FilterInterestingActor(op.InstanceID, op.Timestamp, false),

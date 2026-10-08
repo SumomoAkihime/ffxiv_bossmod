@@ -4,6 +4,20 @@ sealed class ArenaChanges(BossModule module) : BossComponent(module)
 {
     public override bool KeepOnPhaseChange => true;
     private bool firstEarthArena = true;
+    public bool EnrageCastStarted;
+    public bool EnrageCastEnded;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.AuthorityEternal)
+            EnrageCastStarted = true;
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.AuthorityEternal)
+            EnrageCastEnded = true;
+    }
 
     public override void OnEventDirectorUpdate(uint updateID, uint param1, uint param2, uint param3, uint param4)
     {
@@ -21,7 +35,14 @@ sealed class ArenaChanges(BossModule module) : BossComponent(module)
                 break;
             case 0x04u: // disjointed rect (Earth) arena
                 if (firstEarthArena)
-                    firstEarthArena = false; // don't want to switch arena here because of gravity stuff
+                {
+                    var center = Ex3QueenEternal.ArenaCenter;
+                    var square = new Square(center, 21f);
+                    var split = PolygonClipper.GetCombinedPolygon(center, Trial.T03QueenEternal.T03QueenEternal.SplitArenaRects);
+                    var bounds = new ArenaBoundsCustom([square], WorldProjectionLayers: [new(square.ToPolygon(center), 0f, borderY: 0f), new(split, 0f, borderY: 0f)]);
+                    SetArena(bounds, center);
+                    firstEarthArena = false;
+                }
                 else
                     SetArena(Ex3QueenEternal.EarthBounds, Ex3QueenEternal.EarthBounds.Center);
                 break;

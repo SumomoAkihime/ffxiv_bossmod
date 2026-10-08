@@ -463,6 +463,7 @@ public sealed class ReplayParserLog : IDisposable
             [new("PAR-"u8)] = ParsePartyLeave, // legacy (up to v3)
             [new("PAR!"u8)] = ParsePartyModify, // legacy (up to v3)
             [new("LB  "u8)] = ParsePartyLimitBreak,
+            [new("ALGI"u8)] = ParsePartyAlliance,
             [new("CLAR"u8)] = ParseClientActionRequest,
             [new("CLRJ"u8)] = ParseClientActionReject,
             [new("CDN+"u8)] = () => ParseClientCountdown(true),
@@ -851,6 +852,7 @@ public sealed class ReplayParserLog : IDisposable
     private PartyState.OpModify ParsePartyModify() => new(_input.ReadInt(), new(_input.ReadULong(true), _input.ReadULong(true), _version >= 15 && _input.ReadBool(), _version < 15 ? "" : _input.ReadString()));
     private PartyState.OpModify ParsePartyLeave() => new(_input.ReadInt(), new(0, 0, false, ""));
     private PartyState.OpLimitBreakChange ParsePartyLimitBreak() => new(_input.ReadInt(), _input.ReadInt());
+    private PartyState.OpAllianceChange ParsePartyAlliance() => new((AllianceLetter)_input.ReadInt());
 
     private ClientState.OpActionRequest ParseClientActionRequest()
     {

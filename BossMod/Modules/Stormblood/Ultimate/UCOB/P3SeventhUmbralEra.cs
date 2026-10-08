@@ -65,7 +65,6 @@ sealed class P3BahamutPositioning(UCOB module) : BossComponent(module)
 {
     public WPos? DesiredPosition;
     public Angle? DesiredRotation;
-    private readonly Actor _bahamut = module.BahamutPrime()!;
 
     public void Reset()
     {
@@ -75,12 +74,21 @@ sealed class P3BahamutPositioning(UCOB module) : BossComponent(module)
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (hints.FindEnemy(_bahamut) is AIHints.Enemy b)
+        if (((UCOB)Module).BahamutPrime() is { } bahamut && hints.FindEnemy(bahamut) is AIHints.Enemy b)
         {
             if (DesiredRotation is { } rotation)
                 b.DesiredRotation = rotation;
             if (DesiredPosition is { } position)
                 b.DesiredPosition = position;
         }
+    }
+}
+
+sealed class P3HugBahamut(UCOB module) : BossComponent(module)
+{
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (((UCOB)Module).BahamutPrime() is { } bahamut)
+            hints.GoalZones.Add(AIHints.GoalSingleTarget(bahamut.Position, 5f, 0.5f));
     }
 }

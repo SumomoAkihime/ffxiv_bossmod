@@ -67,7 +67,7 @@ public enum TetherID : uint {
 }
 
 
-sealed class AutoAttack(BossModule module) : Components.Cleave(module, (uint)AID.AutoAttack, new AOEShapeCone(9.0f, 55.0f.Degrees())) {
+sealed class AutoAttack(BossModule module) : Components.Cleave(module, (uint)AID.AutoAttack, new AOEShapeCone(9.0f, 55.0f.Degrees()), activeWhileCasting: false) {
     private readonly BeastlyAura? beastlyAura = module.FindComponent<BeastlyAura>();
 
     public override void AddHints(int slot, Actor actor, TextHints hints) {
@@ -78,20 +78,17 @@ sealed class AutoAttack(BossModule module) : Components.Cleave(module, (uint)AID
         base.AddHints(slot, actor, hints);
     }
 
-    // Set the cleave aoe to be 1.5f so it doesn't overlap with really bad mechanics such as the cage - getting hitting by the cleave is fine
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
+        AllowPetTargets = true;
+        NextExpected = DateTime.MaxValue;
+
         if (beastlyAura == null || beastlyAura.knockbacks.Count > 0) {
             return;
         }
 
-        foreach (var (origin, target, angle) in OriginsAndTargets()) {
-            if (actor != target) {
-                hints.AddForbiddenZone(Shape, origin.Position, angle, WorldState.FutureTime(1.5f));
-            }
-        }
+        base.AddAIHints(slot, actor, assignment, hints);
     }
 }
-
 sealed class Gyrocleave(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Gyrocleave, new AOEShapeRect(80.0f, 10.0f));
 sealed class GluttonousGoring(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GluttonousGoring, 40.0f);
 sealed class MoltenMetalBaitAOE(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MoltenMetalBaitCircle, 6.0f);
@@ -145,6 +142,8 @@ sealed class DeadlyDemesne(BossModule module) : Components.GenericAOEs(module) {
 }
 
 sealed class MoltenMetalBait(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCircle(6.0f), (uint)IconID.MoltenMetal, centerAtTarget: true) {
+    private readonly WPos[] waypoints = [new(520.0f, -440.0f), new(520.0f, -400.0f)];
+
     public override void OnCastStarted(Actor caster, ActorCastInfo spell) {
         if (spell.Action.ID == (uint)AID.MoltenMetalBaitCircle) {
             CurrentBaits.Clear();
@@ -152,23 +151,26 @@ sealed class MoltenMetalBait(BossModule module) : Components.BaitAwayIcon(module
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints) {
-        if (CurrentBaits.Count == 0) {
-            return;
+        if (CurrentBaits.Count != 0) {
+            hints.Add("Bait far away on one side of the map!");
         }
-
-        hints.Add("Bait far away on one side of the map!");
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
-        if (CurrentBaits.Count == 0) {
+        if (CurrentBaits.Count == 0 || !IsBaitTarget(actor)) {
             return;
         }
 
-        hints.AddForbiddenZone(new SDInvertedCircle(new WPos(520.0f, -400.0f), 2.0f));
+        List<ShapeDistance> safeSpots = [];
+        foreach (var spot in waypoints) {
+            safeSpots.Add(new SDCircle(spot, 2.0f));
+        }
 
+        if (safeSpots.Count > 0) {
+            hints.AddForbiddenZone(new SDInvertedUnion([.. safeSpots]));
+        }
     }
 }
-
 sealed class OverpoweringPoint(BossModule module) : Components.GenericAOEs(module) {
     private readonly List<AOEInstance> aoes = [];
     private readonly AOEShapeCone cone = new(40.0f, 65.0f.Degrees()); // Cones to prevent baiting towards the adds

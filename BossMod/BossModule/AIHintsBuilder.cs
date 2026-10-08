@@ -154,7 +154,7 @@ public sealed class AIHintsBuilder : IDisposable
                 enemy.ForbidDOTs = true;
             }
 
-            if (actor.Type == ActorType.Part || actor.OID is 0x4DD4 or 0x4B8E)
+            if (actor.Type == ActorType.Part || actor.OID is 0x4DD4 or 0x4B8E or 0x4CA7 or 0x4CB8 or 0x4CD9 or 0x4CDC or 0x4CE3 or 0x4CE4 or 0x4CE5 or 0x4CF5 or 0x4CF6 or 0x4CF8 or 0x4D05 or 0x4D07)
                 enemy.CanMove = false;
 
             hints.PotentialTargets.Add(enemy);

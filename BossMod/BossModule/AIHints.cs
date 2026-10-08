@@ -164,6 +164,7 @@ public sealed class AIHints
     // this is used by the action queue to skip casts that we won't be able to finish and execute lower-priority fallback actions instead
     public float MaxCastTime = float.MaxValue;
     public bool ForceCancelCast;
+    public bool ScriptedDeath; // keep presets through an encounter-authored death/revival
     public bool ForbidDashes; // mechanic restriction, independent of geometric dash safety
 
     // actions that we want to be executed, gathered from various sources (manual input, autorotation, planner, ai, modules, etc.)
@@ -205,6 +206,7 @@ public sealed class AIHints
         ShouldCleanse.Reset();
         MaxCastTime = float.MaxValue;
         ForceCancelCast = false;
+        ScriptedDeath = false;
         ForbidDashes = false;
         ActionsToExecute.Clear();
         StatusesToCancel.Clear();
@@ -794,7 +796,7 @@ public sealed class AIHints
         return _ => default;
     }
 
-    public Func<WPos, float> PullTargetToLocation(Actor target, WPos destination, Actor player, float gcd, float destRadius = 2f)
+    public Func<WPos, float> PullTargetToLocation(Actor target, WPos destination, Actor player, float gcd, float destRadius = 2f, bool greed = true)
     {
         var enemy = FindEnemy(target);
         if (enemy == null)
@@ -813,10 +815,10 @@ public sealed class AIHints
             return GoalSingleTarget(target.Position, adjRange, 0.5f);
         }
 
-        if (gcd < 0.5f)
+        if (greed && gcd < 0.5f && player.TargetID == target.InstanceID)
         {
             var playerEffRange = player.Role is Role.Tank or Role.Melee ? 3 : 25;
-            distToGoal = Math.Min(distToGoal, target.HitboxRadius + player.HitboxRadius + playerEffRange);
+            distToGoal = Math.Min(distToGoal, target.HitboxRadius + player.HitboxRadius + playerEffRange) - 0.1f;
         }
 
         var sh = new SDPrecisePosition(target.Position + dirToGoal.Normalized() * distToGoal, new(0f, 1f), PathfindMapBounds.MapResolution, player.Position, 0.1f);

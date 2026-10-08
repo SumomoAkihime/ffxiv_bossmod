@@ -79,7 +79,7 @@ public sealed class RDM(RotationModuleManager manager, Actor player) : Castxan<A
     private Enemy? BestLineTarget;
 
     private bool InRangedCombo
-        => Stacks == 3
+        => Stacks == 3 && Unlocked(AID.Verflare)
         || ComboLastMove is AID.Verflare or AID.Verholy && Unlocked(AID.Scorch)
         || ComboLastMove is AID.Scorch && Unlocked(AID.Resolution);
 
@@ -192,13 +192,13 @@ public sealed class RDM(RotationModuleManager manager, Actor player) : Castxan<A
     {
         // combo continuations
         if (ComboLastMove is AID.Scorch)
-            PushGCD(AID.Resolution, BestLineTarget, GCDPriority.Combo);
-
-        if (ComboLastMove is AID.Verflare or AID.Verholy)
             PushGCD(AID.Resolution, BestLineTarget, GCDPriority.Combo, setRotation: NumLineTargets > 1);
 
+        if (ComboLastMove is AID.Verflare or AID.Verholy)
+            PushGCD(AID.Scorch, BestAOETarget, GCDPriority.Combo);
+
         if (Stacks == 3)
-            PushGCD(BlackMana > WhiteMana ? AID.Verholy : AID.Verflare, BestAOETarget, GCDPriority.Combo);
+            PushGCD(BlackMana > WhiteMana && Unlocked(AID.Verholy) ? AID.Verholy : AID.Verflare, BestAOETarget, GCDPriority.Combo);
 
         if (ComboLastMove == AID.Zwerchhau && Unlocked(AID.Redoublement))
             PushGCD(AID.Redoublement, primaryTarget, GCDPriority.Combo);

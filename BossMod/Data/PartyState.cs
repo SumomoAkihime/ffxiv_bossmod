@@ -1,5 +1,16 @@
 ﻿namespace BossMod;
 
+public enum AllianceLetter
+{
+    None = -1,
+    A = 0,
+    B = 1,
+    C = 2,
+    D = 3,
+    E = 4,
+    F = 5
+}
+
 // state of the party/alliance/trust that player is part of; part of the world state structure
 // solo player is considered to be in party of size 1
 // after joining the party, member's slot never changes until leaving the party; this means that there could be intermediate gaps
@@ -42,6 +53,8 @@ public sealed class PartyState
 
     public Actor? this[int slot] => (slot >= 0 && slot < _actors.Length) ? _actors[slot] : null; // bounds-checking accessor
     public Actor? Player() => this[PlayerSlot];
+
+    public AllianceLetter Alliance = AllianceLetter.None;
 
     public int LimitBreakCur;
     public int LimitBreakMax = 10000;
@@ -209,6 +222,10 @@ public sealed class PartyState
         {
             ops.Add(new OpLimitBreakChange(LimitBreakCur, LimitBreakMax));
         }
+        if (Alliance != AllianceLetter.None)
+        {
+            ops.Add(new OpAllianceChange(Alliance));
+        }
         return ops;
     }
 
@@ -253,5 +270,19 @@ public sealed class PartyState
             ws.Party.LimitBreakChanged.Fire(this);
         }
         public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("LB  "u8).Emit(Cur).Emit(Max);
+    }
+
+    public Event<OpAllianceChange> AllianceChanged = new();
+    public sealed class OpAllianceChange(AllianceLetter alliance) : WorldState.Operation
+    {
+        public readonly AllianceLetter Alliance = alliance;
+
+        protected override void Exec(WorldState ws)
+        {
+            ws.Party.Alliance = Alliance;
+            ws.Party.AllianceChanged.Fire(this);
+        }
+
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("ALGI"u8).Emit((int)Alliance);
     }
 }

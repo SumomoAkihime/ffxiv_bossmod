@@ -22,16 +22,21 @@ public enum AID : uint
 }
 class SoulDrain(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SoulDrain, new AOEShapeCircle(9f));
 
+class IceSpikes(BossModule module) : Components.CastHint(module, (uint)AID.IceSpikes, "Interrupt Ice Spikes");
+class Blizzard(BossModule module) : Components.SingleTargetCast(module, (uint)AID.Blizzard);
+
 class D062ManorStewardStates : StateMachineBuilder
 {
     public D062ManorStewardStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<SoulDrain>();
+            .ActivateOnEnter<SoulDrain>()
+            .ActivateOnEnter<IceSpikes>()
+            .ActivateOnEnter<Blizzard>();
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "Chuggalo", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 6, NameID = 424)]
+[ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "Chuggalo", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 6, NameID = 427)]
 public class D062ManorSteward(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
 {
     private static readonly WPos[] shape = [new(23.47f, -16.88f), new(23.57f, -14.91f), new(23.59f, 10.51f), new(23.47f, 11.24f), new(23.28f, 11.88f),

@@ -55,24 +55,25 @@ sealed class GroundingJoltBig(BossModule module) : Components.SimpleAOEs(module,
 sealed class GroundingJoltSmall(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GroundingJoltSmall, 6.0f);
 
 sealed class Missile(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Voyage, new AOEShapeRect(100.0f, 2.0f));
-sealed class MissileBait(BossModule module) : Components.GenericBaitProximity(module) {
+sealed class MissileBait(BossModule module) : Components.GenericBaitAway(module) {
     private readonly AOEShapeRect shape = new(100.0f, 2.0f);
 
     public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id) {
         if (actor.OID == (uint)OID.Missile && id == 4565) {
-            CurrentBaits.Add(new(actor, shape));
+            foreach (var player in Raid.WithoutSlot()) {
+                if (player.Type != ActorType.Pet) {
+                    CurrentBaits.Add(new(actor, player, shape));
+                }
+            }
         }
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell) {
-        if (spell.Action.ID == (uint)AID.Voyage) {
-            if (CurrentBaits.Count > 0) {
-                CurrentBaits.RemoveAt(0);
-            }
+        if (spell.Action.ID == (uint)AID.Voyage && CurrentBaits.Count > 0) {
+            CurrentBaits.RemoveAt(0);
         }
     }
 }
-
 sealed class ThermobaricChargeBait(BossModule module) : Components.BaitAwayIcon(module, 2.0f, (uint)IconID.ThermobaricChargeLockOn,
     (uint)AID.ThermobaricChargeBoss) {
 

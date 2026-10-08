@@ -59,7 +59,7 @@ static class CoreSeptemberTests
         var boss = Create(world, 2, 0x4D03, center);
         using var giant = BossModuleRegistry.CreateModuleForActor(world, boss, BossModuleInfo.Maturity.Contributed)!;
         giant.StateMachine.Start(world.CurrentTime);
-        var bait = (GenericBaitProximity)giant.Components.Single(c => c.GetType().Name == "SmashingStampBait");
+        var bait = (GenericBaitAway)giant.Components.Single(c => c.GetType().Name == "SmashingStampBait");
         var left = Create(world, 3, 0x4D05, center + new WDir(-10, 0));
         var right = Create(world, 4, 0x4D07, center + new WDir(10, 0));
         bait.OnEventIcon(player, 234, player.InstanceID);

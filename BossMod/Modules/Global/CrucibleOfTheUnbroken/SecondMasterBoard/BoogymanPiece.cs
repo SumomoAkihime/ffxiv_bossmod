@@ -109,41 +109,46 @@ sealed class Swoop(BossModule module) : Components.GenericAOEs(module) {
 }
 
 // Used to track where the adds are base on if they're dead or not - They go invisible, so we have to manually draw them like this
-sealed class AddTrack(BossModule module) : Components.AddsMulti(module, [(uint)OID.BombPiece, (uint)OID.DeepeyePiece]) {
-    private new List<Actor> ActiveActors() {
-        var enemies = Module.Enemies(OIDs);
-        var result = new List<Actor>(enemies.Count);
-        foreach (var actor in enemies) {
-            if (!actor.IsDead) {
-                result.Add(actor);
-            }
-        }
-        return result;
-    }
-
+sealed class AddTrack(BossModule module) : Components.AddsMulti(module, [(uint)OID.BombPiece, (uint)OID.DeepeyePiece, (uint)OID.LightSprite], allowUntargetable: true) {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
-        foreach (var a in ActiveActors()) {
-            var priority = a.OID switch {
+        hints.PrioritizeTargetsByOIDAndForbidDOTs((uint)OID.BombPiece, 4);
+        hints.PrioritizeTargetsByOIDAndForbidDOTs((uint)OID.DeepeyePiece, 3);
+        hints.PrioritizeTargetsByOIDAndForbidDOTs((uint)OID.LightSprite, 2);
+
+        var enemies = ActiveActors;
+        var count = enemies.Count;
+        if (count == 0) {
+            return;
+        }
+
+        Actor? closest = null;
+        float closestDistance = float.MaxValue;
+        var closestPriority = 0;
+        for (var i = 0; i < count; i++) {
+            var enemy = enemies[i];
+            var priority = enemy.OID switch {
                 (uint)OID.BombPiece => 4,
                 (uint)OID.DeepeyePiece => 3,
+                (uint)OID.LightSprite => 2,
                 _ => 0
             };
+            if (priority == 0) {
+                continue;
+            }
 
-            if (priority > 0) {
-                hints.GoalZones.Add(AIHints.GoalSingleTarget(a.Position, 3.0f, priority));
+            var distance = (actor.Position - enemy.Position).LengthSq();
+            if (priority > closestPriority || (priority == closestPriority && distance < closestDistance)) {
+                closestDistance = distance;
+                closest = enemy;
+                closestPriority = priority;
             }
         }
-    }
 
-    public override void DrawArenaForeground(int pcSlot, Actor pc) {
-        var actors = ActiveActors();
-
-        foreach (var actor in actors) {
-            Arena.Actor(ref actor.PosRot, Colors.Enemy);
+        if (closest != null) {
+            hints.GoalZones.Add(AIHints.GoalSingleTarget(closest.Position, 3.0f, 5.0f));
         }
     }
 }
-
 sealed class RevealMainBoss(BossModule module) : BossComponent(module) {
     private bool reveal => !Module.PrimaryActor.IsTargetable && Module.Enemies((uint)OID.LightSprite).Any(actor => !actor.IsDead);
 
@@ -181,25 +186,6 @@ sealed class BoogymanPieceStates : StateMachineBuilder {
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, PrimaryActorOID = (uint)OID.BoogymanPiece, Contributors = "Equilius", Expansion = BossModuleInfo.Expansion.Global, Category = BossModuleInfo.Category.CrucibleOfTheUnbroken, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1092u, NameID = 14638u, SortOrder = 3)]
 public sealed class BoogymanPiece(WorldState ws, Actor primary) : BossModule(ws, primary, new(120f, -420f), new ArenaBoundsCircle(20f)) {
-    protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
-        var count = hints.PotentialTargets.Count;
-        for (var i = 0; i < count; ++i) {
-            var e = hints.PotentialTargets[i];
-            e.Priority = e.Actor.OID switch {
-                (uint)OID.BombPiece => 4,
-                (uint)OID.DeepeyePiece => 3,
-                (uint)OID.LightSprite => 2,
-                (uint)OID.BoogymanPiece => 1,
-                _ => 0
-            };
-        }
-    }
-
-    protected override void DrawEnemies(int pcSlot, Actor pc) {
-        Arena.Actor(PrimaryActor);
-        Arena.Actors(Enemies((uint)OID.LightSprite));
-    }
-
     private readonly string[] _prePullHints = [
         "Fight kill priority: BombPiece -> DeepeyePiece -> LightSprite -> boss",
         "Sprite: Will cast a cone toward where it's facing when it dies, aim it toward the boss to reveal it"

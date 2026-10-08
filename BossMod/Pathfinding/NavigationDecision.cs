@@ -80,7 +80,7 @@ public struct NavigationDecision
 
     private static void AvoidForbiddenZone(Map map, float forbiddenZoneCushion)
     {
-        var d = (int)(forbiddenZoneCushion / map.Resolution);
+        var d = (int)(Math.Clamp(forbiddenZoneCushion, 0f, 3f) / map.Resolution);
 
         var width = map.Width;
         var height = map.Height;

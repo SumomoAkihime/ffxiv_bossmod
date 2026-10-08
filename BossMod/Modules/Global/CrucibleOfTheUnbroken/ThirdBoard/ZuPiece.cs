@@ -2,11 +2,11 @@
 
 public enum OID : uint {
     ZuPiece = 0x4C96,
-    Helper = 0x233C,
     PulletPieceEgg = 0x4C9A, // R0.500, x8
     CockerelPieceEgg = 0x4C99, // R0.500, x8
     PulletPiece = 0x4C98, // R0.400, x0 (spawn during fight)
     CockerelPiece = 0x4C97, // R0.400, x0 (spawn during fight)
+    Helper = 0x233C
 }
 
 public enum AID : uint {
@@ -48,18 +48,16 @@ public enum TetherID : uint {
     CarveStretched = 1, // ZuPiece->player
 }
 
-sealed class Crossbreeze(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Crossbreeze, new AOEShapeCross(50.0f, 4.0f));
-sealed class AiryPursuit(BossModule module) : Components.SimpleAOEs(module, (uint)AID.AiryPursuitAOE, 6.0f);
-sealed class CarveTether(BossModule module) : Components.StretchTetherDuo(module, 16.0f, 5.0f);
+sealed class Crossbreeze(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Crossbreeze, new AOEShapeCross(50f, 4f));
+sealed class AiryPursuit(BossModule module) : Components.SimpleAOEs(module, (uint)AID.AiryPursuitAOE, 6f);
+sealed class CarveTether(BossModule module) : Components.StretchTetherDuo(module, 16f, 5d);
 
-sealed class CrossbreezeBait(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCross(50.0f, 4.0f), (uint)IconID.Crossbreeze,
-    (uint)AID.CrossbreezeIcon, 8.1f, centerAtTarget: true) {
-
-    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID) {
-        if (iconID == IID && BaitSource(actor) is var source && source != null) {
-            CurrentBaits.Add(new(source, WorldState.Actors.Find(targetID) ?? actor, new AOEShapeCross(50.0f, 4.0f), WorldState.FutureTime(ActivationDelay), customRotation: 0.0f.Degrees(), arenaProjectionLayer: ArenaProjectionLayer, restrictToArenaProjectionLayer: RestrictToArenaProjectionLayer));
-        }
-    }
+sealed class CrossbreezeBait(ZuPiece module) : Components.BaitAwayIcon(module, new AOEShapeCross(50f, 4f), (uint)IconID.Crossbreeze,
+    (uint)AID.CrossbreezeIcon, 8.1d, centerAtTarget: true, customRotation: Angle.AnglesCardinals[1]) {
+    const float hitboxradius = 0.5f;
+    private readonly AOEShapeCross crossPlusEggHitbox = new(50f, 4f + hitboxradius);
+    private readonly List<Actor> pulletPieceEggs = module.PulletPieceEgg;
+    private readonly List<Actor> cockarelPieceEggs = module.CockarelPieceEgg;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell) {
         if (spell.Action.ID == (uint)AID.Crossbreeze) {
@@ -76,12 +74,22 @@ sealed class CrossbreezeBait(BossModule module) : Components.BaitAwayIcon(module
             return;
         }
 
-        var bait = CurrentBaits[0];
-        bait.Shape = new AOEShapeCross(50.0f, 4.0f + 0.6f);
+        ref var bait = ref CurrentBaits.Ref(0);
 
-        foreach (var egg in Module.Enemies([(uint)OID.PulletPieceEgg, (uint)OID.CockerelPieceEgg])) {
-            var onHitbox = bait.Shape.Check(egg.Position, bait.Target.Position, bait.Rotation);
-            Arena.ZoneCircleOutline(egg.Position, egg.HitboxRadius, onHitbox ? Colors.Danger : Colors.Border);
+        var countP = pulletPieceEggs.Count;
+        var countC = cockarelPieceEggs.Count;
+        var baittargetPos = bait.Target.Position;
+
+        for (var i = 0; i < countP; ++i) {
+            var eggPos = pulletPieceEggs[i].Position;
+            var onHitbox = crossPlusEggHitbox.Check(eggPos, baittargetPos, Angle.AnglesCardinals[1]);
+            Arena.ZoneCircleOutline(eggPos, hitboxradius, onHitbox ? Colors.Danger : Colors.Border);
+        }
+
+        for (var i = 0; i < countC; ++i) {
+            var eggPos = cockarelPieceEggs[i].Position;
+            var onHitbox = crossPlusEggHitbox.Check(eggPos, baittargetPos, Angle.AnglesCardinals[1]);
+            Arena.ZoneCircleOutline(eggPos, hitboxradius, onHitbox ? Colors.Danger : Colors.Border);
         }
     }
 
@@ -94,22 +102,33 @@ sealed class CrossbreezeBait(BossModule module) : Components.BaitAwayIcon(module
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
+        AllowPetTargets = false;
         base.AddAIHints(slot, actor, assignment, hints);
 
         if (!IsBaitTarget(actor) || CurrentBaits.Count == 0) {
             return;
         }
 
-        var bait = CurrentBaits[0];
+        var countP = pulletPieceEggs.Count;
+        var countC = cockarelPieceEggs.Count;
+        for (var i = 0; i < countP; ++i) {
+            hints.TemporaryObstacles.Add(new SDCross(pulletPieceEggs[i].Position, default, 50f, 4f + 0.6f));
+        }
 
-        foreach (var egg in Module.Enemies((uint)OID.PulletPieceEgg).Concat(Module.Enemies((uint)OID.CockerelPieceEgg))) {
-            hints.AddForbiddenZone(new SDCross(egg.Position, default, 50f, 4f + 0.6f), bait.Activation);
+        for (var i = 0; i < countC; ++i) {
+            hints.TemporaryObstacles.Add(new SDCross(cockarelPieceEggs[i].Position, default, 50f, 4f + 0.6f));
         }
     }
 }
 
-sealed class FlyingFrenzy(BossModule module) : Components.BaitAwayIcon(module, 6.0f, (uint)IconID.TankBuster, (uint)AID.FlyingFrenzyAOE, activationDelay: 8.1f,
-    tankbuster: true) {
+sealed class FlyingFrenzy(ZuPiece module) : Components.BaitAwayIcon(module, baitRadius, (uint)IconID.TankBuster, (uint)AID.FlyingFrenzyAOE,
+    activationDelay: 8.1d, tankbuster: true) {
+    private const float baitRadius = 6f;
+    const float hitboxradius = 0.5f;
+    const float reach = baitRadius + hitboxradius;
+    private readonly List<Actor> pulletPieceEggs = module.PulletPieceEgg;
+    private readonly List<Actor> cockarelPieceEggs = module.CockarelPieceEgg;
+
     public override void DrawArenaForeground(int pcSlot, Actor pc) {
         base.DrawArenaForeground(pcSlot, pc);
 
@@ -117,13 +136,23 @@ sealed class FlyingFrenzy(BossModule module) : Components.BaitAwayIcon(module, 6
             return;
         }
 
-        var bait = CurrentBaits[0];
-        var baitRadius = ((AOEShapeCircle)bait.Shape).Radius;
+        ref var bait = ref CurrentBaits.Ref(0);
 
-        foreach (var egg in Module.Enemies([(uint)OID.PulletPieceEgg, (uint)OID.CockerelPieceEgg])) {
-            var reach = baitRadius + egg.HitboxRadius;
-            var onHitbox = (egg.Position - bait.Target.Position).LengthSq() <= reach * reach;
-            Arena.ZoneCircleOutline(egg.Position, egg.HitboxRadius, onHitbox ? Colors.Danger : Colors.Border);
+        var countP = pulletPieceEggs.Count;
+        var countC = cockarelPieceEggs.Count;
+        var baittargetPos = bait.Target.Position;
+
+        const float reachSq = reach * reach;
+        for (var i = 0; i < countP; ++i) {
+            var eggPos = pulletPieceEggs[i].Position;
+            var onHitbox = (eggPos - baittargetPos).LengthSq() <= reachSq;
+            Arena.ZoneCircleOutline(eggPos, hitboxradius, onHitbox ? Colors.Danger : Colors.Border);
+        }
+
+        for (var i = 0; i < countC; ++i) {
+            var eggPos = cockarelPieceEggs[i].Position;
+            var onHitbox = (eggPos - baittargetPos).LengthSq() <= reachSq;
+            Arena.ZoneCircleOutline(eggPos, hitboxradius, onHitbox ? Colors.Danger : Colors.Border);
         }
     }
 
@@ -136,24 +165,33 @@ sealed class FlyingFrenzy(BossModule module) : Components.BaitAwayIcon(module, 6
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
+        AllowPetTargets = true;
         base.AddAIHints(slot, actor, assignment, hints);
 
         if (!IsBaitTarget(actor) || CurrentBaits.Count == 0) {
             return;
         }
 
-        var bait = CurrentBaits[0];
-        var baitRadius = ((AOEShapeCircle)bait.Shape).Radius;
+        var countP = pulletPieceEggs.Count;
+        var countC = cockarelPieceEggs.Count;
+        for (var i = 0; i < countP; ++i) {
+            hints.TemporaryObstacles.Add(new SDCircle(pulletPieceEggs[i].Position, reach));
+        }
 
-        foreach (var egg in Module.Enemies([(uint)OID.PulletPieceEgg, (uint)OID.CockerelPieceEgg])) {
-            var reach = baitRadius + egg.HitboxRadius;
-            hints.AddForbiddenZone(new SDCircle(egg.Position, reach), bait.Activation);
+        for (var i = 0; i < countC; ++i) {
+            hints.TemporaryObstacles.Add(new SDCircle(cockarelPieceEggs[i].Position, reach));
         }
     }
 }
 
-sealed class AiryPursuitPuddles(BossModule module) : Components.StandardChasingAOEs(module, 6.0f, (uint)AID.AiryPursuitAOE, (uint)AID.AiryPursuitTeleport, 3.5f,
-    1.0d, 6, icon: (uint)IconID.AiryPursuit) {
+sealed class AiryPursuitPuddles(ZuPiece module) : Components.StandardChasingAOEs(module, baitRadius, (uint)AID.AiryPursuitAOE, (uint)AID.AiryPursuitTeleport,
+    3.5f, 1d, 6, icon: (uint)IconID.AiryPursuit) {
+    private const float baitRadius = 6f;
+    const float hitboxradius = 0.5f;
+    const float reach = baitRadius + hitboxradius;
+    private readonly List<Actor> pulletPieceEggs = module.PulletPieceEgg;
+    private readonly List<Actor> cockarelPieceEggs = module.CockarelPieceEgg;
+
     public override void DrawArenaForeground(int pcSlot, Actor pc) {
         base.DrawArenaForeground(pcSlot, pc);
 
@@ -162,12 +200,22 @@ sealed class AiryPursuitPuddles(BossModule module) : Components.StandardChasingA
         }
 
         var bait = Chasers[0];
-        var baitRadius = ((AOEShapeCircle)bait.Shape).Radius;
 
-        foreach (var egg in Module.Enemies([(uint)OID.PulletPieceEgg, (uint)OID.CockerelPieceEgg])) {
-            var reach = baitRadius + egg.HitboxRadius;
-            var onHitbox = (egg.Position - bait.PredictedPosition()).LengthSq() <= reach * reach;
-            Arena.ZoneCircleOutline(egg.Position, egg.HitboxRadius, onHitbox ? Colors.Danger : Colors.Border);
+        var countP = pulletPieceEggs.Count;
+        var countC = cockarelPieceEggs.Count;
+        var baittargetPos = bait.PredictedPosition();
+
+        const float reachSq = reach * reach;
+        for (var i = 0; i < countP; ++i) {
+            var eggPos = pulletPieceEggs[i].Position;
+            var onHitbox = (eggPos - baittargetPos).LengthSq() <= reachSq;
+            Arena.ZoneCircleOutline(eggPos, hitboxradius, onHitbox ? Colors.Danger : Colors.Border);
+        }
+
+        for (var i = 0; i < countC; ++i) {
+            var eggPos = cockarelPieceEggs[i].Position;
+            var onHitbox = (eggPos - baittargetPos).LengthSq() <= reachSq;
+            Arena.ZoneCircleOutline(eggPos, hitboxradius, onHitbox ? Colors.Danger : Colors.Border);
         }
     }
 
@@ -186,17 +234,25 @@ sealed class AiryPursuitPuddles(BossModule module) : Components.StandardChasingA
             return;
         }
 
-        var bait = Chasers[0];
-        var baitRadius = ((AOEShapeCircle)bait.Shape).Radius;
+        var countP = pulletPieceEggs.Count;
+        var countC = cockarelPieceEggs.Count;
+        for (var i = 0; i < countP; ++i) {
+            hints.TemporaryObstacles.Add(new SDCircle(pulletPieceEggs[i].Position, reach));
+        }
 
-        foreach (var egg in Module.Enemies([(uint)OID.PulletPieceEgg, (uint)OID.CockerelPieceEgg])) {
-            var reach = baitRadius + egg.HitboxRadius;
-            hints.AddForbiddenZone(new SDCircle(egg.Position, reach), bait.NextActivation);
+        for (var i = 0; i < countC; ++i) {
+            hints.TemporaryObstacles.Add(new SDCircle(cockarelPieceEggs[i].Position, reach));
         }
     }
 }
 
-sealed class AiryPursuitBait(BossModule module) : Components.BaitAwayIcon(module, 6.0f, (uint)IconID.AiryPursuit) {
+sealed class AiryPursuitBait(ZuPiece module) : Components.BaitAwayIcon(module, baitRadius, (uint)IconID.AiryPursuit) {
+    private const float baitRadius = 6f;
+    const float hitboxradius = 0.5f;
+    const float reach = baitRadius + hitboxradius;
+    private readonly List<Actor> pulletPieceEggs = module.PulletPieceEgg;
+    private readonly List<Actor> cockarelPieceEggs = module.CockarelPieceEgg;
+
     public override void OnCastStarted(Actor caster, ActorCastInfo spell) {
         if (spell.Action.ID is (uint)AID.AiryPursuitAOE or (uint)AID.AiryPursuitTeleport) {
             CurrentBaits.Clear();
@@ -210,13 +266,23 @@ sealed class AiryPursuitBait(BossModule module) : Components.BaitAwayIcon(module
             return;
         }
 
-        var bait = CurrentBaits[0];
-        var baitRadius = ((AOEShapeCircle)bait.Shape).Radius;
+        ref var bait = ref CurrentBaits.Ref(0);
 
-        foreach (var egg in Module.Enemies([(uint)OID.PulletPieceEgg, (uint)OID.CockerelPieceEgg])) {
-            var reach = baitRadius + egg.HitboxRadius;
-            var onHitbox = (egg.Position - bait.Target.Position).LengthSq() <= reach * reach;
-            Arena.ZoneCircleOutline(egg.Position, egg.HitboxRadius, onHitbox ? Colors.Danger : Colors.Border);
+        var countP = pulletPieceEggs.Count;
+        var countC = cockarelPieceEggs.Count;
+        var baittargetPos = bait.Target.Position;
+
+        const float reachSq = reach * reach;
+        for (var i = 0; i < countP; ++i) {
+            var eggPos = pulletPieceEggs[i].Position;
+            var onHitbox = (eggPos - baittargetPos).LengthSq() <= reachSq;
+            Arena.ZoneCircleOutline(eggPos, hitboxradius, onHitbox ? Colors.Danger : Colors.Border);
+        }
+
+        for (var i = 0; i < countC; ++i) {
+            var eggPos = cockarelPieceEggs[i].Position;
+            var onHitbox = (eggPos - baittargetPos).LengthSq() <= reachSq;
+            Arena.ZoneCircleOutline(eggPos, hitboxradius, onHitbox ? Colors.Danger : Colors.Border);
         }
     }
 
@@ -229,111 +295,88 @@ sealed class AiryPursuitBait(BossModule module) : Components.BaitAwayIcon(module
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
+        AllowPetTargets = false;
         base.AddAIHints(slot, actor, assignment, hints);
 
         if (!IsBaitTarget(actor) || CurrentBaits.Count == 0) {
             return;
         }
 
-        var bait = CurrentBaits[0];
-        var baitRadius = ((AOEShapeCircle)bait.Shape).Radius;
+        var countP = pulletPieceEggs.Count;
+        var countC = cockarelPieceEggs.Count;
+        for (var i = 0; i < countP; ++i) {
+            hints.TemporaryObstacles.Add(new SDCircle(pulletPieceEggs[i].Position, reach));
+        }
 
-        foreach (var egg in Module.Enemies([(uint)OID.PulletPieceEgg, (uint)OID.CockerelPieceEgg])) {
-            var reach = baitRadius + egg.HitboxRadius;
-            hints.AddForbiddenZone(new SDCircle(egg.Position, reach), bait.Activation);
+        for (var i = 0; i < countC; ++i) {
+            hints.TemporaryObstacles.Add(new SDCircle(cockarelPieceEggs[i].Position, reach));
         }
     }
 }
 
 sealed class Carve(BossModule module) : Components.GenericAOEs(module) {
-    private readonly AOEShapeCone shape = new(15.0f, 90.0f.Degrees());
-    private Actor? tetherTarget;
-    private Actor? tetherSource;
-    private DateTime activation;
+    private readonly AOEShapeCone shape = new(15f, 90f.Degrees());
+    private readonly List<AOEInstance> aoes = [];
     private Angle? rotation = default;
-    private bool baitLocked = false;
-
-    public override void OnTethered(Actor source, in ActorTetherInfo tether) {
-        if (tether.ID is not (uint)TetherID.Carve and not (uint)TetherID.CarveStretched) {
-            return;
-        }
-
-        var target = WorldState.Actors.Find(tether.Target);
-        if (target == null) {
-            return;
-        }
-
-        tetherSource = source;
-        tetherTarget = target;
-    }
+    private bool aoeLocked = true;
+    private WPos startPosition = default;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell) {
         if (spell.Action.ID is (uint)AID.FerociousForeCarve or (uint)AID.RampagingRearCarve) {
-            activation = Module.CastFinishAt(spell).AddSeconds(1d);
             rotation = spell.Action.ID switch {
                 (uint)AID.FerociousForeCarve => default,
                 (uint)AID.RampagingRearCarve => 180f.Degrees(),
                 _ => default
             };
+
+            startPosition = caster.Position;
+        }
+
+        if (spell.Action.ID is (uint)AID.ForeCarve or (uint)AID.RearCarve) {
+            aoeLocked = true;
+
+            // Case: there are no aoes stored, so we just display it normally
+            if (aoes.Count == 0) {
+                aoes.Add(new(shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
+            }
+
+            if (aoes.Count > 0) {
+                ref var aoe = ref aoes.Ref(0);
+                aoe.Origin = spell.LocXZ;
+                aoe.Rotation = spell.Rotation;
+                aoe.Activation = Module.CastFinishAt(spell);
+            }
         }
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell) {
         if (spell.Action.ID is (uint)AID.ForeCarve or (uint)AID.RearCarve) {
-            tetherTarget = null;
-            tetherSource = null;
-            activation = default;
-            rotation = default;
-            baitLocked = false;
+            if (aoes.Count > 0) {
+                rotation = default;
+                aoeLocked = false;
+                aoes.RemoveAt(0);
+            }
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell) {
         if (spell.Action.ID == (uint)AID.Featherglide) {
-            baitLocked = true;
-            tetherTarget = caster;
+            aoeLocked = false;
         }
     }
 
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
-        if (tetherTarget == null || tetherSource == null || activation == default || rotation == null) {
-            return [];
-        }
-
-        WPos origin;
-        Angle offset;
-
-        if (baitLocked) {
-            origin = tetherSource.Position;
-            offset = Module.PrimaryActor.Rotation + rotation.Value;
-        } else {
-            origin = tetherTarget.Position;
-            offset = Angle.FromDirection(tetherTarget.Position - tetherSource.Position) + rotation.Value;
-        }
-
-        return new AOEInstance[] { new AOEInstance(shape, origin, offset, risky: actor != tetherTarget) };
-    }
-
-    public override void DrawArenaBackground(int pcSlot, Actor pc) { }
-
-    public override void DrawArenaForeground(int pcSlot, Actor pc) {
-        if (tetherTarget == null || tetherSource == null || activation == default || rotation == null) {
+    public override void Update() {
+        if (aoeLocked || rotation == null) {
             return;
         }
 
-        WPos origin;
-        Angle offset;
-
-        if (baitLocked) {
-            origin = tetherSource.Position;
-            offset = Module.PrimaryActor.Rotation + rotation.Value;
-            shape.Draw(Arena, origin, offset);
-        } else {
-            origin = tetherTarget.Position;
-            offset = Angle.FromDirection(tetherTarget.Position - tetherSource.Position) + rotation.Value;
-            shape.Outline(Arena, origin, offset);
+        if ((Module.PrimaryActor.Position - startPosition).LengthSq() > 0.5f && Module.PrimaryActor.LastFrameMovementVec4 == default) {
+            aoes.Add(new(shape, Module.PrimaryActor.Position, Module.PrimaryActor.Rotation + rotation.Value));
+            aoeLocked = true;
         }
     }
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(aoes);
 }
 
 sealed class ZuPieceStates : StateMachineBuilder {
@@ -350,12 +393,25 @@ sealed class ZuPieceStates : StateMachineBuilder {
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Contributed, PrimaryActorOID = (uint)OID.ZuPiece, Contributors = "Equilius", Expansion = BossModuleInfo.Expansion.Global, Category = BossModuleInfo.Category.CrucibleOfTheUnbroken, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1090u, NameID = 14572u, SortOrder = 4)]
-public sealed class ZuPiece(WorldState ws, Actor primary) : BossModule(ws, primary, new(120f, -420f), new ArenaBoundsCircle(20f)) {
+[ModuleInfo(BossModuleInfo.Maturity.Contributed,
+    Expansion = BossModuleInfo.Expansion.Global, Category = BossModuleInfo.Category.CrucibleOfTheUnbroken, PrimaryActorOID = (uint)OID.ZuPiece, Contributors = "Equilius", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1090u, NameID = 14572u, SortOrder = 4)]
+public sealed class ZuPiece : BossModule {
+    public ZuPiece(WorldState ws, Actor primary) : base(ws, primary, new(120f, -420f), new ArenaBoundsCircle(20f)) {
+        PulletPieceEgg = Enemies((uint)OID.PulletPieceEgg);
+        CockarelPieceEgg = Enemies((uint)OID.CockerelPieceEgg);
+        pulletPiece = Enemies((uint)OID.PulletPiece);
+        cockerelPiece = Enemies((uint)OID.CockerelPiece);
+    }
+
+    public readonly List<Actor> PulletPieceEgg;
+    public readonly List<Actor> CockarelPieceEgg;
+    private readonly List<Actor> pulletPiece;
+    private readonly List<Actor> cockerelPiece;
+
     protected override void DrawEnemies(int pcSlot, Actor pc) {
         Arena.Actor(PrimaryActor);
-        Arena.Actors(Enemies((uint)OID.PulletPiece), Colors.Vulnerable);
-        Arena.Actors(Enemies((uint)OID.CockerelPiece));
+        Arena.Actors(pulletPiece, Colors.Vulnerable);
+        Arena.Actors(cockerelPiece);
     }
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {

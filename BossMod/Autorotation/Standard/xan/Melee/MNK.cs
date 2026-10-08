@@ -316,7 +316,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         var gauge = World.Client.GetGauge<MonkGauge>();
 
         Chakra = gauge.Chakra;
-        BeastChakra = gauge.BeastChakra;
+        BeastChakra = [gauge.BeastChakra1, gauge.BeastChakra2, gauge.BeastChakra3];
         BlitzLeft = gauge.BlitzTimeRemaining / 1000f;
         Nadi = gauge.Nadi;
 
@@ -426,7 +426,8 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
 
         UpdatePositionals(primaryTarget, ref pos);
 
-        GoalZoneCombined(strategy, 3, Hints.GoalAOECircle(5), AID.ArmOfTheDestroyer, BeastCount > 0 ? 2 : AOEBreakpoint, maximumActionRange: 20);
+        var isAoeBlitz = BeastCount == 3 && !currentBlitzIsTargeted;
+        GoalZoneCombined(strategy, 3, Hints.GoalAOECircle(5), AID.ArmOfTheDestroyer, isAoeBlitz ? 2 : AOEBreakpoint, maximumActionRange: 20);
 
         if (Player.InCombat)
             OGCD(strategy, primaryTarget);

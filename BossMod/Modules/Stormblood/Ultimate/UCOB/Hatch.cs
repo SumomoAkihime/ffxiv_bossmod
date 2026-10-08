@@ -135,7 +135,7 @@ sealed class Hatch(BossModule module) : Components.CastCounter(module, (uint)AID
             }
         }
 
-        if (!Active || _neurolinks.Count == 0)
+        if (!Active || _neurolinks.Count == 0 || slot < 0 || slot >= PartyState.MaxPartySize)
         {
             return;
         }
@@ -270,6 +270,9 @@ sealed class Hatch(BossModule module) : Components.CastCounter(module, (uint)AID
                     }
                 }
             }
+
+            if (_neurolinks.Count == 1 && _orbs.Count > 0)
+                hints.AddForbiddenZone(new SDCircle(_neurolinks[0].Position, 12f));
 
             hints.AddForbiddenZone(linkShape, DateTime.MaxValue);
         }
@@ -550,6 +553,12 @@ sealed class Hatch(BossModule module) : Components.CastCounter(module, (uint)AID
         {
             ++NumNeurolinkSpawns;
         }
+    }
+
+    public override void Update()
+    {
+        if (Twister && (Module.FindComponent<Twister>() is { HasPredictedPositions: true } || Module.FindComponent<P1Twister>() is { HasPredictedPositions: true }))
+            Twister = false;
     }
 
     public override void OnActorCreated(Actor actor)

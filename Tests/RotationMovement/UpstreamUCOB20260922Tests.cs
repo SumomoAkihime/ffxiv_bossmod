@@ -35,13 +35,13 @@ static class UpstreamUCOB20260922Tests
 
             var hints = new AIHints();
             twister.AddAIHints(0, players[0], Role.MT, hints);
-            check(hints.MaxCastTime == 0f, "绝巴哈旋风预测前0.5秒禁止继续读条");
+            check(hints.MaxCastTime == 0f && hints.ForceCancelCast && hints.ForcedMovement == System.Numerics.Vector3.Zero, "绝巴哈旋风预测前停止移动并取消读条");
 
-            world.Frame = new(startedAt.AddSeconds(1.9d), 0, 0, 0, 0, 1);
+            world.Frame = new(startedAt.AddSeconds(2.0d), 0, 0, 0, 0, 1);
             twister.Update();
             hints.Clear();
             twister.AddAIHints(0, players[0], Role.MT, hints);
-            check(hints.MaxCastTime == 0f, "绝巴哈旋风已记录玩家位置且实体未生成时继续禁止读条");
+            check(hints.MaxCastTime == float.MaxValue && !hints.ForceCancelCast && hints.ForcedMovement == null && !hints.GoalZonesEnabled, "绝巴哈旋风已预测位置后释放停步，优先离开预测圈");
         }
     }
 
@@ -144,7 +144,7 @@ static class UpstreamUCOB20260922Tests
             var liquidHell = Component(module, "LiquidHell");
             var hints = new AIHints();
             liquidHell.AddAIHints(0, players[0], Role.MT, hints);
-            check(hints.ForbiddenZones.Count == 0 && hints.TemporaryObstacles.Count == 1,
+            check(hints.ForbiddenZones.Count == 1 && hints.TemporaryObstacles.Count == 1,
                 "绝巴哈火圈对圈外玩家作为寻路障碍而非定时危险区");
         }
     }

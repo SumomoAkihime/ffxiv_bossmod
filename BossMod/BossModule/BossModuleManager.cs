@@ -152,8 +152,8 @@ public sealed class BossModuleManager : IDisposable
                 }
 
                 var actor = m.PrimaryActor;
-                // keep the instance pending while the player is outside the configured loading distance
-                if ((playerPos - actor.PosRot.AsVector3()).LengthSquared() > maxSq && actor.SpawnIndex != -99)
+                // Active encounters stay loaded inside instances (e.g. distant prison platforms).
+                if ((WorldState.CurrentCFCID == 0 || !isActive) && (playerPos - actor.PosRot.AsVector3()).LengthSquared() > maxSq && actor.SpawnIndex != -99)
                 {
                     MoveModuleToPending(i--);
                     continue;

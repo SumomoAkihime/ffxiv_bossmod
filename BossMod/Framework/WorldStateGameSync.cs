@@ -607,6 +607,25 @@ sealed class WorldStateGameSync : IDisposable
         {
             _ws.Execute(new PartyState.OpLimitBreakChange(lb->CurrentUnits, lb->BarUnits));
         }
+
+        var alliance = ReadAllianceLetter(group);
+        if (_ws.Party.Alliance != alliance)
+        {
+            _ws.Execute(new PartyState.OpAllianceChange(alliance));
+        }
+    }
+
+    private static unsafe AllianceLetter ReadAllianceLetter(GroupManager.Group* group)
+    {
+        if (!group->IsAlliance)
+        {
+            return AllianceLetter.None;
+        }
+
+        // FFXIVClientStructs fb265050: Group.AllianceGroupIndices[0] is the local alliance letter.
+        // The bundled DLL has the same 0x7FF0 Group layout but does not expose this field yet.
+        var index = *((byte*)group + 0x7FC0);
+        return index < (group->IsSmallGroupAlliance ? 6 : 3) ? (AllianceLetter)index : AllianceLetter.None;
     }
 
     // returns player entry in game's group

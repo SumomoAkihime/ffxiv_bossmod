@@ -337,7 +337,7 @@ public sealed class RotationModuleManager : IDisposable
         }
 
         // some jank: we can't check value of this.Planner because the expected plan isn't loaded until either countdown starts or boss is pulled, and BMM doesn't activate the module until after this event fires, so the best we can do is check what the plan is expected to be
-        else if (actor.InCombat && WorldState.Client.CountdownRemaining == null && Config.PlannedPullSafety && Bossmods.LoadedModules is [var mod] && Database.Plans.GetPlans(mod.GetType(), actor.Class).SelectedIndex >= 0)
+        else if (actor.InCombat && WorldState.Client.CountdownRemaining == null && Config.PlannedPullSafety && WorldState.Party.WithoutSlot(true).Length > 1 && Bossmods.LoadedModules is [var mod] && Database.Plans.GetPlans(mod.GetType(), actor.Class).SelectedIndex >= 0)
         {
             Service.Log($"[RMM] Boss pulled without countdown => force-disabling from '{PresetNames}'");
             SetForceDisabled();
@@ -350,7 +350,7 @@ public sealed class RotationModuleManager : IDisposable
             return; // don't care
 
         // note: if combat ends while player is dead, we'll reset the preset, which is desirable
-        if (actor.IsDead && actor.InCombat && Config.ClearPresetOnDeath)
+        if (actor.IsDead && actor.InCombat && Config.ClearPresetOnDeath && !Hints.ScriptedDeath)
         {
             // player died in combat => force disable (otherwise there's a risk of dying immediately after rez)
             Service.Log($"[RMM] Player died in combat => force-disabling from '{PresetNames}'");

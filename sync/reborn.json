@@ -1,12 +1,12 @@
 ﻿{
   "schemaVersion": 1,
-  "updated": "2026-09-22",
+  "updated": "2026-10-09",
   "source": {
     "repository": "https://github.com/FFXIV-CombatReborn/BossmodReborn",
-    "commit": "615b38b5438a75fe4010b853423324dd983e43f9",
-    "releaseTag": "7.5.6.16",
-    "releaseCommit": "1e0d4a9bb0f127f070423fe77d2269c21a968b9e",
-    "status": "选择性整合至7.5.6.16及检查点615b38b54；高难魔之塔与WIP继续排除，保留本地融合及实测修正；不表示整树一致"
+    "commit": "33456ced5bd96ef37ea62adf98a560f403b241cf",
+    "releaseTag": "7.5.6.33",
+    "releaseCommit": "33456ced5bd96ef37ea62adf98a560f403b241cf",
+    "status": "选择性整合至7.5.6.33及检查点33456ced5；保留自建雷达、融合循环/移动和实测修正，高难魔之塔及仍WIP排除；不表示整树一致"
   },
   "forkBaseline": "787148f34",
   "purpose": "以 Reborn 雷达与共享支撑为主体，融合 awgil 职业循环及移动、保留多预设与外部插件联动、自建雷达和已验证修复。",
@@ -66,6 +66,15 @@
       "sourceCommit": "615b38b5438a75fe4010b853423324dd983e43f9",
       "awgilCommit": "11d8147cc9650f12a5b200b2ce6180edc2a3c261",
       "scope": "Drake成熟雷达；Bone Bishop黑色爆发、Guttler范围；法系LB地面动作/目标、禁疗及治疗覆盖算法；绝巴哈旋风禁读条、俯冲清理/回位、击退后踩塔、P5集合及分摊，火圈避让障碍与中心集合；动作取消读条即时释放移动及非GCD读条预判、不可移动敌人判定。另随发布包含本地提坦主场绕序修复。"
+    },
+    {
+      "commit": "包含本清单的提交",
+      "sourceCommit": "33456ced5bd96ef37ea62adf98a560f403b241cf",
+      "awgilCommit": "40b0abdd35e81517409bdc81446910f943a75a49",
+      "awgilTestingCommit": "86921949410123d9fd5c193ba4ce7c83e094ab11",
+      "awgilStableTag": "v7.5.6.9",
+      "awgilStableCommit": "076003c0510a6b82b5d7b1a1d12438bc55ee3a75",
+      "scope": "Reborn 615b38b54..33456ced5：14个新成熟棋盘、9个既有棋盘、极永恒女王转场/同高分层/冰桥/合法武力、死宫50月环及必要Adds/Bait/Cleave和4类复合击退支撑。原版11d8147cc..40b0abdd/869219494：萨斯塔沙麦迪逊两次战斗、暗之世界7模块、普通伊甸4～6，庄园既有二号提示增强/身份修正，绝巴哈旋风/火圈/预站位/剧情死亡/阶段结束、联盟字母回放链、赤魔/武僧/插入/GNB范围、拉怪/棋盘敌人行为/副本加载/目标计划导入。逐文件适配本地API，保留多预设、AutoDuty、自建及高难魔之塔；不整树覆盖。"
     }
   ],
   "requiredPatches": [
@@ -249,6 +258,56 @@
         "BossMod/Modules/Global/CrucibleOfTheUnbroken/FirstBoard/BoneBishop.cs"
       ],
       "behavior": "ForwardGuard动态取骑士并判空；BlackEruption2按真实施法位置校正Origin时同时重算ShapeDistance，防止绘图与AI禁区圆心分离。"
+    },
+    {
+      "paths": [
+        "BossMod/BossModule/BossModule.cs",
+        "BossMod/BossModule/MiniArena.cs",
+        "BossMod/Modules/Dawntrail/Extreme/Ex3QueenEternal"
+      ],
+      "behavior": "BossModule必须实际连接MiniArena判层回调，同高大地完整层0/分裂层1按浮空状态选择，AI及同帧3D使用同层；保留层内严格裁切与实体真实Y。女王转场用跨阶段开始/结束标志，P2未生成不算结束；冰场保留全部冰区扣损毁桥及四个独立桥坐标。"
+    },
+    {
+      "paths": [
+        "BossMod/Components/Adds.cs",
+        "BossMod/Components/BaitAway.cs",
+        "BossMod/Components/Cleave.cs",
+        "BossMod/Modules/Global/CrucibleOfTheUnbroken/SecondBoard/YoungerTablitaurPiece.cs"
+      ],
+      "behavior": "新增可选参数追加末尾保护旧调用；Adds不可选中选项仍排除死亡。矩形近距诱导夹取三角函数输入并考虑方向偏移，Cleave保留实际范围与NextExpected；默认忽略宠物。Younger另首领在CheckPull/UpdateModule刷新，TonzeSlash100用BaitSource动态判空，不索引空实体列表；双击退按Activation排序。"
+    },
+    {
+      "paths": [
+        "BossMod/Data/PartyState.cs",
+        "BossMod/Framework/WorldStateGameSync.cs",
+        "BossMod/Replay/ReplayParserLog.cs",
+        "BossMod/Modules/RealmReborn/Alliance"
+      ],
+      "behavior": "联盟字母用ALGI初始快照和回放事件完整记录；当前SDK缺正式接口，按已核对Group尺寸0x7FF0及0x7FC0数组首项读本队A～C/小队A～F，非联盟或非法值为None，更新SDK必须复核结构。WorldDark沿用原目录类名避免重复OID；唐伽塔1197、赛伯拉斯3234、庄园427来自静态游戏表核对。"
+    },
+    {
+      "paths": [
+        "BossMod/Modules/RealmReborn/Alliance/A34CloudofDarkness",
+        "BossMod/Modules/Shadowbringers/Raid/E04Titan",
+        "BossMod/Modules/Shadowbringers/Raid/E02Voidwalker",
+        "BossMod/Modules/Shadowbringers/Raid/E03Leviathan",
+        "BossMod/Modules/Shadowbringers/Raid/E06Garuda"
+      ],
+      "behavior": "追踪AOE按最近未被选中玩家动态选目标，并清理耗尽/死亡序列；E04视线Modify后显式重建Safezones。E02/E03专用击退AI继续保留，本地GenericKnockback没有等价AddAIHints；连线/追踪重写Update必须调用基类，AOEShapeRect改长度须重建并保留其他参数。"
+    },
+    {
+      "paths": [
+        "BossMod/Modules/Stormblood/Ultimate/UCOB",
+        "BossMod/BossModule/AIHints.cs",
+        "BossMod/Autorotation/RotationModuleManager.cs"
+      ],
+      "behavior": "旋风预测提前0.65秒，计入NPC延迟并使用绝对生成时刻；预测前停步取消读条，预测后释放停步并离开危险圈。剧情死亡由Teraflare/FlamesOfRebirth设置ScriptedDeath，每帧清零，死亡时保留职业与移动多预设；普通死亡总停止不变。P2/P3不因P1主体销毁而结束，缺Nael不等于完成；保留本地P3分配、独立坦克和八连AOEs.Count修正。"
+    },
+    {
+      "paths": [
+        "BossMod/Timeline/CooldownPlannerColumns.cs"
+      ],
+      "behavior": "SyncCreateImport先复制目标列表，清旧显示列会经NotifyModified清空新计划数据；重新添加显示列后必须恢复Plan.Targeting，否则重复刷新或保存仍会丢失目标覆盖。"
     }
   ],
   "localRadars": "local-radars.json",
@@ -256,37 +315,20 @@
     {
       "scope": "剩余新增 WIP 棋盘模块",
       "modules": [
-        "GargoylePiece",
-        "MorbolPiece",
-        "StrixPiece",
         "TaurusPiece",
-        "AdministratorPiece",
-        "BorgnyTheVenomous",
-        "CorpseFlowerPiece",
-        "GolemPiece",
-        "IceDragonPiece",
-        "ProgenitrixPiece",
-        "TreantPiece",
         "ChimeraPiece",
         "LaudaTheSpellcleaver",
         "MedusaPiece"
       ],
-      "reason": "未达到本轮成熟模块门槛，暂不加入发布树。"
+      "reason": "Reborn 7.5.6.33最终树仍未达到Contributed成熟门槛；保留现有可用数据或不新增。"
     },
     {
       "scope": "剩余既有 WIP/Dummy 棋盘模块差异",
       "modules": [
         "LooserfroxInkyjots",
-        "MantiCorePiece",
-        "WyvernPiece",
-        "YoungerTablitaurPiece",
         "CatoblepasPiece"
       ],
-      "reason": "继续保留现有版本；Looserfrox 从 Dummy 改 WIP 不等于已经成熟。"
-    },
-    {
-      "scope": "普通 E05Ramuh",
-      "reason": "仍为 WIP，DeadlyDischargeKnockback 未由状态机激活，不作为完整击退数据合并。"
+      "reason": "Reborn 7.5.6.33最终树仍未达到Contributed成熟门槛；保留现有可用数据或不新增。"
     },
     {
       "scope": "BST 驯兽师实验数据、宠物同步及回放扩展",
@@ -298,11 +340,19 @@
     },
     {
       "scope": "本检查区间以外的历史差异",
-      "reason": "已分类检查至Reborn 615b38b54及awgil 11d8147cc；按本记录选择性整合，不代表历史整树差异全部消除。"
+      "reason": "已分类并选择性整合至Reborn 33456ced5、原版master40b0abdd/testing869219494；不代表历史整树差异全部消除。"
     },
     {
       "scope": "绝巴哈P3 Heavensfall策略重写",
-      "reason": "原版11d8147cc改变旋转判定、塔位及Hypernova启用时机，需结合回放成套验证；本轮仅加入击退结束后踩塔等独立修正，保留本地分配逻辑。"
+      "reason": "继续保留本地完整机制和分配；原版P3策略重写及前批P4 AssignAdds角色分配需成套验证，本批只适配独立机制更新。"
+    },
+    {
+      "scope": "AkechiDRK策略重写、新WHMUtilityEx及kage MCH/VPR WIP",
+      "reason": "大幅策略或新增实验功能单独评估；WHMUtilityEx开启FullHeal时满血空列表MaxBy可抛异常，不原样移植。"
+    },
+    {
+      "scope": "AST新Card1～3量谱接口",
+      "reason": "当前SDK仍是CurrentCards接口，保持现有兼容实现，不为本批升级外部依赖。"
     }
   ],
   "excluded": [
@@ -328,7 +378,11 @@
     },
     {
       "scope": "2026-09-22非必要结构整理与核心行为扩展",
-      "reason": "棋盘目录01～05改名、循环语法、Adds计数/不可选中接口、BaitAwayIcon自定义朝向、WorldStateGameSync读条采集/宠物/飞行重写及其视线近零分支（本地无同路径）、BST实验、EnemyBehavior表合并不整批搬入；ActionManagerEx.Force绕过机制保护不引入；T07Doomtrain首领绘图需另核对坐标。"
+      "reason": "棋盘数字前缀目录改名、等价循环语法、WorldStateGameSync读条采集/宠物/飞行大幅重写、BST实验与EnemyBehavior整表架构继续排除；Adds计数/不可选中、BaitAwayIcon自定义朝向和必要棋盘敌人行为已于2026-10-08定点适配。ActionManagerEx.Force绕过机制保护仍不引入；T07Doomtrain首领绘图需另核对坐标。"
+    },
+    {
+      "scope": "2026-10-08新版寻路/物品/核心框架扩展",
+      "reason": "Sdf/BitArray离散寻路、CsvHelper整表架构、棋盘物品与恢复药水完整功能链、BST/宠物循环、拆包/热重载/FFXIVClientStructs子模块引用不整批搬入；保留交互距离评分、场内过滤、坦克当前距离和多预设移动独占。"
     }
   ],
   "validation": [
@@ -414,20 +468,39 @@
       "gameTest": "尚未实机验证；仅测试分支同步，不升版、不更新发布ZIP，线上仍7.5.6.601。",
       "validationEvidence": "D:/mod-source/outputs/sync-20260919",
       "scope": "运行RotationMovement完整套件，含15个新增模块注册/状态机与代表机制生命周期、位移保护、旋风时刻、绝巴哈、NPC治疗、武僧策略和界面缓存检查，以及既有绘图/机制安全/移动/IPC回归；独立SupportJobs通过331项。两套测试DLL与本轮Release一致。未重跑多边形或旧UCOB独立套件。"
+    },
+    {
+      "date": "2026-09-22",
+      "releaseBuild": "零警告、零错误",
+      "movementAndIPCAssertions": 940,
+      "registeredIPCInterfaces": 66,
+      "supportJobsAssertions": 331,
+      "polygonAssertions": 67922,
+      "protectedSourceFilesUnchanged": 40,
+      "protectedSourceScope": "相对本次同步前工作区快照，包含此前提坦修复；高难魔之塔及自建雷达保持。",
+      "releaseDLLSHA256": "B9BA9C20D394E7E8877434F8F4C71C951EBCF04CDEE45551B04244B5024C976C",
+      "gameTest": "离线验证通过；发布7.5.6.1601，尚未实机验证。",
+      "validationEvidence": "D:\\mod-source\\outputs\\release-7.5.6.1601",
+      "scope": "完整RotationMovement（含本次Drake/Bone Bishop/Guttler、法系LB/禁疗/覆盖算法、绝巴哈与提坦几何回归及66个IPC流程）；独立SupportJobs与两种PolygonQueries。三套测试DLL均与Release一致。"
     }
   ],
   "lastValidation": {
-    "date": "2026-09-22",
+    "date": "2026-10-09",
     "releaseBuild": "零警告、零错误",
-    "movementAndIPCAssertions": 940,
+    "movementAndIPCAssertions": 1279,
     "registeredIPCInterfaces": 66,
     "supportJobsAssertions": 331,
     "polygonAssertions": 67922,
-    "protectedSourceFilesUnchanged": 40,
-    "protectedSourceScope": "相对本次同步前工作区快照，包含此前提坦修复；高难魔之塔及自建雷达保持。",
-    "releaseDLLSHA256": "B9BA9C20D394E7E8877434F8F4C71C951EBCF04CDEE45551B04244B5024C976C",
-    "gameTest": "离线验证通过；发布7.5.6.1601，尚未实机验证。",
-    "validationEvidence": "D:\\mod-source\\outputs\\release-7.5.6.1601",
-    "scope": "完整RotationMovement（含本次Drake/Bone Bishop/Guttler、法系LB/禁疗/覆盖算法、绝巴哈与提坦几何回归及66个IPC流程）；独立SupportJobs与两种PolygonQueries。三套测试DLL均与Release一致。"
+    "polygonDefaultAssertions": 33959,
+    "polygonDistanceFirstAssertions": 33963,
+    "protectedSourceFilesUnchanged": 39,
+    "protectedSourceScope": "完整40文件保护清单中39个未变；NavigationDecision仅同步禁区缓冲夹取0～3，空ShapeDistance快照过滤保持。所有37个保护雷达源码未变，两份未跟踪制作记录哈希不变。",
+    "protectedSourceAdaptations": [
+      "BossMod/Pathfinding/NavigationDecision.cs"
+    ],
+    "releaseDLLSHA256": "4EE4D5F93564718B9263A9536D70DCC16AEE719B4ADB150CA5B9459B9F41CF73",
+    "gameTest": "离线验证通过，尚未实机验证；仅同步测试分支，版本仍7.5.6.1601，未发布或更新release ZIP。",
+    "validationEvidence": "D:/mod-source/outputs/sync-20261008",
+    "scope": "完整RotationMovement及66个IPC流程，含本批棋盘注册/组件激活/晚生成/击退排序、女王转场/分层/冰桥、原版普通雷达/世界之暗/伊甸、绝巴哈、联盟字母文本及二进制回放、诱导几何、目标计划重复导入、赤魔动作/插入、拉怪/剧情死亡/副本远距；独立SupportJobs与两种PolygonQueries。三套测试和本次构建ZIP内DLL均与Release一致；构建ZIP仅为验证产物。"
   }
 }

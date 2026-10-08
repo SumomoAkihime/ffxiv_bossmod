@@ -8,6 +8,9 @@ sealed class VirtualShiftEarth(BossModule module) : BossComponent(module)
     public static readonly WDir CenterOffset = new(8f, default);
     public static readonly WDir HalfExtent = new(4f, 8f);
 
+    public int? AdjustArenaProjectionLayer(Actor actor)
+        => Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0 ? Flying[slot] ? 0 : 1 : null;
+
     public static bool OnPlatform(WPos p)
     {
         var off = p - Midpoint;
@@ -18,25 +21,16 @@ sealed class VirtualShiftEarth(BossModule module) : BossComponent(module)
         return off.X <= HalfExtent.X && off.Z <= HalfExtent.Z;
     }
 
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
-    {
-        var halfExtentZ = HalfExtent.Z;
-        var halfExtentX = HalfExtent.X;
-        var color = Colors.Border;
-        Arena.AddRect(Midpoint + CenterOffset, new(default, 1f), halfExtentZ, halfExtentZ, halfExtentX, color, 2f);
-        Arena.AddRect(Midpoint - CenterOffset, new(default, 1f), halfExtentZ, halfExtentZ, halfExtentX, color, 2f);
-    }
-
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if (status.ID == (uint)SID.GravitationalAnomaly)
-            Flying[Raid.FindSlot(actor.InstanceID)] = true;
+        if (status.ID == (uint)SID.GravitationalAnomaly && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
+            Flying.Set(slot);
     }
 
     public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if (status.ID == (uint)SID.GravitationalAnomaly)
-            Flying[Raid.FindSlot(actor.InstanceID)] = false;
+        if (status.ID == (uint)SID.GravitationalAnomaly && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
+            Flying.Clear(slot);
     }
 }
 

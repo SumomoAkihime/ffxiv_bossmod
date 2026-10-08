@@ -35,8 +35,11 @@ sealed class Earthrender(BossModule module) : Components.SimpleAOEs(module, (uin
 sealed class SandTempest(BossModule module) : Components.RaidwideCast(module, (uint)AID.SandTempest, "Applies blind debuff");
 
 // Eventcast is triggered but the bait actually resolves a little bit later, so a timer of 1.0 second is added
-sealed class EarthShaker(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCone(60.0f, 75.0f.Degrees()), (uint)IconID.EarthShake,
-    (uint)AID.EarthShaker, 3.3f) {
+sealed class EarthShaker : Components.BaitAwayIcon {
+    public EarthShaker(BossModule module) : base(module, new AOEShapeCone(60.0f, 75.0f.Degrees()), (uint)IconID.EarthShake, (uint)AID.EarthShaker, 3.3f) {
+        AllowPetTargets = true;
+    }
+
     private const float additionalActivationTime = 1.0f;
     private DateTime? eventCastActivation;
 

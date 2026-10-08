@@ -3,7 +3,7 @@
 sealed class LegitimateForce(BossModule module) : Components.GenericAOEs(module)
 {
     public readonly List<AOEInstance> AOEs = new(2);
-    private static readonly AOEShapeRect rect = new(20f, 40f);
+    private static readonly AOEShapeRect rect = new(60f, 15f);
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
@@ -23,17 +23,19 @@ sealed class LegitimateForce(BossModule module) : Components.GenericAOEs(module)
         switch (spell.Action.ID)
         {
             case (uint)AID.LegitimateForceFirstR:
-                AddAOEs(caster, -90f, 90f);
+                AddAOEs(true);
                 break;
             case (uint)AID.LegitimateForceFirstL:
-                AddAOEs(caster, 90f, -90f);
+                AddAOEs(false);
                 break;
         }
-        void AddAOEs(Actor caster, float first, float second)
+        void AddAOEs(bool rightFirst)
         {
-            AddAOE(first);
-            AddAOE(second, 3.1f, false);
-            void AddAOE(float offset, float delay = default, bool first = true) => AOEs.Add(new(rect, caster.Position, spell.Rotation + offset.Degrees(), Module.CastFinishAt(spell, delay), first ? Colors.Danger : default, first));
+            WDir right = new(-15f, -10f);
+            WDir left = new(15f, -10f);
+            AddAOE(rightFirst ? right : left);
+            AddAOE(rightFirst ? left : right, 3.1f, false);
+            void AddAOE(WDir offset, float delay = default, bool first = true) => AOEs.Add(new(rect, (caster.Position + offset).Quantized(), spell.Rotation, Module.CastFinishAt(spell, delay), first ? Colors.Danger : default, first));
         }
     }
 

@@ -3,13 +3,14 @@
 public enum OID : uint
 {
     ManticorePiece = 0x4C53,
-    Helper = 0x233C,
+    Helper = 0x233C
 }
 
 public enum AID : uint
 {
     AutoAttack = 49680, // ManticorePiece->player, no cast, single-target
     Teleport = 48126, // ManticorePiece->location, no cast, single-target
+
     ArmAndHammerLeftGlow = 48124, // ManticorePiece->self, 5.0+0.6s cast, single-target
     ArmAndHammerLeft = 48125, // Helper->self, 5.6s cast, range 30 90-degree cone
     ArmAndHammerRightGlow = 48122, // ManticorePiece->self, 5.0+0.6s cast, single-target
@@ -54,9 +55,6 @@ sealed class ArmAndHammer(BossModule module) : Components.SimpleAOEGroups(module
     new AOEShapeCone(30.0f, 90.0f.Degrees()));
 sealed class DeadlyHold(BossModule module) : Components.SingleTargetCast(module, (uint)AID.DeadlyHold);
 sealed class Hammerleap(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Hammerleap, 30.0f);
-sealed class HeadsAndTails(BossModule module) : Components.SimpleAOEGroups(module,
-    [(uint)AID.HeadsAndTailsFront, (uint)AID.HeadsAndTailsBack, (uint)AID.TailsAndHeadsBack, (uint)AID.TailsAndHeadsFront],
-    new AOEShapeCone(40.0f, 90.0f.Degrees()));
 
 sealed class WildCharge(BossModule module) : Components.GenericAOEs(module)
 {
@@ -131,8 +129,46 @@ sealed class WildCharge(BossModule module) : Components.GenericAOEs(module)
         var max = count > 2 ? 2 : count;
         var nextAOEs = CollectionsMarshal.AsSpan(aoes);
 
-        for (var i = 0; i < max; i++)
+        for (var i = 0; i < max; ++i)
         {
+            ref var aoe = ref nextAOEs[i];
+            aoe.Color = i == 0 ? Colors.Danger : Colors.AOE;
+            aoe.Risky = i == 0;
+        }
+
+        return nextAOEs[..max];
+    }
+}
+
+sealed class HeadsAndTails(BossModule module) : Components.GenericAOEs(module) {
+    private readonly List<AOEInstance> aoes = [];
+    private readonly AOEShapeCone shape = new(40.0f, 90.0f.Degrees());
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell) {
+        if (spell.Action.ID is (uint)AID.HeadsAndTailsFront or (uint)AID.TailsAndHeadsBack) {
+            aoes.Add(new(shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell)));
+            aoes.Add(new(shape, spell.LocXZ, spell.Rotation + 180.0f.Degrees(), WorldState.FutureTime(7.7d), risky: false));
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell) {
+        if (spell.Action.ID is (uint)AID.HeadsAndTailsFront or (uint)AID.HeadsAndTailsBack or (uint)AID.TailsAndHeadsBack or (uint)AID.TailsAndHeadsFront) {
+            if (aoes.Count > 0) {
+                aoes.RemoveAt(0);
+            }
+        }
+    }
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
+        var count = aoes.Count;
+        if (count == 0) {
+            return [];
+        }
+
+        var max = count > 2 ? 2 : count;
+        var nextAOEs = CollectionsMarshal.AsSpan(aoes);
+
+        for (var i = 0; i < max; ++i) {
             ref var aoe = ref nextAOEs[i];
             aoe.Color = i == 0 ? Colors.Danger : Colors.AOE;
             aoe.Risky = i == 0;
@@ -155,12 +191,6 @@ sealed class ManticorePieceStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.WIP,
-    PrimaryActorOID = (uint)OID.ManticorePiece,
-    Contributors = "Equilius",
-    Category = BossModuleInfo.Category.CrucibleOfTheUnbroken,
-    GroupType = BossModuleInfo.GroupType.CFC,
-    GroupID = 1089u,
-    NameID = 14545u,
-    SortOrder = 1)]
+[ModuleInfo(BossModuleInfo.Maturity.Contributed,
+    Expansion = BossModuleInfo.Expansion.Global, Category = BossModuleInfo.Category.CrucibleOfTheUnbroken, PrimaryActorOID = (uint)OID.ManticorePiece, Contributors = "Equilius", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1089u, NameID = 14545u, SortOrder = 1)]
 public sealed class ManticorePiece(WorldState ws, Actor primary) : BossModule(ws, primary, new(120f, -420f), new ArenaBoundsCircle(20f));

@@ -9,7 +9,7 @@ namespace BossMod;
 //                       rotation 0 corresponds to South, and increases counterclockwise (so East is +pi/2, North is pi, West is -pi/2)
 // - camera azimuth 0 correpsonds to camera looking North and increases counterclockwise
 // - screen coordinates - X points left to right, Y points top to bottom
-public sealed class MiniArena(WPos center, ArenaBounds bounds)
+public sealed class MiniArena(WPos center, ArenaBounds bounds, Func<Actor, int?>? arenaProjectionLayerResolver = null)
 {
     public static readonly BossModuleConfig Config = Service.Config.Get<BossModuleConfig>();
     private const float ActorWorldProjectionHeight = 0.5f;
@@ -200,9 +200,18 @@ public sealed class MiniArena(WPos center, ArenaBounds bounds)
                 _arenaProjectionLayerActorID = layerActorID;
                 _arenaProjectionDefaultLayerIndex = -1;
             }
-            ref var playerPosition = ref player.PosRot;
-            _arenaProjectionDefaultLayerIndex = customBounds.ResolveProjectionLayer(new WPos(playerPosition.X, playerPosition.Z) - _center, playerPosition.Y, _arenaProjectionDefaultLayerIndex, WorldProjectionLayerSwitchHysteresis);
-            _frameArenaProjectionLayer = _arenaProjectionDefaultLayerIndex;
+            if (arenaProjectionLayerResolver is { } resolveLayer)
+            {
+                var selectedLayer = resolveLayer(player);
+                _frameArenaProjectionLayer = customBounds.IsValidProjectionLayer(selectedLayer) ? selectedLayer : null;
+                _arenaProjectionDefaultLayerIndex = _frameArenaProjectionLayer ?? -1;
+            }
+            else
+            {
+                ref var playerPosition = ref player.PosRot;
+                _arenaProjectionDefaultLayerIndex = customBounds.ResolveProjectionLayer(new WPos(playerPosition.X, playerPosition.Z) - _center, playerPosition.Y, _arenaProjectionDefaultLayerIndex, WorldProjectionLayerSwitchHysteresis);
+                _frameArenaProjectionLayer = _arenaProjectionDefaultLayerIndex;
+            }
         }
         else
         {
@@ -371,6 +380,10 @@ public sealed class MiniArena(WPos center, ArenaBounds bounds)
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private int SelectDefaultWorldProjectionLayer(ArenaBoundsCustom bounds, in WDir positionOffset, float y)
     {
+        if (bounds.IsValidProjectionLayer(_frameArenaProjectionLayer))
+        {
+            return _frameArenaProjectionLayer!.Value;
+        }
         if (!ReferenceEquals(_worldProjectionLayerOwner, bounds) || bounds.WorldProjectionLayers is not { Length: > 0 } layers || (uint)_worldProjectionDefaultLayerIndex >= (uint)layers.Length)
         {
             _worldProjectionLayerOwner = bounds;

@@ -6,8 +6,10 @@ abstract class LiquidHellBase(BossModule module) : Components.VoidzoneAtCastTarg
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        // we only add hints for spawned fireballs since the activation is so delayed
-        // this helps party not kill themselves during blackfire trio, and gives ranged lots of extra room in p1
+        foreach (var prediction in _predictedByEvent)
+            if (prediction.time < WorldState.FutureTime(2.7d)) // upstream: 0.9s lookahead + 1.8s activation delay
+                hints.AddForbiddenZone(new SDCircle(prediction.pos, 6f), prediction.time);
+
         foreach (var z in Sources(Module))
         {
             var shape = new SDCircle(z.Position, 6f);
@@ -18,6 +20,7 @@ abstract class LiquidHellBase(BossModule module) : Components.VoidzoneAtCastTarg
             else
             {
                 hints.TemporaryObstacles.Add(shape);
+                hints.AddForbiddenZone(shape);
             }
         }
     }
