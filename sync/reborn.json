@@ -502,5 +502,17 @@
     "gameTest": "离线验证通过，尚未实机验证；仅同步测试分支，版本仍7.5.6.1601，未发布或更新release ZIP。",
     "validationEvidence": "D:/mod-source/outputs/sync-20261008",
     "scope": "完整RotationMovement及66个IPC流程，含本批棋盘注册/组件激活/晚生成/击退排序、女王转场/分层/冰桥、原版普通雷达/世界之暗/伊甸、绝巴哈、联盟字母文本及二进制回放、诱导几何、目标计划重复导入、赤魔动作/插入、拉怪/剧情死亡/副本远距；独立SupportJobs与两种PolygonQueries。三套测试和本次构建ZIP内DLL均与Release一致；构建ZIP仅为验证产物。"
+  },
+  "lastRelease": {
+    "date": "2026-10-09",
+    "version": "7.5.6.3301",
+    "author": "veyn&Sumomo",
+    "sourceCodeCommit": "8d7fff0d1f9216b8bfef23c3145e99104014b478",
+    "releaseBuild": "零警告、零错误",
+    "releaseDLLSHA256": "08C01353695CEABE663BC606E7DEE111677644DB1068BE0065928D78136433F8",
+    "zipSHA256": "3D05ABDDF66C0FE405394C41EABEBE5F76D851BB789FA297E973C1B642D95A42",
+    "validationEvidence": "D:/mod-source/outputs/release-7.5.6.3301",
+    "scope": "本次仅升版及追加作者标记，机制与循环源码保持8d7fff0已验收内容；沿用同期1279项移动/IPC、331项辅助职业及33959/33963项多边形回归，本轮重新构建并校验ZIP、DLL版本与作者。",
+    "gameTest": "尚未实机验证。"
   }
 }
