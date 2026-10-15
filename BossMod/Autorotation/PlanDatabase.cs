@@ -186,7 +186,7 @@ public sealed class PlanDatabase
             // just modify the plan
             SavePlan(modified);
             var plans = Plans[existing.Encounter][existing.Class].Plans;
-            var index = plans.IndexOf(existing);
+            var index = plans.FindIndex(p => p.Guid == existing.Guid);
             plans[index] = modified;
         }
         else

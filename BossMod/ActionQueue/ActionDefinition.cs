@@ -373,6 +373,9 @@ public sealed class ActionDefinitions
     // check if dashing to target will put the player inside a forbidden zone
     public static bool IsDashDangerous(WPos from, WPos to, AIHints hints)
     {
+        if (hints.ForbidDashes)
+            return true;
+
         var center = hints.PathfindMapCenter;
         if (!hints.PathfindMapBounds.Contains(to - center))
             return true;
@@ -384,6 +387,15 @@ public sealed class ActionDefinitions
             var distToNearestWall = hints.PathfindMapBounds.IntersectRay(from - center, (to - from).Normalized());
             if (distToNearestWall >= 0 && distToNearestWall < len)
                 return true;
+        }
+
+        var travel = to - from;
+        var length = travel.Length();
+        if (length > 0f)
+        {
+            foreach (var zone in hints.Voidzones)
+                if (!from.InCircle(zone.Center, zone.Radius) && Intersect.RayCircle(from - zone.Center, travel / length, zone.Radius, length))
+                    return true;
         }
 
         return hints.ForbiddenZones.Any(d => d.shapeDistance.Contains(to));

@@ -84,7 +84,7 @@ public sealed class ManualActionQueueTweak(WorldState ws, AIHints hints)
             return false; // unknown action, let native queue handle it instead
 
         bool isGCD = def.IsGCD;
-        float expire = isGCD ? 1.0f : 3.0f;
+        float expire = ws.Client.CountdownRemaining > 0f ? 5f : isGCD ? 1.0f : 3.0f;
         if (def.ReadyIn(ws.Client.Cooldowns, ws.Client.DutyActions) > expire)
             return false; // don't bother trying to queue something that's on cd
 

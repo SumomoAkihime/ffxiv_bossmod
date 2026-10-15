@@ -19,7 +19,7 @@ public sealed class ActionTweaksConfig : ConfigNode
     [PropertyDisplay("Restore character orientation after action use", tooltip: "Attempts to restore your previous facing after the game rotates you toward an action target.")]
     public bool RestoreRotation = false;
 
-    [PropertyDisplay("Prevent movement while casting", tags: ["slidecast"])]
+    [PropertyDisplay("Prevent movement while casting", tooltip: "Ignored while Rotation Solver Reborn's autorotation is active", tags: ["slidecast"])]
     public bool PreventMovingWhileCasting = false;
 
     public enum ModifierKey
@@ -58,6 +58,9 @@ public sealed class ActionTweaksConfig : ConfigNode
 
     [PropertyDisplay("Smart ability targeting", tooltip: "If the usual (mouseover/primary) target is not valid for an action, select the next best target automatically (e.g. co-tank for Shirk)")]
     public bool SmartTargets = true;
+
+    [PropertyDisplay("Delay actions during countdown", tooltip: "If enabled, manually pressed actions will be delayed during countdown to ensure that they hit at 0 seconds.", depends: nameof(UseManualQueue))]
+    public bool CountdownHold = false;
 
     [PropertyDisplay("Try to prevent dashing into AOEs", tooltip: "Prevent automatic use of targeted dashes (like WAR Onslaught) if they would move you into a dangerous area. May not work as expected in instances that do not have modules.\n\nThis option will also apply to manually pressed dashes if you have \"Use custom queueing for manually pressed actions\" enabled.")]
     public bool DashSafety = true;

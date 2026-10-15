@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace BossMod;
 
@@ -8,11 +9,15 @@ public sealed class ConfigRoot
     public Event Modified = new();
     public readonly Dictionary<Type, ConfigNode> _nodes = [];
     public List<ConfigNode> Nodes => [.. _nodes.Values];
+    private readonly record struct TransientOverride(object? Original, object? Value);
+    private readonly Dictionary<(ConfigNode node, ConfigFieldMetadata field), TransientOverride> _transient = [];
+    private readonly System.Threading.Lock _saveLock = new();
 
     public void Initialize()
     {
         GeneratedRegistries.RegisterConfigNodes((type, inst) =>
         {
+            inst.Modified.Subscribe(() => DropChangedTransients(inst));
             inst.Modified.Subscribe(Modified.Fire);
             _nodes[type] = inst;
         });
@@ -53,19 +58,37 @@ public sealed class ConfigRoot
 
     public void SaveToFile(FileInfo file)
     {
+        using var saveLock = _saveLock.EnterScope();
         try
         {
             var ser = Serialization.BuildSerializationOptions();
             var serializedNodes = new ConcurrentDictionary<Type, string>();
 
-            Parallel.ForEach(_nodes, entry =>
+            // IPC setters and serialization share one lock so an override cannot leak into a saved snapshot.
+            lock (_transient)
             {
-                using var ms = new MemoryStream();
-                using var tempWriter = new Utf8JsonWriter(ms);
-                entry.Value.Serialize(tempWriter, ser);
-                tempWriter.Flush();
-                serializedNodes[entry.Key] = Encoding.UTF8.GetString(ms.ToArray());
-            });
+                Parallel.ForEach(_nodes, entry =>
+                {
+                    using var ms = new MemoryStream();
+                    using var tempWriter = new Utf8JsonWriter(ms);
+                    entry.Value.Serialize(tempWriter, ser);
+                    tempWriter.Flush();
+                    serializedNodes[entry.Key] = Encoding.UTF8.GetString(ms.ToArray());
+                });
+
+                Dictionary<Type, JsonObject> patched = [];
+                foreach (var ((node, field), entry) in _transient)
+                {
+                    var type = node.GetType();
+                    if (!patched.TryGetValue(type, out var json))
+                        patched[type] = json = JsonNode.Parse(serializedNodes[type])!.AsObject();
+                    // Compare the serialized snapshot, not a later UI value, so an edit during serialization cannot leak the override.
+                    if (JsonNode.DeepEquals(json[field.Name], JsonSerializer.SerializeToNode(entry.Value, field.FieldType, ser)))
+                        json[field.Name] = JsonSerializer.SerializeToNode(entry.Original, field.FieldType, ser);
+                }
+                foreach (var (type, json) in patched)
+                    serializedNodes[type] = json.ToJsonString();
+            }
 
             using var stream = new FileStream(file.FullName, FileMode.Create, FileAccess.Write, FileShare.None);
             using var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true });
@@ -90,7 +113,68 @@ public sealed class ConfigRoot
         }
     }
 
-    public List<string> ConsoleCommand(ReadOnlySpan<string> args, bool save = true)
+    public List<string> ConsoleCommand(ReadOnlySpan<string> args, bool save = true) => ApplyConsoleCommand(args, save, false);
+
+    public List<string> SetTransient(ReadOnlySpan<string> args)
+    {
+        if (args.Length < 3)
+            return ["Usage: Configuration.SetTransient <config-type> <field> <value>"];
+        return ApplyConsoleCommand(args, true, true);
+    }
+
+    public int ClearTransient()
+    {
+        HashSet<ConfigNode> modified = [];
+        var restored = 0;
+        lock (_transient)
+        {
+            foreach (var ((node, field), entry) in _transient)
+            {
+                if (Equals(field.Getter(node), entry.Value))
+                {
+                    field.Setter(node, entry.Original);
+                    modified.Add(node);
+                    ++restored;
+                }
+            }
+            _transient.Clear();
+        }
+        foreach (var node in modified)
+            node.Modified.Fire();
+        return restored;
+    }
+
+    internal bool IsTransient(ConfigNode node, ConfigFieldMetadata field)
+    {
+        lock (_transient)
+            return _transient.ContainsKey((node, field));
+    }
+
+    // UI changes share the transient gate, including custom property renderers; notify subscribers after leaving it.
+    internal bool ApplyUserEdit(ConfigNode node, ConfigFieldMetadata field, Func<bool> edit)
+    {
+        lock (_transient)
+        {
+            if (!edit())
+                return false;
+            _transient.Remove((node, field));
+            return true;
+        }
+    }
+
+    private void DropChangedTransients(ConfigNode node)
+    {
+        lock (_transient)
+        {
+            foreach (var (key, entry) in _transient)
+            {
+                if (key.node == node && !Equals(key.field.Getter(node), entry.Value))
+                    _transient.Remove(key);
+            }
+        }
+    }
+
+    private List<string> ApplyConsoleCommand(ReadOnlySpan<string> args, bool save, bool transient)
     {
         List<string> result = [];
         if (args.Length == 0)
@@ -201,7 +285,7 @@ public sealed class ConfigRoot
                     {
                         if (args.Length == 2)
                         {
-                            result.Add(matchingFields[0].Getter(matchingNodes[0])?.ToString() ?? $"Failed to get value of '{args[2]}'");
+                            result.Add(matchingFields[0].Getter(matchingNodes[0])?.ToString() ?? $"Failed to get value of '{matchingFields[0].Name}'");
                         }
                         else
                         {
@@ -212,7 +296,20 @@ public sealed class ConfigRoot
                             }
                             else
                             {
-                                matchingFields[0].Setter(matchingNodes[0], val);
+                                var node = matchingNodes[0];
+                                var field = matchingFields[0];
+                                lock (_transient)
+                                {
+                                    var key = (node, field);
+                                    var current = field.Getter(node);
+                                    var original = _transient.TryGetValue(key, out var existing) && Equals(current, existing.Value) ? existing.Original : current;
+                                    // Keep the ledger unchanged if conversion or the field setter fails.
+                                    field.Setter(node, val);
+                                    if (transient)
+                                        _transient[key] = new(original, val);
+                                    else
+                                        _transient.Remove(key);
+                                }
                                 if (save)
                                 {
                                     matchingNodes[0].Modified.Fire();

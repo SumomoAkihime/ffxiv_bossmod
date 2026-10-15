@@ -56,6 +56,7 @@ sealed class AlexandrianBanishIII(BossModule module) : Components.GenericBaitSta
         };
 
         Span<bool> visited = stackalloc bool[16];
+        visited.Clear();
         Span<bool> activeTiles = stackalloc bool[16];
         Span<bool> intersects = stackalloc bool[16];
         Span<(int ring, int idx)> stack = stackalloc (int, int)[16];

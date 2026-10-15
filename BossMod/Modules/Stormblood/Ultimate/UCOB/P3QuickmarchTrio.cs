@@ -115,7 +115,7 @@ sealed class P3QuickmarchTrio(UCOB module) : BossComponent(module)
 sealed class P3TwistingDive(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TwistingDive, new AOEShapeRect(63.96f, 4f));
 sealed class P3LunarDive(BossModule module) : Components.SimpleAOEs(module, (uint)AID.LunarDive, new AOEShapeRect(62.55f, 4f));
 sealed class P3MegaflareDive(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MegaflareDive, new AOEShapeRect(64.2f, 6f));
-sealed class P3Twister(BossModule module) : Components.CastTwister(module, 1.25f, (uint)OID.VoidzoneTwister, (uint)AID.TwistingDive, 1.4d, predictBeforeSpawn: 0.8d)
+sealed class P3Twister(BossModule module) : TwisterBase(module, (uint)AID.TwistingDive, 1.4d, 0.8d)
 {
     public bool Predicted => PredictedPositions.Count > 0;
 }

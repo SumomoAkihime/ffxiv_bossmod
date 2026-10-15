@@ -190,14 +190,7 @@ sealed class Hatch(BossModule module) : Components.CastCounter(module, (uint)AID
 
             hints.GoalZones.Add(AIHints.GoalSingleTarget(myLink.Position, 5f, 0.5f));
 
-            if (Twister)
-            {
-                hints.AddForbiddenZone(new SDInvertedDonutSector(myLink.Position, 3f, 5f, Module.PrimaryActor.AngleTo(myLink), 90f.Degrees()), WorldState.FutureTime(leewaySeconds));
-            }
-            else
-            {
-                hints.AddForbiddenZone(new SDInvertedCircle(myLink.Position, 2f), WorldState.FutureTime(leewaySeconds));
-            }
+            hints.AddForbiddenZone(new SDInvertedCircle(myLink.Position, 2f), WorldState.FutureTime(leewaySeconds));
         }
         else if (_tenstrikeUntargeted[slot])
         {

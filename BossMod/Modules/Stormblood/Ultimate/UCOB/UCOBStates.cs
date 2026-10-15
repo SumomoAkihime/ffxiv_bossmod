@@ -820,7 +820,7 @@ sealed class UCOBStates : StateMachineBuilder
     {
         ComponentCondition<P1Plummet>(id, delay, static comp => comp.NumCasts > 0, "Cleave")
             .ActivateOnEnter<LiquidHell>()
-            .ActivateOnEnter<Twister>()
+            .ActivateOnEnter<P1Twister>()
             .ActivateOnEnter<P1Plummet>()
             .ActivateOnEnter<P2BahamutsClaw>() // 1st cast happens at the same time
             .DeactivateOnExit<P1Plummet>();
@@ -840,7 +840,7 @@ sealed class UCOBStates : StateMachineBuilder
     private void P4Twister(uint id, float delay)
     {
         ActorCast(id, _module.Twintania, (uint)AID.Twister, delay, 2f, true); // icon appears ~0.1s before cast start
-        ComponentCondition<Twister>(id + 2u, 0.3f, static comp => comp.Active, "Twisters");
+        ComponentCondition<P1Twister>(id + 2u, 0.3f, static comp => comp.Active, "Twisters");
     }
 
     private void P4GenerateTwister(uint id, float delay)
@@ -880,7 +880,7 @@ sealed class UCOBStates : StateMachineBuilder
             .DeactivateOnExit<P1DeathSentence>()
             .DeactivateOnExit<P2Ravensbeak>()
             .DeactivateOnExit<LiquidHell>() // TODO: reconsider - prep for next cycle
-            .DeactivateOnExit<Twister>()
+            .DeactivateOnExit<P1Twister>()
             .SetHint(StateMachine.StateHint.Tankbuster);
     }
 

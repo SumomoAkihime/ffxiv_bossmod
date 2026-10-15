@@ -10,8 +10,10 @@ sealed class AIController(WorldState ws, ActionManagerEx amex, MovementOverride 
     public WPos? NaviTargetPos;
     public float? NaviTargetVertical;
     public bool AllowInterruptingCastByMovement;
+    public float NaviLeewaySeconds = float.MaxValue;
     public bool ForceCancelCast;
 
+    private readonly CastSettleHold _castHold = new();
     private readonly ActionManagerEx _amex = amex;
     private readonly MovementOverride _movement = movement;
 
@@ -24,7 +26,9 @@ sealed class AIController(WorldState ws, ActionManagerEx amex, MovementOverride 
         NaviTargetPos = null;
         NaviTargetVertical = null;
         AllowInterruptingCastByMovement = false;
+        NaviLeewaySeconds = float.MaxValue;
         ForceCancelCast = false;
+        _castHold.Reset();
     }
 
     public void SetFocusTarget(Actor? actor)
@@ -47,7 +51,9 @@ sealed class AIController(WorldState ws, ActionManagerEx amex, MovementOverride 
         // TODO this checks whether movement keys are pressed, we need a better solution
         var moveRequested = _movement.IsMoveRequested();
         var castInProgress = player.CastInfo != null && !player.CastInfo.EventHappened;
-        var forbidMovement = moveRequested || !AllowInterruptingCastByMovement && _amex.MoveMightInterruptCast;
+        var castRemaining = _amex.CastTimeRemaining;
+        var mustMoveNow = AllowInterruptingCastByMovement || (castRemaining > 0f ? NaviLeewaySeconds <= castRemaining - 0.5f : NaviLeewaySeconds <= 0f);
+        var forbidMovement = moveRequested || _amex.MoveMightInterruptCast && !mustMoveNow;
         if (NaviTargetPos != null && !forbidMovement && (NaviTargetPos.Value - player.Position).LengthSq() > 0.001f)
         {
             desiredPosition = NaviTargetPos.Value.ToVec3(NaviTargetVertical != null && IsVerticalAllowed ? NaviTargetVertical.Value : player.PosRot.Y);
@@ -55,6 +61,13 @@ sealed class AIController(WorldState ws, ActionManagerEx amex, MovementOverride 
         else
         {
             hints.ForceCancelCast |= ForceCancelCast && castInProgress;
+        }
+
+        var moving = hints.ForcedMovement == null && desiredPosition != null;
+        if (_castHold.Update(now, moving, moving && _amex.MoveMightInterruptCast, out _))
+        {
+            hints.HoldCasts = true;
+            hints.MaxCastTime = 0f;
         }
 
         if (hints.ForcedMovement == null && desiredPosition != null)

@@ -328,9 +328,9 @@ public sealed class ConfigUI : IDisposable
             bool modified;
             using (ImRaii.Disabled(!enabled))
             {
-                modified = props.Renderer is { } rendererType
+                modified = root.ApplyUserEdit(node, field, () => props.Renderer is { } rendererType
                     ? GetPropertyRenderer(rendererType).Draw(props, false, node, value!, root, tree, ws)
-                    : DrawProperty(props.Label, Loc.Tr(props.Tooltip), node, field, value, root, tree, ws);
+                    : DrawProperty(props.Label, root.IsTransient(node, field) ? TransientTooltip(Loc.Tr(props.Tooltip)) : Loc.Tr(props.Tooltip), node, field, value, root, tree, ws));
             }
             if (modified)
             {
@@ -345,6 +345,12 @@ public sealed class ConfigUI : IDisposable
 
         // draw custom stuff
         node.DrawCustom(tree, ws);
+    }
+
+    private static string TransientTooltip(string tooltip)
+    {
+        const string note = "此项被其他插件临时修改。配置文件保留原值，清理临时设置后恢复；在此修改会保留您的新值。";
+        return tooltip.Length > 0 ? $"{tooltip}\n\n{note}" : note;
     }
 
     private static bool IsPropertyEnabled(ConfigNode node, ConfigTypeMetadata metadata, ConfigFieldMetadata field)

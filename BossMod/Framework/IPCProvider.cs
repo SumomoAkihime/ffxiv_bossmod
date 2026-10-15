@@ -10,6 +10,8 @@ namespace BossMod;
 sealed class IPCProvider : IDisposable
 {
     private Action? _disposeActions;
+    private readonly object _configurationGate = new();
+    private bool _disposed;
 
     public IPCProvider(BossModuleManager bossmod, AIHints hints, RotationModuleManager autorotation, ActionManagerEx amex, MovementOverride movement, AIManager ai, ObstacleMapManager obstacles)
     {
@@ -175,6 +177,8 @@ sealed class IPCProvider : IDisposable
         });
 
         // --- Custom OmniDuty Endpoints ---
+        Register("Movement.IsMoving", () => hints.ForcedMovement != null || hints.HoldCasts);
+        Register("Movement.IsMoveRequested", () => movement.IsMoveRequested());
         Register("Hints.MaxCastTime", () => hints.MaxCastTime);
         Register("Hints.ForceCancelCast", () => hints.ForceCancelCast);
         Register("Hints.ForbiddenZonesCount", () => hints.ForbiddenZones.Count);
@@ -287,9 +291,21 @@ sealed class IPCProvider : IDisposable
         });
 
         Register("Configuration", (IReadOnlyList<string> args, bool save) => Service.Config.ConsoleCommand(args.ToArray(), save));
+        Register("Configuration.SetTransient", (IReadOnlyList<string> args) =>
+        {
+            var values = args.ToArray();
+            lock (_configurationGate)
+                return _disposed ? new List<string> { "BossMod 配置接口已关闭" } : Service.Config.SetTransient(values);
+        });
+        Register("Configuration.ClearTransient", () =>
+        {
+            lock (_configurationGate)
+                return _disposed ? 0 : Service.Config.ClearTransient();
+        });
 
         var lastModified = DateTime.Now;
-        Service.Config.Modified.Subscribe(() => lastModified = DateTime.Now);
+        var configModified = Service.Config.Modified.Subscribe(() => lastModified = DateTime.Now);
+        _disposeActions += configModified.Dispose;
         Register("Configuration.LastModified", () => lastModified);
 
         Register("Configuration.DisableModule", (string name, bool disable) =>
@@ -601,7 +617,21 @@ sealed class IPCProvider : IDisposable
         _disposeActions += () => autorotation.PlannedActionsChanged -= OnPlannedActionsChanged;
     }
 
-    public void Dispose() => _disposeActions?.Invoke();
+    public void Dispose()
+    {
+        lock (_configurationGate)
+        {
+            if (_disposed)
+                return;
+            _disposed = true;
+            try { _disposeActions?.Invoke(); }
+            finally
+            {
+                _disposeActions = null;
+                Service.Config.ClearTransient();
+            }
+        }
+    }
 
     private void Register<TRet>(string name, Func<TRet> func)
     {

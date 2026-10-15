@@ -116,6 +116,10 @@ public sealed class ActionQueue
                 return false;
         }
 
+        if (Service.Config.Get<ActionTweaksConfig>().CountdownHold && entry.Manual && entry.Target is { IsAlly: false }
+            && ws.Client.CountdownRemaining > entry.CastTime + ApplicationDelay.Get(entry.Action))
+            return false;
+
         return def.ForbidExecute == null || !def.ForbidExecute.Invoke(ws, player, entry, hints);
     }
 }

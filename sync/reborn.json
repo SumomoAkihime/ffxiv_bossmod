@@ -1,12 +1,12 @@
 ﻿{
   "schemaVersion": 1,
-  "updated": "2026-10-09",
+  "updated": "2026-10-15",
   "source": {
     "repository": "https://github.com/FFXIV-CombatReborn/BossmodReborn",
-    "commit": "33456ced5bd96ef37ea62adf98a560f403b241cf",
-    "releaseTag": "7.5.6.33",
-    "releaseCommit": "33456ced5bd96ef37ea62adf98a560f403b241cf",
-    "status": "选择性整合至7.5.6.33及检查点33456ced5；保留自建雷达、融合循环/移动和实测修正，高难魔之塔及仍WIP排除；不表示整树一致"
+    "commit": "be8ff771cc545f8f8b5b548b5dd7271d80460f89",
+    "releaseTag": "7.5.6.35",
+    "releaseCommit": "be8ff771cc545f8f8b5b548b5dd7271d80460f89",
+    "status": "选择性整合至7.5.6.35/be8ff771c；融合实时施法移动与瞬态IPC，保留自建雷达/高难魔之塔及本地修正；不表示整树一致"
   },
   "forkBaseline": "787148f34",
   "purpose": "以 Reborn 雷达与共享支撑为主体，融合 awgil 职业循环及移动、保留多预设与外部插件联动、自建雷达和已验证修复。",
@@ -75,6 +75,17 @@
       "awgilStableTag": "v7.5.6.9",
       "awgilStableCommit": "076003c0510a6b82b5d7b1a1d12438bc55ee3a75",
       "scope": "Reborn 615b38b54..33456ced5：14个新成熟棋盘、9个既有棋盘、极永恒女王转场/同高分层/冰桥/合法武力、死宫50月环及必要Adds/Bait/Cleave和4类复合击退支撑。原版11d8147cc..40b0abdd/869219494：萨斯塔沙麦迪逊两次战斗、暗之世界7模块、普通伊甸4～6，庄园既有二号提示增强/身份修正，绝巴哈旋风/火圈/预站位/剧情死亡/阶段结束、联盟字母回放链、赤魔/武僧/插入/GNB范围、拉怪/棋盘敌人行为/副本加载/目标计划导入。逐文件适配本地API，保留多预设、AutoDuty、自建及高难魔之塔；不整树覆盖。"
+    },
+    {
+      "commit": "包含本清单的提交",
+      "sourceCommit": "be8ff771cc545f8f8b5b548b5dd7271d80460f89",
+      "awgilCommit": "fff7f6e98541fcd6b23d7c2ccbac88e1fa4c9c75",
+      "awgilTestingCommit": "f12f01be030ed87bfcfd34701ed62a16c88b50d5",
+      "awgilStableTag": "v7.5.7.0",
+      "awgilStableCommit": "fff7f6e98541fcd6b23d7c2ccbac88e1fa4c9c75",
+      "awgilTestingTag": "t7.5.7.1",
+      "awgilTestingTagCommit": "fff7f6e98541fcd6b23d7c2ccbac88e1fa4c9c75",
+      "scope": "Reborn 33456ced5..be8ff771c：实时施法移动抢占与停步保护、CastTracker/RSR活跃判定、瞬态配置IPC及泽莱尼亚地板去重/初始化修复；适配本地多预设和原生禁动。原版869219494..f12f01be0：普通伊甸7～12、罗波那/俾斯麦/托尔丹3普通讨伐、8个已标Ok的Kage循环与支撑、4个ROG及既有任务增量/生命周期钩子、绝巴哈旋风/拘束器/P5等改进、冲刺途经旋风安全、时间轴/可选团队减伤、忍者任务隐身、计划Guid/编辑器/手动倒计时。逐文件完成本地API适配，并补足并发保存/UI编辑/卸载门闩、俾斯麦重心和托尔丹缓存语义；不整树覆盖。"
     }
   ],
   "requiredPatches": [
@@ -308,6 +319,27 @@
         "BossMod/Timeline/CooldownPlannerColumns.cs"
       ],
       "behavior": "SyncCreateImport先复制目标列表，清旧显示列会经NotifyModified清空新计划数据；重新添加显示列后必须恢复Plan.Targeting，否则重复刷新或保存仍会丢失目标覆盖。"
+    },
+    {
+      "paths": [
+        "BossMod/AI/AIController.cs",
+        "BossMod/AI/CastSettleHold.cs",
+        "BossMod/Autorotation/MiscAI/NormalMovement.cs",
+        "BossMod/Framework/ActionManagerEx.cs",
+        "BossMod/Config/ConfigRoot.cs",
+        "BossMod/Config/ConfigUI.cs",
+        "BossMod/Framework/IPCProvider.cs"
+      ],
+      "behavior": "保留实时客户端施法、急迫躲避与独立静止机制；零向量不得启动/续期移动停步保护。瞬态配置的UI写入/清理、快照/同文件写盘、已进入IPC/卸载使用对应共同门闩；保留70个IPC及原Configuration(bool save)合约。"
+    },
+    {
+      "paths": [
+        "BossMod/Autorotation/Standard/kage/KageHelpers.cs",
+        "BossMod/ActionQueue/ActionDefinition.cs",
+        "BossMod/Modules/Heavensward/Trial/T02Bismarck/T02Bismarck.cs",
+        "BossMod/Modules/Heavensward/Trial/T03Thordan/T03Thordan.cs"
+      ],
+      "behavior": "Kage ResolveTargetOverride传TrackRaw保留友方Actor；冲刺途经圆使用本地布尔线段相交，允许从圆内向外脱离。俾斯麦使用世界顶点及对应bounds.Center同步切换；托尔丹HeavyImpact清理后须base.Update刷新AOE缓存。"
     }
   ],
   "localRadars": "local-radars.json",
@@ -340,19 +372,31 @@
     },
     {
       "scope": "本检查区间以外的历史差异",
-      "reason": "已分类并选择性整合至Reborn 33456ced5、原版master40b0abdd/testing869219494；不代表历史整树差异全部消除。"
+      "reason": "选择性整合至Reborn be8ff771c、原版masterfff7f6e98/testingf12f01be0；不代表历史整树差异全部消除。"
     },
     {
       "scope": "绝巴哈P3 Heavensfall策略重写",
       "reason": "继续保留本地完整机制和分配；原版P3策略重写及前批P4 AssignAdds角色分配需成套验证，本批只适配独立机制更新。"
     },
     {
-      "scope": "AkechiDRK策略重写、新WHMUtilityEx及kage MCH/VPR WIP",
-      "reason": "大幅策略或新增实验功能单独评估；WHMUtilityEx开启FullHeal时满血空列表MaxBy可抛异常，不原样移植。"
+      "scope": "AkechiDRK策略重写与新WHMUtilityEx",
+      "reason": "DRK大幅策略与WHMUtilityEx满血空列表MaxBy问题继续单独评估；此前Kage MCH/VPR及本批另外6职业已达到Ok并完整适配。"
     },
     {
       "scope": "AST新Card1～3量谱接口",
       "reason": "当前SDK仍是CurrentCards接口，保持现有兼容实现，不为本批升级外部依赖。"
+    },
+    {
+      "scope": "StifledScreams(CFC382)目标遮挡/绕墙兼容",
+      "reason": "本地缺Actor.Visibility.Blocked；候选仅存outputs/sync-20261015/quests，不能删掉该分支并标完整Contributed。"
+    },
+    {
+      "scope": "长城D171/D172首领NameID核对",
+      "reason": "本地三首领均5564，上游前两项5560/5562；数据接口403，取得游戏表或回放确认前不猜改。"
+    },
+    {
+      "scope": "原版既有普通讨伐/旧副本额外AI与时间轴差异",
+      "reason": "Reborn主体已有同身份可用模块；本批优先补缺失的9普通雷达，不整文件替换既有成熟模块。QueenEternal/Necron等原版差异仍需逐组件审查。"
     }
   ],
   "excluded": [
@@ -383,6 +427,10 @@
     {
       "scope": "2026-10-08新版寻路/物品/核心框架扩展",
       "reason": "Sdf/BitArray离散寻路、CsvHelper整表架构、棋盘物品与恢复药水完整功能链、BST/宠物循环、拆包/热重载/FFXIVClientStructs子模块引用不整批搬入；保留交互距离评分、场内过滤、坦克当前距离和多预设移动独占。"
+    },
+    {
+      "scope": "2026-10-15原版整套DTR/配置窗口/拆包平台与RTT框架",
+      "reason": "保留当前中文UI、插件身份和融合结构；不新增DalaMock依赖。网络RTT采集带未验证本地布局的0xA70原生指针及服务扩展，不随本批最小适配移植。调试窗口/FakeAoeTest、BST/宠物/SDK扩展继续排除；RDM调整距离通用委托为等价重构，保留已有25码分支及各职业既有开怪保护。"
     }
   ],
   "validation": [
@@ -401,13 +449,17 @@
       "Configuration.DisableModule 与模块创建限制",
       "Presets.Activate/Deactivate",
       "Configuration 只读列表参数",
-      "AI.NaviTargetPos/IsNavigating 按当前移动负责方查询"
+      "AI.NaviTargetPos/IsNavigating 按当前移动负责方查询",
+      "Configuration.SetTransient/ClearTransient及Hints.MaxCastTime/ForceCancelCast；Movement.IsMoving覆盖移动后停步期，保留卸载关闭门闩。"
     ],
     "preserved": [
       "现有 Presets 创建/查询/独占选择/总停止/多预设/临时策略",
       "vnav.PathIsRunning 移动让出"
     ],
-    "legacy": "AI.SetPreset/GetPreset 继续为空兼容；当前官方 AutoDuty 未调用，不恢复旧 AI 自动选预设"
+    "legacy": "AI.SetPreset/GetPreset 继续为空兼容；当前官方 AutoDuty 未调用，不恢复旧 AI 自动选预设",
+    "lastValidationDate": "2026-10-15",
+    "registeredIPCInterfaces": 70,
+    "configurationIPCSourceCommit": "be8ff771cc545f8f8b5b548b5dd7271d80460f89"
   },
   "supportJobs": {
     "sourceCommit": "20b8092f4a5673f8b7d1a3959f4671732a67710c",
@@ -482,26 +534,42 @@
       "gameTest": "离线验证通过；发布7.5.6.1601，尚未实机验证。",
       "validationEvidence": "D:\\mod-source\\outputs\\release-7.5.6.1601",
       "scope": "完整RotationMovement（含本次Drake/Bone Bishop/Guttler、法系LB/禁疗/覆盖算法、绝巴哈与提坦几何回归及66个IPC流程）；独立SupportJobs与两种PolygonQueries。三套测试DLL均与Release一致。"
+    },
+    {
+      "date": "2026-10-09",
+      "releaseBuild": "零警告、零错误",
+      "movementAndIPCAssertions": 1279,
+      "registeredIPCInterfaces": 66,
+      "supportJobsAssertions": 331,
+      "polygonAssertions": 67922,
+      "polygonDefaultAssertions": 33959,
+      "polygonDistanceFirstAssertions": 33963,
+      "protectedSourceFilesUnchanged": 39,
+      "protectedSourceScope": "完整40文件保护清单中39个未变；NavigationDecision仅同步禁区缓冲夹取0～3，空ShapeDistance快照过滤保持。所有37个保护雷达源码未变，两份未跟踪制作记录哈希不变。",
+      "protectedSourceAdaptations": [
+        "BossMod/Pathfinding/NavigationDecision.cs"
+      ],
+      "releaseDLLSHA256": "4EE4D5F93564718B9263A9536D70DCC16AEE719B4ADB150CA5B9459B9F41CF73",
+      "gameTest": "离线验证通过，尚未实机验证；仅同步测试分支，版本仍7.5.6.1601，未发布或更新release ZIP。",
+      "validationEvidence": "D:/mod-source/outputs/sync-20261008",
+      "scope": "完整RotationMovement及66个IPC流程，含本批棋盘注册/组件激活/晚生成/击退排序、女王转场/分层/冰桥、原版普通雷达/世界之暗/伊甸、绝巴哈、联盟字母文本及二进制回放、诱导几何、目标计划重复导入、赤魔动作/插入、拉怪/剧情死亡/副本远距；独立SupportJobs与两种PolygonQueries。三套测试和本次构建ZIP内DLL均与Release一致；构建ZIP仅为验证产物。"
     }
   ],
   "lastValidation": {
-    "date": "2026-10-09",
+    "date": "2026-10-15",
     "releaseBuild": "零警告、零错误",
-    "movementAndIPCAssertions": 1279,
-    "registeredIPCInterfaces": 66,
+    "movementAndIPCAssertions": 1501,
+    "registeredIPCInterfaces": 70,
     "supportJobsAssertions": 331,
     "polygonAssertions": 67922,
     "polygonDefaultAssertions": 33959,
     "polygonDistanceFirstAssertions": 33963,
-    "protectedSourceFilesUnchanged": 39,
-    "protectedSourceScope": "完整40文件保护清单中39个未变；NavigationDecision仅同步禁区缓冲夹取0～3，空ShapeDistance快照过滤保持。所有37个保护雷达源码未变，两份未跟踪制作记录哈希不变。",
-    "protectedSourceAdaptations": [
-      "BossMod/Pathfinding/NavigationDecision.cs"
-    ],
-    "releaseDLLSHA256": "4EE4D5F93564718B9263A9536D70DCC16AEE719B4ADB150CA5B9459B9F41CF73",
-    "gameTest": "离线验证通过，尚未实机验证；仅同步测试分支，版本仍7.5.6.1601，未发布或更新release ZIP。",
-    "validationEvidence": "D:/mod-source/outputs/sync-20261008",
-    "scope": "完整RotationMovement及66个IPC流程，含本批棋盘注册/组件激活/晚生成/击退排序、女王转场/分层/冰桥、原版普通雷达/世界之暗/伊甸、绝巴哈、联盟字母文本及二进制回放、诱导几何、目标计划重复导入、赤魔动作/插入、拉怪/剧情死亡/副本远距；独立SupportJobs与两种PolygonQueries。三套测试和本次构建ZIP内DLL均与Release一致；构建ZIP仅为验证产物。"
+    "protectedSourceFilesUnchanged": 40,
+    "protectedSourceScope": "本批同步前后完整40文件快照一致；自建雷达、高难魔之塔和两份用户未跟踪记录保留。",
+    "releaseDLLSHA256": "9B769636A3B803C911F4E18554B4FB06DF5D320A29ED4A54C3E2D68C1FE8DAAE",
+    "gameTest": "离线验证通过，尚未实机验证；仅同步测试分支，版本仍7.5.6.3301，未发布或更新release ZIP。",
+    "validationEvidence": "D:/mod-source/outputs/sync-20261015",
+    "scope": "完整RotationMovement及70个IPC流程，包含真实施法与移动抢占/停步恢复、同文件保存和UI编辑/清理及已进入IPC/卸载交错、伊甸7～12与苍穹普通3讨伐的注册/激活/生命周期、俾斯麦世界边界切换、伊甸12重叠分摊、托尔丹重击缓存、旋风冲刺轨迹、时间轴/减伤、计划Guid替换、倒计时及4个ROG/旧任务钩子；8个Kage职业走真实生成策略转换的低等级无目标/单体/多目标执行及BLM强制爆发边界。辅助职业与两种多边形套件独立通过；测试及构建ZIP DLL一致。"
   },
   "lastRelease": {
     "date": "2026-10-09",

@@ -75,6 +75,7 @@ public sealed class NormalMovement : RotationModule
     public const float CasterRange = 25;
     const float SpinningLookahead = 5.5f;
 
+    private readonly AI.CastSettleHold _castHold = new();
     private Task<NavigationDecision> _decisionTask = Task.FromResult(default(NavigationDecision));
     private NavigationDecision _lastDecision;
     private bool _discardDecision;
@@ -111,6 +112,25 @@ public sealed class NormalMovement : RotationModule
     }
 
     public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
+    {
+        var amex = ActionManagerEx.Instance;
+        var liveCast = amex != null && amex.MoveMightInterruptCast && amex.CastTimeRemaining > 0f;
+        var worldCast = Player.CastInfo is { EventHappened: false } ci ? ci : null;
+        var castInProgress = liveCast || worldCast != null;
+        var castRemaining = Math.Max(liveCast ? amex!.CastTimeRemaining : 0f, worldCast != null ? (float)worldCast.RemainingTime : 0f);
+        var ownsMovement = Hints.ForcedMovement == null;
+
+        UpdateMovement(strategy, primaryTarget, castInProgress, castRemaining);
+
+        var moving = ownsMovement && Hints.ForcedMovement is { } forced && forced.XZ().LengthSquared() > 0f;
+        if (_castHold.Update(World.CurrentTime, moving, moving && castInProgress, out _))
+        {
+            Hints.HoldCasts = true;
+            Hints.MaxCastTime = 0f;
+        }
+    }
+
+    private void UpdateMovement(StrategyValues strategy, Actor? primaryTarget, bool castInProgress, float castRemaining)
     {
         // do nothing if we're already being moved by some other module (i.e. quest battle pathfinding)
         if (Hints.ForcedMovement != null || _aiConfig.ForbidMovement || _aiConfig.ForbidAIMovementMounted && Player.MountId != 0
@@ -369,8 +389,8 @@ public sealed class NormalMovement : RotationModule
         else
         {
             // fine to move if we won't interrupt cast (or are explicitly allowed to)
-            var allowMovement = Player.CastInfo == null || Player.CastInfo.EventHappened || castStrategy is CastStrategy.DropMove or CastStrategy.DropInstants;
-            Hints.ForcedMovement = allowMovement ? dir.ToVec3(Player.PosRot.Y) : default;
+            var allowMovement = !castInProgress || castStrategy is CastStrategy.DropMove or CastStrategy.DropInstants;
+            Hints.ForcedMovement = allowMovement ? dir.ToVec3(Player.PosRot.Y) : null;
         }
 
         var maxCastTime = castStrategy switch
@@ -382,9 +402,9 @@ public sealed class NormalMovement : RotationModule
         };
         Hints.MaxCastTime = Math.Max(0, Math.Min(Hints.MaxCastTime, maxCastTime));
         Hints.ForceCancelCast |= castStrategy == CastStrategy.DropMove;
-        if (castStrategy is CastStrategy.Leeway && Player.CastInfo is { } castInfo)
+        if (castStrategy is CastStrategy.Leeway && castInProgress)
         {
-            var effectiveCastRemaining = Math.Max(0, castInfo.RemainingTime - 0.5f);
+            var effectiveCastRemaining = Math.Max(0f, castRemaining - 0.5f);
             if (Hints.MaxCastTime < effectiveCastRemaining)
             {
                 Hints.ForceCancelCast = true;

@@ -297,7 +297,9 @@ sealed class AIBehaviour(AIController ctrl, RotationModuleManager autorot) : IDi
             var distSq = toDest.LengthSq();
             ctrl.NaviTargetPos = WorldState.CurrentTime >= _navStartTime ? _naviDecision.Destination : null;
             ctrl.NaviTargetVertical = master != player ? master.PosRot.Y : null;
-            ctrl.AllowInterruptingCastByMovement = player.CastInfo != null && _naviDecision.LeewaySeconds <= player.CastInfo.RemainingTime - 0.5d;
+            // The async decision must not decide from a stale world-state cast; the controller reads the live client each frame.
+            ctrl.AllowInterruptingCastByMovement = false;
+            ctrl.NaviLeewaySeconds = _naviDecision.LeewaySeconds;
             ctrl.ForceCancelCast = false;
 
             //var cameraFacing = _ctrl.CameraFacing;

@@ -196,7 +196,7 @@ static class UpstreamUCOB20261008Tests
             bahamut.IsTargetable = true;
             hints.Clear();
             preposition.AddAIHints(0, player, Role.MT, hints);
-            check(hints.GoalZones.Count == 0, "P5预站位：首领可选中后退出预站位");
+            check(hints.GoalZones.Count == 1 && Math.Abs(hints.GoalZones[0](bahamut.Position) - 0.1f) < 0.00001f && hints.GoalZones[0](bahamut.Position + new WDir(30f, 0f)) == 0f, "P5预站位：首领可选中后改为较低权重的近身奖励");
         }
     }
 

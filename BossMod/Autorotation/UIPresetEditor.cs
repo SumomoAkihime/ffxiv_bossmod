@@ -32,7 +32,9 @@ public sealed class UIPresetEditor
         typeof(xan.AST),
         typeof(xan.SCH),
         typeof(xan.SGE),
-        typeof(akechi.AkechiSCH)
+        typeof(akechi.AkechiSCH),
+        typeof(kage.KageWHM),
+        typeof(kage.KageSGE)
     ];
 
     public Type? SelectedModuleType => Preset.Modules.BoundSafeAt(_selectedModuleIndex)?.Type;
@@ -54,6 +56,7 @@ public sealed class UIPresetEditor
             Modified = false; // don't bother...
         }
         _availableModules = BuildAvailableModules();
+        _currentModuleHasHealerAI = Preset.Modules.Any(m => m.Type == THealerAI);
         SelectModule(FindModuleByType(initiallySelectedModuleType));
     }
 

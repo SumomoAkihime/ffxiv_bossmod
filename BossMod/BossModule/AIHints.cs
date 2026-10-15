@@ -135,6 +135,8 @@ public sealed class AIHints
 
     // AI will treat the pixels inside these shapes as unreachable and not try to pathfind through them (unlike imminent forbidden zones)
     public List<ShapeDistance> TemporaryObstacles = [];
+    // Persistent hazards checked along dash trajectories, separate from navigation.
+    public readonly List<(WPos Center, float Radius)> Voidzones = [];
 
     // AI will treat the pixels inside these shapes as unreachable and not try to pathfind through them (unlike imminent forbidden zones)
     public readonly List<Pathfinding.Teleporter> Teleporters = [];
@@ -164,6 +166,8 @@ public sealed class AIHints
     // this is used by the action queue to skip casts that we won't be able to finish and execute lower-priority fallback actions instead
     public float MaxCastTime = float.MaxValue;
     public bool ForceCancelCast;
+    // An interrupting move holds new casts until movement has settled.
+    public bool HoldCasts;
     public bool ScriptedDeath; // keep presets through an encounter-authored death/revival
     public bool ForbidDashes; // mechanic restriction, independent of geometric dash safety
 
@@ -197,6 +201,7 @@ public sealed class AIHints
         GoalZones.Clear();
         GoalZonesEnabled = true;
         TemporaryObstacles.Clear();
+        Voidzones.Clear();
         Teleporters.Clear();
         RecommendedPositional = default;
         ForbiddenDirections.Clear();
@@ -206,6 +211,7 @@ public sealed class AIHints
         ShouldCleanse.Reset();
         MaxCastTime = float.MaxValue;
         ForceCancelCast = false;
+        HoldCasts = false;
         ScriptedDeath = false;
         ForbidDashes = false;
         ActionsToExecute.Clear();

@@ -6,6 +6,7 @@ public sealed class RotationSolverRebornModule(IDalamudPluginInterface pluginInt
 {
     private readonly ICallGateSubscriber<SpecialCommandType, object> _changeOperationMode = pluginInterface.GetIpcSubscriber<SpecialCommandType, object>("RotationSolverReborn.TriggerSpecialState");
     private readonly ICallGateSubscriber<SpecialCommandType, float, object> _triggerSpecialStateWithDuration = pluginInterface.GetIpcSubscriber<SpecialCommandType, float, object>("RotationSolverReborn.TriggerSpecialStateWithDuration");
+    private readonly ICallGateSubscriber<bool> _autorotationActive = pluginInterface.GetIpcSubscriber<bool>("RotationSolverReborn.AutorotationActive");
     private const string rsr = "Rotation Solver Reborn";
 
     public bool IsInstalled
@@ -21,6 +22,21 @@ public sealed class RotationSolverRebornModule(IDalamudPluginInterface pluginInt
                 }
             }
             return false;
+        }
+    }
+
+    public bool IsAutorotationActive
+    {
+        get
+        {
+            try
+            {
+                return _autorotationActive.HasFunction && _autorotationActive.InvokeFunc();
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 

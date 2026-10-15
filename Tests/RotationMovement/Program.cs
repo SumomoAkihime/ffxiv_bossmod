@@ -23,7 +23,7 @@ class Program
         AssemblyLoadContext.Default.Resolving += (_, name) => File.Exists(Path.Combine(dalamud, name.Name + ".dll")) ? AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(dalamud, name.Name + ".dll")) : null;
         if (args.Length is not (2 or 4) || args[0] != "--sqpack" || args.Length == 4 && args[2] != "--autoduty") { Console.Error.WriteLine("用法：--sqpack <游戏 game/sqpack 目录>；仅离线读取游戏数据。"); return 2; }
         try { await Run(args[1], args.Length == 4 ? args[3] : null); Console.WriteLine($"通过：{checks} 项循环/移动、异步切换及组件断言。"); return 0; }
-        catch (Exception ex) { Console.Error.WriteLine(ex.GetBaseException()); return 1; }
+        catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
     }
     static async Task Run(string sqpack, string? autoDutyDirectory)
     {
@@ -79,6 +79,7 @@ class Program
             manager.Deactivate(movement); manager.Activate(stop); manager.Activate(movement); Tick();
             Check(manager.MovementModuleActive && hints.ForcedMovement == null && hints.ActionsToExecute.Entries.Count == 1, "第一个移动模块明确停止，后续模块不覆盖");
             var controller = RuntimeHelpers.GetUninitializedObject(Internal("BossMod.AI.AIController"));
+            Set(controller, "_castHold", new BossMod.AI.CastSettleHold());
             var ai = RuntimeHelpers.GetUninitializedObject(Internal("BossMod.AI.AIManager"));
             Set(ai, "Autorot", manager); Set(ai, "Controller", controller);
             Set(controller, "NaviTargetPos", (WPos?)new WPos(30, 0));
@@ -198,6 +199,18 @@ class Program
             UpstreamRadar20261008Tests.Run(Check);
             UpstreamUCOB20261008Tests.Run(Check);
             UpstreamCore20261008Tests.Run(manager, player, boss, hints, Check);
+            Console.WriteLine("验证：UpstreamCastIPC20261015Tests");
+            UpstreamCastIPC20261015Tests.Run(manager, player, ai, Check);
+            Console.WriteLine("验证：UpstreamEden20261015Tests");
+            UpstreamEden20261015Tests.Run(Check);
+            Console.WriteLine("验证：UpstreamKage20261015Tests");
+            UpstreamKage20261015Tests.Run(manager, player, boss, hints, Check);
+            Console.WriteLine("验证：UpstreamLead20261015Tests");
+            UpstreamLead20261015Tests.Run(Check);
+            Console.WriteLine("验证：UpstreamHETrials20261015Tests");
+            UpstreamHETrials20261015Tests.Run(Check);
+            Console.WriteLine("验证：UpstreamQuest20261015Tests");
+            UpstreamQuest20261015Tests.Run(world, player, hints, Check);
             Console.WriteLine("循环/移动开关、预设改名与顺序、跟随、旧任务失效、视线及排序检查完成。");
         }
         finally { ImGui.DestroyContext(imgui); }

@@ -7,6 +7,8 @@ public sealed class Caster(RotationModuleManager manager, Actor player) : AIBase
         public Track<RaiseStrategy> Raise;
         [Track("Raise targets")]
         public Track<RaiseUtil.Targets> RaiseTargets;
+        [Track("Addle", InternalName = "Addle", Action = ClassShared.AID.Addle)]
+        public Track<DisabledByDefault> Addle;
     }
 
     public enum Track { Raise, RaiseTarget }
@@ -22,11 +24,16 @@ public sealed class Caster(RotationModuleManager manager, Actor player) : AIBase
 
     public static RotationModuleDefinition Definition()
     {
-        return new RotationModuleDefinition("Caster AI", "Auto-caster", "AI (xan)", "xan", RotationModuleQuality.WIP, BitMask.Build(Class.ACN, Class.SMN, Class.RDM), 100).WithStrategies<Strategy>();
+        return new RotationModuleDefinition("Caster AI", "Auto-caster", "AI (xan)", "xan", RotationModuleQuality.WIP, BitMask.Build(Class.ACN, Class.SMN, Class.RDM, Class.THM, Class.BLM, Class.PCT), 100).WithStrategies<Strategy>();
     }
 
     public override void Execute(in Strategy strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
+        if (strategy.Addle.IsEnabled() && Player.InCombat && primaryTarget is { IsAlly: false } addleTarget
+            && RaidwideWithin(5f) && Unlocked(ClassShared.AID.Addle) && NextChargeIn(ClassShared.AID.Addle) == 0f
+            && addleTarget.FindStatus(ClassShared.SID.Addle) == null && Player.DistanceToHitbox(addleTarget) <= 25f)
+            Hints.ActionsToExecute.Push(Spell(ClassShared.AID.Addle), addleTarget, ActionQueue.Priority.Medium);
+
         var raise = strategy.Raise.Value;
         if (raise == RaiseStrategy.None)
             return;

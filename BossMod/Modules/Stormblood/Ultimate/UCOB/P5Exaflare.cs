@@ -40,7 +40,11 @@ sealed class P5Preposition(UCOB module) : BossComponent(module)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (((UCOB)Module).BahamutPrime() is { IsTargetable: false })
-            hints.GoalZones.Add(AIHints.GoalSingleTarget(Arena.Center, 5f));
+        if (((UCOB)Module).BahamutPrime() is { } bahamut)
+        {
+            hints.GoalZones.Add(bahamut.IsTargetable
+                ? AIHints.GoalSingleTarget(bahamut.Position, bahamut.HitboxRadius + 5f, 0.1f)
+                : AIHints.GoalSingleTarget(Arena.Center, 5f));
+        }
     }
 }

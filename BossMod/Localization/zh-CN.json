@@ -237,5 +237,9 @@
   "Work in progress; might be incomplete or have severe bugs.": "开发中：机制可能不完整，或存在严重错误。",
   "Third-party contributed module that wasn't verified by the plugin author; might be working fine, might have any sorts of inconsistencies with other modules - YMMV.": "社区贡献：尚未经插件作者验证，可能正常工作，也可能与其他模块存在差异。",
   "First-party module created by the plugin author, or a third-party contributed module that was thoroughly verified.": "已验证：由插件作者制作，或已经过充分验证的社区模块。",
-  "Module that has been verified to work well with AI enabled.": "支持 AI：已经过启用 AI 时的运行验证。"
+  "Module that has been verified to work well with AI enabled.": "支持 AI：已经过启用 AI 时的运行验证。",
+  "Ignored while Rotation Solver Reborn's autorotation is active": "Rotation Solver Reborn 自动循环运行时忽略此选项",
+  "Delay actions during countdown": "倒计时期间延后动作",
+  "If enabled, manually pressed actions will be delayed during countdown to ensure that they hit at 0 seconds.": "启用后，手动排队的攻击会在倒计时期间延后，尽量在倒计时结束时命中。",
+  "Party mitigation": "团队减伤"
 }

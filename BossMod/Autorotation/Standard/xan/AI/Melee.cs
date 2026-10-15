@@ -17,6 +17,8 @@ public class MeleeAI(RotationModuleManager manager, Actor player) : AIBase<Melee
 
         [Track(Actions = [BossMod.MNK.AID.Thunderclap, BossMod.DRG.AID.WingedGlide, BossMod.NIN.AID.Shukuchi, BossMod.SAM.AID.HissatsuGyoten, BossMod.RPR.AID.HellsIngress, BossMod.VPR.AID.Slither])]
         public Track<EnabledByDefault> Dash;
+        [Track("Feint", InternalName = "Feint", Action = ClassShared.AID.Feint)]
+        public Track<DisabledByDefault> Feint;
     }
 
     public static RotationModuleDefinition Definition()
@@ -55,6 +57,11 @@ public class MeleeAI(RotationModuleManager manager, Actor player) : AIBase<Melee
                 Hints.ActionsToExecute.Push(BozjaActionID.GetNormal(BozjaHolsterID.LostAssassination), primaryTarget, ActionQueue.Priority.Low);
         }
         */
+
+        if (strategy.Feint.IsEnabled() && Player.InCombat && primaryTarget is { IsAlly: false } target
+            && RaidwideWithin(5f) && Unlocked(ClassShared.AID.Feint) && NextChargeIn(ClassShared.AID.Feint) == 0f
+            && target.FindStatus(ClassShared.SID.Feint) == null && Player.DistanceToHitbox(target) <= 10f)
+            Hints.ActionsToExecute.Push(Spell(ClassShared.AID.Feint), target, ActionQueue.Priority.Medium);
 
         AutoDash(strategy, primaryTarget);
         AutoLB(strategy, primaryTarget);

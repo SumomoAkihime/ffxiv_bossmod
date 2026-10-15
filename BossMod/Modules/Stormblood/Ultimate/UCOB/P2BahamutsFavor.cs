@@ -359,7 +359,7 @@ sealed class P2BahamutsFavorDeathstorm(BossModule module) : BossComponent(module
 
                     if (d.Player == actor)
                     {
-                        if (actor.FindStatus((uint)SID.Thunderstruck)?.ExpireAt < d.Expiration)
+                        if (actor.FindStatus((uint)SID.Thunderstruck)?.ExpireAt.AddSeconds(0.5d) < d.Expiration)
                         {
                             return;
                         }
