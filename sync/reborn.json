@@ -572,15 +572,15 @@
     "scope": "完整RotationMovement及70个IPC流程，包含真实施法与移动抢占/停步恢复、同文件保存和UI编辑/清理及已进入IPC/卸载交错、伊甸7～12与苍穹普通3讨伐的注册/激活/生命周期、俾斯麦世界边界切换、伊甸12重叠分摊、托尔丹重击缓存、旋风冲刺轨迹、时间轴/减伤、计划Guid替换、倒计时及4个ROG/旧任务钩子；8个Kage职业走真实生成策略转换的低等级无目标/单体/多目标执行及BLM强制爆发边界。辅助职业与两种多边形套件独立通过；测试及构建ZIP DLL一致。"
   },
   "lastRelease": {
-    "date": "2026-10-09",
-    "version": "7.5.6.3301",
+    "date": "2026-10-15",
+    "version": "7.5.6.3501",
     "author": "veyn&Sumomo",
-    "sourceCodeCommit": "8d7fff0d1f9216b8bfef23c3145e99104014b478",
+    "sourceCodeCommit": "6984c7bf24a224bc21fc8abb7e0fec665a7d3449",
     "releaseBuild": "零警告、零错误",
-    "releaseDLLSHA256": "08C01353695CEABE663BC606E7DEE111677644DB1068BE0065928D78136433F8",
-    "zipSHA256": "3D05ABDDF66C0FE405394C41EABEBE5F76D851BB789FA297E973C1B642D95A42",
-    "validationEvidence": "D:/mod-source/outputs/release-7.5.6.3301",
-    "scope": "本次仅升版及追加作者标记，机制与循环源码保持8d7fff0已验收内容；沿用同期1279项移动/IPC、331项辅助职业及33959/33963项多边形回归，本轮重新构建并校验ZIP、DLL版本与作者。",
+    "releaseDLLSHA256": "D3FF0D808C14F8BEEA6F80EB6D5E81E8B392A0F3EE50AE052B468E2717DE23FD",
+    "zipSHA256": "976E9B9B650AD76CC1AE9718D4059C027130368A6053B2A2957263D262CB1EF4",
+    "validationEvidence": "D:\\mod-source\\outputs\\release-7.5.6.3501",
+    "scope": "发布已验收的6984c7bf2同步内容，本轮仅升版本；沿用同步阶段1501/70 IPC、331及33959/33963项离线回归，重新构建并验证发布包。",
     "gameTest": "尚未实机验证。"
   }
 }
