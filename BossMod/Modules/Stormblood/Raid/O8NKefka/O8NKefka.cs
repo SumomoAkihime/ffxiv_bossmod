@@ -31,7 +31,7 @@ public enum AID : uint
 
     TimelyTeleportVisual1 = 10529, // Boss->self, 4.0s cast, single-target
     TimelyTeleportVisual2 = 10530, // GravenImage->self, 4.0s cast, range 6 circle
-    RevoltingRuin = 10531, // Boss->self, no cast, range 100+R 120-degree cone
+    RevoltingRuin = 10531, // Boss->self, no cast, range 100+R 90-degree cone from the destination
     AeroAssault = 10532, // Boss->self, 3.0s cast, range 100 circle
     GravenImage = 10533, // Boss->self, 5.0s cast, single-target
     Shockwave = 10535, // GravenImage->self, 13.0s cast, range 100+R width 40 rect
@@ -97,17 +97,17 @@ class IndolentWill(BossModule module) : Components.CastGaze(module, (uint)AID.In
 class RevoltingRuin(BossModule module) : Components.GenericAOEs(module)
 {
     private AOEInstance[] _aoe = [];
-    private static readonly AOEShapeCone cone = new(102.7f, 60f.Degrees());
+    private static readonly AOEShapeCone cone = new(102.7f, 45f.Degrees());
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.TimelyTeleportVisual2 && !caster.Position.AlmostEqual(Module.PrimaryActor.Position, 1f))
+        if (spell.Action.ID == (uint)AID.TimelyTeleportVisual2 && !spell.LocXZ.AlmostEqual(Module.PrimaryActor.Position, 1f))
         {
-            _aoe = [new(cone, caster.Position, spell.Rotation, Module.CastFinishAt(spell, 3.1d))];
+            _aoe = [new(cone, spell.LocXZ, spell.Rotation, WorldState.CurrentTime)];
         }
-        else if (spell.Action.ID == (uint)AID.AeroAssault) // sometimes it does AeroAssault directly and skipping Revolting Ruin
+        else if (spell.Action.ID is (uint)AID.AeroAssault or (uint)AID.AveMaria)
         {
             _aoe = [];
         }
@@ -115,7 +115,7 @@ class RevoltingRuin(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action.ID == (uint)AID.RevoltingRuin)
+        if (spell.Action.ID is (uint)AID.RevoltingRuin or (uint)AID.AveMaria)
         {
             _aoe = [];
         }

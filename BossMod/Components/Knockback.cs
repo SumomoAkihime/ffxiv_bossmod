@@ -210,7 +210,7 @@ public abstract class GenericKnockback(BossModule module, uint aid = default, in
             {
                 continue; // this source won't affect player due to immunity
             }
-            if (s.Shape != null && !s.Shape.Check(from, s.Origin, s.Direction))
+            if (s.Shape?.Check(from, s.Origin, s.Direction) == false)
             {
                 continue; // this source won't affect player due to being out of aoe
             }

@@ -30,4 +30,19 @@ class P2SearingWind(BossModule module) : Components.UniformStackSpread(module, d
             }
         }
     }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Spreads.Count == 0)
+            return;
+
+        if (Module.FindComponent<P2Nails>() is { } nails)
+        {
+            var south = Arena.Center + nails.RelativeNorth.ToDirection() * -19.5f;
+            if (Spreads[0].Target == actor)
+                hints.AddForbiddenZone(new SDInvertedCircle(south, 2), Spreads[0].Activation);
+            else
+                hints.AddForbiddenZone(new SDCircle(south, 2 + SpreadRadius), Spreads[0].Activation);
+        }
+    }
 }

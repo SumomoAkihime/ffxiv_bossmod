@@ -1,6 +1,6 @@
 ﻿{
   "schemaVersion": 1,
-  "updated": "2026-10-15",
+  "updated": "2026-10-21",
   "source": {
     "repository": "https://github.com/FFXIV-CombatReborn/BossmodReborn",
     "commit": "be8ff771cc545f8f8b5b548b5dd7271d80460f89",
@@ -553,6 +553,14 @@
       "gameTest": "离线验证通过，尚未实机验证；仅同步测试分支，版本仍7.5.6.1601，未发布或更新release ZIP。",
       "validationEvidence": "D:/mod-source/outputs/sync-20261008",
       "scope": "完整RotationMovement及66个IPC流程，含本批棋盘注册/组件激活/晚生成/击退排序、女王转场/分层/冰桥、原版普通雷达/世界之暗/伊甸、绝巴哈、联盟字母文本及二进制回放、诱导几何、目标计划重复导入、赤魔动作/插入、拉怪/剧情死亡/副本远距；独立SupportJobs与两种PolygonQueries。三套测试和本次构建ZIP内DLL均与Release一致；构建ZIP仅为验证产物。"
+    },
+    {
+      "date": "2026-10-21",
+      "sourceCommit": "be8ff771cc545f8f8b5b548b5dd7271d80460f89",
+      "awgilCommit": "21555358de458a56afd0dc361327f8b3b62ebc43",
+      "awgilStableTag": "v7.5.7.3",
+      "awgilStableCommit": "e56bbdc16",
+      "scope": "Reborn 7.5.6.35 无新增；选择性同步原版普通欧米茄 O1/O2/O4～O12、绝神兵 P1/P2/P4/P5 机制与 Auto-UWU、普通移动多敌人坦克目标、击退空范围/撞墙语义、Healer 队形策略和 Presets.ListAll IPC。逐文件适配本地 Reborn 构造器、ReadOnlySpan AOE/击退、SD 形状、成熟度、多预设与自动循环接口；O1 旧 WIP 骨架已由完整实现替换，O3 保持本地，O8 保留本地 Verified 并吸收脱逃范围更新。"
     }
   ],
   "lastValidation": {

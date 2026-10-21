@@ -1,7 +1,7 @@
 ﻿namespace BossMod.Stormblood.Ultimate.UWU;
 
 sealed class P1Slipstream(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Slipstream, new AOEShapeCone(11.7f, 45f.Degrees()));
-sealed class P1Downburst(BossModule module) : Components.Cleave(module, (uint)AID.Downburst, new AOEShapeCone(11.7f, 45f.Degrees()));
+sealed class P1Downburst(BossModule module) : Components.Cleave(module, (uint)AID.Downburst, new AOEShapeCone(11.7f, 65f.Degrees()));
 sealed class P1EyeOfTheStorm(BossModule module) : Components.SimpleAOEs(module, (uint)AID.EyeOfTheStorm, new AOEShapeDonut(12f, 25f));
 sealed class P1Gigastorm(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Gigastorm, 6.5f);
 sealed class P2RadiantPlume(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RadiantPlumeAOE, 8f);
@@ -21,6 +21,34 @@ sealed class P5AetherochemicalLaser(BossModule module) : Components.SimpleAOEGro
 sealed class P5LightPillar(BossModule module) : Components.SimpleAOEs(module, (uint)AID.LightPillarAOE, 3); // TODO: consider showing circle around baiter
 sealed class P5AethericBoom(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.AethericBoom, 10);
 
+class BossPositioning : BossComponent
+{
+    public Actor? Boss;
+    public WPos? DesiredPosition;
+    public Angle? DesiredRotation = 180f.Degrees();
+
+    public BossPositioning(BossModule module) : base(module)
+    {
+        Boss = module.PrimaryActor;
+        DesiredPosition = module.Arena.Center;
+        KeepOnPhaseChange = true;
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (hints.FindEnemy(Boss) is not { } target)
+            return;
+
+        if (DesiredPosition is { } position)
+            target.DesiredPosition = position;
+        if (DesiredRotation is { } rotation)
+            target.DesiredRotation = rotation;
+
+        if (target.Actor.PendingHPRatio < 0.02f && target.Actor.FindStatus((uint)SID.Woken) == null)
+            target.Priority = AIHints.Enemy.PriorityForbidden;
+    }
+}
+
 [ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.Garuda, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 539, PlanLevel = 70)]
 public sealed class UWU : BossModule
 {
@@ -38,7 +66,7 @@ public sealed class UWU : BossModule
     public Actor? Lahabrea() => _lahabrea.Count != 0 ? _lahabrea[0] : null;
     public Actor? Ultima() => _ultima.Count != 0 ? _ultima[0] : null;
 
-    public UWU(WorldState ws, Actor primary) : base(ws, primary, ArenaCenter, new ArenaBoundsCustom([new Polygon(ArenaCenter, 20f, 64)]))
+    public UWU(WorldState ws, Actor primary) : base(ws, primary, ArenaCenter, new ArenaBoundsCustom([new Polygon(ArenaCenter, 19.5f, 64)]))
     {
         Ifrits = Enemies((uint)OID.Ifrit);
         _titan = Enemies((uint)OID.Titan);

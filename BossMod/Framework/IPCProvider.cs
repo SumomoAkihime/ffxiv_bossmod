@@ -339,6 +339,7 @@ sealed class IPCProvider : IDisposable
             return false;
         });
 
+        Register("Presets.ListAll", () => autorotation.Database.Presets.AllPresets.Select(p => p.Name).ToList());
         Register("Presets.Get", (string name) =>
         {
             var preset = autorotation.Database.Presets.FindPresetByName(name);
