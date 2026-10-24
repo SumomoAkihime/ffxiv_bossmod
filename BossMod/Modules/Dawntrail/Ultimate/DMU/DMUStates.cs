@@ -1,28 +1,182 @@
 ﻿namespace BossMod.Dawntrail.Ultimate.DMU;
 
-[SkipLocalsInit]
-sealed class DMUStates : StateMachineBuilder
-{
+sealed class DMUStates : StateMachineBuilder {
     private readonly DMU _module;
 
-    public DMUStates(DMU module) : base(module)
-    {
+    public DMUStates(DMU module) : base(module) {
         _module = module;
 
-        SimplePhase(0, Phase1, "P1")
+        SimplePhase(0u, Phase1, "P1")
+            .ActivateOnEnter<RevoltingRuinIIIFirst>()
+            .ActivateOnEnter<RevoltingRuinIIISecond>()
             .Raw.Update = () => !Module.PrimaryActor.IsTargetable;
-        SimplePhase(1, Phase2, "P2")
+        SimplePhase(1u, Phase2, "P2")
             .SetHint(StateMachine.PhaseHint.StartWithDowntime)
             .Raw.Update = () => _module.BossP2() is { IsTargetable: false, HPRatio: < 1 };
-        SimplePhase(2, Phase3, "P3")
+        SimplePhase(2u, Phase3, "P3")
             .SetHint(StateMachine.PhaseHint.StartWithDowntime)
             .Raw.Update = () => _module.ChaosP3()?.IsDeadOrDestroyed == true && _module.ExdeathP3()?.IsDeadOrDestroyed == true;
-        SimplePhase(3, Phase4, "P4")
+        SimplePhase(3u, Phase4, "P4")
             .SetHint(StateMachine.PhaseHint.StartWithDowntime)
             .Raw.Update = () => _module.KefkaP4()?.IsDeadOrDestroyed == true;
-        SimplePhase(4, Phase5, "P5")
+        SimplePhase(4u, Phase5, "P5")
             .SetHint(StateMachine.PhaseHint.StartWithDowntime)
             .Raw.Update = () => _module.KefkaP5()?.IsDeadOrDestroyed == true;
+    }
+
+    private void Phase1(uint id) {
+        Phase1RevoltingRuinIII(id, 10.1f);
+        Phase1GravenImage1(id + 0x1000u, 7.8f);
+        Phase1LightOfJudgement(id + 0x2000u, 4.1f);
+        Phase1Gravitas(id + 0x3000u, 4.0f);
+        Phase1LightOfJudgement(id + 0x4000u, 6.2f);
+        Phase1TeleTrouncing(id + 0x5000u, 6.9f);
+    }
+
+    void Phase1RevoltingRuinIII(uint id, float delay) {
+        CastStart(id, (uint)AID.RevoltingRuinIIIFirstHit, delay, "RevoltingRuinIII")
+            .ExecOnEnter<RevoltingRuinIIIFirst>(static o => o.EnableHints = true);
+        ComponentCondition<RevoltingRuinIIIFirst>(id + 0x10, 5.1f, static o => o.NumCasts > 0, "1st Tankbuster Resolve")
+            .DeactivateOnExit<RevoltingRuinIIIFirst>()
+            .ExecOnExit<RevoltingRuinIIISecond>(static o => o.EnableHints = true);
+        ComponentCondition<RevoltingRuinIIISecond>(id + 0x20, 3.2f, static o => o.NumCasts > 0, "2nd Tankbuster Resolve")
+            .DeactivateOnExit<RevoltingRuinIIISecond>();
+    }
+
+    void Phase1GravenImage1(uint id, float delay) {
+        Cast(id + 0x10, (uint)AID.GravenImage, delay, 3.0f, "Graven Image 1")
+            .ActivateOnEnter<PulseWave>();
+        CastStart(id + 0x20, (uint)AID.MysteryMagic, 3.2f, "MysteryMagic")
+            .ActivateOnEnter<BlizzardIIIBlowoutGravenImage1>()
+            .ActivateOnEnter<FlagrantFire>();
+        ComponentCondition<PulseWave>(id + 0x30, 2.6f, static o => o.NumCasts >= 4, "PulseWave Knockbacks")
+            .DeactivateOnExit<PulseWave>()
+            .ExecOnExit<BlizzardIIIBlowoutGravenImage1>(o => o.Risky = true);
+        ComponentCondition<BlizzardIIIBlowoutGravenImage1>(id + 0x40, 2.4f, static o => o.NumCasts > 0, "BlizzardIII Blowout")
+            .DeactivateOnExit<BlizzardIIIBlowoutGravenImage1>();
+        ComponentCondition<FlagrantFire>(id + 0x50, 0.8f, static o => !o.Active, "Stack / Spread")
+            .DeactivateOnExit<FlagrantFire>()
+            .ActivateOnExit<WaveCannon>();
+        CastStart(id + 0x60, (uint)AID.DoubleTroubleTrap, 3.4f, "Double Trouble Cast");
+        ComponentCondition<WaveCannon>(id + 0x70, 0.8f, static o => o.ActiveBaits.Count == 0, "Wave Cannon Spreads")
+            .DeactivateOnExit<WaveCannon>()
+            .ActivateOnExit<WaveCannonTowers>();
+        ComponentCondition<WaveCannonTowers>(id + 0x80, 3.6f, static o => o.NumCasts > 0, "Towers resolve")
+            .ActivateOnEnter<DoubleTroubleTrapStacks>()
+            .ActivateOnEnter<DoubleTroubleTrapKnockback>()
+            .DeactivateOnExit<WaveCannonTowers>()
+            .ExecOnExit<DoubleTroubleTrapStacks>(static o => o.resolving = true);
+        CastStart(id + 0x90u, (uint)AID.MysteryMagic, 2.7f)
+            .ActivateOnEnter<LightningSafeSpots>()
+            .ActivateOnEnter<BlizzardIIIBlowout>();
+        ComponentCondition<DoubleTroubleTrapStacks>(id + 0x100, 1.0f, static o => o.NumCasts == 2, "Stacks + Knockbacks")
+            .ExecOnExit<DoubleTroubleTrapStacks>(static o => o.resolving = false)
+            .ExecOnExit<BlizzardIIIBlowout>(static o => o.Risky = true)
+            .ExecOnExit<LightningSafeSpots>(static o => o.Risky = true);
+        ComponentCondition<BlizzardIIIBlowout>(id + 0x110, 4.0f, static o => o.NumCasts > 0, "Blizzard + Lightning safe spots")
+            .DeactivateOnExit<DoubleTroubleTrapStacks>() // Has to be deactivated later since it contains AI movement
+            .DeactivateOnExit<DoubleTroubleTrapKnockback>() // Has to be deactivated later since it contains AI movement
+            .DeactivateOnExit<LightningSafeSpots>()
+            .DeactivateOnExit<BlizzardIIIBlowout>()
+            .ActivateOnExit<HyperDrive>(); // Activated early for pre-position movement
+    }
+
+    void Phase1LightOfJudgement(uint id, float delay) {
+        Cast(id + 0x10u, (uint)AID.P1LightOfJudgment, delay, 5.0f, "LightOfJudgment")
+            .ActivateOnEnter<LightOfJudgment>()
+            .DeactivateOnExit<LightOfJudgment>();
+        ComponentCondition<HyperDrive>(id + 0x20, 3.2f, static o => o.NumCasts > 0, "1st Tankbuster");
+        ComponentCondition<HyperDrive>(id + 0x30, 2.1f, static o => o.NumCasts > 1, "2nd Tankbuster");
+        ComponentCondition<HyperDrive>(id + 0x40, 2.1f, static o => o.NumCasts > 2, "3rd Tankbuster")
+            .DeactivateOnExit<HyperDrive>();
+    }
+
+    void Phase1Gravitas(uint id, float delay) {
+        CastStart(id + 0x10, (uint)AID.GravenImage, 7.3f, "Graven Image 2")
+            .ActivateOnEnter<BlizzardIIIBlowout>()
+            .ExecOnEnter<BlizzardIIIBlowout>(static o => o.Risky = true)
+            .ActivateOnEnter<Gravitas>()
+            .ExecOnEnter<Gravitas>(static o => o.side = P1GravitasData.Side.NORTH);
+        ComponentCondition<BlizzardIIIBlowout>(id + 0x20, 10.1f, static o => o.NumCasts > 0, "Blizzard safe spots")
+            .DeactivateOnExit<BlizzardIIIBlowout>();
+        ComponentCondition<Gravitas>(id + 0x30, 0.1f, static o => o.ActiveStacks.Count == 0, "Stacks")
+            .ActivateOnEnter<GravitasPuddles>();
+        ComponentCondition<Gravitas>(id + 0x40, 4.1f, static o => !o.Active, "Spreads")
+            .DeactivateOnExit<Gravitas>()
+            .ActivateOnExit<RevoltingRuinIIIFirst>() // Activated early for pre-position movement
+            .ActivateOnExit<RevoltingRuinIIISecond>(); // Activated early for pre-position movement
+
+        CastStart(id + 0x50, (uint)AID.RevoltingRuinIIIFirstHit, 0.7f, "RevoltingRuinIII")
+            .ExecOnEnter<RevoltingRuinIIIFirst>(static o => o.EnableHints = true)
+            .ActivateOnExit<GravitationalWave>()
+            .ExecOnExit<GravitationalWave>(static o => o.Risky = true);
+        ComponentCondition<RevoltingRuinIIIFirst>(id + 0x60, 5.1f, static o => o.NumCasts > 0, "1st Tankbuster Resolve")
+            .DeactivateOnExit<RevoltingRuinIIIFirst>()
+            .ExecOnExit<RevoltingRuinIIISecond>(static o => o.EnableHints = true);
+        ComponentCondition<RevoltingRuinIIISecond>(id + 0x70, 3.2f, static o => o.NumCasts > 0, "2nd Tankbuster Resolve")
+            .DeactivateOnExit<RevoltingRuinIIISecond>()
+            .ActivateOnExit<Gravitas>()
+            .ExecOnExit<Gravitas>(static o => o.side = P1GravitasData.Side.SOUTH);
+        ComponentCondition<GravitationalWave>(id + 0x80, 0.80f, static o => o.NumCasts > 0, "Left/Right Cleave")
+            .DeactivateOnExit<GravitationalWave>();
+
+        ComponentCondition<Gravitas>(id + 0x90, 4.6f, static o => o.ActiveStacks.Count == 0, "Stacks");
+        ComponentCondition<Gravitas>(id + 0x100, 4.0f, static o => !o.Active, "Spreads")
+            .ActivateOnEnter<GravitationalWave>()
+            .DeactivateOnExit<Gravitas>()
+            .ExecOnExit<GravitationalWave>(static o => o.Risky = true);
+
+        ComponentCondition<GravitationalWave>(id + 0x110, 4.5f, static o => o.NumCasts > 0, "Left/Right Cleave")
+            .ActivateOnEnter<DoubleTroubleTrapStacksGravitas>()
+            .ActivateOnEnter<DoubleTroubleTrapKnockback>()
+            .ExecOnEnter<DoubleTroubleTrapStacksGravitas>(static o => o.resolving = true)
+            .DeactivateOnExit<GravitationalWave>();
+
+        ComponentCondition<DoubleTroubleTrapKnockback>(id + 0x120, 3.8f, static o => o.NumCasts == 2, "Stacks + Knockbacks")
+            .ExecOnExit<DoubleTroubleTrapStacks>(static o => o.resolving = false);
+
+        ComponentCondition<GravitasPuddles>(id + 0x130, 3.0f, static o => o.Puddles.Count == 0, "Puddle explosions")
+            .DeactivateOnExit<DoubleTroubleTrapStacks>() // Has to be deactivated later since it contains AI movement
+            .DeactivateOnExit<DoubleTroubleTrapKnockback>() // Has to be deactivated later since it contains AI movement
+            .DeactivateOnExit<GravitasPuddles>()
+            .ActivateOnExit<HyperDrive>(); // Activated early for pre-position movement
+    }
+
+    void Phase1TeleTrouncing(uint id, float delay) {
+        Cast(id + 0x10u, (uint)AID.TeleTrouncing, delay, 5.0f, "TeleTrouncing")
+            .ActivateOnEnter<TeleTrouncing>();
+        ComponentCondition<TeleTrouncing>(id + 0x20, 7.8f, static o => o.NumCasts > 0, "First Arrows");
+        CastStart(id + 0x30, (uint)AID.GravenImage, 1.3f, "Graven Image 3");
+        ComponentCondition<TeleTrouncing>(id + 0x40, 1.7f, static o => o.NumCasts > 8, "Second Arrows")
+            .ActivateOnExit<DoubleTroubleTrapStacksTeleTrouncing>()
+            .ActivateOnExit<DoubleTroubleTrapKnockback>()
+            .ExecOnExit<DoubleTroubleTrapStacksTeleTrouncing>(static o => o.resolving = true);
+        ComponentCondition<DoubleTroubleTrapKnockback>(id + 0x50u, 5.4f, static o => o.NumCasts == 2, "Stacks + Knockbacks")
+            .ExecOnExit<DoubleTroubleTrapStacks>(static o => o.resolving = false)
+            .ActivateOnExit<TeleTrouncingTethers>();
+
+        ComponentCondition<TeleTrouncingTethers>(id + 0x60u, 5.7f, static comp => !comp.Active, "Sleeps + Confusion Spreads - Start")
+            .DeactivateOnExit<DoubleTroubleTrapStacksTeleTrouncing>() // Has to be deactivated later since it contains AI movement
+            .DeactivateOnExit<DoubleTroubleTrapKnockback>() // Has to be deactivated later since it contains AI movement
+            .ActivateOnExit<P1Gaze>();
+
+        ComponentCondition<TeleTrouncingTethers>(id + 0x70u, 6.6f, static comp => comp.debuffActive && comp.debuffPlayers.None(), "Sleeps + Confusion Spreads - End")
+            .ActivateOnExit<LightningSafeSpots>()
+            .ActivateOnExit<GravenImage3FlagrantFire>()
+            .ExecOnExit<LightningSafeSpots>(static o => o.Risky = true)
+            .DeactivateOnExit<TeleTrouncingTethers>();
+
+        CastStart(id + 0x80u, (uint)AID.MysteryMagic, 1.3f)
+            .DeactivateOnExit<TeleTrouncing>();
+
+        Condition(id + 0x90u, 5.1f, () => Module.FindComponent<LightningSafeSpots>()!.NumCasts > 0 && Module.FindComponent<P1Gaze>()!.NumCasts > 0, "Lightning + Gaze")
+            .DeactivateOnExit<LightningSafeSpots>()
+            .DeactivateOnExit<P1Gaze>();
+
+        ComponentCondition<FlagrantFire>(id + 0x100, 0.6f, static o => !o.Active, "Stack / Spread")
+            .DeactivateOnExit<GravenImage3FlagrantFire>();
+
+        Targetable(id + 0x1000u, false, 10.4f, "Boss disappears");
     }
 
     private void Phase5(uint id)
@@ -30,109 +184,109 @@ sealed class DMUStates : StateMachineBuilder
         ActorTargetable(id, _module.KefkaP5, true, 0.1f, "Boss appears")
             .SetHint(StateMachine.StateHint.DowntimeEnd);
 
-        ActorCast(id + 0x10, _module.KefkaP5, (uint)AID.UltimaRepeaterCast, 3.0f, 5.0f, true, "Ultima Repeater")
+        ActorCast(id + 0x10u, _module.KefkaP5, (uint)AID.UltimaRepeaterCast, 3.0f, 5.0f, true, "Ultima Repeater")
             .ActivateOnEnter<UltimaRepeater>()
             .DeactivateOnExit<UltimaRepeater>()
             .ActivateOnEnter<FellForces>()
-            .ExecOnEnter<FellForces>(static o => o.active = true);
+            .ExecOnEnter<FellForces>(static comp => comp.active = true);
 
-        ComponentCondition<FellForces>(id + 0x20, 6.0f, static o => o.NumCasts > 0, "1st Auto Attack Stack");
-        ComponentCondition<FellForces>(id + 0x25, 3.1f, static o => o.NumCasts > 3, "2nd Auto Attack Stack");
-        ComponentCondition<FellForces>(id + 0x30, 3.1f, static o => o.NumCasts > 6, "3rd Auto Attack Stack")
+        ComponentCondition<FellForces>(id + 0x20u, 6.0f, static comp => comp.NumCasts > 0, "1st Auto Attack Stack");
+        ComponentCondition<FellForces>(id + 0x25u, 3.1f, static comp => comp.NumCasts > 3, "2nd Auto Attack Stack");
+        ComponentCondition<FellForces>(id + 0x30u, 3.1f, static comp => comp.NumCasts > 6, "3rd Auto Attack Stack")
             .DeactivateOnExit<FellForces>();
 
-        ActorCast(id + 0x40, _module.KefkaP5, (uint)AID.ChaoticFlood, 0.3f, 5.0f, true, "Chaotic Flood")
+        ActorCast(id + 0x40u, _module.KefkaP5, (uint)AID.ChaoticFlood, 0.3f, 5.0f, true, "Chaotic Flood")
             .ActivateOnEnter<ChaoticFlood>()
             .ActivateOnEnter<ChaoticFloodStack>();
 
-        ComponentCondition<ChaoticFloodStack>(id + 0x45, 1.0f, static o => o.NumCasts > 0, "1st Stack");
-        ComponentCondition<ChaoticFlood>(id + 0x50, 0.1f, static o => o.NumCasts > 0, "1st Flood");
-        ComponentCondition<ChaoticFloodStack>(id + 0x55, 1.0f, static o => o.NumCasts > 1, "2nd Stack");
-        ComponentCondition<ChaoticFlood>(id + 0x60, 0.1f, static o => o.NumCasts > 2, "2nd Flood");
-        ComponentCondition<ChaoticFloodStack>(id + 0x65, 1.0f, static o => o.NumCasts > 2, "3rd Stack");
-        ComponentCondition<ChaoticFlood>(id + 0x70, 0.1f, static o => o.NumCasts > 4, "3rd Flood");
-        ComponentCondition<ChaoticFloodStack>(id + 0x75, 1.0f, static o => o.NumCasts > 3, "4th Stack");
-        ComponentCondition<ChaoticFlood>(id + 0x80, 0.1f, static o => o.NumCasts > 6, "4th Flood")
+        ComponentCondition<ChaoticFloodStack>(id + 0x45u, 1.0f, static comp => comp.NumCasts > 0, "1st Stack");
+        ComponentCondition<ChaoticFlood>(id + 0x50u, 0.1f, static comp => comp.NumCasts > 0, "1st Flood");
+        ComponentCondition<ChaoticFloodStack>(id + 0x55, 1.0f, static comp => comp.NumCasts > 1, "2nd Stack");
+        ComponentCondition<ChaoticFlood>(id + 0x60u, 0.1f, static comp => comp.NumCasts > 2, "2nd Flood");
+        ComponentCondition<ChaoticFloodStack>(id + 0x65, 1.0f, static comp => comp.NumCasts > 2, "3rd Stack");
+        ComponentCondition<ChaoticFlood>(id + 0x70u, 0.1f, static comp => comp.NumCasts > 4, "3rd Flood");
+        ComponentCondition<ChaoticFloodStack>(id + 0x75, 1.0f, static comp => comp.NumCasts > 3, "4th Stack");
+        ComponentCondition<ChaoticFlood>(id + 0x80u, 0.1f, static comp => comp.NumCasts > 6, "4th Flood")
             .DeactivateOnExit<ChaoticFloodStack>()
             .DeactivateOnExit<ChaoticFlood>()
             .ActivateOnExit<MaddeningOrchestra>();
 
-        ComponentCondition<MaddeningOrchestra>(id + 0x90, 9.9f, static o => o.NumCasts > 0, "1st Baits Resolve")
+        ComponentCondition<MaddeningOrchestra>(id + 0x90u, 9.9f, static comp => comp.NumCasts > 0, "1st Baits Resolve")
             .ActivateOnExit<ChaoticFlareTB>()
-            .ExecOnExit<ChaoticFlareTB>(a => a.active = true);
+            .ExecOnExit<ChaoticFlareTB>(static comp => comp.active = true);
 
-        ComponentCondition<MaddeningOrchestra>(id + 0x100, 3.2f, static o => o.NumCasts > 5, "2nd Baits + TB Resolve")
+        ComponentCondition<MaddeningOrchestra>(id + 0x100u, 3.2f, static comp => comp.NumCasts > 5, "2nd Baits + TB Resolve")
             .DeactivateOnExit<ChaoticFlareTB>()
             .DeactivateOnExit<MaddeningOrchestra>()
             .ActivateOnExit<ChaoticHolyFlareDiffusion>();
 
-        ComponentCondition<ChaoticHolyFlareDiffusion>(id + 0x110, 3.5f, static o => o.NumCasts >= 2, "Tank Baits Resolve")
+        ComponentCondition<ChaoticHolyFlareDiffusion>(id + 0x110u, 3.5f, static comp => comp.NumCasts >= 2, "Tank Baits Resolve")
             .DeactivateOnExit<ChaoticHolyFlareDiffusion>()
             .ActivateOnEnter<FellForces>()
-            .ExecOnExit<FellForces>(static a => a.active = true)
-            .ExecOnExit<FellForces>(static a => a.expectedCasts = 6);
+            .ExecOnExit<FellForces>(static comp => comp.active = true)
+            .ExecOnExit<FellForces>(static comp => comp.expectedCasts = 6);
 
-        ComponentCondition<FellForces>(id + 0x120, 4.6f, static o => o.NumCasts > 0, "1st Auto Attack Stack");
-        ComponentCondition<FellForces>(id + 0x130, 3.1f, static o => o.NumCasts > 3, "2nd Auto Attack Stack")
+        ComponentCondition<FellForces>(id + 0x120u, 4.6f, static comp => comp.NumCasts > 0, "1st Auto Attack Stack");
+        ComponentCondition<FellForces>(id + 0x130u, 3.1f, static comp => comp.NumCasts > 3, "2nd Auto Attack Stack")
             .DeactivateOnExit<FellForces>();
 
-        ActorCast(id + 0x140, _module.KefkaP5, (uint)AID.Celestriad, 1.4f, 5.0f, true, "Celestraid")
+        ActorCast(id + 0x140u, _module.KefkaP5, (uint)AID.Celestriad, 1.4f, 5.0f, true, "Celestraid")
             .ActivateOnEnter<Celestriad>()
             .ActivateOnEnter<CatastrophicChoice>();
 
-        ComponentCondition<Celestriad>(id + 0x150, 9.1f, static o => o.NumCasts > 0, "1st Tower Set");
-        ComponentCondition<CatastrophicChoice>(id + 0x155, 0.2f, static o => o.NumCasts > 0, "In/Out");
-        ComponentCondition<Celestriad>(id + 0x160, 5.8f, static o => o.NumCasts > 4, "2nd Tower Set");
-        ComponentCondition<Celestriad>(id + 0x170, 6.0f, static o => o.NumCasts > 8, "3rd Tower Set");
-        ComponentCondition<CatastrophicChoice>(id + 0x175, 0.2f, static o => o.NumCasts > 1, "2nd In/Out");
+        ComponentCondition<Celestriad>(id + 0x150u, 9.1f, static comp => comp.NumCasts > 0, "1st Tower Set");
+        ComponentCondition<CatastrophicChoice>(id + 0x155u, 0.2f, static comp => comp.NumCasts > 0, "In/Out");
+        ComponentCondition<Celestriad>(id + 0x160u, 5.8f, static comp => comp.NumCasts > 4, "2nd Tower Set");
+        ComponentCondition<Celestriad>(id + 0x170u, 6.0f, static comp => comp.NumCasts > 8, "3rd Tower Set");
+        ComponentCondition<CatastrophicChoice>(id + 0x175u, 0.2f, static comp => comp.NumCasts > 1, "2nd In/Out");
 
-        ActorCast(id + 0x180, _module.KefkaP5, (uint)AID.UltimaRepeaterCast, 4.0f, 4.0f, true, "Ultima Repeater")
+        ActorCast(id + 0x180u, _module.KefkaP5, (uint)AID.UltimaRepeaterCast, 4.0f, 4.0f, true, "Ultima Repeater")
             .ActivateOnEnter<UltimaRepeater>()
             .DeactivateOnExit<UltimaRepeater>()
             .ActivateOnEnter<FellForces>()
-            .ExecOnEnter<FellForces>(static o => o.active = true)
-            .ExecOnEnter<FellForces>(static o => o.expectedCasts = 6);
+            .ExecOnEnter<FellForces>(static comp => comp.active = true)
+            .ExecOnEnter<FellForces>(static comp => comp.expectedCasts = 6);
 
-        ComponentCondition<FellForces>(id + 0x190, 6.0f, static o => o.NumCasts > 0, "1st Auto Attack Stack");
-        ComponentCondition<FellForces>(id + 0x200, 3.1f, static o => o.NumCasts > 3, "2nd Auto Attack Stack")
+        ComponentCondition<FellForces>(id + 0x190, 6.0f, static comp => comp.NumCasts > 0, "1st Auto Attack Stack");
+        ComponentCondition<FellForces>(id + 0x200, 3.1f, static comp => comp.NumCasts > 3, "2nd Auto Attack Stack")
             .DeactivateOnExit<FellForces>();
 
-        ActorCast(id + 0x210, _module.KefkaP5, (uint)AID.StrayApocalypseCast, 1.5f, 5.0f, true, "Exa-flares start")
+        ActorCast(id + 0x210u, _module.KefkaP5, (uint)AID.StrayApocalypseCast, 1.5f, 5.0f, true, "Exa-flares start")
             .ActivateOnEnter<StrayApocalypse>()
             .ActivateOnEnter<StrayEntropy>();
 
-        ComponentCondition<StrayApocalypse>(id + 0x220, 15.8f, static o => o.NumCasts >= 84, "Exa-Flares end");
-        ComponentCondition<StrayEntropy>(id + 0x230, 2.3f, static o => !o.Active, "Spreads")
+        ComponentCondition<StrayApocalypse>(id + 0x220u, 15.8f, static comp => comp.NumCasts >= 84, "Exa-Flares end");
+        ComponentCondition<StrayEntropy>(id + 0x230u, 2.3f, static o => !o.Active, "Spreads")
             .DeactivateOnExit<StrayApocalypse>()
             .DeactivateOnExit<StrayEntropy>();
 
-        ActorCast(id + 0x240, _module.KefkaP5, (uint)AID.MaddeningOrchestra, 3.3f, 5.0f, true, "Maddening Orchestra")
+        ActorCast(id + 0x240u, _module.KefkaP5, (uint)AID.MaddeningOrchestra, 3.3f, 5.0f, true, "Maddening Orchestra")
             .ActivateOnEnter<MaddeningOrchestra>();
 
-        ComponentCondition<MaddeningOrchestra>(id + 0x250, 0.9f, static o => o.NumCasts > 0, "1st Baits Resolve")
+        ComponentCondition<MaddeningOrchestra>(id + 0x250u, 0.9f, static comp => comp.NumCasts > 0, "1st Baits Resolve")
             .ActivateOnExit<ChaoticFlareTB>()
-            .ExecOnExit<ChaoticFlareTB>(a => a.active = true);
+            .ExecOnExit<ChaoticFlareTB>(comp => comp.active = true);
 
-        ComponentCondition<MaddeningOrchestra>(id + 0x260, 3.2f, static o => o.NumCasts > 5, "2nd Baits + TB Resolve")
+        ComponentCondition<MaddeningOrchestra>(id + 0x260u, 3.2f, static comp => comp.NumCasts > 5, "2nd Baits + TB Resolve")
             .DeactivateOnExit<ChaoticFlareTB>()
             .DeactivateOnExit<MaddeningOrchestra>()
             .ActivateOnExit<ChaoticHolyFlareDiffusion>();
 
-        ComponentCondition<ChaoticHolyFlareDiffusion>(id + 0x270, 3.5f, static o => o.NumCasts > 0, "Tank Baits Resolve")
+        ComponentCondition<ChaoticHolyFlareDiffusion>(id + 0x270u, 3.5f, static comp => comp.NumCasts > 0, "Tank Baits Resolve")
             .DeactivateOnExit<ChaoticHolyFlareDiffusion>()
             .ActivateOnExit<FellForces>()
-            .ExecOnExit<FellForces>(a => a.active = true);
+            .ExecOnExit<FellForces>(comp => comp.active = true);
 
-        ComponentCondition<FellForces>(id + 0x280, 4.7f, static o => o.NumCasts > 0, "1st Auto Attack Stack");
-        ComponentCondition<FellForces>(id + 0x290, 3.1f, static o => o.NumCasts > 3, "2nd Auto Attack Stack");
-        ComponentCondition<FellForces>(id + 0x300, 3.1f, static o => o.NumCasts > 6, "3rd Auto Attack Stack")
+        ComponentCondition<FellForces>(id + 0x280u, 4.7f, static comp => comp.NumCasts > 0, "1st Auto Attack Stack");
+        ComponentCondition<FellForces>(id + 0x290u, 3.1f, static comp => comp.NumCasts > 3, "2nd Auto Attack Stack");
+        ComponentCondition<FellForces>(id + 0x300u, 3.1f, static comp => comp.NumCasts > 6, "3rd Auto Attack Stack")
             .DeactivateOnExit<FellForces>()
             .ActivateOnEnter<P5ForsakenBait>()
             .ActivateOnEnter<P5ForsakenRaidWide>()
             .ActivateOnEnter<P5ForsakenGround>()
             .ActivateOnEnter<P5ForsakenStack>();
 
-        Timeout(id + 0x500000, 30.0f, "P5 Unknown");
+        Timeout(id + 0x500000u, 30.0f, "P5 Unknown");
     }
 
     // TODO update raidwides to actually use actors instead since it should now be fixed and able to find the boss correctly
@@ -141,131 +295,141 @@ sealed class DMUStates : StateMachineBuilder
         ActorTargetable(id, _module.KefkaP4, true, 2.1f, "Boss appears")
             .SetHint(StateMachine.StateHint.DowntimeEnd);
 
-        ActorCast(id + 0x05, _module.KefkaP4, (uint)AID.KefkaSays, 5.2f, 5.0f, true, "Other bosses spawn")
+        ActorCast(id + 0x05u, _module.KefkaP4, (uint)AID.KefkaSays, 5.2f, 5.0f, true, "Other bosses spawn")
             .ActivateOnEnter<GrandCrossOrder>()
             .ActivateOnEnter<TsunamiInfernoOrder>();
 
         ActorCastStart(id + 0x10, _module.KefkaP4, (uint)AID.MysteryMagic, 4.6f, true, "Mystery Magic")
-            .ActivateOnEnter<BlizzardSafeSpots>()
-            .ActivateOnEnter<LightningSafeSpots>();
+            .ActivateOnEnter<BlizzardIIIBlowout>()
+            .ActivateOnEnter<LightningSafeSpots>()
+            .ExecOnEnter<BlizzardIIIBlowout>(static o => o.Risky = true)
+            .ExecOnEnter<LightningSafeSpots>(static o => o.Risky = true);
 
-        ComponentCondition<BlizzardSafeSpots>(id + 0x20, 5.0f, static o => o.NumCasts > 0, "Blizzard + Lightning safe spots")
+        ComponentCondition<BlizzardIIIBlowout>(id + 0x20, 5.0f, static o => o.NumCasts > 0, "Blizzard + Lightning safe spots")
             .DeactivateOnExit<LightningSafeSpots>()
-            .DeactivateOnExit<BlizzardSafeSpots>();
+            .DeactivateOnExit<BlizzardIIIBlowout>();
 
-        ComponentCondition<GrandCrossOrder>(id + 0x30, 4.4f, static o => o.currentCast > 0, "Raidwide (1st Grand Cross)")
+        ComponentCondition<GrandCrossOrder>(id + 0x30u, 4.4f, static comp => comp.currentCast > 0, "Raidwide (1st Grand Cross)")
             .ActivateOnEnter<GrandCrossRaidwide>()
             .DeactivateOnExit<GrandCrossRaidwide>();
-        ComponentCondition<TsunamiInfernoOrder>(id + 0x40, 5.1f, static o => o.currentCast > 0, "Raidwide (1st Tsunami Inferno)")
+        ComponentCondition<TsunamiInfernoOrder>(id + 0x40u, 5.1f, static comp => comp.currentCast > 0, "Raidwide (1st Tsunami Inferno)")
             .ActivateOnEnter<TsunamiRaidwide>()
             .ActivateOnEnter<InfernoRaidwide>()
             .DeactivateOnExit<TsunamiRaidwide>()
             .DeactivateOnExit<InfernoRaidwide>();
 
         ActorCastStart(id + 0x50, _module.KefkaP4, (uint)AID.MysteryMagic, 0.5f, true, "Mystery Magic")
-            .ActivateOnEnter<BlizzardSafeSpots>()
-            .ActivateOnEnter<LightningSafeSpots>();
+            .ActivateOnEnter<BlizzardIIIBlowout>()
+            .ActivateOnEnter<LightningSafeSpots>()
+            .ExecOnEnter<BlizzardIIIBlowout>(static o => o.Risky = true)
+            .ExecOnEnter<LightningSafeSpots>(static o => o.Risky = true);
 
-        ComponentCondition<BlizzardSafeSpots>(id + 0x60, 5.0f, static o => o.NumCasts > 0, "Blizzard + Lightning safe spots")
+        ComponentCondition<BlizzardIIIBlowout>(id + 0x60, 5.0f, static o => o.NumCasts > 0, "Blizzard + Lightning safe spots")
             .DeactivateOnExit<LightningSafeSpots>()
-            .DeactivateOnExit<BlizzardSafeSpots>();
+            .DeactivateOnExit<BlizzardIIIBlowout>();
 
-        ComponentCondition<GrandCrossOrder>(id + 0x70, 4.2f, static o => o.currentCast > 1, "Raidwide (2nd Grand Cross)")
+        ComponentCondition<GrandCrossOrder>(id + 0x70u, 4.2f, static comp => comp.currentCast > 1, "Raidwide (2nd Grand Cross)")
             .ActivateOnEnter<GrandCrossRaidwide>()
             .DeactivateOnExit<GrandCrossRaidwide>();
-        ComponentCondition<TsunamiInfernoOrder>(id + 0x80, 5.2f, static o => o.currentCast > 1, "Raidwide (2nd Tsunami Inferno)")
+        ComponentCondition<TsunamiInfernoOrder>(id + 0x80u, 5.2f, static comp => comp.currentCast > 1, "Raidwide (2nd Tsunami Inferno)")
             .ActivateOnEnter<TsunamiRaidwide>()
             .ActivateOnEnter<InfernoRaidwide>()
             .DeactivateOnExit<TsunamiRaidwide>()
             .DeactivateOnExit<InfernoRaidwide>();
 
         ActorCastStart(id + 0x90, _module.KefkaP4, (uint)AID.MysteryMagic, 0.7f, true, "Mystery Magic")
-            .ActivateOnEnter<BlizzardSafeSpots>()
-            .ActivateOnEnter<LightningSafeSpots>();
+            .ActivateOnEnter<BlizzardIIIBlowout>()
+            .ActivateOnEnter<LightningSafeSpots>()
+            .ExecOnEnter<BlizzardIIIBlowout>(static o => o.Risky = true)
+            .ExecOnEnter<LightningSafeSpots>(static o => o.Risky = true);
 
-        ComponentCondition<BlizzardSafeSpots>(id + 0x100, 5.0f, static o => o.NumCasts > 0, "Blizzard + Lightning safe spots")
+        ComponentCondition<BlizzardIIIBlowout>(id + 0x100, 5.0f, static o => o.NumCasts > 0, "Blizzard + Lightning safe spots")
             .DeactivateOnExit<LightningSafeSpots>()
-            .DeactivateOnExit<BlizzardSafeSpots>();
+            .DeactivateOnExit<BlizzardIIIBlowout>();
 
-        ComponentCondition<GrandCrossOrder>(id + 0x110, 3.9f, static o => o.currentCast > 2, "Raidwide (3rd Grand Cross)")
+        ComponentCondition<GrandCrossOrder>(id + 0x110u, 3.9f, static comp => comp.currentCast > 2, "Raidwide (3rd Grand Cross)")
             .ActivateOnEnter<GrandCrossRaidwide>()
             .DeactivateOnExit<GrandCrossRaidwide>()
             .ActivateOnExit<AntiLight>()
             .ActivateOnExit<EdgeOfDeath>();
 
-        ComponentCondition<AntiLight>(id + 0x120, 12.6f, static o => o.NumCasts >= 4, "Antilight + Edge of Death")
+        ComponentCondition<AntiLight>(id + 0x120u, 12.6f, static comp => comp.NumCasts >= 4, "Antilight + Edge of Death")
             .DeactivateOnExit<AntiLight>()
             .DeactivateOnExit<EdgeOfDeath>()
             .ActivateOnExit<ForkedWater>()
             .ActivateOnExit<AccelerationBomb>();
 
-        Condition(id + 0x130, 8.4f, () => Module.FindComponent<AccelerationBomb>()!.NumCasts >= 4 &&
+        Condition(id + 0x130u, 8.4f, () => Module.FindComponent<AccelerationBomb>()!.NumCasts >= 4 &&
                                           Module.FindComponent<ForkedWater>()!.NumCasts >= 4,
             "Spreads + Stacks + Acceleration Bombs Resolve")
             .DeactivateOnExit<ForkedWater>()
             .DeactivateOnExit<AccelerationBomb>()
             .ActivateOnEnter<LightningSafeSpots>()
+            .ExecOnEnter<LightningSafeSpots>(static o => o.Risky = true)
             .ActivateOnExit<CursedShriek>()
             .ActivateOnExit<KefkaOrder>();
 
-        ComponentCondition<LightningSafeSpots>(id + 0x140, 8.1f, static o => o.NumCasts > 0, "Lightning Safe Spots");
+        ComponentCondition<LightningSafeSpots>(id + 0x140u, 8.1f, static comp => comp.NumCasts > 0, "Lightning Safe Spots");
 
-        ComponentCondition<CursedShriek>(id + 0x150, 0.8f, static o => o.NumCasts > 0, "Gazes Resolve")
+        ComponentCondition<CursedShriek>(id + 0x150u, 0.8f, static comp => comp.NumCasts > 0, "Gazes Resolve")
             .DeactivateOnExit<CursedShriek>()
             .DeactivateOnExit<LightningSafeSpots>()
             .ActivateOnExit<Inferno>()
             .ActivateOnExit<InfernoBaits>();
 
-        ActorCastStart(id + 0x160, _module.KefkaP4, (uint)AID.UltimaUpsurge, 4.3f, true, "Ultima Upsurge")
+        ActorCastStart(id + 0x160u, _module.KefkaP4, (uint)AID.UltimaUpsurge, 4.3f, true, "Ultima Upsurge")
             .ActivateOnEnter<UltimaUpsurge>()
             .ActivateOnEnter<ForkedWater>()
             .ActivateOnEnter<AccelerationBomb>()
-            .ExecOnEnter<ForkedWater>(static o => o.active = false);
+            .ExecOnEnter<ForkedWater>(static comp => comp.active = false);
 
-        ComponentCondition<Inferno>(id + 0x165, 2.5f, static o => o.active, "Baits dropped")
-            .ExecOnExit<ForkedWater>(static o => o.active = true);
+        ComponentCondition<Inferno>(id + 0x165u, 2.5f, static comp => comp.active, "Baits dropped")
+            .ExecOnExit<ForkedWater>(static comp => comp.active = true);
 
-        ComponentCondition<UltimaUpsurge>(id + 0x166, 2.5f, static o => o.NumCasts > 0, "Raidwide")
+        ComponentCondition<UltimaUpsurge>(id + 0x166u, 2.5f, static comp => comp.NumCasts > 0, "Raidwide")
             .DeactivateOnExit<UltimaUpsurge>();
 
-        ComponentCondition<InfernoBaits>(id + 0x170, 2.5f, static o => o.NumCasts >= 8, "Inferno Baits")
+        ComponentCondition<InfernoBaits>(id + 0x170u, 2.5f, static comp => comp.NumCasts >= 8, "Inferno Baits")
             .DeactivateOnExit<Inferno>()
             .DeactivateOnExit<InfernoBaits>();
 
-        Condition(id + 0x180, 4.2f, () => Module.FindComponent<AccelerationBomb>()!.NumCasts >= 4 &&
+        Condition(id + 0x180u, 4.2f, () => Module.FindComponent<AccelerationBomb>()!.NumCasts >= 4 &&
                                           Module.FindComponent<ForkedWater>()!.NumCasts >= 4,
                 "Spreads + Stacks + Acceleration Bombs Resolve")
             .DeactivateOnExit<ForkedWater>()
             .DeactivateOnExit<AccelerationBomb>()
-            .ActivateOnEnter<BlizzardSafeSpots>();
+            .ActivateOnEnter<BlizzardIIIBlowout>()
+            .ExecOnEnter<BlizzardIIIBlowout>(static o => o.Risky = true);
 
-        ComponentCondition<BlizzardSafeSpots>(id + 0x190, 1.5f, static o => o.NumCasts > 0, "Blizzard Safe spots")
-            .DeactivateOnExit<BlizzardSafeSpots>()
+        ComponentCondition<BlizzardIIIBlowout>(id + 0x190, 1.5f, static o => o.NumCasts > 0, "Blizzard Safe spots")
+            .DeactivateOnExit<BlizzardIIIBlowout>()
             .ActivateOnExit<CursedShriek>();
 
-        ComponentCondition<CursedShriek>(id + 0x200, 7.1f, static o => o.NumCasts > 0, "Gazes Resolve")
+        ComponentCondition<CursedShriek>(id + 0x200u, 7.1f, static comp => comp.NumCasts > 0, "Gazes Resolve")
             .DeactivateOnExit<CursedShriek>()
             .ActivateOnExit<Tsunami>()
             .ActivateOnExit<TsunamiBaits>();
 
-        ComponentCondition<TsunamiBaits>(id + 0x210, 10.7f, static o => o.NumCasts >= 8, "Tsunami Baits")
+        ComponentCondition<TsunamiBaits>(id + 0x210u, 10.7f, static comp => comp.NumCasts >= 8, "Tsunami Baits")
             .DeactivateOnExit<Tsunami>()
             .DeactivateOnExit<TsunamiBaits>()
-            .ActivateOnEnter<BlizzardSafeSpots>()
-            .ActivateOnEnter<P4LightningSafeSpots>();
+            .ActivateOnEnter<BlizzardIIIBlowout>()
+            .ActivateOnEnter<LightningSafeSpots>()
+            .ExecOnEnter<BlizzardIIIBlowout>(static o => o.Risky = true)
+            .ExecOnEnter<LightningSafeSpots>(static o => o.Risky = true);
 
         ComponentCondition<LightningSafeSpots>(id + 0x220, 0.5f, static o => o.NumCasts > 0, "Blizzard + Lightning Safe Spots")
-            .DeactivateOnExit<P4LightningSafeSpots>()
-            .DeactivateOnExit<BlizzardSafeSpots>()
+            .DeactivateOnExit<LightningSafeSpots>()
+            .DeactivateOnExit<BlizzardIIIBlowout>()
             .DeactivateOnExit<GrandCrossOrder>()
             .DeactivateOnExit<TsunamiInfernoOrder>()
             .DeactivateOnExit<KefkaOrder>();
 
-        ActorCast(id + 0x40000, _module.KefkaP4, (uint)AID.UltimaUpsurge, 4.2f, 5.0f, true, "Enrage")
+        ActorCast(id + 0x40000u, _module.KefkaP4, (uint)AID.UltimaUpsurge, 4.2f, 5.0f, true, "Enrage")
             .ActivateOnEnter<UltimaUpsurge>()
             .DeactivateOnExit<UltimaUpsurge>();
 
-        Timeout(id + 0x40010, 31.0f, "Downtime");
+        Timeout(id + 0x40010u, 31.0f, "Downtime");
     }
 
     private void Phase3(uint id)
@@ -274,130 +438,107 @@ sealed class DMUStates : StateMachineBuilder
             .ActivateOnEnter<AeroIIIAssault>()
             .DeactivateOnExit<AeroIIIAssault>();
 
-        ActorCast(id + 0x10, _module.BossP3, (uint)AID.DefinitionOfInsanity, 33.7f, 4);
-        ActorTargetable(id + 0x20, _module.ExdeathP3, true, 3.1f, "Bosses appear")
+        ActorCast(id + 0x10u, _module.BossP3, (uint)AID.DefinitionOfInsanity, 33.7f, 4);
+        ActorTargetable(id + 0x20u, _module.ExdeathP3, true, 3.1f, "Bosses appear")
             .SetHint(StateMachine.StateHint.DowntimeEnd);
 
-        ActorCast(id + 0x30, _module.ChaosP3, (uint)AID.TheDecisiveBattle, 0.2f, 3.0f, true)
+        ActorCast(id + 0x30u, _module.ChaosP3, (uint)AID.TheDecisiveBattle, 0.2f, 3.0f, true)
             .ActivateOnEnter<TheDecisiveBattle>()
             .DeactivateOnExit<TheDecisiveBattle>();
 
-        ActorCast(id + 0x40, _module.ChaosP3, (uint)AID.BowelsOfAgony, 14.4f, 5.0f, true, "Raidwide")
+        ActorCast(id + 0x40u, _module.ChaosP3, (uint)AID.BowelsOfAgony, 14.4f, 5.0f, true, "Raidwide")
             .ActivateOnEnter<BowelsOfAgony>()
             .DeactivateOnExit<BowelsOfAgony>()
             .ActivateOnExit<Crystals>();
 
-        ActorCast(id + 0x50, _module.ExdeathP3, (uint)AID.ThunderIII, 12.3f, 7.0f, true, "Thunder + element 1")
+        var state1 = ActorCast(id + 0x50u, _module.ExdeathP3, (uint)AID.ThunderIII, 12.3f, 7.0f, true, "Thunder + element 1")
             .ActivateOnEnter<ThunderIII>()
-            .DeactivateOnExit<ThunderIII>()
-            .ExecOnEnter<Crystals>(c =>
-            {
-                if (c.nextElement == Crystals.Element.Fire)
-                {
-                    Module.ActivateComponent<FireCrystal>();
-                }
+            .DeactivateOnExit<ThunderIII>();
+        ActivateCrystalElement(state1);
+        var state2 = Condition(id + 0x60u, 0.8f, () => Module.FindComponent<FireCrystal>()?.NumCasts > 0 || Module.FindComponent<WaterCrystal>()?.NumCasts > 0, "1st Crystal");
+        DeactivateCrystalElement(state2);
 
-                if (c.nextElement == Crystals.Element.Water)
-                {
-                    Module.ActivateComponent<WaterCrystal>();
-                }
-            });
-
-        Condition(id + 0x60, 0.8f, () => Module.FindComponent<FireCrystal>()?.NumCasts > 0 || Module.FindComponent<WaterCrystal>()?.NumCasts > 0, "1st Crystal")
-            .ExecOnExit<Crystals>(c =>
-            {
-                if (c.nextElement == Crystals.Element.Fire)
-                {
-                    Module.DeactivateComponent<FireCrystal>();
-                }
-
-                if (c.nextElement == Crystals.Element.Water)
-                {
-                    Module.DeactivateComponent<WaterCrystal>();
-                }
-            });
-
-        ActorCast(id + 0x70, _module.ExdeathP3, (uint)AID.ThunderIII, 3.4f, 5.0f, true, "Tankbuster cast")
+        ActorCast(id + 0x70u, _module.ExdeathP3, (uint)AID.ThunderIII, 3.4f, 5.0f, true, "Tankbuster cast")
             .ActivateOnEnter<ThunderIIITB>();
-        ComponentCondition<ThunderIIITB>(id + 0x75, 0.1f, static o => o.NumCasts > 0, "Tankbuster 1st hit");
-        ComponentCondition<ThunderIIITB>(id + 0x80, 3.0f, static o => o.NumCasts > 1, "Tankbuster 2nd hit")
+        ComponentCondition<ThunderIIITB>(id + 0x75u, 0.1f, static comp => comp.NumCasts > 0, "Tankbuster 1st hit");
+        ComponentCondition<ThunderIIITB>(id + 0x80u, 3.0f, static comp => comp.NumCasts > 1, "Tankbuster 2nd hit")
             .DeactivateOnExit<ThunderIIITB>();
 
-        ActorCastStartMulti(id + 0x90, _module.ChaosP3, [(uint)AID.LongitudinalImplosion, (uint)AID.LatitudinalImplosion], 4.8f, true)
-            .ActivateOnEnter<LongitudinalLatitudinalImplosion>()
-            .ExecOnEnter<Crystals>(c =>
-            {
-                if (c.nextElement == Crystals.Element.Fire)
-                {
-                    Module.ActivateComponent<FireCrystal>();
-                }
-
-                if (c.nextElement == Crystals.Element.Water)
-                {
-                    Module.ActivateComponent<WaterCrystal>();
-                }
-            });
-
-        ComponentCondition<LongitudinalLatitudinalImplosion>(id + 0x100, 5.6f, static o => o.NumCasts > 0, "Front/sides 1st");
-        ComponentCondition<LongitudinalLatitudinalImplosion>(id + 0x110, 2.0f, static o => o.NumCasts > 2, "Front/sides 2nd")
+        var state3 = ActorCastStartMulti(id + 0x90u, _module.ChaosP3, [(uint)AID.LongitudinalImplosion, (uint)AID.LatitudinalImplosion], 4.8f, true)
+            .ActivateOnEnter<LongitudinalLatitudinalImplosion>();
+        ActivateCrystalElement(state3);
+        ComponentCondition<LongitudinalLatitudinalImplosion>(id + 0x100u, 5.6f, static comp => comp.NumCasts > 0, "Front/sides 1st");
+        ComponentCondition<LongitudinalLatitudinalImplosion>(id + 0x110u, 2.0f, static comp => comp.NumCasts > 2, "Front/sides 2nd")
             .DeactivateOnExit<LongitudinalLatitudinalImplosion>();
 
-        Condition(id + 0x120, 3.1f,
+        var state4 = Condition(id + 0x120u, 3.1f,
                 () => Module.FindComponent<WaterCrystal>()?.NumCasts > 0 ||
                       Module.FindComponent<FireCrystal>()?.NumCasts > 0, "2nd Crystal")
-            .ExecOnExit<Crystals>(c =>
-            {
-                if (c.nextElement == Crystals.Element.Fire)
-                {
-                    Module.DeactivateComponent<FireCrystal>();
-                }
-
-                if (c.nextElement == Crystals.Element.Water)
-                {
-                    Module.DeactivateComponent<WaterCrystal>();
-                }
-            })
             .ActivateOnExit<UmbraSmash>()
             .ActivateOnEnter<UltimaBlaster>();
-
-        ActorCastStart(id + 0x130, _module.ChaosP3, (uint)AID.UmbraSmash, 9.3f, true, "UmbraSmash bait")
+        DeactivateCrystalElement(state4);
+        State ActivateCrystalElement(State state) => state.ExecOnEnter<Crystals>(comp =>
+                                                                {
+                                                                    var next = comp.nextElement;
+                                                                    if (next == Crystals.Element.Fire)
+                                                                    {
+                                                                        Module.ActivateComponent<FireCrystal>();
+                                                                    }
+                                                                    else if (next == Crystals.Element.Water)
+                                                                    {
+                                                                        Module.ActivateComponent<WaterCrystal>();
+                                                                    }
+                                                                });
+        State DeactivateCrystalElement(State state) => state.ExecOnExit<Crystals>(comp =>
+                                                                {
+                                                                    var next = comp.nextElement;
+                                                                    if (next == Crystals.Element.Fire)
+                                                                    {
+                                                                        Module.DeactivateComponent<FireCrystal>();
+                                                                    }
+                                                                    if (next == Crystals.Element.Water)
+                                                                    {
+                                                                        Module.DeactivateComponent<WaterCrystal>();
+                                                                    }
+                                                                });
+        ActorCastStart(id + 0x130u, _module.ChaosP3, (uint)AID.UmbraSmash, 9.3f, true, "UmbraSmash bait")
             .ActivateOnEnter<UltimaBlasterLimitCut>();
 
-        ComponentCondition<UltimaBlaster>(id + 0x140, 0.8f, static o => o.NumCasts > 0, "Raidwides start");
+        ComponentCondition<UltimaBlaster>(id + 0x140u, 0.8f, static comp => comp.NumCasts > 0, "Raidwides start");
 
-        ComponentCondition<UmbraSmash>(id + 0x150, 4.1f, static o => o.NumCasts > 0, "UmbraSmash bait resolves")
+        ComponentCondition<UmbraSmash>(id + 0x150u, 4.1f, static comp => comp.NumCasts > 0, "UmbraSmash bait resolves")
             .ActivateOnEnter<HeadTailWind>()
             .ActivateOnEnter<Cyclone>()
             .DeactivateOnExit<UmbraSmash>();
 
-        ComponentCondition<HeadTailWind>(id + 0x160, 3.1f, static o => o.NumCasts > 0, "Knockback");
-        ComponentCondition<Cyclone>(id + 0x170, 3.9f, static o => o.NumCasts == 8, "Wind stacks")
+        ComponentCondition<HeadTailWind>(id + 0x160u, 3.1f, static comp => comp.NumCasts > 0, "Knockback");
+        ComponentCondition<Cyclone>(id + 0x170u, 3.9f, static comp => comp.NumCasts == 8, "Wind stacks")
             .DeactivateOnExit<HeadTailWind>()
             .DeactivateOnExit<Cyclone>()
             .DeactivateOnExit<Crystals>();
 
-        ComponentCondition<UltimaBlasterLimitCut>(id + 0x180, 11.0f, static o => o.NumCasts > 0, "Limit cut starts");
-        ComponentCondition<UltimaBlasterLimitCut>(id + 0x190, 1.6f, static o => o.NumCasts == 8, "Limit cut ends")
+        ComponentCondition<UltimaBlasterLimitCut>(id + 0x180u, 11.0f, static comp => comp.NumCasts > 0, "Limit cut starts");
+        ComponentCondition<UltimaBlasterLimitCut>(id + 0x190u, 1.6f, static comp => comp.NumCasts == 8, "Limit cut ends")
             .DeactivateOnExit<UltimaBlaster>()
             .DeactivateOnExit<UltimaBlasterLimitCut>();
 
-        ActorCast(id + 0x200, _module.ExdeathP3, (uint)AID.ThunderIII, 1.0f, 5.0f, true, "Tankbuster cast")
+        ActorCast(id + 0x200u, _module.ExdeathP3, (uint)AID.ThunderIII, 1.0f, 5.0f, true, "Tankbuster cast")
             .ActivateOnEnter<ThunderIIITB>();
-        ComponentCondition<ThunderIIITB>(id + 0x205, 0.1f, static o => o.NumCasts > 0, "Tankbuster 1st hit");
-        ComponentCondition<ThunderIIITB>(id + 0x210, 3.1f, static o => o.NumCasts > 1, "Tankbuster 2nd hit")
+        ComponentCondition<ThunderIIITB>(id + 0x205u, 0.1f, static comp => comp.NumCasts > 0, "Tankbuster 1st hit");
+        ComponentCondition<ThunderIIITB>(id + 0x210u, 3.1f, static comp => comp.NumCasts > 1, "Tankbuster 2nd hit")
             .DeactivateOnExit<ThunderIIITB>();
 
-        ActorCast(id + 0x220, _module.ChaosP3, (uint)AID.TheDecisiveBattle, 1.9f, 3.0f, true)
+        ActorCast(id + 0x220u, _module.ChaosP3, (uint)AID.TheDecisiveBattle, 1.9f, 3.0f, true)
             .ActivateOnEnter<TheDecisiveBattle>()
             .DeactivateOnExit<TheDecisiveBattle>()
             .ActivateOnExit<ThunderIIITB>();
 
-        ComponentCondition<ThunderIIITB>(id + 0x235, 9.2f, static o => o.NumCasts > 0, "Tankbuster 1st hit");
-        ComponentCondition<ThunderIIITB>(id + 0x240, 3.1f, static o => o.NumCasts > 1, "Tankbuster 2nd hit")
+        ComponentCondition<ThunderIIITB>(id + 0x235u, 9.2f, static comp => comp.NumCasts > 0, "Tankbuster 1st hit");
+        ComponentCondition<ThunderIIITB>(id + 0x240u, 3.1f, static comp => comp.NumCasts > 1, "Tankbuster 2nd hit")
             .DeactivateOnExit<ThunderIIITB>()
             .ActivateOnEnter<EarthquakeRaidwide>();
 
-        ComponentCondition<EarthquakeRaidwide>(id + 0x250, 1.8f, static o => o.NumCasts > 0, "Raidwide")
+        ComponentCondition<EarthquakeRaidwide>(id + 0x250u, 1.8f, static comp => comp.NumCasts > 0, "Raidwide")
             .DeactivateOnExit<EarthquakeRaidwide>()
             .ActivateOnEnter<KefkaMax>()
             .ActivateOnExit<SlapHappy>()
@@ -405,72 +546,72 @@ sealed class DMUStates : StateMachineBuilder
             .ActivateOnExit<BlackHole>()
             .ActivateOnExit<BlackHoleActors>();
 
-        ComponentCondition<SlapHappy>(id + 0x260, 18.8f, static o => o.NumCasts == 4, "SlapHappy AOEs resolve + Baits")
+        ComponentCondition<SlapHappy>(id + 0x260u, 18.8f, static comp => comp.NumCasts == 4, "SlapHappy AOEs resolve + Baits")
             .DeactivateOnExit<SlapHappy>()
             .DeactivateOnExit<SlapHappyBaits>();
 
-        ComponentCondition<BlackHole>(id + 0x270, 7.4f, static o => o.NumCasts == 1, "Tethers set 1-1");
+        ComponentCondition<BlackHole>(id + 0x270u, 7.4f, static comp => comp.NumCasts == 1, "Tethers set 1-1");
 
-        ActorCastStart(id + 0x280, _module.ExdeathP3, (uint)AID.ThunderIII, 5.3f, true, "Tankbuster cast")
+        ActorCastStart(id + 0x280u, _module.ExdeathP3, (uint)AID.ThunderIII, 5.3f, true, "Tankbuster cast")
             .ActivateOnEnter<ThunderIIITB>();
-        ComponentCondition<BlackHole>(id + 0x290, 1.8f, static o => o.NumCasts > 1, "Tethers set 1-2");
-        ComponentCondition<ThunderIIITB>(id + 0x295, 3.2f, static o => o.NumCasts > 0, "Tankbuster 1st hit");
-        ComponentCondition<ThunderIIITB>(id + 0x300, 3.1f, static o => o.NumCasts > 1, "Tankbuster 2nd hit")
+        ComponentCondition<BlackHole>(id + 0x290u, 1.8f, static comp => comp.NumCasts > 1, "Tethers set 1-2");
+        ComponentCondition<ThunderIIITB>(id + 0x295u, 3.2f, static comp => comp.NumCasts > 0, "Tankbuster 1st hit");
+        ComponentCondition<ThunderIIITB>(id + 0x300u, 3.1f, static comp => comp.NumCasts > 1, "Tankbuster 2nd hit")
             .DeactivateOnExit<ThunderIIITB>()
             .ActivateOnEnter<DamningEdict>();
 
-        ComponentCondition<DamningEdict>(id + 0x310, 5.0f, static o => o.NumCasts > 0, "Frontal")
+        ComponentCondition<DamningEdict>(id + 0x310u, 5.0f, static comp => comp.NumCasts > 0, "Frontal")
             .DeactivateOnExit<DamningEdict>()
             .ActivateOnEnter<SlapHappy>()
             .ActivateOnEnter<SlapHappyBaits>();
 
-        ComponentCondition<SlapHappy>(id + 0x320, 4.7f, static o => o.NumCasts == 4, "SlapHappy AOEs resolve + Baits")
+        ComponentCondition<SlapHappy>(id + 0x320u, 4.7f, static comp => comp.NumCasts == 4, "SlapHappy AOEs resolve + Baits")
             .DeactivateOnExit<SlapHappy>()
             .DeactivateOnExit<SlapHappyBaits>();
 
-        ComponentCondition<BlackHole>(id + 0x340, 7.5f, static o => o.NumCasts > 3, "Tethers set 2-1");
-        ComponentCondition<BlackHole>(id + 0x350, 5.0f, static o => o.NumCasts > 6, "Tethers set 2-2");
-        ComponentCondition<BlackHole>(id + 0x360, 5.1f, static o => o.NumCasts > 9, "Tethers set 2-3")
+        ComponentCondition<BlackHole>(id + 0x340u, 7.5f, static comp => comp.NumCasts > 3, "Tethers set 2-1");
+        ComponentCondition<BlackHole>(id + 0x350u, 5.0f, static comp => comp.NumCasts > 6, "Tethers set 2-2");
+        ComponentCondition<BlackHole>(id + 0x360u, 5.1f, static comp => comp.NumCasts > 9, "Tethers set 2-3")
             .ActivateOnEnter<DamningEdict>();
 
-        ComponentCondition<DamningEdict>(id + 0x370, 4.9f, static o => o.NumCasts > 0, "Frontal")
+        ComponentCondition<DamningEdict>(id + 0x370u, 4.9f, static comp => comp.NumCasts > 0, "Frontal")
             .DeactivateOnExit<DamningEdict>()
             .ActivateOnEnter<LookUponMeAndDespairAOE>();
 
-        ComponentCondition<LookUponMeAndDespairAOE>(id + 0x380, 1.4f, static o => o.NumCasts > 0, "Middle line AOE")
+        ComponentCondition<LookUponMeAndDespairAOE>(id + 0x380u, 1.4f, static comp => comp.NumCasts > 0, "Middle line AOE")
             .DeactivateOnExit<LookUponMeAndDespairAOE>()
             .ActivateOnEnter<ThunderIIITB>();
 
-        ComponentCondition<ThunderIIITB>(id + 0x395, 4.5f, static o => o.NumCasts > 0, "Tankbuster 1st hit");
-        ComponentCondition<ThunderIIITB>(id + 0x400, 3.1f, static o => o.NumCasts > 1, "Tankbuster 2nd hit")
+        ComponentCondition<ThunderIIITB>(id + 0x395u, 4.5f, static comp => comp.NumCasts > 0, "Tankbuster 1st hit");
+        ComponentCondition<ThunderIIITB>(id + 0x400u, 3.1f, static comp => comp.NumCasts > 1, "Tankbuster 2nd hit")
             .DeactivateOnExit<ThunderIIITB>();
 
-        ComponentCondition<BlackHole>(id + 0x410, 10.1f, static o => o.NumCasts > 12, "Tethers set 3-1");
-        ComponentCondition<BlackHole>(id + 0x420, 5.0f, static o => o.NumCasts > 15, "Tethers set 3-2");
-        ComponentCondition<BlackHole>(id + 0x430, 5.1f, static o => o.NumCasts > 18, "Tethers set 3-3")
+        ComponentCondition<BlackHole>(id + 0x410u, 10.1f, static comp => comp.NumCasts > 12, "Tethers set 3-1");
+        ComponentCondition<BlackHole>(id + 0x420u, 5.0f, static comp => comp.NumCasts > 15, "Tethers set 3-2");
+        ComponentCondition<BlackHole>(id + 0x430u, 5.1f, static comp => comp.NumCasts > 18, "Tethers set 3-3")
             .ActivateOnEnter<WhiteHole>();
 
-        ComponentCondition<WhiteHole>(id + 0x440, 11.0f, static o => o.NumCasts > 0, "Raidwide")
+        ComponentCondition<WhiteHole>(id + 0x440u, 11.0f, static comp => comp.NumCasts > 0, "Raidwide")
             .DeactivateOnExit<WhiteHole>()
             .ActivateOnEnter<LongitudinalLatitudinalImplosion>()
             .ActivateOnEnter<SlapHappy>()
             .ActivateOnEnter<SlapHappyBaits>();
 
-        ComponentCondition<LongitudinalLatitudinalImplosion>(id + 0x450, 0.7f, static o => o.NumCasts > 0, "Front/sides 1st");
-        ComponentCondition<LongitudinalLatitudinalImplosion>(id + 0x460, 2.0f, static o => o.NumCasts > 2, "Front/sides 2nd")
+        ComponentCondition<LongitudinalLatitudinalImplosion>(id + 0x450u, 0.7f, static comp => comp.NumCasts > 0, "Front/sides 1st");
+        ComponentCondition<LongitudinalLatitudinalImplosion>(id + 0x460u, 2.0f, static comp => comp.NumCasts > 2, "Front/sides 2nd")
             .DeactivateOnExit<LongitudinalLatitudinalImplosion>();
 
-        ComponentCondition<SlapHappy>(id + 0x470, 2.2f, static o => o.NumCasts == 4, "SlapHappy AOEs resolve + Baits")
+        ComponentCondition<SlapHappy>(id + 0x470u, 2.2f, static comp => comp.NumCasts == 4, "SlapHappy AOEs resolve + Baits")
             .DeactivateOnExit<SlapHappy>()
             .DeactivateOnExit<SlapHappyBaits>();
 
-        ComponentCondition<BlackHole>(id + 0x480, 7.3f, static o => o.NumCasts > 21, "Tethers set 4-1")
+        ComponentCondition<BlackHole>(id + 0x480u, 7.3f, static comp => comp.NumCasts > 21, "Tethers set 4-1")
             .ActivateOnEnter<LookUponMeAndDespairAOE>();
-        ComponentCondition<BlackHole>(id + 0x490, 7.0f, static o => o.NumCasts > 23, "Tethers set 4-2 + Middle line AOE")
+        ComponentCondition<BlackHole>(id + 0x490u, 7.0f, static comp => comp.NumCasts > 23, "Tethers set 4-2 + Middle line AOE")
             .DeactivateOnExit<LookUponMeAndDespairAOE>()
             .ActivateOnExit<P3Blizzard>();
 
-        ActorCast(id + 0x500, _module.ExdeathP3, (uint)AID.BlizzardIIICast, 5.3f, 3.0f, true, "1st Blizzard Baits")
+        ActorCast(id + 0x500u, _module.ExdeathP3, (uint)AID.BlizzardIIICast, 5.3f, 3.0f, true, "1st Blizzard Baits")
             .DeactivateOnEnter<KefkaMax>()
             .DeactivateOnEnter<BlackHoleActors>()
             .DeactivateOnEnter<BlackHole>()
@@ -478,37 +619,37 @@ sealed class DMUStates : StateMachineBuilder
             .ActivateOnEnter<KnockDown>()
             .ActivateOnEnter<StompAMole>();
 
-        ComponentCondition<P3Blizzard>(id + 0x510, 0.1f, static o => o.NumCasts > 0, "1st Blizzard Baits");
-        ComponentCondition<P3BlizzardBaits>(id + 0x520, 3.0f, static o => o.NumCasts > 0, "1st Blizzard Baits Resolve");
-        ComponentCondition<P3Blizzard>(id + 0x530, 0.1f, static o => o.NumCasts > 8, "2nd Blizzard Baits");
-        ComponentCondition<StompAMole>(id + 0x540, 2.2f, static o => o.NumCasts > 0, "1st Tower");
-        ComponentCondition<P3BlizzardBaits>(id + 0x550, 0.8f, static o => o.NumCasts > 8, "2nd Blizzard Baits Resolve")
+        ComponentCondition<P3Blizzard>(id + 0x510u, 0.1f, static comp => comp.NumCasts > 0, "1st Blizzard Baits");
+        ComponentCondition<P3BlizzardBaits>(id + 0x520u, 3.0f, static comp => comp.NumCasts > 0, "1st Blizzard Baits Resolve");
+        ComponentCondition<P3Blizzard>(id + 0x530u, 0.1f, static comp => comp.NumCasts > 8, "2nd Blizzard Baits");
+        ComponentCondition<StompAMole>(id + 0x540u, 2.2f, static comp => comp.NumCasts > 0, "1st Tower");
+        ComponentCondition<P3BlizzardBaits>(id + 0x550, 0.8f, static comp => comp.NumCasts > 8, "2nd Blizzard Baits Resolve")
             .DeactivateOnExit<P3Blizzard>()
             .DeactivateOnExit<P3BlizzardBaits>();
-        ComponentCondition<StompAMole>(id + 0x570, 0.5f, static o => o.NumCasts > 1, "2nd Tower");
-        ComponentCondition<StompAMole>(id + 0x580, 1.3f, static o => o.NumCasts > 2, "3rd Tower");
-        ComponentCondition<StompAMole>(id + 0x590, 1.3f, static o => o.NumCasts > 3, "4th Tower");
-        ComponentCondition<KnockDown>(id + 0x600, 1.8f, static o => !o.Active, "2nd Stack")
+        ComponentCondition<StompAMole>(id + 0x570u, 0.5f, static comp => comp.NumCasts > 1, "2nd Tower");
+        ComponentCondition<StompAMole>(id + 0x580u, 1.3f, static comp => comp.NumCasts > 2, "3rd Tower");
+        ComponentCondition<StompAMole>(id + 0x590u, 1.3f, static comp => comp.NumCasts > 3, "4th Tower");
+        ComponentCondition<KnockDown>(id + 0x600u, 1.8f, static o => !o.Active, "2nd Stack")
             .DeactivateOnExit<StompAMole>()
             .ActivateOnEnter<BigBang>()
             .ActivateOnEnter<P3BlizzardMove>();
-        ComponentCondition<P3BlizzardMove>(id + 0x610, 3.5f, static o => o.NumCasts > 0, "Blizzard Raidwide")
+        ComponentCondition<P3BlizzardMove>(id + 0x610u, 3.5f, static comp => comp.NumCasts > 0, "Blizzard Raidwide")
             .DeactivateOnExit<P3BlizzardMove>();
-        ComponentCondition<BigBang>(id + 0x620, 1.2f, static o => o.NumCasts > 1, "Stack AOEs resolve")
+        ComponentCondition<BigBang>(id + 0x620u, 1.2f, static comp => comp.NumCasts > 1, "Stack AOEs resolve")
             .DeactivateOnExit<BigBang>()
             .DeactivateOnExit<KnockDown>()
             .ActivateOnEnter<P3Enrage>();
-        ComponentCondition<P3Enrage>(id + 0x640, 17.6f, static comp => !comp.enrage, "Enrage");
+        ComponentCondition<P3Enrage>(id + 0x640u, 17.6f, static comp => !comp.enrage, "Enrage");
     }
 
     private void Phase2(uint id)
     {
         ActorTargetable(id, _module.BossP2, true, 10.3f, "Boss appears")
             .SetHint(StateMachine.StateHint.DowntimeEnd);
-        ActorCast(id + 0x10, _module.BossP2, (uint)AID.UltimateEmbrace, 7.2f, 5.0f, true, "Tankbuster")
+        ActorCast(id + 0x10u, _module.BossP2, (uint)AID.UltimateEmbrace, 7.2f, 5.0f, true, "Tankbuster")
             .ActivateOnEnter<UltimateEmbrace>()
             .DeactivateOnExit<UltimateEmbrace>();
-        ActorCast(id + 0x20, _module.BossP2, (uint)AID.Forsaken, 8.2f, 7.0f, true, "Raidwide")
+        ActorCast(id + 0x20u, _module.BossP2, (uint)AID.Forsaken, 8.2f, 7.0f, true, "Raidwide")
             .ActivateOnEnter<Forsaken>()
             .DeactivateOnExit<Forsaken>()
             .ActivateOnEnter<ForsakenShapes>()
@@ -519,25 +660,25 @@ sealed class DMUStates : StateMachineBuilder
             .ActivateOnEnter<ForsakenSolverSet1>();
 
         // Tower set 1
-        ComponentCondition<ForsakenShapes>(id + 0x30, 13.2f, static o => o.currentTowerSet > 1, "1st Tower Set")
+        ComponentCondition<ForsakenShapes>(id + 0x30u, 13.2f, static comp => comp.currentTowerSet > 1, "1st Tower Set")
             .DeactivateOnExit<ForsakenSolverSet1>()
             .ActivateOnExit<ForsakenSolverSet2>();
 
         // Tower set 2
-        ComponentCondition<ForsakenShapes>(id + 0x40, 10.0f, static o => o.currentTowerSet > 2, "2nd Tower Set")
+        ComponentCondition<ForsakenShapes>(id + 0x40u, 10.0f, static comp => comp.currentTowerSet > 2, "2nd Tower Set")
             .DeactivateOnExit<ForsakenSolverSet2>()
             .ActivateOnExit<ForsakenSolverSet1>()
-            .ExecOnExit<ForsakenSolverSet1>(static s => s.colourCircle = Colors.AOE)
+            .ExecOnExit<ForsakenSolverSet1>(static comp => comp.colourCircle = Colors.AOE)
             .ActivateOnEnter<AllThingsEnding>()
             .ActivateOnEnter<AllThingsEndingCasts>()
-            .ExecOnExit<AllThingsEnding>(static o => o.aoesLocked = false);
+            .ExecOnExit<AllThingsEnding>(static comp => comp.aoesLocked = false);
 
         // Clones baits
-        ComponentCondition<AllThingsEnding>(id + 0x50, 5.7f, static o => o.aoesLocked, "Boss/Clones baits")
-            .ExecOnExit<ForsakenSolverSet1>(static s => s.colourCircle = Colors.Safe);
+        ComponentCondition<AllThingsEnding>(id + 0x50u, 5.7f, static comp => comp.aoesLocked, "Boss/Clones baits")
+            .ExecOnExit<ForsakenSolverSet1>(static comp => comp.colourCircle = Colors.Safe);
 
         // Tower set 3
-        Condition(id + 0x60, 5.4f, () => Module.FindComponent<AllThingsEndingCasts>()!.NumCasts >= 4 &&
+        Condition(id + 0x60u, 5.4f, () => Module.FindComponent<AllThingsEndingCasts>()!.NumCasts >= 4 &&
                                          Module.FindComponent<ForsakenShapes>()!.currentTowerSet > 3, "3rd Tower Set + baits")
             .DeactivateOnExit<AllThingsEnding>()
             .DeactivateOnExit<AllThingsEndingCasts>()
@@ -545,20 +686,20 @@ sealed class DMUStates : StateMachineBuilder
             .ActivateOnExit<ForsakenSolverSet2>();
 
         // Tower set 4
-        ComponentCondition<ForsakenShapes>(id + 0x70, 10.0f, static o => o.currentTowerSet > 4, "4th Tower Set")
+        ComponentCondition<ForsakenShapes>(id + 0x70u, 10.0f, static comp => comp.currentTowerSet > 4, "4th Tower Set")
             .DeactivateOnExit<ForsakenSolverSet2>()
             .ActivateOnExit<ForsakenSolverSet1>()
-            .ExecOnExit<ForsakenSolverSet1>(static s => s.colourCircle = Colors.AOE)
+            .ExecOnExit<ForsakenSolverSet1>(static comp => comp.colourCircle = Colors.AOE)
             .ActivateOnEnter<AllThingsEnding>()
             .ActivateOnEnter<AllThingsEndingCasts>()
-            .ExecOnExit<AllThingsEnding>(static o => o.aoesLocked = false);
+            .ExecOnExit<AllThingsEnding>(static comp => comp.aoesLocked = false);
 
         // Clones baits
-        ComponentCondition<AllThingsEnding>(id + 0x80, 5.7f, o => o.aoesLocked, "Boss/Clones baits")
-            .ExecOnExit<ForsakenSolverSet1>(static s => s.colourCircle = Colors.Safe);
+        ComponentCondition<AllThingsEnding>(id + 0x80u, 5.7f, comp => comp.aoesLocked, "Boss/Clones baits")
+            .ExecOnExit<ForsakenSolverSet1>(static comp => comp.colourCircle = Colors.Safe);
 
         // Tower set 5
-        Condition(id + 0x90, 5.4f, () => Module.FindComponent<AllThingsEndingCasts>()!.NumCasts >= 4 &&
+        Condition(id + 0x90u, 5.4f, () => Module.FindComponent<AllThingsEndingCasts>()!.NumCasts >= 4 &&
                                          Module.FindComponent<ForsakenShapes>()!.currentTowerSet > 5, "5th Tower Set + baits")
             .DeactivateOnExit<AllThingsEnding>()
             .DeactivateOnExit<AllThingsEndingCasts>()
@@ -566,20 +707,20 @@ sealed class DMUStates : StateMachineBuilder
             .ActivateOnExit<ForsakenSolverSet2>();
 
         // Tower set 6
-        ComponentCondition<ForsakenShapes>(id + 0x100, 10.0f, o => o.currentTowerSet > 6, "6th Tower Set")
+        ComponentCondition<ForsakenShapes>(id + 0x100u, 10.0f, comp => comp.currentTowerSet > 6, "6th Tower Set")
             .DeactivateOnExit<ForsakenSolverSet2>()
             .ActivateOnExit<ForsakenSolverSet1>()
-            .ExecOnExit<ForsakenSolverSet1>(static s => s.colourCircle = Colors.AOE)
+            .ExecOnExit<ForsakenSolverSet1>(static comp => comp.colourCircle = Colors.AOE)
             .ActivateOnEnter<AllThingsEnding>()
             .ActivateOnEnter<AllThingsEndingCasts>()
-            .ExecOnExit<AllThingsEnding>(static o => o.aoesLocked = false);
+            .ExecOnExit<AllThingsEnding>(static comp => comp.aoesLocked = false);
 
         // Clones baits
-        ComponentCondition<AllThingsEnding>(id + 0x110, 5.7f, o => o.aoesLocked, "Boss/Clones baits")
-            .ExecOnExit<ForsakenSolverSet1>(static s => s.colourCircle = Colors.Safe);
+        ComponentCondition<AllThingsEnding>(id + 0x110u, 5.7f, comp => comp.aoesLocked, "Boss/Clones baits")
+            .ExecOnExit<ForsakenSolverSet1>(static comp => comp.colourCircle = Colors.Safe);
 
         // Tower set 7
-        Condition(id + 0x120, 5.4f, () => Module.FindComponent<AllThingsEndingCasts>()!.NumCasts >= 4 &&
+        Condition(id + 0x120u, 5.4f, () => Module.FindComponent<AllThingsEndingCasts>()!.NumCasts >= 4 &&
                                          Module.FindComponent<ForsakenShapes>()!.currentTowerSet > 7, "7th Tower Set + baits")
             .DeactivateOnExit<AllThingsEnding>()
             .DeactivateOnExit<AllThingsEndingCasts>()
@@ -587,16 +728,16 @@ sealed class DMUStates : StateMachineBuilder
             .ActivateOnExit<ForsakenSolverSet2>();
 
         // Tower set 8
-        ComponentCondition<ForsakenShapes>(id + 0x130, 10.0f, o => o.currentTowerSet > 8, "8th Tower Set")
+        ComponentCondition<ForsakenShapes>(id + 0x130u, 10.0f, comp => comp.currentTowerSet > 8, "8th Tower Set")
             .DeactivateOnExit<ForsakenSolverSet2>()
             .ActivateOnEnter<AllThingsEnding>()
             .ActivateOnEnter<AllThingsEndingCasts>()
-            .ExecOnEnter<AllThingsEnding>(static o => o.aoesLocked = false);
+            .ExecOnEnter<AllThingsEnding>(static comp => comp.aoesLocked = false);
 
         // Clones baits
-        ComponentCondition<AllThingsEnding>(id + 0x140, 5.4f, o => o.aoesLocked, "Boss/Clones baits");
+        ComponentCondition<AllThingsEnding>(id + 0x140u, 5.4f, comp => comp.aoesLocked, "Boss/Clones baits");
 
-        ComponentCondition<AllThingsEndingCasts>(id + 0x145, 5.2f, o => o.NumCasts >= 4, "Boss/Clones baits Resolve")
+        ComponentCondition<AllThingsEndingCasts>(id + 0x145u, 5.2f, comp => comp.NumCasts >= 4, "Boss/Clones baits Resolve")
             .DeactivateOnExit<ForsakenShapes>()
             .DeactivateOnExit<ForsakenBaitsSpreadStacks>()
             .DeactivateOnExit<ForsakenBaitsCone>()
@@ -604,159 +745,29 @@ sealed class DMUStates : StateMachineBuilder
             .DeactivateOnExit<AllThingsEnding>()
             .DeactivateOnExit<AllThingsEndingCasts>();
 
-        ActorCast(id + 0x150, _module.BossP2, (uint)AID.LightOfJudgmentP2, 4.1f, 5.0f, true, "Raidwide")
+        ActorCast(id + 0x150u, _module.BossP2, (uint)AID.LightOfJudgmentP2, 4.1f, 5.0f, true, "Raidwide")
             .ActivateOnEnter<LightOfJudgmentP2>()
             .DeactivateOnExit<LightOfJudgmentP2>();
 
-        ActorCast(id + 0x160, _module.BossP2, (uint)AID.Trine, 8.2f, 3.0f, true, "Trine")
+        ActorCast(id + 0x160u, _module.BossP2, (uint)AID.Trine, 8.2f, 3.0f, true, "Trine")
             .ActivateOnEnter<Trine>();
 
-        ActorCastMulti(id + 0x170, _module.BossP2, [(uint)AID.WingsOfDestructionLeft, (uint)AID.WingsOfDestructionRight], 3.1f, 4.0f, true, "Left / Right")
+        ActorCastMulti(id + 0x170u, _module.BossP2, [(uint)AID.WingsOfDestructionLeft, (uint)AID.WingsOfDestructionRight], 3.1f, 4.0f, true, "Left / Right")
             .ActivateOnEnter<WingsOfDestructionLeftRight>()
             .DeactivateOnExit<WingsOfDestructionLeftRight>();
-        ComponentCondition<Trine>(id + 0x180, 5.7f, static o => o.NumCasts == 10, "Trine 1 Explosions");
-        ActorCastStart(id + 0x190, _module.BossP2, (uint)AID.WingsOfDestructionTB, 0.6f, true)
+        ComponentCondition<Trine>(id + 0x180u, 5.7f, static comp => comp.NumCasts == 10, "Trine 1 Explosions");
+        ActorCastStart(id + 0x190u, _module.BossP2, (uint)AID.WingsOfDestructionTB, 0.6f, true)
             .ActivateOnEnter<WingsOfDestructionTB>();
-        ComponentCondition<Trine>(id + 0x200, 1.5f, static o => o.NumCasts == 13, "Trine 2 Explosions");
-        ComponentCondition<Trine>(id + 0x210, 2.0f, static o => o.NumCasts == 22, "Trine 3 Explosions")
+        ComponentCondition<Trine>(id + 0x200u, 1.5f, static comp => comp.NumCasts == 13, "Trine 2 Explosions");
+        ComponentCondition<Trine>(id + 0x210u, 2.0f, static comp => comp.NumCasts == 22, "Trine 3 Explosions")
             .DeactivateOnExit<Trine>();
-        ComponentCondition<WingsOfDestructionTB>(id + 0x220, 0.6f, o => o.NumCasts > 0, "Tankbuster")
+        ComponentCondition<WingsOfDestructionTB>(id + 0x220u, 0.6f, comp => comp.NumCasts > 0, "Tankbuster")
             .DeactivateOnExit<WingsOfDestructionTB>();
-        ActorCast(id + 0x220, _module.BossP2, (uint)AID.UltimateEmbrace, 2.1f, 5.0f, true, "Tankbuster")
+        ActorCast(id + 0x220u, _module.BossP2, (uint)AID.UltimateEmbrace, 2.1f, 5.0f, true, "Tankbuster")
             .ActivateOnEnter<UltimateEmbrace>()
             .DeactivateOnExit<UltimateEmbrace>();
 
-        ActorTargetable(id + 0x30000, _module.BossP2, false, 4.1f, "Boss disappears")
+        ActorTargetable(id + 0x30000u, _module.BossP2, false, 4.1f, "Boss disappears")
             .SetHint(StateMachine.StateHint.DowntimeStart);
-    }
-
-    private void Phase1(uint id)
-    {
-        Phase1RevoltingRuinIII(id, 10.1f);
-        Phase1GravenImage(id + 0x1000, 7.7f);
-        Phase1Gravitas(id + 0x2000, 4.0f);
-        Phase1TeleTrouncing(id + 0x3000, 6.8f);
-    }
-
-    void Phase1RevoltingRuinIII(uint id, float delay)
-    {
-        Cast(id, (uint)AID.RevoltingRuinIII, delay, 5, "1st Tankbuster")
-            .ActivateOnEnter<RevoltingRuinIII>();
-        ComponentCondition<RevoltingRuinIII>(id + 0x05, 3.25f, static o => o.NumCasts > 1, "2nd Tankbuster")
-            .DeactivateOnExit<RevoltingRuinIII>();
-    }
-
-    void Phase1GravenImage(uint id, float delay)
-    {
-        Cast(id + 0x10, (uint)AID.GravenImage, delay, 3.0f, "Graven Image")
-            .ActivateOnEnter<GravenImage>()
-            .ActivateOnEnter<BlizzardSafeSpots>()
-            .ActivateOnEnter<StackSpreadOrbs>();
-        CastStart(id + 0x20, (uint)AID.MysteryMagic, 3.2f);
-        ComponentCondition<GravenImage>(id + 0x30, 2.6f, static o => o.NumCasts > 0, "Knockbacks")
-            .DeactivateOnExit<GravenImage>();
-        ComponentCondition<BlizzardSafeSpots>(id + 0x40, 2.3f, static o => o.NumCasts > 0, "Blizzard safe spots")
-            .DeactivateOnExit<BlizzardSafeSpots>();
-
-        ComponentCondition<StackSpreadOrbs>(id + 0x40, 0.8f, static o => !o.Active, "Stack / Spread")
-            .DeactivateOnExit<StackSpreadOrbs>()
-            .ActivateOnEnter<WaveCannon>()
-            .ActivateOnExit<DoubleTroubleTrapKnockback>()
-            .ActivateOnExit<DoubleTroubleTrapStacks>();
-
-        ComponentCondition<WaveCannon>(id + 0x50, 4.2f, static o => o.NumCasts > 0, "Wave Cannon Spreads")
-            .DeactivateOnExit<WaveCannon>()
-            .ActivateOnEnter<WaveCannonTowers>();
-
-        ComponentCondition<WaveCannonTowers>(id + 0x60, 3.6f, static o => o.NumCasts > 0, "Towers resolve")
-            .DeactivateOnExit<WaveCannonTowers>();
-
-        CastStart(id + 0x70, (uint)AID.MysteryMagic, 2.7f)
-            .ActivateOnEnter<LightningSafeSpots>()
-            .ActivateOnEnter<BlizzardSafeSpots>();
-
-        ComponentCondition<DoubleTroubleTrapKnockback>(id + 0x80, 1.0f, static o => o.NumCasts > 0, "Stacks + Knockbacks")
-            .DeactivateOnExit<DoubleTroubleTrapStacks>()
-            .DeactivateOnExit<DoubleTroubleTrapKnockback>();
-
-        ComponentCondition<BlizzardSafeSpots>(id + 0x90, 3.9f, static o => o.NumCasts > 0, "Blizzard + Lightning safe spots")
-            .DeactivateOnExit<LightningSafeSpots>()
-            .DeactivateOnExit<BlizzardSafeSpots>();
-    }
-
-    void Phase1Gravitas(uint id, float delay)
-    {
-        Cast(id + 0x90, (uint)AID.LightOfJudgment, delay, 5.0f, "Raidwide")
-            .ActivateOnEnter<LightOfJudgment>()
-            .DeactivateOnExit<LightOfJudgment>()
-            .ActivateOnEnter<HyperDrive>();
-        ComponentCondition<HyperDrive>(id + 0x100, 3.2f, static o => o.NumCasts > 0, "1st Tankbuster");
-        ComponentCondition<HyperDrive>(id + 0x110, 2.1f, static o => o.NumCasts > 1, "2nd Tankbuster");
-        ComponentCondition<HyperDrive>(id + 0x120, 2.1f, static o => o.NumCasts > 2, "3rd Tankbuster")
-            .DeactivateOnExit<HyperDrive>();
-
-        Cast(id + 0x130, (uint)AID.GravenImage, 7.3f, 3, "Graven Image")
-            .ActivateOnEnter<BlizzardSafeSpots>()
-            .ActivateOnEnter<Gravitas>()
-            .ActivateOnEnter<GravitasPuddles>();
-        ComponentCondition<BlizzardSafeSpots>(id + 0x140, 7.15f, static o => o.NumCasts > 0, "Blizzard safe spots + Stack")
-            .DeactivateOnExit<BlizzardSafeSpots>();
-        ComponentCondition<Gravitas>(id + 0x150, 4.1f, static o => !o.Active, "Spreads")
-            .ActivateOnEnter<RevoltingRuinIII>()
-            .ActivateOnEnter<GravitationalWave>();
-        Cast(id + 0x160, (uint)AID.RevoltingRuinIII, 0.7f, 5, "1st Tankbuster");
-        ComponentCondition<RevoltingRuinIII>(id + 0x165, 3.25f, static o => o.NumCasts > 1, "2nd Tankbuster")
-            .DeactivateOnExit<RevoltingRuinIII>();
-        ComponentCondition<GravitationalWave>(id + 0x170, 0.80f, static o => o.NumCasts > 0, "Left/Right Cleave")
-            .DeactivateOnExit<GravitationalWave>();
-        ComponentCondition<Gravitas>(id + 0x180, 4.6f, static o => o.NumCasts > 4, "Stack");
-        ComponentCondition<Gravitas>(id + 0x190, 4.0f, static o => !o.Active, "Spreads")
-            .DeactivateOnExit<Gravitas>()
-            .ActivateOnEnter<GravitationalWave>();
-        ComponentCondition<GravitationalWave>(id + 0x200, 4.5f, static o => o.NumCasts > 0, "Left/Right Cleave")
-            .DeactivateOnExit<GravitationalWave>()
-            .ActivateOnEnter<DoubleTroubleTrapKnockback>()
-            .ActivateOnEnter<DoubleTroubleTrapStacks>();
-        ComponentCondition<DoubleTroubleTrapKnockback>(id + 0x210, 3.8f, static o => o.NumCasts > 0, "Stacks + Knockbacks")
-            .DeactivateOnExit<DoubleTroubleTrapStacks>()
-            .DeactivateOnExit<DoubleTroubleTrapKnockback>();
-        Cast(id + 0x220, (uint)AID.LightOfJudgment, 9.2f, 5.0f, "Raidwide")
-            .DeactivateOnExit<GravitasPuddles>()
-            .ActivateOnEnter<LightOfJudgment>()
-            .DeactivateOnExit<LightOfJudgment>()
-            .ActivateOnEnter<HyperDrive>();
-        ComponentCondition<HyperDrive>(id + 0x215, 3.2f, static o => o.NumCasts > 0, "1st Tankbuster");
-        ComponentCondition<HyperDrive>(id + 0x220, 2.1f, static o => o.NumCasts > 1, "2nd Tankbuster");
-        ComponentCondition<HyperDrive>(id + 0x225, 2.1f, static o => o.NumCasts > 2, "3rd Tankbuster")
-            .DeactivateOnExit<HyperDrive>();
-    }
-
-    void Phase1TeleTrouncing(uint id, float delay)
-    {
-        Cast(id + 0x230, (uint)AID.TeleTrouncing, delay, 5.0f, "TeleTrouncing")
-            .ActivateOnEnter<TeleTrouncing>();
-        ComponentCondition<TeleTrouncing>(id + 0x240, 7.8f, static o => o.NumCasts > 0, "First Arrows");
-        ComponentCondition<TeleTrouncing>(id + 0x250, 3.0f, static o => o.NumCasts > 9, "Second Arrows")
-            .DeactivateOnExit<TeleTrouncing>()
-            .ActivateOnExit<DoubleTroubleTrapKnockback>()
-            .ActivateOnExit<DoubleTroubleTrapStacks>();
-        ComponentCondition<DoubleTroubleTrapKnockback>(id + 0x260, 5.4f, static o => o.NumCasts > 0, "Stacks + Knockbacks")
-            .DeactivateOnExit<DoubleTroubleTrapStacks>()
-            .DeactivateOnExit<DoubleTroubleTrapKnockback>()
-            .ActivateOnExit<GravenImage3>();
-        ComponentCondition<GravenImage3>(id + 0x270, 5.6f, static o => !o.Active, "Sleeps + Confusion Spreads")
-            .DeactivateOnExit<GravenImage3>()
-            .ActivateOnExit<Gaze>();
-
-        CastStart(id + 0x280, (uint)AID.MysteryMagic, 7.9f)
-            .ActivateOnEnter<LightningSafeSpots>()
-            .ActivateOnEnter<StackSpreadOrbs>();
-
-        Condition(id + 0x290, 5.0f, () => Module.FindComponent<LightningSafeSpots>()!.NumCasts > 0 && Module.FindComponent<Gaze>()!.NumCasts > 0, "Lightning + Gaze")
-            .DeactivateOnExit<LightningSafeSpots>()
-            .DeactivateOnExit<StackSpreadOrbs>()
-            .DeactivateOnExit<Gaze>();
-
-        Targetable(id + 0x1000, false, 11.0f, "Boss disappears");
     }
 }

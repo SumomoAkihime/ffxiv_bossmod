@@ -213,6 +213,8 @@ class Program
             UpstreamQuest20261015Tests.Run(world, player, hints, Check);
             Console.WriteLine("验证：UpstreamOmega20261024Tests");
             UpstreamOmega20261024Tests.Run(Check);
+            Console.WriteLine("验证：Reborn20261024Tests");
+            Reborn20261024Tests.Run(Check);
             Console.WriteLine("循环/移动开关、预设改名与顺序、跟随、旧任务失效、视线及排序检查完成。");
         }
         finally { ImGui.DestroyContext(imgui); }

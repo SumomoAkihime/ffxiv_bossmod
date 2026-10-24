@@ -1,31 +1,27 @@
 ﻿namespace BossMod.Dawntrail.Ultimate.DMU;
 
-sealed class LightOfJudgment(BossModule module) : Components.RaidwideCast(module, (uint)AID.LightOfJudgment);
+[ModuleInfo(BossModuleInfo.Maturity.Contributed, PrimaryActorOID = (uint)OID.Kefka, Contributors = "Equilius", Expansion = BossModuleInfo.Expansion.Dawntrail,
+    Category = BossModuleInfo.Category.Ultimate, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1094u, NameID = 7131u, SortOrder = 1, PlanLevel = 100)]
+public sealed class DMU : BossModule {
+    public DMU(WorldState ws, Actor primary) : this(ws, primary, BuildArena()) { }
 
-[ModuleInfo(BossModuleInfo.Maturity.WIP,
-    StatesType = typeof(DMUStates),
-    ConfigType = typeof(DMUConfig),
-    ObjectIDType = typeof(OID),
-    ActionIDType = typeof(AID),
-    StatusIDType = typeof(SID),
-    TetherIDType = typeof(TetherID),
-    IconIDType = typeof(IconID),
-    PrimaryActorOID = (uint)OID.Kefka,
-    Contributors = "Equilius",
-    Expansion = BossModuleInfo.Expansion.Dawntrail,
-    Category = BossModuleInfo.Category.Ultimate,
-    GroupType = BossModuleInfo.GroupType.CFC,
-    GroupID = 1094u,
-    NameID = 7131u,
-    SortOrder = 1,
-    PlanLevel = 100)]
-[SkipLocalsInit]
-public sealed class DMU(WorldState ws, Actor primary) : BossModule(ws, primary, new(100f, 100f), new ArenaBoundsCustom([new Polygon(new(100f, 100f), 20f, 64)]) { WorldProjectionHeight = 0f, Y = 0.1f, BorderY = 0f })
-{
+    private DMU(WorldState ws, Actor primary, (WPos center, ArenaBounds arena) a) : base(ws, primary, a.center, a.arena) { }
+
+    /*public static (WPos center, ArenaBoundsCustom arena) BuildArena() {
+        var arena = new ArenaBoundsCustom([new Polygon(new(100f, 100f), 20f, 64)]) {
+            WorldProjectionHeight = 0f, Y = 0.1f, BorderY = 0f
+        }; // looks ugly if we use any projection height due to weird floor geometry
+        return (arena.Center, arena);
+    }*/
+
+    public static (WPos center, ArenaBounds arena) BuildArena() {
+        var arena = new ArenaBoundsCircle(20.0f) {
+            WorldProjectionHeight = 0f, Y = 0.1f, BorderY = 0f
+        }; // looks ugly if we use any projection height due to weird floor geometry
+        return (new WPos(100f, 100f), arena);
+    }
+
     public override bool ShouldPrioritizeAllEnemies => true;
-
-    //private Actor? bossP1;
-    public Actor? BossP1() => PrimaryActor;
 
     private Actor? bossP2;
     public Actor? BossP2() => bossP2;
@@ -47,10 +43,31 @@ public sealed class DMU(WorldState ws, Actor primary) : BossModule(ws, primary, 
     private Actor? kefkaP5;
     public Actor? KefkaP5() => kefkaP5;
 
-    protected override void UpdateModule()
-    {
-        switch (StateMachine.ActivePhaseIndex)
-        {
+    protected override void DrawEnemies(int pcSlot, Actor pc) {
+        switch (StateMachine.ActivePhaseIndex) {
+            case -1:
+            case 0:
+                Arena.Actor(PrimaryActor);
+                break;
+            case 1:
+                Arena.Actor(bossP2);
+                break;
+            case 2:
+                Arena.Actor(chaosP3);
+                Arena.Actor(exdeathP3);
+                Arena.Actor(bossP3);
+                break;
+            case 3:
+                Arena.Actor(kefkaP4);
+                break;
+            case 4:
+                Arena.Actor(kefkaP5);
+                break;
+        }
+    }
+
+    protected override void UpdateModule() {
+        switch (StateMachine.ActivePhaseIndex) {
             case 1:
                 bossP2 ??= GetActor((uint)OID.BossP2);
                 break;
@@ -70,27 +87,17 @@ public sealed class DMU(WorldState ws, Actor primary) : BossModule(ws, primary, 
         }
     }
 
-    protected override void DrawEnemies(int pcSlot, Actor pc)
-    {
-        switch (StateMachine.ActivePhaseIndex)
-        {
-            case 0:
-                Arena.Actor(PrimaryActor);
-                break;
-            case 1:
-                Arena.Actor(bossP2);
-                break;
-            case 2:
-                Arena.Actor(chaosP3);
-                Arena.Actor(exdeathP3);
-                Arena.Actor(bossP3);
-                break;
-            case 3:
-                Arena.Actor(kefkaP4);
-                break;
-            case 4:
-                Arena.Actor(kefkaP5);
-                break;
+    private readonly string[] _prePullHints = [
+        "This fight requires party role assignments to be configured",
+        "This fight has multiple strategies, please config it under Encounter-specific settings",
+    ];
+
+    public override string[] PrePullHints {
+        get {
+            var config = Service.Config.Get<DMUConfig>();
+            return config.LegacyGravenImage2NeedsSelection && config.P1GravenImage2 == DMUConfig.P1GravenImage2Strategy.GravenImage2None
+                ? [.. _prePullHints, "旧的 P1 神像2 Normal 策略已移除，请在副本设置中重新选择站位策略。"]
+                : _prePullHints;
         }
     }
 }
