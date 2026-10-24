@@ -64,7 +64,7 @@ class AntiGravityGimbal(BossModule module) : BossComponent(module)
 {
     private bool Sinking(Actor actor) => actor.FindStatus(SID.SixFulmsUnder) != null;
     private bool Levitating(Actor actor) => actor.FindStatus(SID.Levitation) != null;
-    private bool EarthquakeCasting => Module.PrimaryActor.CastInfo?.IsSpell((uint)AID.Earthquake) ?? false;
+    private bool EarthquakeCasting => Module.PrimaryActor.CastInfo?.IsSpell(AID.Earthquake) ?? false;
     private bool Stacking => Module.FindComponent<GravitationalExplosion>()?.ActiveStacks.Any() ?? false;
     private Petrospheres? Orbs => Module.FindComponent<Petrospheres>();
     private bool PurpleOrbs => Orbs?.Active(OID.Petrosphere) ?? false;
@@ -102,7 +102,7 @@ class Petrospheres(BossModule module) : Components.GenericAOEs(module)
         var levitating = actor.FindStatus(SID.Levitation) != null;
         var gold = Active(OID.PotentPetrosphere);
         var purple = Active(OID.Petrosphere);
-        var dropping = Module.PrimaryActor.CastInfo?.IsSpell((uint)AID.HundredGs) ?? false;
+        var dropping = Module.PrimaryActor.CastInfo?.IsSpell(AID.HundredGs) ?? false;
         var showPurple = purple && (!levitating || gold || dropping);
         var showGold = gold && levitating && !purple;
         if (!showPurple && !showGold)
@@ -110,15 +110,15 @@ class Petrospheres(BossModule module) : Components.GenericAOEs(module)
         var oid = showGold ? OID.PotentPetrosphere : OID.Petrosphere;
         foreach (var orb in Module.Enemies((uint)oid))
             if (_activation.TryGetValue(orb.InstanceID, out var activation))
-                resultAOEs.Add(new(Shape, orb.Position, Activation: activation));
+                resultAOEs.Add(new(Shape, orb.Position, activation: activation));
         return CollectionsMarshal.AsSpan(resultAOEs);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.IsSpell((uint)AID.Antilight))
+        if (spell.IsSpell(AID.Antilight))
             _antilightExplosion = Module.CastFinishAt(spell, 13.1f);
-        else if (spell.IsSpell((uint)AID.Minus100Gs))
+        else if (spell.IsSpell(AID.Minus100Gs))
             _minusExplosion = Module.CastFinishAt(spell, 7.5f);
     }
 
@@ -161,7 +161,7 @@ class MainQuake(BossModule module) : Components.GenericAOEs(module)
         {
             var center = RealCenter(pos) ?? InwardCenter(pos);
             if (center != null)
-                resultAOEs.Add(new(Shape, center.Value, Activation: _activation));
+                resultAOEs.Add(new(Shape, center.Value, activation: _activation));
         }
         return CollectionsMarshal.AsSpan(resultAOEs);
     }

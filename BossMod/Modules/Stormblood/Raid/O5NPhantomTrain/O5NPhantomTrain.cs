@@ -68,7 +68,7 @@ class Encumber(BossModule module) : Components.GenericAOEs(module)
                 continue;
             var solid = Solid(ghost);
             var activation = _telegraph.GetValueOrDefault(ghost.InstanceID);
-            resultAOEs.Add(new(Shape, ghost.Position, Activation: solid ? default : activation, Risky: !solid));
+            resultAOEs.Add(new(Shape, ghost.Position, activation: solid ? default : activation, risky: !solid));
         }
         return CollectionsMarshal.AsSpan(resultAOEs);
     }
@@ -78,7 +78,7 @@ class Encumber(BossModule module) : Components.GenericAOEs(module)
         base.AddAIHints(slot, actor, assignment, hints);
         foreach (var ghost in Module.Enemies((uint)OID.WrothGhost))
             if (Visible(ghost) && Solid(ghost))
-                hints.TemporaryObstacles.Add(SDRect(ghost.Position, new Angle(), 4, 4, 5));
+                hints.TemporaryObstacles.Add(new SDRect(ghost.Position, new Angle(), 4, 4, 5));
     }
 
     public override void OnActorModelStateChange(Actor actor, byte modelState, byte animState1, byte animState2)
@@ -89,13 +89,13 @@ class Encumber(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.IsSpell((uint)AID.Encumber))
+        if (spell.IsSpell(AID.Encumber))
             _telegraph[caster.InstanceID] = Module.CastFinishAt(spell);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (!spell.IsSpell((uint)AID.Encumber))
+        if (!spell.IsSpell(AID.Encumber))
             return;
         _telegraph.Remove(caster.InstanceID);
         _solid.Add(caster.InstanceID);
@@ -131,8 +131,8 @@ class HeadOn(BossModule module) : Components.GenericAOEs(module)
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
         var resultAOEs = new List<AOEInstance>();
         foreach (var helper in Module.Enemies((uint)OID.Helper))
-            if (helper.CastInfo is { } cast && cast.IsSpell((uint)AID.HeadOnAOE))
-                resultAOEs.Add(new(Shape, cast.LocXZ, Activation: Module.CastFinishAt(cast)));
+            if (helper.CastInfo is { } cast && cast.IsSpell(AID.HeadOnAOE))
+                resultAOEs.Add(new(Shape, cast.LocXZ, activation: Module.CastFinishAt(cast)));
         return CollectionsMarshal.AsSpan(resultAOEs);
     }
 }
@@ -202,7 +202,7 @@ class SaintlyBeam(BossModule module) : Components.GenericAOEs(module)
             if (beam.Target.IsDead && beam.Locked == null)
                 continue;
             var chasing = beam.Locked == null && beam.Target.InstanceID == actor.InstanceID;
-            resultAOEs.Add(new(Shape, beam.Locked ?? beam.Target.Position, Activation: beam.Activation, Risky: !chasing));
+            resultAOEs.Add(new(Shape, beam.Locked ?? beam.Target.Position, activation: beam.Activation, risky: !chasing));
         }
         return CollectionsMarshal.AsSpan(resultAOEs);
     }
@@ -261,7 +261,7 @@ class SaintlyBeam(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (!spell.IsSpell((uint)AID.SaintlyBeam))
+        if (!spell.IsSpell(AID.SaintlyBeam))
             return;
         foreach (var t in spell.Targets)
             _cleared.Add(t.ID);
@@ -291,16 +291,29 @@ class DiabolicHeadlamp(BossModule module) : Components.GenericAOEs(module)
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
         var resultAOEs = new List<AOEInstance>();
-        if (Module.PrimaryActor.CastInfo is not { } cast || !cast.IsSpell((uint)AID.DiabolicHeadlamp))
+        if (Module.PrimaryActor.CastInfo is not { } cast || !cast.IsSpell(AID.DiabolicHeadlamp))
             return [];
         var target = WorldState.Actors.Find(Module.PrimaryActor.TargetID);
         if (target != null)
             resultAOEs.Add(new(Shape, Origin, Angle.FromDirection(target.Position - Origin), Module.CastFinishAt(cast)));
         return CollectionsMarshal.AsSpan(resultAOEs);
     }
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        foreach (var aoe in ActiveAOEs(slot, actor))
+            if (!aoe.Check(actor.Position))
+                hints.Add("Stack in the line");
+    }
+
+    public override void DrawArenaBackground(int pcSlot, Actor pc)
+    {
+        foreach (var aoe in ActiveAOEs(pcSlot, pc))
+            aoe.Shape.Draw(Arena, aoe.Origin, aoe.Rotation, Colors.SafeFromAOE);
+    }
 }
 
-class DiabolicWind(BossModule module) : Components.UniformStackSpread(module, 0, 5, alwaysShowSpreads: true)
+class DiabolicWind(BossModule module) : Components.UniformStackSpread(module, 0, 5)
 {
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
@@ -310,7 +323,7 @@ class DiabolicWind(BossModule module) : Components.UniformStackSpread(module, 0,
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (!spell.IsSpell((uint)AID.DiabolicWind))
+        if (!spell.IsSpell(AID.DiabolicWind))
             return;
         var pos = spell.TargetXZ;
         Spreads.RemoveAll(s => s.Target.Position.AlmostEqual(pos, 10) || WorldState.CurrentTime >= s.Activation);
@@ -329,8 +342,8 @@ class DiabolicLight(BossModule module) : Components.GenericAOEs(module)
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
         var resultAOEs = new List<AOEInstance>();
         foreach (var helper in Module.Enemies((uint)OID.Helper))
-            if (helper.CastInfo is { } cast && cast.IsSpell((uint)AID.DiabolicLight))
-                resultAOEs.Add(new(Shape, cast.LocXZ, Activation: Module.CastFinishAt(cast)));
+            if (helper.CastInfo is { } cast && cast.IsSpell(AID.DiabolicLight))
+                resultAOEs.Add(new(Shape, cast.LocXZ, activation: Module.CastFinishAt(cast)));
         return CollectionsMarshal.AsSpan(resultAOEs);
     }
 
@@ -352,7 +365,7 @@ class DiabolicLight(BossModule module) : Components.GenericAOEs(module)
 
 class AcidRain(BossModule module) : Components.RaidwideCast(module, (uint)AID.AcidRain);
 class DoomStrike(BossModule module) : Components.SingleTargetCast(module, (uint)AID.DoomStrike);
-class ChasingGhost(BossModule module) : Components.Voidzone(module, 4, m => m.Enemies((uint)OID.Ghost).Where(a => a.IsDead))
+class ChasingGhost(BossModule module) : Components.Voidzone(module, 4, m => m.Enemies((uint)OID.Ghost).Where(a => !a.IsDead && a.EventState != 7))
 {
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
         var resultAOEs = new List<AOEInstance>();
@@ -367,7 +380,7 @@ class ChasingGhost(BossModule module) : Components.Voidzone(module, 4, m => m.En
     {
         if (actor.FindStatus(SID.Throttle) != null)
         {
-            var ghost = Sources.Where(s => !s.IsDead).MinBy(s => (s.Position - actor.Position).LengthSq());
+            var ghost = Sources(Module).MinBy(s => (s.Position - actor.Position).LengthSq());
             if (ghost != null)
                 hints.GoalZones.Add(p => p.InCircle(ghost.Position, 1) ? 5 : 0);
             return;
@@ -390,16 +403,16 @@ class ChasingGhost(BossModule module) : Components.Voidzone(module, 4, m => m.En
             base.DrawArenaBackground(pcSlot, pc);
             return;
         }
-        foreach (var ghost in Sources)
-            Arena.ZoneCircle(ghost.Position, Shape.Radius, Colors.SafeFromAOE);
+        foreach (var ghost in Sources(Module))
+            Arena.ZoneCircle(ghost.Position, 4f, Colors.SafeFromAOE);
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         if (pc.FindStatus(SID.Throttle) == null)
             return;
-        foreach (var ghost in Sources)
-            Arena.AddCircleUnfilled(ghost.Position, Shape.Radius, Colors.Safe);
+        foreach (var ghost in Sources(Module))
+            Arena.AddCircleUnfilled(ghost.Position, 4f, Colors.Safe);
     }
 }
 
@@ -515,10 +528,7 @@ public class O5NPhantomTrain(WorldState ws, Actor primary) : BossModule(ws, prim
     // two cars at (-30.6, 1) and (-30.6, 90), conencted via jump pad
     private static ArenaBoundsCustom BuildRoofArena()
     {
-        var forward = new WDir(0, 1);
-        var lower = new PolygonClipper.Operand(CurveApprox.Rect(new WDir(0, 1 - RoofCenter.Z), forward, 7, 24));
-        var upper = new PolygonClipper.Operand(CurveApprox.Rect(new WDir(0, 90 - RoofCenter.Z), forward, 7, 35));
-        return new(76, new PolygonClipper().Union(lower, upper));
+        return new([new Rectangle(new(RoofCenter.X, 1), 7, 24), new Rectangle(new(RoofCenter.X, 90), 7, 35)]);
     }
 
     private bool _occupied;
@@ -544,7 +554,7 @@ public class O5NPhantomTrain(WorldState ws, Actor primary) : BossModule(ws, prim
         }
         else if (OnRoof(player.Position))
         {
-            Arena.Center = RoofCenter;
+            Arena.Center = RoofBounds.Center;
             Arena.Bounds = RoofBounds;
         }
         else

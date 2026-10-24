@@ -76,11 +76,11 @@ class BallisticImpact(BossModule module) : Components.BaitAwayIcon(module, new A
     {
         base.AddAIHints(slot, actor, assignment, hints);
         foreach (var b in ActiveBaitsOn(actor))
-            hints.AddForbiddenZone(SDCircle(Arena.Center, 16), b.Activation);
+            hints.AddForbiddenZone(new SDCircle(Arena.Center, 16), b.Activation);
     }
 }
 
-class BallisticPuddle(BossModule module) : Components.Voidzone(module, 6, m => m.Enemies((uint)OID.BurnPuddle));
+class BallisticPuddle(BossModule module) : Components.Voidzone(module, 6, m => m.Enemies((uint)OID.BurnPuddle).Where(a => a.EventState != 7));
 
 class RocketPunch(BossModule module) : Components.GenericAOEs(module)
 {
@@ -187,7 +187,7 @@ class OmegaJammer(BossModule module) : BossComponent(module)
 
         var reach = 20 + actor.HitboxRadius + target.HitboxRadius;
         hints.ForcedTarget = target;
-        hints.AddForbiddenZone(SDInvertedCircle(target.Position, reach - 1), WorldState.CurrentTime);
+        hints.AddForbiddenZone(new SDInvertedCircle(target.Position, reach - 1), WorldState.CurrentTime);
         if ((actor.Position - target.Position).LengthSq() <= reach * reach)
         {
             var jammer = ActionID.MakeSpell(ClassShared.AID.OmegaJammer);

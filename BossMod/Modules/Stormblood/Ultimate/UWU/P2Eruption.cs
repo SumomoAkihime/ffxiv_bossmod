@@ -62,9 +62,9 @@ class P2Eruption1 : P2Eruption
         }, s.InstanceID)));
     }
 
-    public override void OnStatusGain(Actor actor, in ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        base.OnStatusGain(actor, status);
+        base.OnStatusGain(actor, ref status);
         if ((SID)status.ID == SID.InfernalFetters)
         {
             _fetters = true;

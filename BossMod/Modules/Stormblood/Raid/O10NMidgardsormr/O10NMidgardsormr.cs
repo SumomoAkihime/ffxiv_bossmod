@@ -142,7 +142,7 @@ class Thunderstorm(BossModule module) : Components.SpreadFromCastTargets(module,
 class HorridRoar(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HorridRoar, 6);
 class Cauterize(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Cauterize, new AOEShapeRect(50, 10));
 class ScarletThread(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ScarletThread, new AOEShapeRect(81, 2));
-class FrostBreath(BossModule module) : Components.Cleave(module, (uint)AID.FrostBreath, new AOEShapeCone(20, 45.Degrees()), (uint)OID.AncientDragon);
+class FrostBreath(BossModule module) : Components.Cleave(module, (uint)AID.FrostBreath, new AOEShapeCone(20, 45.Degrees()), [(uint)OID.AncientDragon]);
 class RimeWreath(BossModule module) : Components.RaidwideCast(module, (uint)AID.RimeWreath);
 class TailEnd(BossModule module) : Components.SingleTargetCast(module, (uint)AID.TailEnd);
 class NorthernCross(BossModule module) : Components.RaidwideCast(module, (uint)AID.NorthernCross);
@@ -160,7 +160,7 @@ class DryIceBait(BossModule module) : Components.BaitAwayIcon(module, new AOESha
     {
         base.AddAIHints(slot, actor, assignment, hints);
         foreach (var b in ActiveBaitsOn(actor))
-            hints.AddForbiddenZone(SDCircle(Arena.Center, 16), b.Activation);
+            hints.AddForbiddenZone(new SDCircle(Arena.Center, 16), b.Activation);
     }
 }
 
@@ -215,19 +215,10 @@ class Exaflare(BossModule module) : Components.Exaflare(module, 6, (uint)AID.Exa
 {
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action != WatchedAction)
+        if (spell.Action.ID != WatchedAction)
             return;
 
-        Lines.Add(new()
-        {
-            Next = spell.LocXZ,
-            Advance = spell.Rotation.ToDirection() * 8,
-            Rotation = spell.Rotation,
-            NextExplosion = Module.CastFinishAt(spell),
-            TimeToMove = 1.5f,
-            ExplosionsLeft = 5,
-            MaxShownExplosions = 5,
-        });
+        Lines.Add(new(spell.LocXZ, spell.Rotation.ToDirection() * 8, Module.CastFinishAt(spell), 1.5f, 5, 5, spell.Rotation));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -237,7 +228,11 @@ class Exaflare(BossModule module) : Components.Exaflare(module, 6, (uint)AID.Exa
 
         var line = Lines.FirstOrDefault(x => x.Next.AlmostEqual(caster.Position, 1));
         if (line != null)
+        {
             AdvanceLine(line, caster.Position);
+            if (line.ExplosionsLeft == 0)
+                Lines.Remove(line);
+        }
     }
 }
 
@@ -307,7 +302,7 @@ class ThinIce(BossModule module) : Components.GenericKnockback(module)
         if (dist <= 0)
             return;
 
-        var aoes = new List<AOEInstance>();
+        var aoes = new List<Components.GenericAOEs.AOEInstance>();
         foreach (var comp in Module.Components.OfType<Components.GenericAOEs>())
         {
             var active = comp.ActiveAOEs(slot, actor);

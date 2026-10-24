@@ -62,7 +62,7 @@ class DemonicPain(BossModule module) : Components.CastHint(module, (uint)AID.Dem
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (Module.PrimaryActor.CastInfo?.IsSpell((uint)AID.DemonicPain) != true)
+        if (Module.PrimaryActor.CastInfo?.IsSpell(AID.DemonicPain) != true)
             return;
         var boss = Module.PrimaryActor.Position;
         hints.GoalZones.Add(p => (p - boss).LengthSq() > 225 ? 5 : 0); // 15 yalms
@@ -80,7 +80,7 @@ class Easterlies(BossModule module) : Components.GenericAOEs(module)
         {
             var orb = WorldState.Actors.Find(id);
             if (orb != null)
-                resultAOEs.Add(new(Shape, orb.Position, Activation: activation, Risky: activation < WorldState.FutureTime(4)));
+                resultAOEs.Add(new(Shape, orb.Position, activation: activation, risky: activation < WorldState.FutureTime(4)));
         }
         return CollectionsMarshal.AsSpan(resultAOEs);
     }
@@ -93,7 +93,7 @@ class Easterlies(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.IsSpell((uint)AID.Featherlance))
+        if (spell.IsSpell(AID.Featherlance))
             _activation.Remove(caster.InstanceID);
     }
 
@@ -153,24 +153,24 @@ class Paintings(BossModule module) : BossComponent(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.IsSpell((uint)AID.Possession) || spell.IsSpell((uint)AID.HauntPossession))
+        if (spell.IsSpell(AID.Possession) || spell.IsSpell(AID.HauntPossession))
             Need(spell.LocXZ);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.IsSpell((uint)AID.FlashFire))
+        if (spell.IsSpell(AID.FlashFire))
             Done(Element.Fire);
-        else if (spell.IsSpell((uint)AID.Earthquake))
+        else if (spell.IsSpell(AID.Earthquake))
         {
             _quakeDone = true;
             Done(Element.Earth);
         }
-        else if (spell.IsSpell((uint)AID.DemonicWaveHit))
+        else if (spell.IsSpell(AID.DemonicWaveHit))
             Done(Element.Water);
-        else if (spell.IsSpell((uint)AID.Featherlance))
+        else if (spell.IsSpell(AID.Featherlance))
             Done(Element.Wind);
-        else if (spell.IsSpell((uint)AID.Release) || spell.IsSpell((uint)AID.HauntRelease))
+        else if (spell.IsSpell(AID.Release) || spell.IsSpell(AID.HauntRelease))
         {
             if (FromPos(caster.Position) is { } element)
                 Done(element);
@@ -324,26 +324,70 @@ class BoulderShadow(BossModule module) : Components.GenericLineOfSightAOE(module
     private static readonly WPos Boulder = new(-11.37f, -3.68f);
     private const float Radius = 1.0f;
     private bool _water;
+    private Actor? _boulder;
+    private Actor? _wave;
+    private DateTime _activation;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((spell.IsSpell((uint)AID.Possession) || spell.IsSpell((uint)AID.HauntPossession)) && (spell.LocXZ - Painting).LengthSq() < 25)
+        if ((spell.IsSpell(AID.Possession) || spell.IsSpell(AID.HauntPossession)) && (spell.LocXZ - Painting).LengthSq() < 25)
             _water = true;
+        else if (spell.IsSpell(AID.DemonicWave))
+        {
+            _wave = caster;
+            _activation = Module.CastFinishAt(spell);
+            Refresh();
+        }
     }
 
     public override void OnActorEAnim(Actor actor, uint state)
     {
         if (_water && actor.OID == (uint)OID.Canvas && (actor.Position - Boulder).LengthSq() < 9)
-            Modify(Painting, [(Boulder, Radius)]);
+        {
+            _boulder = actor;
+            Refresh();
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (caster == _wave && spell.IsSpell(AID.DemonicWave))
+        {
+            _wave = null;
+            if (!spell.EventHappened && spell.RemainingTime > 0f)
+                Clear(); // cancelled before the visual cast completed
+        }
+    }
+
+    public override void OnActorDestroyed(Actor actor)
+    {
+        if (actor == _boulder || actor == _wave)
+            Clear();
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.IsSpell((uint)AID.DemonicWaveHit) || spell.IsSpell((uint)AID.Release) && (caster.Position - Painting).LengthSq() < 25 || spell.IsSpell((uint)AID.HauntRelease) && (caster.Position - Painting).LengthSq() < 25)
-        {
-            _water = false;
-            Modify(null, []);
-        }
+        if (spell.IsSpell(AID.DemonicWaveHit)
+            || (spell.IsSpell(AID.Release) || spell.IsSpell(AID.HauntRelease)) && (caster.Position - Painting).LengthSq() < 25)
+            Clear();
+    }
+
+    private void Refresh()
+    {
+        Safezones.Clear();
+        Modify(_boulder != null ? Painting : null, _boulder != null ? [(Boulder, Radius)] : [], _activation);
+        if (_boulder != null)
+            AddSafezone(_activation);
+    }
+
+    private void Clear()
+    {
+        _water = false;
+        _boulder = null;
+        _wave = null;
+        _activation = default;
+        Safezones.Clear();
+        Modify(null, []);
     }
 }
 

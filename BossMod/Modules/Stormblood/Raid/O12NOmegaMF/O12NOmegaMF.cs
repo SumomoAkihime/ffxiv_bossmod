@@ -154,9 +154,9 @@ class SpawnBladework(BossModule module) : Components.GenericAOEs(module, (uint)A
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
         var resultAOEs = new List<AOEInstance>();
         if (_follow != null)
-            resultAOEs.Add(new(_shape, _follow.Position, Activation: _followAt));
+            resultAOEs.Add(new(_shape, _follow.Position, activation: _followAt));
         foreach (var f in _fixed)
-            resultAOEs.Add(new(_shape, f.Pos, Activation: f.At));
+            resultAOEs.Add(new(_shape, f.Pos, activation: f.At));
         return CollectionsMarshal.AsSpan(resultAOEs);
     }
 
@@ -203,7 +203,43 @@ class Discharger(BossModule module) : Components.GenericKnockback(module, (uint)
             result.Add(new(_follow.Position, Distance, _followAt));
         foreach (var f in _fixed)
             result.Add(new(f.Pos, Distance, f.At));
+        result.Sort((a, b) => a.Activation.CompareTo(b.Activation));
         return CollectionsMarshal.AsSpan(result);
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var sources = new List<Knockback>();
+        foreach (var kb in ActiveKnockbacks(slot, actor))
+        {
+            if (!kb.IgnoreImmunes && IsImmune(slot, kb.Activation))
+                continue;
+            sources.Add(kb);
+            hints.AddForbiddenZone(new UnsafeDischarges(Arena.Center, Arena.Bounds.Radius, [.. sources]), kb.Activation);
+        }
+    }
+
+    private sealed class UnsafeDischarges(WPos center, float radius, Knockback[] sources) : ShapeDistance
+    {
+        public override bool Contains(in WPos p)
+        {
+            var projected = p;
+            foreach (var source in sources)
+            {
+                projected = AwayFromSource(projected, source.Origin, source.Distance);
+                if (!projected.InCircle(center, radius))
+                    return true;
+            }
+            return false;
+        }
+
+        public override float Distance(in WPos p) => Contains(p) ? 0f : 1f;
+    }
+
+    public override void OnActorDestroyed(Actor actor)
+    {
+        if (_follow == actor)
+            _follow = null;
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -235,7 +271,7 @@ class Discharger(BossModule module) : Components.GenericKnockback(module, (uint)
     }
 }
 
-class GroundZero(BossModule module) : Components.UniformStackSpread(module, 6, 6, alwaysShowSpreads: true)
+class GroundZero(BossModule module) : Components.UniformStackSpread(module, 6, 6)
 {
     private readonly List<Actor> _pendingStacks = [];
     private DateTime _pendingUntil;
@@ -296,7 +332,7 @@ class OptimizedMeteor(BossModule module) : Components.BaitAwayCast(module, (uint
         DamageType = AIHints.PredictedDamageType.Raidwide;
         base.AddAIHints(slot, actor, assignment, hints);
         foreach (var b in ActiveBaitsOn(actor))
-            hints.AddForbiddenZone(SDCircle(Arena.Center, 16), b.Activation);
+            hints.AddForbiddenZone(new SDCircle(Arena.Center, 16), b.Activation);
     }
 }
 
@@ -305,7 +341,7 @@ class PacketFilter(BossModule module) : BossComponent(module)
     private enum Attack { None, M, F }
     private Attack _attack;
 
-    public override void OnStatusGain(Actor actor, in ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         if (actor != Raid.Player())
             return;
@@ -315,7 +351,7 @@ class PacketFilter(BossModule module) : BossComponent(module)
             _attack = Attack.F;
     }
 
-    public override void OnStatusLose(Actor actor, in ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
         if (actor == Raid.Player() && status.ID is (uint)SID.PacketFilterF or (uint)SID.PacketFilterM)
             _attack = Attack.None;
@@ -354,7 +390,7 @@ class LocalResonance(BossModule module) : BossComponent(module)
             return;
         var avoid = player.FindStatus(SID.PacketFilterM) != null ? Alive(OID.Boss) : player.FindStatus(SID.PacketFilterF) != null ? Alive(OID.OmegaF) : null;
         if (avoid != null)
-            hints.AddForbiddenZone(SDCircle(avoid.Position, 15), WorldState.CurrentTime);
+            hints.AddForbiddenZone(new SDCircle(avoid.Position, 15), WorldState.CurrentTime);
     }
 
     private bool Active => Alive(OID.Boss)?.FindStatus(SID.LocalResonance) != null || Alive(OID.OmegaF)?.FindStatus(SID.LocalResonance) != null;

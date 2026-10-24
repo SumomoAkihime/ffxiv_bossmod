@@ -118,11 +118,22 @@ class KnockDownFlare(BossModule module) : Components.BaitAwayIcon(module, new AO
     {
         base.AddAIHints(slot, actor, assignment, hints);
         foreach (var b in ActiveBaitsOn(actor))
-            hints.AddForbiddenZone(SDCircle(Arena.Center, 17.5f), b.Activation);
+            hints.AddForbiddenZone(new SDCircle(Arena.Center, 17.5f), b.Activation);
     }
 }
 class StraySpray(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeDonut(5, 10), (uint)IconID.DynamicFluid, (uint)AID.StraySpray, 5.5f, true);
-class CycloneKnockback(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.CycloneKnockback, 10, shape: new AOEShapeCircle(30));
+class CycloneKnockback(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.CycloneKnockback, 10, shape: new AOEShapeCircle(30))
+{
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        foreach (var kb in ActiveKnockbacks(slot, actor))
+        {
+            if (!kb.IgnoreImmunes && IsImmune(slot, kb.Activation))
+                continue;
+            hints.AddForbiddenZone(new SDIntersection([Shape!.Distance(kb.Origin, kb.Direction), new SDKnockbackInAABBSquareAwayFromOrigin(Arena.Center, kb.Origin, kb.Distance, Arena.Bounds.Radius)]), kb.Activation);
+        }
+    }
+}
 class Inferno(BossModule module) : Components.RaidwideCast(module, (uint)AID.Inferno);
 class Cyclone(BossModule module) : Components.RaidwideCast(module, (uint)AID.Cyclone);
 class Tsunami(BossModule module) : Components.RaidwideCast(module, (uint)AID.Tsunami);

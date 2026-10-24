@@ -42,6 +42,24 @@ static class TankFacingTests
             check(movable.Length == baseline + 2 && movable[^1](new(0, 5)) == 0.5f,
                 "可移动首领同时保留拉怪和朝向目标");
             check(hints.ForcedMovement == null, "关闭移动时位置偏好不产生强制移动");
+
+            player.PosRot = new(0, 0, 10, 0);
+            boss.PosRot = default;
+            boss.TargetID = player.InstanceID;
+            hints.Clear();
+            var first = new AIHints.Enemy(boss, 1, true) { CanMove = false };
+            var secondActor = new Actor(0xffff2201, 0, 8, 0, "secondary", 0, ActorType.Enemy, Class.None, 100, new(10, 0, 0, 0)) { TargetID = player.InstanceID };
+            var second = new AIHints.Enemy(secondActor, 1, true) { CanMove = false };
+            hints.PotentialTargets.Add(first);
+            hints.PotentialTargets.Add(second);
+            hints.GoalZones.Add(AIHints.GoalSingleTarget(boss, 3));
+            Actor? noPrimaryTarget = null;
+            movement.Execute(strategy, ref noPrimaryTarget, 0, false);
+            check(hints.GoalZones.Count == 3, "无主目标时仍处理所有以玩家为目标的敌人");
+            var nearScore = hints.GoalZones.Sum(g => g(new(0, 1)));
+            var farScore = hints.GoalZones.Sum(g => g(new(0, 10)));
+            check(nearScore > farScore, "原地读条敌人的朝向奖励不压过近战接敌目标");
+            check(hints.ForcedMovement == null, "多敌人目标评分仍遵守 None 移动策略");
         }
         finally
         {

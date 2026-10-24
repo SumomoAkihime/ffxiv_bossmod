@@ -72,6 +72,10 @@ public enum AID : uint
     Deflect = 10006,
     DeflectVeryEasy = 18863,
     MegaPotion = 10229,
+    AntiGravityGimbal = 9483, // O2N Catastrophe
+    BlackPaint = 20304, // O6N Chadarnook
+    Snort = 10270, // O6N Chadarnook
+    OmegaJammer = 12911, // O11N Omega
 
     // Variant actions
     VariantCure1 = 29729, // available in sil'dih
@@ -250,6 +254,10 @@ public sealed class Definitions : Defs
         d.RegisterSpell(AID.Deflect);
         d.RegisterSpell(AID.DeflectVeryEasy);
         d.RegisterSpell(AID.MegaPotion);
+        d.RegisterSpell(AID.AntiGravityGimbal);
+        d.RegisterSpell(AID.BlackPaint);
+        d.RegisterSpell(AID.Snort);
+        d.RegisterSpell(AID.OmegaJammer);
 
         // variant actions
         d.RegisterSpell(AID.VariantCure1);

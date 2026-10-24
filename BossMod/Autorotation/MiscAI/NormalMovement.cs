@@ -211,7 +211,7 @@ public sealed class NormalMovement : RotationModule
                 var distance = (position - Player.Position).Length();
                 var goal = position + enemy.DesiredRotation.ToDirection() * distance;
                 var shape = new SDPrecisePosition(goal, new(0f, 1f), Hints.PathfindMapBounds.MapResolution, Player.Position, 0.1f);
-                Hints.GoalZones.Add(p => shape.Distance(p) >= 0f ? 10f : 0f);
+                Hints.GoalZones.Add(p => shape.Distance(p) >= 0f ? 0.5f : 0f);
             }
         }
 

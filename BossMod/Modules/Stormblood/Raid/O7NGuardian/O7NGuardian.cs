@@ -60,7 +60,18 @@ class Wallop(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Wallop
 class MagitekRay(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MagitekRay, new AOEShapeRect(44.2f, 3));
 class AirForceLaser(BossModule module) : Components.SimpleAOEs(module, (uint)AID.DiffractiveLaserAirForce, new AOEShapeCone(63.5f, 45.Degrees()));
 class ArmAndHammer(BossModule module) : Components.SingleTargetCast(module, (uint)AID.ArmAndHammer);
-class Shockwave(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.Shockwave, 20, shape: new AOEShapeCircle(60));
+class Shockwave(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.Shockwave, 20, shape: new AOEShapeCircle(60))
+{
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        foreach (var kb in ActiveKnockbacks(slot, actor))
+        {
+            if (!kb.IgnoreImmunes && IsImmune(slot, kb.Activation))
+                continue;
+            hints.AddForbiddenZone(new SDIntersection([Shape!.Distance(kb.Origin, kb.Direction), new SDKnockbackInAABBSquareAwayFromOrigin(Arena.Center, kb.Origin, kb.Distance, Arena.Bounds.Radius)]), kb.Activation);
+        }
+    }
+}
 
 class Missiles(BossModule module) : Components.GenericAOEs(module, (uint)AID.Explosion)
 {
@@ -74,7 +85,7 @@ class Missiles(BossModule module) : Components.GenericAOEs(module, (uint)AID.Exp
             if (missile.IsDead)
                 continue;
             // ensure the actual missile itself is always forbidden to prevent a chain cannon dodge from stepping into it
-            resultAOEs.Add(new(Body, missile.Position, Activation: WorldState.CurrentTime));
+            resultAOEs.Add(new(Body, missile.Position, activation: WorldState.CurrentTime));
             resultAOEs.Add(new(Lane, missile.Position, missile.Rotation, WorldState.CurrentTime));
         }
         return CollectionsMarshal.AsSpan(resultAOEs);
@@ -89,8 +100,8 @@ class ChainCannon(BossModule module) : Components.GenericAOEs(module, (uint)AID.
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.IsSpell((uint)AID.ChainCannon))
-            _aoes.Add(new(Shape, spell.TargetXZ, Activation: WorldState.FutureTime(2.5f)));
+        if (spell.IsSpell(AID.ChainCannon))
+            _aoes.Add(new(Shape, spell.TargetXZ, activation: WorldState.FutureTime(2.5f)));
     }
 
     public override void Update() => _aoes.RemoveAll(a => a.Activation <= WorldState.CurrentTime);
@@ -110,7 +121,7 @@ class PreyMarker(BossModule module) : BossComponent(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.IsSpell((uint)AID.Prey))
+        if (spell.IsSpell(AID.Prey))
             _until = default;
     }
 
@@ -229,8 +240,8 @@ class DemonPads(BossModule module) : BossComponent(module)
         foreach (var t in _towers)
         {
             if (MiniArena.Config.ShowOutlinesAndShadows)
-                Arena.AddCircleUnfilled(t.Position, t.Radius, 0xFF000000, 3);
-            Arena.AddCircleUnfilled(t.Position, t.Radius, t.ForbiddenSoakers[pcSlot] ? Colors.Danger : Colors.Safe, 2);
+                Arena.AddCircleUnfilled(t.Position, Radius, 0xFF000000, 3);
+            Arena.AddCircleUnfilled(t.Position, Radius, t.ForbiddenSoakers[pcSlot] ? Colors.Danger : Colors.Safe, 2);
         }
     }
 }

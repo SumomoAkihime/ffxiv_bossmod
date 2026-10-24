@@ -82,11 +82,11 @@ class ThunderIIISplash(BossModule module) : Components.GenericAOEs(module)
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
         var resultAOEs = new List<AOEInstance>();
-        if (Module.PrimaryActor.CastInfo is not { } cast || !cast.IsSpell((uint)AID.ThunderIII))
+        if (Module.PrimaryActor.CastInfo is not { } cast || !cast.IsSpell(AID.ThunderIII))
             return [];
         var target = WorldState.Actors.Find(Module.PrimaryActor.TargetID);
         if (target != null && target != actor)
-            resultAOEs.Add(new(Shape, target.Position, Activation: Module.CastFinishAt(cast)));
+            resultAOEs.Add(new(Shape, target.Position, activation: Module.CastFinishAt(cast)));
         return CollectionsMarshal.AsSpan(resultAOEs);
     }
 }
@@ -99,12 +99,12 @@ class VoidElements(BossModule module) : Components.StayMove(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.IsSpell((uint)AID.VoidBlizzard))
+        if (spell.IsSpell(AID.VoidBlizzard))
         {
             Array.Fill(PlayerStates, new(Requirement.Move, Module.CastFinishAt(spell)));
             _moveUntil = Module.CastFinishAt(spell, 2);
         }
-        else if (spell.IsSpell((uint)AID.VoidFire))
+        else if (spell.IsSpell(AID.VoidFire))
             Array.Fill(PlayerStates, new(Requirement.Stay, Module.CastFinishAt(spell, 3)));
     }
 
@@ -118,22 +118,36 @@ class VoidElements(BossModule module) : Components.StayMove(module)
                 PlayerStates[i] = default;
     }
 
-    public override void OnStatusGain(Actor actor, in ActorStatus status)
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
         if ((SID)status.ID == SID.Pyretic)
-            SetState(Raid.FindSlot(actor.InstanceID), new(Requirement.Stay, status.ExpireAt, 1));
+        {
+            var state = new PlayerState(Requirement.Stay, status.ExpireAt, 1);
+            SetState(Raid.FindSlot(actor.InstanceID), in state);
+        }
         else if ((SID)status.ID == SID.DeepFreeze)
             ClearState(Raid.FindSlot(actor.InstanceID));
     }
 
-    public override void OnStatusLose(Actor actor, in ActorStatus status)
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
         if ((SID)status.ID == SID.Pyretic)
             ClearState(Raid.FindSlot(actor.InstanceID), 1);
     }
 }
 
-class VacuumWave(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.VacuumWave, 11);
+class VacuumWave(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.VacuumWave, 11)
+{
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        foreach (var kb in ActiveKnockbacks(slot, actor))
+        {
+            if (!kb.IgnoreImmunes && IsImmune(slot, kb.Activation))
+                continue;
+            hints.AddForbiddenZone(new SDKnockbackInCircleAwayFromOrigin(Arena.Center, kb.Origin, kb.Distance, Arena.Bounds.Radius), kb.Activation);
+        }
+    }
+}
 class Holy(BossModule module) : Components.StackWithIcon(module, (uint)IconID.Holy, (uint)AID.HolyStack, 6, 5.1f);
 
 class Flare(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCircle(12), (uint)IconID.Flare, (uint)AID.FlareAOE, 5.1f, true)
@@ -149,7 +163,7 @@ class Flare(BossModule module) : Components.BaitAwayIcon(module, new AOEShapeCir
     {
         base.AddAIHints(slot, actor, assignment, hints);
         foreach (var b in ActiveBaitsOn(actor))
-            hints.AddForbiddenZone(SDCircle(Arena.Center, 17.5f), b.Activation);
+            hints.AddForbiddenZone(new SDCircle(Arena.Center, 17.5f), b.Activation);
     }
 }
 
@@ -157,7 +171,7 @@ class Meteor(BossModule module) : Components.RaidwideCast(module, (uint)AID.Mete
 
 class Clearout(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Clearout, new AOEShapeCone(24.2f, 60.Degrees()));
 class MeteorEnrage(BossModule module) : Components.RaidwideCast(module, (uint)AID.MeteorEnrage, "Enrage");
-class BlackHoles(BossModule module) : Components.Voidzone(module, 4, m => m.Enemies((uint)OID.BlackHole));
+class BlackHoles(BossModule module) : Components.Voidzone(module, 4, m => m.Enemies((uint)OID.BlackHole).Where(a => a.EventState != 7));
 
 class DecisiveBattle(BossModule module) : Components.GenericAOEs(module)
 {
@@ -182,7 +196,7 @@ class DecisiveBattle(BossModule module) : Components.GenericAOEs(module)
 
     public override void AddGlobalHints(GlobalHints hints)
     {
-        if (_count >= 2 && (_meteor != null || Module.PrimaryActor.CastInfo?.IsSpell((uint)AID.TheDecisiveBattle) == true))
+        if (_count >= 2 && (_meteor != null || Module.PrimaryActor.CastInfo?.IsSpell(AID.TheDecisiveBattle) == true))
             hints.Add("Stand in the vine gap");
         else if (_meteor != null)
             hints.Add("Go to the edge");
@@ -192,11 +206,11 @@ class DecisiveBattle(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.IsSpell((uint)AID.TheDecisiveBattle))
+        if (spell.IsSpell(AID.TheDecisiveBattle))
             ++_count;
-        else if (spell.IsSpell((uint)AID.DecisiveMeteor))
-            _meteor = new(Meteor, Arena.Center, Activation: Module.CastFinishAt(spell));
-        else if (spell.IsSpell((uint)AID.ZombieBreath))
+        else if (spell.IsSpell(AID.DecisiveMeteor))
+            _meteor = new(Meteor, Arena.Center, activation: Module.CastFinishAt(spell));
+        else if (spell.IsSpell(AID.ZombieBreath))
             _breath = new(Breath, caster.Position, spell.Rotation, Module.CastFinishAt(spell));
     }
 
@@ -205,7 +219,7 @@ class DecisiveBattle(BossModule module) : Components.GenericAOEs(module)
         if (spell.Action.ID == (uint)AID.DecisiveMeteor)
             _meteor = null;
         else if (spell.Action.ID == (uint)AID.Collision)
-            _head = new(HeadHazard, Arena.Center, Activation: WorldState.FutureTime(5));
+            _head = new(HeadHazard, Arena.Center, activation: WorldState.FutureTime(5));
         else if (spell.Action.ID == (uint)AID.ZombieBreath)
         {
             _breath = null;

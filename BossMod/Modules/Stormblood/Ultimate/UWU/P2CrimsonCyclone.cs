@@ -44,7 +44,7 @@ class CrimsonCyclone(BossModule module, float predictionDelay) : Components.Gene
         for (var i = 0; i < predictedCount; ++i)
         {
             var p = _predicted[i];
-            aoes[index++] = new(p.shape, p.pos, p.rot, p.activation, Risky: false);
+            aoes[index++] = new(p.shape, p.pos, p.rot, p.activation, risky: false);
         }
 
         for (var i = 0; i < casterCount; ++i)

@@ -36,35 +36,45 @@ public enum AID : uint
     FrostBreath = 9334, // GreatDragon->self, no cast, range 15, 8.5-degree cone, frontal cone AoE
 }
 
-class Ribbit(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Ribbit, new AOEShapeCone(19.5f, 75f.Degrees()));
-class SpellbladeThunderIII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpellbladeThunderIII, new AOEShapeRect(60f, 3f));
-class SpellbladeBlizzardIII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpellbladeBlizzardIII, 9f);
-class SpellbladeFireIII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpellbladeFireIII, new AOEShapeDonut(4f, 15f));
-class CrossReaper(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CrossReaper, 10f);
-class TheQueensWaltz1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TheQueensWaltz1, new AOEShapeCone(34f, 10f.Degrees()));
+class Ribbit(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Ribbit, new AOEShapeCone(19.5f, 75.Degrees()));
+class SpellbladeThunderIII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpellbladeThunderIII, new AOEShapeRect(60, 3));
+class SpellbladeBlizzardIII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpellbladeBlizzardIII, new AOEShapeCircle(9));
+class SpellbladeFireIII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpellbladeFireIII, new AOEShapeDonut(4, 15));
+class CrossReaper(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CrossReaper, new AOEShapeCircle(10));
+class TheQueensWaltz1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TheQueensWaltz1, new AOEShapeCone(34, 10.Degrees()));
 class TheQueensWaltz2(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<AOEInstance> _aoes = [];
-    private static readonly AOEShapeRect rect = new(5f, 5f, 5f);
+    private static readonly AOEShapeRect rect = new(5, 5, 5);
 
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var result = new List<AOEInstance>(_aoes.Count);
+        for (var i = 12; i < _aoes.Count; ++i)
+            result.Add(_aoes[i]);
+        for (var i = 0; i < Math.Min(12, _aoes.Count); ++i)
+        {
+            var aoe = _aoes[i];
+            aoe.Color = Colors.AOE;
+            result.Add(aoe);
+        }
+        return CollectionsMarshal.AsSpan(result);
+    }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.TheQueensWaltz2)
+        if ((AID)spell.Action.ID is AID.TheQueensWaltz2)
         {
             int[] xOffsets = [-15, -5, 5, 15];
             int[] zOffsets = [-15, -5, 5, 15];
 
-            for (var i = 0; i < 4; ++i)
+            foreach (var zOffset in zOffsets)
             {
-                var z = zOffsets[i];
-                for (var j = 0; j < 4; ++j)
+                foreach (var xOffset in xOffsets)
                 {
-                    var x = xOffsets[j];
-                    if (x != z)
+                    if (xOffset != zOffset)
                     {
-                        _aoes.Add(new(rect, new(x, z)));
+                        _aoes.Add(new(rect, new(xOffset, zOffset)));
                     }
                 }
             }
@@ -73,9 +83,9 @@ class TheQueensWaltz2(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action.ID == (uint)AID.TheQueensWaltz2)
+        if (_aoes.Count > 0 && (AID)spell.Action.ID == AID.TheQueensWaltz2)
         {
-            _aoes.Clear();
+            _aoes.RemoveRange(0, Math.Min(12, _aoes.Count));
         }
     }
 }
@@ -83,54 +93,46 @@ class TheQueensWaltz2(BossModule module) : Components.GenericAOEs(module)
 class TheGame(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<AOEInstance> _aoes = [];
-    private static readonly AOEShapeRect rect = new(5f, 5f, 5f);
+    private static readonly AOEShapeRect rect = new(5, 5, 5);
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if (_aoes.Count > 0)
-        {
-            var safeTiles = new List<int>();
+        if (_aoes.Count == 0)
+            return [];
 
-            switch (actor.Role)
-            {
-                case Role.Tank:
-                    safeTiles.Add(6);
-                    break;
-                case Role.Healer:
-                    safeTiles.Add(9);
-                    break;
-                case Role.Melee:
-                case Role.Ranged:
-                    safeTiles.Add(5);
-                    safeTiles.Add(10);
-                    break;
-            }
-            var aoes = new List<AOEInstance>();
-            for (var i = 0; i < 16; ++i)
-            {
-                if (!safeTiles.Contains(i))
-                {
-                    aoes.Add(_aoes[i]);
-                }
-            }
-            return CollectionsMarshal.AsSpan(aoes);
+        int[] safeTiles = actor.Role switch
+        {
+            Role.Tank => [6],
+            Role.Healer => [9],
+            Role.Melee or Role.Ranged => [5, 10],
+            _ => []
+        };
+        var result = new List<AOEInstance>(_aoes.Count);
+        for (var i = 16; i < _aoes.Count; ++i)
+            result.Add(_aoes[i]);
+        for (var i = 0; i < Math.Min(16, _aoes.Count); ++i)
+        {
+            if (safeTiles.Contains(i))
+                continue;
+            var aoe = _aoes[i];
+            aoe.Color = Colors.AOE;
+            result.Add(aoe);
         }
-        return [];
+        return CollectionsMarshal.AsSpan(result);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.TheGame)
+        if ((AID)spell.Action.ID is AID.TheGame)
         {
             int[] xOffsets = [-15, -5, 5, 15];
             int[] zOffsets = [-15, -5, 5, 15];
 
-            for (var i = 0; i < 4; ++i)
+            foreach (var zOffset in zOffsets)
             {
-                var z = zOffsets[i];
-                for (var j = 0; j < 4; ++j)
+                foreach (var xOffset in xOffsets)
                 {
-                    _aoes.Add(new(rect, new(xOffsets[j], z)));
+                    _aoes.Add(new(rect, new(xOffset, zOffset)));
                 }
             }
         }
@@ -138,9 +140,9 @@ class TheGame(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action.ID == (uint)AID.TheGame)
+        if (_aoes.Count > 0 && (AID)spell.Action.ID == AID.TheGame)
         {
-            _aoes.Clear();
+            _aoes.RemoveRange(0, Math.Min(16, _aoes.Count));
         }
     }
 }
@@ -162,4 +164,4 @@ class O3NHalicarnassusStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "VeraNala", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 254, NameID = 5633)]
-public class O3NHalicarnassus(WorldState ws, Actor primary) : BossModule(ws, primary, default, new ArenaBoundsSquare(20));
+public class O3NHalicarnassus(WorldState ws, Actor primary) : BossModule(ws, primary, new(0, 0), new ArenaBoundsSquare(20));

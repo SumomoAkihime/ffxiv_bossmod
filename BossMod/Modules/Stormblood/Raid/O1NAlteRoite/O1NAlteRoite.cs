@@ -53,6 +53,16 @@ class Blaze(BossModule module) : Components.StackWithCastTargets(module, (uint)A
 
 class BreathWing(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.BreathWing, 8, kind: Components.GenericKnockback.Kind.DirForward)
 {
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        foreach (var kb in ActiveKnockbacks(slot, actor))
+        {
+            if (!kb.IgnoreImmunes && IsImmune(slot, kb.Activation))
+                continue;
+            hints.AddForbiddenZone(new SDKnockbackInAABBSquareFixedDirection(Arena.Center, kb.Distance * kb.Direction.ToDirection(), Arena.Bounds.Radius), kb.Activation);
+        }
+    }
+
     public override void AddGlobalHints(GlobalHints hints)
     {
         if (Casters.Count > 0)
@@ -99,7 +109,7 @@ class TwinBolt(BossModule module) : Components.CastHint(module, (uint)AID.TwinBo
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         base.OnCastStarted(caster, spell);
-        if (spell.Action == WatchedAction)
+        if (spell.Action.ID == WatchedAction)
             _activation = Module.CastFinishAt(spell, 0.7f);
     }
 
@@ -128,12 +138,12 @@ class TwinBolt(BossModule module) : Components.CastHint(module, (uint)AID.TwinBo
         var (source, target) = Pair();
         if (_activation == default || source == null)
             return;
-        if (Raid.TryFindSlot(source, out var sourceSlot))
+        if (Raid.TryFindSlot(source.InstanceID, out var sourceSlot))
             hints.AddPredictedDamage(new BitMask().WithBit(sourceSlot), _activation, AIHints.PredictedDamageType.Tankbuster);
-        if (target != null && Raid.TryFindSlot(target, out var targetSlot))
+        if (target != null && Raid.TryFindSlot(target.InstanceID, out var targetSlot))
             hints.AddPredictedDamage(new BitMask().WithBit(targetSlot), _activation, AIHints.PredictedDamageType.Tankbuster);
         if (_tethers.Count == 0 && actor.Role != Role.Tank)
-            hints.AddForbiddenZone(SDCircle(source.Position, 8), _activation);
+            hints.AddForbiddenZone(new SDCircle(source.Position, 8), _activation);
     }
 
     public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor)
@@ -191,7 +201,7 @@ class Burn(BossModule module) : Components.GenericAOEs(module)
 
         var soonest = _orbs.Min(o => o.Activation);
         foreach (var o in _orbs)
-            resultAOEs.Add(new(_shape, o.Orb.Position, default, o.Activation, Risky: o.Activation <= soonest.AddSeconds(0.5f)));
+            resultAOEs.Add(new(_shape, o.Orb.Position, default, o.Activation, risky: o.Activation <= soonest.AddSeconds(0.5f)));
         return CollectionsMarshal.AsSpan(resultAOEs);
     }
 
@@ -304,7 +314,7 @@ class ThinIce(BossModule module) : Components.GenericKnockback(module)
         if (dist <= 0)
             return;
 
-        var aoes = new List<AOEInstance>();
+        var aoes = new List<Components.GenericAOEs.AOEInstance>();
         foreach (var comp in Module.Components.OfType<Components.GenericAOEs>())
         {
             var active = comp.ActiveAOEs(slot, actor);
