@@ -2,7 +2,8 @@
 
 namespace BossMod.Stormblood.Ultimate.UWU;
 
-sealed class Multibox(RotationModuleManager manager, Actor player) : RotationModule(manager, player)
+// TODO: delete this and just put a "stand here" entry in each cdplan for countdown
+class Multibox(RotationModuleManager manager, Actor player) : RotationModule(manager, player)
 {
     public static RotationModuleDefinition Definition()
     {
@@ -13,29 +14,25 @@ sealed class Multibox(RotationModuleManager manager, Actor player) : RotationMod
 
     public override void Execute(StrategyValues strategy, ref Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving)
     {
-        if (Bossmods.ActiveModule is not UWU module)
-            return;
-
-        if (module.StateMachine.ActiveState != null
-            && World.Party.WithoutSlot(true, true, true).Any(p => p.IsDead || p.FindStatus(235u, DateTime.MaxValue) != null)
-            && module.StateMachine.ActivePhaseIndex < 4)
-        {
-            Hints.ForcedMovement = -Player.DirectionTo(new WPos(100f, 100f)).ToVec3();
-        }
+        //if (World.Party.WithoutSlot(includeDead: true).Any(p => p.IsDead) && Bossmods.ActiveModule!.StateMachine.ActivePhaseIndex < 3)
+        //    Hints.ForcedMovement = -Player.DirectionTo(new WPos(100, 100)).ToVec3();
 
         var playerAssignment = partyRolesConfig[World.Party.Members[0].ContentId];
-        _ = playerAssignment;
 
-        if (!Player.InCombat && World.Client.CountdownRemaining > 0f)
+        if (!Player.InCombat && World.Client.CountdownRemaining > 0)
         {
-            if (!(Player.FindStatus(48u, DateTime.MaxValue)?.ExpireAt > World.FutureTime(1020d)))
+            if (!(Player.FindStatus(48, DateTime.MaxValue)?.ExpireAt > World.FutureTime(1020)))
+            {
                 Hints.ActionsToExecute.Push(ActionDefinitions.IDPopcorn, Player, ActionQueue.Priority.High);
+            }
 
             if (primaryTarget != null)
             {
-                var destination = primaryTarget.Position + primaryTarget.DirectionTo(Player) * (14f + primaryTarget.HitboxRadius + 0.5f);
-                var shape = new SDPrecisePosition(destination, new(0f, 1f), 0.5f, Player.Position, 0.1f);
-                Hints.GoalZones.Add(p => shape.Distance(p) > 0f ? 5f : 0f);
+                var destination = primaryTarget.Position + primaryTarget.DirectionTo(Player) * (14 + primaryTarget.HitboxRadius + 0.5f);
+
+                var sh = new SDPrecisePosition(destination, new(0, 1), 0.5f, Player.Position, 0.1f);
+
+                Hints.GoalZones.Add(p => !sh.Contains(p) ? 5 : 0);
             }
         }
     }

@@ -91,7 +91,11 @@ static class UpstreamOmega20261024Tests
         m.StateMachine.Start(f.World.CurrentTime);
         var component = Component<GenericKnockback>(m, "Discharger");
         f.StartCast(m.PrimaryActor, 13041, m.Arena.Center, 2);
-        f.Event(m.PrimaryActor, 13075, m.Arena.Center + new WDir(-15, 0));
+        check(component.ActiveKnockbacks(0, f.Player).Length == 0, "O12 变身读条尚未结算时不提前创建放电来源");
+        var other = f.Create(0x247C, m.Arena.Center + new WDir(-15, 0));
+        f.Event(other, 13050, other.Position);
+        f.World.Frame = new(f.World.FutureTime(1), 0, 0, 0, 0, 1);
+        f.Event(m.PrimaryActor, 13050, m.Arena.Center);
         var sources = component.ActiveKnockbacks(0, f.Player);
         check(sources.Length == 2 && sources[0].Activation < sources[1].Activation, "O12 位移来源按实际结算先后排序");
         var hints = new AIHints();
@@ -100,17 +104,25 @@ static class UpstreamOmega20261024Tests
             && hints.ForbiddenZones[1].shapeDistance.Contains(m.Arena.Center), "O12 第二段从第一段落点继续计算，排除仅首段安全的位置");
         check(hints.ForbiddenZones.All(z => !z.shapeDistance.Contains(m.Arena.Center + new WDir(-14.9f, 0))), "O12 联合约束保留两段均安全的起点");
         var later = sources[1].Activation;
-        f.Status(0, new((uint)BossMod.WAR.SID.ArmsLength, 0, f.World.FutureTime(10), f.Player.InstanceID));
+        f.Status(0, new((uint)BossMod.WAR.SID.ArmsLength, 0, sources[0].Activation.AddSeconds(0.1), f.Player.InstanceID));
         hints.Clear();
         component.AddAIHints(0, f.Player, default, hints);
         check(hints.ForbiddenZones.Count == 1 && hints.ForbiddenZones[0].activation == later, "O12 按每段生效时刻分别判断抗击退");
         f.Status(0, default);
+        f.Event(other, 13046, other.Position);
+        check(component.ActiveKnockbacks(0, f.Player).Length == 1, "O12 每个来源的放电独立结算");
         f.Event(m.PrimaryActor, 13046, m.Arena.Center);
         f.Event(m.PrimaryActor, 13046, m.Arena.Center);
         check(component.ActiveKnockbacks(0, f.Player).Length == 0, "O12 放电结算及重复事件均不留下来源");
-        f.StartCast(m.PrimaryActor, 13041, m.Arena.Center, 2);
+        var blade = Component<GenericAOEs>(m, "SpawnBladework");
+        f.Event(m.PrimaryActor, 13048, m.Arena.Center);
+        check(blade.ActiveAOEs(0, f.Player).Length == 1, "O12 变身结算后才开始预测剑技");
+        f.Event(m.PrimaryActor, 13043, m.Arena.Center);
+        check(blade.ActiveAOEs(0, f.Player).Length == 0, "O12 剑技实际结算清理预测");
+        f.Event(m.PrimaryActor, 13048, m.Arena.Center);
+        f.Event(m.PrimaryActor, 13050, m.Arena.Center);
         f.World.Execute(new ActorState.OpDestroy(m.PrimaryActor.InstanceID));
-        check(component.ActiveKnockbacks(0, f.Player).Length == 0, "O12 跟随来源销毁后清理预测");
+        check(component.ActiveKnockbacks(0, f.Player).Length == 0 && blade.ActiveAOEs(0, f.Player).Length == 0, "O12 跟随来源销毁后清理放电和剑技预测");
     }
 
     private static void VerifyGhostsAndStack(Action<bool, string> check)
@@ -206,17 +218,28 @@ static class UpstreamOmega20261024Tests
             var female = f.Create(0x247C, m.Arena.Center + new WDir(5, 0));
             var filter = Component<BossComponent>(m, "PacketFilter");
             var hints = new AIHints();
+            void Targets()
+            {
+                hints.Clear();
+                foreach (var actor in new[] { m.PrimaryActor, female })
+                {
+                    var enemy = new AIHints.Enemy(actor, 0, true);
+                    hints.Enemies[actor.CharacterSpawnIndex] = enemy;
+                    hints.PotentialTargets.Add(enemy);
+                }
+            }
+            Targets();
             f.Status(0, new(1661, 0, f.World.FutureTime(30), f.Player.InstanceID));
             filter.AddAIHints(0, f.Player, default, hints);
-            check(hints.ForcedTarget == m.PrimaryActor, "O12 PacketFilterF 状态通过真实回调选择男欧米茄");
+            check(hints.FindEnemy(m.PrimaryActor)!.ShouldBeTargeted && !hints.FindEnemy(female)!.ShouldBeTargeted && hints.ForcedTarget == null, "O12 PacketFilterF 状态通过真实回调优先选择男欧米茄");
             f.Status(0, new(1660, 0, f.World.FutureTime(30), f.Player.InstanceID));
-            hints.Clear();
+            Targets();
             filter.AddAIHints(0, f.Player, default, hints);
-            check(hints.ForcedTarget == female, "O12 PacketFilterM 状态通过真实回调选择女欧米茄");
+            check(hints.FindEnemy(female)!.ShouldBeTargeted && !hints.FindEnemy(m.PrimaryActor)!.ShouldBeTargeted && hints.ForcedTarget == null, "O12 PacketFilterM 状态通过真实回调优先选择女欧米茄");
             f.Status(0, default);
-            hints.Clear();
+            Targets();
             filter.AddAIHints(0, f.Player, default, hints);
-            check(hints.ForcedTarget == null, "O12 状态消失后解除强制目标");
+            check(!hints.FindEnemy(m.PrimaryActor)!.ShouldBeTargeted && !hints.FindEnemy(female)!.ShouldBeTargeted && hints.ForcedTarget == null, "O12 状态消失后解除目标优先选择");
         }
         using (var f = new Fixture())
         using (var m = f.Module(0x2448))

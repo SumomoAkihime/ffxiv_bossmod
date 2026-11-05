@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Stormblood.Ultimate.UWU;
 
-class FlamingCrush(BossModule module) : Components.UniformStackSpread(module, 4f, default, 6, 6)
+class FlamingCrush(BossModule module) : Components.UniformStackSpread(module, 4, 0, 6)
 {
     protected BitMask Avoid;
 
@@ -8,13 +8,13 @@ class FlamingCrush(BossModule module) : Components.UniformStackSpread(module, 4f
     {
         if (iconID == (uint)IconID.FlamingCrush)
         {
-            AddStack(actor, default, Avoid);
+            AddStack(actor, WorldState.FutureTime(5.1f), Avoid);
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action.ID == (uint)AID.FlamingCrush)
+        if ((AID)spell.Action.ID == AID.FlamingCrush)
         {
             Stacks.Clear();
         }
@@ -33,13 +33,26 @@ class P2FlamingCrush : FlamingCrush
 }
 
 // during P4 (annihilation), everyone should stack (except maybe ranged/caster that will handle mesohigh)
-class P4FlamingCrush(BossModule module) : FlamingCrush(module) { }
+class P4FlamingCrush(BossModule module) : FlamingCrush(module)
+{
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        base.AddAIHints(slot, actor, assignment, hints);
+
+        // dodge left/right together
+        if (Stacks.Count > 0)
+        {
+            var z = assignment == PartyRolesConfig.Assignment.R1 ? 99 : 97;
+            hints.AddForbiddenZone(new SDInvertedRect(new WPos(94, z), new WPos(106, z), 0.51f), Stacks[0].Activation);
+        }
+    }
+}
 
 // during P5 (suppression), everyone except mesohigh handler (typically tank) should stack
 class P5FlamingCrush : FlamingCrush
 {
     public P5FlamingCrush(BossModule module) : base(module)
     {
-        Avoid = Raid.WithSlot(true, true, true).WhereActor(p => p.FindStatus((uint)SID.ThermalLow) != null && p.Role != Role.Healer).Mask();
+        Avoid = Raid.WithSlot(true).WhereActor(p => p.FindStatus(SID.ThermalLow) != null && p.Role != Role.Healer).Mask();
     }
 }

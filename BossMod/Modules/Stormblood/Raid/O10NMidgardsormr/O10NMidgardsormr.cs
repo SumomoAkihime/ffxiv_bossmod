@@ -333,7 +333,7 @@ class ThinIce(BossModule module) : Components.GenericKnockback(module)
             }
         }
         if (bestDir != default)
-            hints.ForcedMovement = bestDir.ToVec3(actor.PosRot.Y);
+            hints.GoalZones.Add(AIHints.GoalProximity(actor.Position + dist * bestDir, 2, 80));
     }
 }
 

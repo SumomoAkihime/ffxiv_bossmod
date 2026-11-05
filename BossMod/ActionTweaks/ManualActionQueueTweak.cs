@@ -205,7 +205,7 @@ public sealed class ManualActionQueueTweak(WorldState ws, AIHints hints)
             return false; // target is valid, but not found in world, bail... (TODO this shouldn't be happening really)
 
         // custom smart-targeting
-        if (allowSmartTarget && _config.SmartTargets && def.SmartTarget != null)
+        if (allowSmartTarget && _config.SmartTargets && !ActionTweaksConfig.IsRSREnabled() && def.SmartTarget != null)
             target = def.SmartTarget(ws, player, target, hints);
 
         // fallback: if requested, use native "target nearest" function to try to find a valid hostile target

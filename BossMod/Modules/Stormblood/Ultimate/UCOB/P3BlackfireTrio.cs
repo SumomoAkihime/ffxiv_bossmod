@@ -142,7 +142,7 @@ sealed class P3BlackfireLiquidHell(BossModule module) : LiquidHellBase(module)
     }
 }
 
-sealed class P3MegaflareTower(BossModule module) : Components.CastTowers(module, (uint)AID.MegaflareTower, 3f)
+class P3MegaflareTower(BossModule module) : Components.CastTowers(module, (uint)AID.MegaflareTower, 3f)
 {
     BitMask _stackTargets;
     bool _assigned;
@@ -333,78 +333,59 @@ sealed class P3MegaflareTower(BossModule module) : Components.CastTowers(module,
     }
 }
 
-sealed class P3MegaflareStack(BossModule module) : Components.UniformStackSpread(module, 5f, 0f, 4, 4)
+class P3MegaflareStack(BossModule module) : Components.UniformStackSpread(module, 5, 0, 4, 4)
 {
-    private readonly P3BlackfireTrio? _blackfire = module.FindComponent<P3BlackfireTrio>();
-    private bool _twinBait;
-    private int _numHypernovas;
+    bool _twinBait;
+    int _numHypernovas;
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
         if (iconID == (uint)IconID.MegaflareStack)
         {
             if (Stacks.Count == 0)
-            {
-                AddStack(actor, WorldState.FutureTime(5d), new(0xff));
-            }
+                AddStack(actor, WorldState.FutureTime(5), new(0xff));
             Stacks.Ref(0).ForbiddenPlayers.Clear(Raid.FindSlot(actor.InstanceID));
         }
     }
 
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if (spell.Action.ID == (uint)AID.MegaflareStack)
-        {
-            Stacks.Clear();
-        }
-        if (spell.Action.ID == (uint)AID.Hypernova)
-            ++_numHypernovas;
-    }
-
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.TwistingDive)
-        {
+        if ((AID)spell.Action.ID == AID.TwistingDive)
             _twinBait = true;
-        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if ((AID)spell.Action.ID == AID.MegaflareStack)
+            Stacks.Clear();
+
+        if ((AID)spell.Action.ID == AID.Hypernova)
+            _numHypernovas++;
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var count = Stacks.Count;
-        if (count == 0)
+        if (Stacks is not ([var st, ..]) || st.ForbiddenPlayers[slot])
+            return;
+
+        // bft: stack spot is relative south of puddles
+        if (Module.FindComponent<P3BlackfireTrio>() is { } bft)
         {
+            // delay for one hypernova
+            hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center + (bft.RelativeNorth + 180.Degrees()).ToDirection() * 8, _numHypernovas == 0 ? 7.5f : 2.5f), st.Activation);
             return;
         }
 
-        ref var stack = ref Stacks.Ref(0);
-        // avoid all stack targets
-        if (stack.ForbiddenPlayers[slot])
+        // GO: stack on wall on the opposite side of the twin bait
+        // if the baiter has to run through a tower to get to the stack they might hit a tower player
+        if (Module.FindComponent<P3GrandOctet>() is { Twintania: { } twin, BaitOrder: var b, DiveOrder: var d })
         {
-            var raid = Raid.WithSlot(false, true, true);
-            var len = raid.Length;
-            for (var i = 0; i < len; ++i)
-            {
-                var p = raid[i];
-                if (!stack.ForbiddenPlayers[p.Item1])
-                {
-                    hints.AddForbiddenZone(new SDCircle(p.Item2.Position, StackRadius), stack.Activation);
-                }
-            }
-        }
-        else if (_blackfire != null) // bft: stack spot is relative south of puddles
-        {
-            hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center + (_blackfire.RelativeNorth + 180f.Degrees()).ToDirection() * 8f, _numHypernovas == 0 ? 7.5f : 2.5f), stack.Activation);
-        }
-        else if (Module.FindComponent<P3GrandOctet>() is { Twintania: { } twintania } octet)
-        {
-            if (octet.BaitOrder[slot] == 8 && !_twinBait)
-            {
+            // player is baiting twin, don't move
+            if (b[slot] == 8 && !_twinBait)
                 return;
-            }
 
-            var direction = (twintania.Position - Arena.Center).ToAngle() - (20f * octet.DiveOrder).Degrees();
-            hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center + direction.ToDirection() * 19f, 1f), stack.Activation);
+            var toTwin = (twin.Position - Arena.Center).ToAngle() - (20 * d).Degrees();
+            hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center + toTwin.ToDirection() * 19, 1), st.Activation);
         }
     }
 }

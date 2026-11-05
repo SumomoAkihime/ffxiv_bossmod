@@ -61,7 +61,7 @@ static class UCOBSeptemberTests
         var (world, module, player) = Fixture();
         using (module)
         {
-            var chain = (UniformStackSpread)Component(module, "P2BahamutsFavorChainLightning");
+            var chain = (StrictUniformStackSpread)Component(module, "P2BahamutsFavorChainLightning");
             chain.AddSpread(player, world.FutureTime(5d));
             var hints = new AIHints();
             chain.AddAIHints(0, player, Role.MT, hints);

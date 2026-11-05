@@ -1,187 +1,147 @@
 ﻿namespace BossMod.Stormblood.Ultimate.UCOB;
 
-sealed class Quote(BossModule module) : BossComponent(module)
+class Quote(BossModule module) : BossComponent(module)
 {
     public Actor? Source;
-    public List<uint> PendingMechanics = [];
+    public List<AID> PendingMechanics = [];
     public DateTime NextActivation;
-    private readonly StringBuilder _stringbuilder = new(20);
 
-    public override void AddGlobalHints(Actor actor, GlobalHints hints)
+    public override void AddGlobalHints(GlobalHints hints)
     {
-        var count = PendingMechanics.Count;
-        if (count > 0)
+        if (PendingMechanics.Count > 0)
         {
-            var sb = _stringbuilder;
-            sb.Clear();
-            for (var i = 0; i < count; ++i)
+            hints.Add(string.Join(" > ", PendingMechanics.Select(aid => aid switch
             {
-                var hint = PendingMechanics[i] switch
-                {
-                    (uint)AID.IronChariot => "Out",
-                    (uint)AID.LunarDynamo => "In",
-                    (uint)AID.ThermionicBeam => "Stack",
-                    (uint)AID.RavenDive or (uint)AID.MeteorStream => "Spread",
-                    (uint)AID.DalamudDive => "Tankbuster",
-                    _ => "???"
-                };
-
-                if (sb.Length > 0)
-                {
-                    sb.Append(" > ");
-                }
-                sb.Append(hint);
-            }
-            hints.Add(sb.ToString());
+                AID.IronChariot => "Out",
+                AID.LunarDynamo => "In",
+                AID.ThermionicBeam => "Stack",
+                AID.RavenDive or AID.MeteorStream => "Spread",
+                AID.DalamudDive => "Tankbuster",
+                _ => "???"
+            })));
         }
     }
 
     public override void OnActorNpcYell(Actor actor, ushort id)
     {
-        List<uint> aids = id switch
+        List<AID> aids = id switch
         {
-            6492 => [(uint)AID.LunarDynamo, (uint)AID.IronChariot],
-            6493 => [(uint)AID.LunarDynamo, (uint)AID.ThermionicBeam],
-            6494 => [(uint)AID.ThermionicBeam, (uint)AID.IronChariot],
-            6495 => [(uint)AID.ThermionicBeam, (uint)AID.LunarDynamo],
-            6496 => [(uint)AID.RavenDive, (uint)AID.IronChariot],
-            6497 => [(uint)AID.RavenDive, (uint)AID.LunarDynamo],
-            6500 => [(uint)AID.MeteorStream, (uint)AID.DalamudDive],
-            6501 => [(uint)AID.DalamudDive, (uint)AID.ThermionicBeam],
-            6502 => [(uint)AID.RavenDive, (uint)AID.LunarDynamo, (uint)AID.MeteorStream],
-            6503 => [(uint)AID.LunarDynamo, (uint)AID.RavenDive, (uint)AID.MeteorStream],
-            6504 => [(uint)AID.IronChariot, (uint)AID.ThermionicBeam, (uint)AID.RavenDive],
-            6505 => [(uint)AID.IronChariot, (uint)AID.RavenDive, (uint)AID.ThermionicBeam],
-            6506 => [(uint)AID.LunarDynamo, (uint)AID.RavenDive, (uint)AID.ThermionicBeam],
-            6507 => [(uint)AID.LunarDynamo, (uint)AID.IronChariot, (uint)AID.RavenDive],
+            6492 => [AID.LunarDynamo, AID.IronChariot],
+            6493 => [AID.LunarDynamo, AID.ThermionicBeam],
+            6494 => [AID.ThermionicBeam, AID.IronChariot],
+            6495 => [AID.ThermionicBeam, AID.LunarDynamo],
+            6496 => [AID.RavenDive, AID.IronChariot],
+            6497 => [AID.RavenDive, AID.LunarDynamo],
+            6500 => [AID.MeteorStream, AID.DalamudDive],
+            6501 => [AID.DalamudDive, AID.ThermionicBeam],
+            6502 => [AID.RavenDive, AID.LunarDynamo, AID.MeteorStream],
+            6503 => [AID.LunarDynamo, AID.RavenDive, AID.MeteorStream],
+            6504 => [AID.IronChariot, AID.ThermionicBeam, AID.RavenDive],
+            6505 => [AID.IronChariot, AID.RavenDive, AID.ThermionicBeam],
+            6506 => [AID.LunarDynamo, AID.RavenDive, AID.ThermionicBeam],
+            6507 => [AID.LunarDynamo, AID.IronChariot, AID.RavenDive],
             _ => []
         };
         if (aids.Count > 0)
         {
             Source = actor;
             PendingMechanics = aids;
-            NextActivation = WorldState.FutureTime(5.1d);
+            NextActivation = WorldState.FutureTime(5.1f);
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (PendingMechanics.Count != 0 && spell.Action.ID == PendingMechanics[0])
+        if (PendingMechanics.Count > 0 && (AID)spell.Action.ID == PendingMechanics[0])
         {
             PendingMechanics.RemoveAt(0);
-            NextActivation = WorldState.FutureTime(3.1d);
+            NextActivation = WorldState.FutureTime(3.1f);
         }
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (PendingMechanics.Count > 1 && PendingMechanics[1] == (uint)AID.ThermionicBeam && Source != null)
-        {
-            hints.GoalZones.Add(AIHints.GoalProximity(Source.Position, 10f, 1f));
-        }
+        if (PendingMechanics is [_, AID.ThermionicBeam, ..] && Source != null)
+            hints.GoalZones.Add(AIHints.GoalProximity(Source.Position, 10, 1));
     }
 }
 
-sealed class QuoteIronChariotLunarDynamo(BossModule module) : Components.GenericAOEs(module)
+class QuoteIronChariotLunarDynamo(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly Quote? _quote = module.FindComponent<Quote>();
 
-    private readonly AOEShapeCircle _shapeChariot = new(8.55f);
-    private readonly AOEShapeDonut _shapeDynamo = new(6f, 22f); // TODO: verify inner radius
-    private AOEInstance[] _aoe = [];
-    private int lastmechCount;
+    private static readonly AOEShapeCircle _shapeChariot = new(8.55f);
+    private static readonly AOEShapeDonut _shapeDynamo = new(6, 22); // TODO: verify inner radius
 
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
+    private readonly List<AOEInstance> _portedAOEView = [];
 
-    public override void Update()
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        var count = _quote != null ? _quote.PendingMechanics.Count : -1;
-        if (count > 0 && count != lastmechCount)
+        _portedAOEView.Clear();
+        AOEShape? shape = _quote != null && _quote.PendingMechanics.Count > 0 ? _quote.PendingMechanics[0] switch
         {
-            lastmechCount = count;
-            AOEShape? shape = _quote!.PendingMechanics[0] switch
-            {
-                (uint)AID.IronChariot => _shapeChariot,
-                (uint)AID.LunarDynamo => _shapeDynamo,
-                _ => null
-            };
-            if (shape != null && _quote?.Source != null)
-            {
-                _aoe = [new(shape, _quote.Source.Position.Quantized(), default, _quote.NextActivation)];
-                return;
-            }
-            _aoe = [];
-        }
-        if (count <= 0)
-        {
-            _aoe = [];
-        }
+            AID.IronChariot => _shapeChariot,
+            AID.LunarDynamo => _shapeDynamo,
+            _ => null
+        } : null;
+        if (shape != null && _quote?.Source != null)
+            _portedAOEView.Add(new(shape, _quote.Source.Position, default, _quote.NextActivation));
+        return CollectionsMarshal.AsSpan(_portedAOEView);
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var aoes = ActiveAOEs(slot, actor);
-        var len = aoes.Length;
-        for (var i = 0; i < len; ++i)
+        foreach (var shape in ActiveAOEs(slot, actor))
         {
-            ref readonly var aoe = ref aoes[i];
-            if (aoe.Shape is AOEShapeDonut)
-            {
-                hints.AddForbiddenZone(new SDInvertedCircle(aoe.Origin, 6f), aoe.Activation);
-            }
+            if (shape.Shape is AOEShapeDonut d)
+                hints.AddForbiddenZone(new SDInvertedCircle(shape.Origin, d.InnerRadius), shape.Activation);
             else
-            {
-                hints.AddForbiddenZone(new SDCircle(aoe.Origin, 8.55f), aoe.Activation);
-            }
+                hints.AddForbiddenZone(shape.ShapeDistance ?? shape.Shape.Distance(shape.Origin, shape.Rotation), shape.Activation);
         }
     }
 }
 
-sealed class QuoteThermionicBeam(UCOB module) : Components.UniformStackSpread(module, 4f, default, 8, 8)
+class QuoteThermionicBeam(BossModule module) : Components.StrictUniformStackSpread(module, 4, 0, 8)
 {
     private readonly Quote? _quote = module.FindComponent<Quote>();
-    private readonly Actor _nael = module.Nael()!;
+
+    public override (WPos, float)? GetStackDestination(int order, Actor target)
+    {
+        var nael = ((UCOB)Module).Nael();
+        if (nael == null)
+            return default;
+
+        if (Module.FindComponent<P2HugNael>() is { } p2h)
+        {
+            if (p2h.Mode == P2HugNael.Pos.QuoteChainLightning1)
+                return (nael.Position + new WDir(0, 3), 1);
+        }
+
+        return (nael.Position, 1);
+    }
 
     public override void Update()
     {
-        var stackImminent = _quote != null && _quote.PendingMechanics.Count != 0 && _quote.PendingMechanics[0] == (uint)AID.ThermionicBeam;
-        if (stackImminent && Stacks.Count == 0 && Raid.Player() is var target && target != null) // note: target is random
-        {
+        var stackImminent = _quote != null && _quote.PendingMechanics.Count > 0 && _quote.PendingMechanics[0] == AID.ThermionicBeam;
+        if (stackImminent && Stacks.Count == 0 && Raid.WithoutSlot().FirstOrDefault(p => ((UCOB)Module).Nael()?.TargetID != p.InstanceID) is { } target) // note: target is random
             AddStack(target, _quote!.NextActivation);
-        }
         else if (!stackImminent && Stacks.Count > 0)
-        {
             Stacks.Clear();
-        }
         base.Update();
     }
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        if (Stacks.Count > 0)
-        {
-            hints.AddForbiddenZone(new SDInvertedCircle(_nael.Position, 2f), Stacks.Ref(0).Activation);
-        }
-    }
 }
 
-sealed class QuoteRavenDive(UCOB module) : Components.UniformStackSpread(module, default, 3f)
+class QuoteRavenDive(BossModule module) : Components.UniformStackSpread(module, 0, 3)
 {
     private readonly Quote? _quote = module.FindComponent<Quote>();
-    private readonly Actor _nael = module.Nael()!;
-    private readonly Actor _bahamut = module.BahamutPrime()!;
 
     public override void Update()
     {
-        var spreadImminent = _quote != null && _quote.PendingMechanics.Count != 0 && _quote.PendingMechanics[0] == (uint)AID.RavenDive;
+        var spreadImminent = _quote != null && _quote.PendingMechanics.Count > 0 && _quote.PendingMechanics[0] == AID.RavenDive;
         if (spreadImminent && Spreads.Count == 0)
-        {
-            AddSpreads(Raid.WithoutSlot(true, true, true), _quote!.NextActivation);
-        }
+            AddSpreads(Raid.WithoutSlot(true), _quote!.NextActivation);
         else if (!spreadImminent && Spreads.Count > 0)
-        {
             Spreads.Clear();
-        }
         base.Update();
     }
 
@@ -196,116 +156,135 @@ sealed class QuoteRavenDive(UCOB module) : Components.UniformStackSpread(module,
             WPos center;
             Angle north;
 
-            if (_nael.IsTargetable)
+            var ucob = (UCOB)Module;
+
+            // p2: clock spots around nael
+            if (ucob.Nael() is { IsTargetable: true, Position: var p })
             {
-                center = _nael.Position;
-                north = 180f.Degrees();
+                center = p;
+                north = 180.Degrees();
+            }
+            // p3 FRT: clock spots around arena center, relative north pointing towards bahamut so tanks naturally get tethers
+            else if (ucob.BahamutPrime() is { } baha)
+            {
+                center = Arena.Center;
+                north = (baha.Position - center).ToAngle();
             }
             else
             {
-                center = Arena.Center;
-                north = (_bahamut.Position - center).ToAngle();
+                ReportError("nael and baha are missing, help!!!");
+                return;
             }
 
-            hints.AddForbiddenZone(new SDPrecisePosition(center + (north.Deg - 45f * off).Degrees().ToDirection() * 5f, new(0f, 1f), 0.5f, actor.Position, 0.1f), Spreads.Ref(0).Activation);
+            hints.AddForbiddenZone(new SDPrecisePosition(center + (north.Deg - 45 * off).Degrees().ToDirection() * 5, new(0, 1), 0.5f, actor.Position, 0.1f), Spreads[0].Activation);
         }
     }
 }
 
-sealed class QuoteMeteorStream(UCOB module) : Components.UniformStackSpread(module, default, 4f)
+class QuoteMeteorStream(BossModule module) : Components.StrictUniformStackSpread(module, 0, 4, alwaysShowSpreads: true)
 {
     private readonly Quote? _quote = module.FindComponent<Quote>();
+
     public bool Fixed;
+
+    private int _spreadCounter;
 
     public override void Update()
     {
-        var spreadImminent = _quote != null && _quote.PendingMechanics.Count > 0 && _quote.PendingMechanics[0] == (uint)AID.MeteorStream;
+        var spreadImminent = _quote != null && _quote.PendingMechanics.Count > 0 && _quote.PendingMechanics[0] == AID.MeteorStream;
         if (spreadImminent && Spreads.Count == 0)
-        {
-            AddSpreads(Raid.WithoutSlot(true, true, true), _quote!.NextActivation);
-        }
+            AddSpreads(Raid.WithoutSlot(true), _quote!.NextActivation);
         else if (!spreadImminent && Spreads.Count > 0)
-        {
             Spreads.Clear();
-        }
         base.Update();
+    }
+
+    public override (WPos, float)? GetSpreadDestination(int order, Actor target)
+    {
+        var slot = Raid.FindSlot(target.InstanceID);
+        if (slot < 0 || slot >= PartyState.MaxPartySize)
+            return null;
+        var assignment = AssignmentsPerSlot.BoundSafeAt(slot, PartyRolesConfig.Assignment.Unassigned);
+        if (assignment == PartyRolesConfig.Assignment.Unassigned)
+            return null;
+
+        // fixed spots for post heavensfall
+        if (Fixed && ((UCOB)Module).BahamutPrime() is { } baha)
+            return (SpreadSpot(baha, assignment), 0);
+
+        // fixed-ish spots for p2 divebombs
+        if (((UCOB)Module).Nael() is { } nael)
+        {
+            var caut = Module.FindComponent<P2Cauterize>();
+            var baitOrder = caut?.BaitOrder[slot].Order ?? 0;
+            var cursed = caut?.Cursed ?? false;
+
+            var center = Arena.Center - new WDir(0, 4);
+
+            if (baitOrder == 1)
+                return (center + (cursed ? new WDir(8, 0) : new WDir(0, -8)), 0);
+
+            // baiters 2 and 3 get to do whatever, 2 just needs to find a safe spot south and 3 won't be able to threaten the rest of the party in time
+            if (baitOrder > 1)
+                return default;
+
+            if (nael.TargetID == target.InstanceID)
+                return (center, 0);
+
+            return (center + (45 + 90 * _spreadCounter++).Degrees().ToDirection() * 5, 0);
+        }
+
+        return default;
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (Fixed && IsSpreadTarget(actor) && module.BahamutPrime() is { } bahamut && SpreadSpot(bahamut, assignment) is var spot && spot != default)
-        {
-            hints.AddForbiddenZone(new SDInvertedCircle(spot, 1f), Spreads.Ref(0).Activation);
-            return;
-        }
-
+        _spreadCounter = 0;
         base.AddAIHints(slot, actor, assignment, hints);
     }
 
     private WPos SpreadSpot(Actor bahamut, PartyRolesConfig.Assignment assignment)
     {
         var relN = (bahamut.Position - Arena.Center).ToAngle();
-        var a45 = 45f.Degrees();
+
         return assignment switch
         {
-            PartyRolesConfig.Assignment.MT => bahamut.Position + (relN + a45).ToDirection() * 5f,
-            PartyRolesConfig.Assignment.OT => bahamut.Position + (relN - a45).ToDirection() * 5f,
-            PartyRolesConfig.Assignment.M1 => bahamut.Position + (relN - a45).ToDirection() * -5f,
-            PartyRolesConfig.Assignment.M2 => bahamut.Position + (relN + a45).ToDirection() * -5f,
-            PartyRolesConfig.Assignment.H1 => bahamut.Position + (relN - a45).ToDirection() * -5f + relN.ToDirection() * -8f,
-            PartyRolesConfig.Assignment.H2 => bahamut.Position + (relN + a45).ToDirection() * -5f + relN.ToDirection() * -8f,
-            PartyRolesConfig.Assignment.R1 => bahamut.Position + (relN - a45).ToDirection() * -12f + relN.ToDirection() * -8f,
-            PartyRolesConfig.Assignment.R2 => bahamut.Position + (relN + a45).ToDirection() * -12f + relN.ToDirection() * -8f,
+            PartyRolesConfig.Assignment.MT => bahamut.Position + (relN + 45.Degrees()).ToDirection() * 5,
+            PartyRolesConfig.Assignment.OT => bahamut.Position + (relN - 45.Degrees()).ToDirection() * 5,
+            PartyRolesConfig.Assignment.M1 => bahamut.Position + (relN - 45.Degrees()).ToDirection() * -5,
+            PartyRolesConfig.Assignment.M2 => bahamut.Position + (relN + 45.Degrees()).ToDirection() * -5,
+            PartyRolesConfig.Assignment.H1 => bahamut.Position + (relN - 45.Degrees()).ToDirection() * -5 + relN.ToDirection() * -8,
+            PartyRolesConfig.Assignment.H2 => bahamut.Position + (relN + 45.Degrees()).ToDirection() * -5 + relN.ToDirection() * -8,
+            PartyRolesConfig.Assignment.R1 => bahamut.Position + (relN - 45.Degrees()).ToDirection() * -12 + relN.ToDirection() * -8,
+            PartyRolesConfig.Assignment.R2 => bahamut.Position + (relN + 45.Degrees()).ToDirection() * -12 + relN.ToDirection() * -8,
             _ => default,
         };
     }
 }
 
-sealed class QuoteDalamudDive(UCOB module) : Components.GenericBaitAway(module, (uint)AID.DalamudDive, true, true)
+class QuoteDalamudDive(BossModule module) : Components.GenericBaitAway(module, (uint)AID.DalamudDive, true, true)
 {
     private readonly Quote? _quote = module.FindComponent<Quote>();
-    private readonly Actor _nael = module.Nael()!;
 
-    private readonly AOEShapeCircle _shape = new(5f);
+    private static readonly AOEShapeCircle _shape = new(5);
 
     public override void Update()
     {
-        var imminent = _quote != null && _quote.PendingMechanics.Count > 0 && _quote.PendingMechanics[0] == (uint)AID.DalamudDive;
-        if (imminent && CurrentBaits.Count == 0 && WorldState.Actors.Find(_nael.TargetID) is var target && target != null)
-        {
+        var imminent = _quote != null && _quote.PendingMechanics.Count > 0 && _quote.PendingMechanics[0] == AID.DalamudDive;
+        if (imminent && CurrentBaits.Count == 0 && Module.Enemies(OID.NaelDeusDarnus).FirstOrDefault() is var source && WorldState.Actors.Find(source?.TargetID ?? 0) is var target && target != null)
             CurrentBaits.Add(new(target, target, _shape));
-        }
         else if (!imminent && CurrentBaits.Count > 0)
-        {
             CurrentBaits.Clear();
-        }
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         // tank should plant and let party dodge
-        var baits = CollectionsMarshal.AsSpan(CurrentBaits);
-        var len = baits.Length;
-        var isBaitTarget = false;
-        for (var i = 0; i < len; ++i)
-        {
-            if (baits[i].Target == actor)
-            {
-                isBaitTarget = true;
-                break;
-            }
-        }
-        if (!isBaitTarget)
-        {
+        if (!CurrentBaits.Any(b => b.Target == actor))
             base.AddAIHints(slot, actor, assignment, hints);
-        }
 
         if (actor.Role is Role.Melee or Role.Tank)
-        {
-            for (var i = 0; i < len; ++i)
-            {
-                hints.GoalZones.Add(AIHints.GoalSingleTarget(baits[i].Target.Position, 6f));
-            }
-        }
+            foreach (var b in CurrentBaits)
+                hints.GoalZones.Add(AIHints.GoalSingleTarget(b.Target.Position, 6));
     }
 }

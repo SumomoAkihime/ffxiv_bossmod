@@ -423,6 +423,8 @@ public sealed class ReplayParserLog : IDisposable
             [new("NAME"u8)] = ParseActorRename,
             [new("CLSR"u8)] = ParseActorClassChange,
             [new("MOVE"u8)] = ParseActorMove,
+            [new("ARO+"u8)] = () => new ActorState.OpRawRotation(_input.ReadActorID(), _input.ReadFloat()),
+            [new("ARO-"u8)] = () => new ActorState.OpRawRotation(_input.ReadActorID(), null),
             [new("ACSZ"u8)] = ParseActorSizeChange,
             [new("HP  "u8)] = ParseActorHPMP,
             [new("ATG+"u8)] = () => ParseActorTargetable(true),
@@ -498,6 +500,7 @@ public sealed class ReplayParserLog : IDisposable
             [new("DDMG"u8)] = ParseDeepDungeonMagicite,
             [new("IPCI"u8)] = ParseNetworkLegacyIDScramble,
             [new("IPCX"u8)] = ParseNetworkIDScramble,
+            [new("RTT "u8)] = () => new NetworkState.OpRTT(_input.ReadFloat()),
             [new("IPCS"u8)] = ParseNetworkServerIPC,
             [new("RFLG"u8)] = ParseRenderflags,
         };

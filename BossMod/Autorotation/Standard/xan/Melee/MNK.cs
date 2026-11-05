@@ -124,7 +124,7 @@ public sealed class MNK(RotationModuleManager manager, Actor player) : Attackxan
         Automatic,
         [Option("Use after next Opo GCD", MinLevel = 50)]
         ForceOpo,
-        [Option("Use ASAP", MinLevel = 50)]
+        [Option("Use ASAP", MinLevel = 50, Effect = 20)]
         Force,
         [Option("Do not use", MinLevel = 50)]
         Delay,

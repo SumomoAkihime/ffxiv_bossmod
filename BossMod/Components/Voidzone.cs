@@ -70,7 +70,7 @@ public class Voidzone(BossModule module, float radius, Func<BossModule, IEnumera
 // TODO: this has problems if voidzone never actually spawns after castevent, eg because of phase changes
 [SkipLocalsInit]
 public class VoidzoneAtCastTarget(BossModule module, float radius, uint aid, Func<BossModule, IEnumerable<Actor>> sources, double castEventToSpawn = default,
-    int? arenaProjectionLayer = null, bool? restrictToArenaProjectionLayer = false) : GenericAOEs(module, aid, "GTFO from voidzone!")
+    int? arenaProjectionLayer = null, bool? restrictToArenaProjectionLayer = false, double activationDelay = 0) : GenericAOEs(module, aid, "GTFO from voidzone!")
 {
     public readonly AOEShapeCircle Shape = new(radius);
     public readonly Func<BossModule, IEnumerable<Actor>> Sources = sources;
@@ -78,6 +78,7 @@ public class VoidzoneAtCastTarget(BossModule module, float radius, uint aid, Fun
     protected readonly List<(WPos pos, DateTime time)> _predictedByEvent = [];
     protected readonly List<(Actor caster, DateTime time)> _predictedByCast = [];
     private readonly List<AOEInstance> _aoes = [];
+    private readonly Dictionary<ulong, DateTime> _sourceActivations = [];
     public int? ArenaProjectionLayer = arenaProjectionLayer;
     public bool? RestrictToArenaProjectionLayer = restrictToArenaProjectionLayer;
     public bool HaveCasters => _predictedByCast.Count > 0;
@@ -101,7 +102,7 @@ public class VoidzoneAtCastTarget(BossModule module, float radius, uint aid, Fun
         foreach (var z in Sources(Module))
         {
             if (ArenaProjectionLayerParticipantApplies(z, ArenaProjectionLayer, RestrictToArenaProjectionLayer))
-                _aoes.Add(new(Shape, z.Position.Quantized(), arenaProjectionLayer: ArenaProjectionLayer, restrictToArenaProjectionLayer: RestrictToArenaProjectionLayer));
+                _aoes.Add(new(Shape, z.Position.Quantized(), activation: _sourceActivations.GetValueOrDefault(z.InstanceID), arenaProjectionLayer: ArenaProjectionLayer, restrictToArenaProjectionLayer: RestrictToArenaProjectionLayer));
         }
 
         return CollectionsMarshal.AsSpan(_aoes);
@@ -127,6 +128,14 @@ public class VoidzoneAtCastTarget(BossModule module, float radius, uint aid, Fun
             }
         }
     }
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if (activationDelay > 0 && Sources(Module).Any(a => a.InstanceID == actor.InstanceID))
+            _sourceActivations[actor.InstanceID] = WorldState.FutureTime(activationDelay);
+    }
+
+    public override void OnActorDestroyed(Actor actor) => _sourceActivations.Remove(actor.InstanceID);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
@@ -158,7 +167,7 @@ public class VoidzoneAtCastTarget(BossModule module, float radius, uint aid, Fun
         base.OnEventCast(caster, spell);
         if (spell.Action.ID == WatchedAction)
         {
-            _predictedByEvent.Add((WorldState.Actors.Find(spell.MainTargetID)?.Position ?? spell.TargetXZ, WorldState.FutureTime(CastEventToSpawn)));
+            _predictedByEvent.Add((WorldState.Actors.Find(spell.MainTargetID)?.Position ?? spell.TargetXZ, WorldState.FutureTime(CastEventToSpawn + activationDelay)));
         }
     }
 }

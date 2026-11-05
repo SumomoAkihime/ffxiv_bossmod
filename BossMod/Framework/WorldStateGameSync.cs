@@ -25,6 +25,7 @@ sealed class WorldStateGameSync : IDisposable
 
     private readonly WorldState _ws;
     private readonly ActionManagerEx _amex;
+    private readonly NetworkLatencyProbe _latencyProbe = new();
     private readonly DateTime _startTime;
     private readonly long _startQPC;
 
@@ -216,6 +217,7 @@ sealed class WorldStateGameSync : IDisposable
         _processPacketFateInfoHook.Dispose();
         _getActionInRangeOrLoSHook.Dispose();
         _subscriptions.Dispose();
+        _latencyProbe.Dispose();
         _netConfig.Dispose();
         _interceptor.Dispose();
     }
@@ -241,6 +243,11 @@ sealed class WorldStateGameSync : IDisposable
         {
             _ws.Execute(new WorldState.OpZoneChange((ushort)Service.ClientState.TerritoryType, GameMain.Instance()->CurrentContentFinderConditionId));
         }
+        var network = fwk->NetworkModuleProxy->NetworkModule;
+        var zoneClient = network != null ? *(FFXIVClientStructs.FFXIV.Application.Network.ZoneClient**)((nint)network + 0xA70) : null;
+        var host = zoneClient != null ? zoneClient->Host.ToString() : string.Empty;
+        if (_latencyProbe.Update(host, _ws.CurrentTime) is { } rtt && _ws.Network.LastRTT != rtt)
+            _ws.Execute(new NetworkState.OpRTT(rtt));
         var proxy = fwk->NetworkModuleProxy->ReceiverCallback;
         var scramble = Network.IDScramble.Get();
         if (_ws.Network.IDScramble != scramble)
@@ -370,6 +377,7 @@ sealed class WorldStateGameSync : IDisposable
         var classID = chr != null ? (Class)chr->ClassJob : Class.None;
         var level = chr != null ? chr->Level : 0;
         var posRot = new Vector4(*obj->GetPosition(), obj->Rotation);
+        float? rawRotation = Utils.ReadField<byte>(obj, 0x3F0) == 1 ? Utils.ReadField<float>(obj, 0x3C0) : null;
         var hpmp = new ActorHPMP();
         var inCombat = false;
         if (chr != null)
@@ -451,6 +459,8 @@ sealed class WorldStateGameSync : IDisposable
             }
         }
         var instanceID = act.InstanceID;
+        if (act.RawRotation != rawRotation)
+            _ws.Execute(new ActorState.OpRawRotation(act.InstanceID, rawRotation));
         if (act.IsDead != isDead)
         {
             _ws.Execute(new ActorState.OpDead(instanceID, isDead));

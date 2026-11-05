@@ -8,7 +8,7 @@ sealed class StockBreak(BossModule module) : Components.GenericStackSpread(modul
     {
         if (iconID == (uint)IconID.StockBreak)
         {
-            Stacks.Add(new(actor, 6f, 8, 8, WorldState.FutureTime(8.2d)));
+            Stacks.Add(new(actor, 6f, 8, 8, WorldState.FutureTime(8.2d), hits: 4));
         }
     }
 

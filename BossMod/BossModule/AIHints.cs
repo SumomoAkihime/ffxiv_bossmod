@@ -79,11 +79,13 @@ public sealed class AIHints
         Disable // unsync from fate
     }
 
-    public readonly struct DamagePrediction(BitMask players, DateTime activation, PredictedDamageType type = PredictedDamageType.None)
+    public readonly struct DamagePrediction(BitMask players, DateTime activation, PredictedDamageType type = PredictedDamageType.None, int hits = 1, DateTime lastHit = default)
     {
         public readonly BitMask Players = players;
         public readonly DateTime Activation = activation;
         public readonly PredictedDamageType Type = type;
+        public readonly int Hits = hits;
+        public readonly DateTime LastHit = lastHit;
     }
 
     public static readonly ArenaBounds DefaultBounds = new ArenaBoundsSquare(30f, allowObstacleMap: true);
@@ -165,6 +167,7 @@ public sealed class AIHints
     // maximal time we can spend casting before we need to move
     // this is used by the action queue to skip casts that we won't be able to finish and execute lower-priority fallback actions instead
     public float MaxCastTime = float.MaxValue;
+    public float EffectiveMaxCastTime => Math.Max(0, MaxCastTime - 0.1f);
     public bool ForceCancelCast;
     // An interrupting move holds new casts until movement has settled.
     public bool HoldCasts;
@@ -338,7 +341,7 @@ public sealed class AIHints
     public void AddForbiddenZone(AOEShape shape, WPos origin, Angle rot = default, DateTime activation = default, ulong source = default, int? arenaProjectionLayer = null)
         => ForbiddenZones.Add((ClipToArenaProjectionLayer(shape.Distance(origin, rot), arenaProjectionLayer), activation, source));
 
-    public void AddPredictedDamage(BitMask players, DateTime activation, PredictedDamageType type = PredictedDamageType.Raidwide) => PredictedDamage.Add(new(players, activation, type));
+    public void AddPredictedDamage(BitMask players, DateTime activation, PredictedDamageType type = PredictedDamageType.Raidwide, int hits = 1, DateTime lastHit = default) => PredictedDamage.Add(new(players, activation, type, hits, lastHit));
 
     public void AddSpecialMode(SpecialMode mode, DateTime activation, DateTime finish = default)
     {

@@ -29,7 +29,7 @@ public class TelotekGammaStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.Quest, GroupID = 69602, NameID = 10189)]
-public class TelotekGamma(WorldState ws, Actor primary) : BossModule(ws, primary, new(default, -180f), new ArenaBoundsCircle(20f))
+public class TelotekGamma(WorldState ws, Actor primary) : BossModule(ws, primary, new(default, -180f), new ArenaBoundsCircle(19.5f))
 {
     protected override void DrawEnemies(int pcSlot, Actor pc) => Arena.Actors(WorldState.Actors.Where(x => !x.IsAlly));
 }

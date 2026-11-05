@@ -434,3 +434,58 @@ public abstract class SingleTargetDelayableCasts(BossModule module, uint[] aids,
         }
     }
 }
+
+
+// Predict the remaining hits as one sequence; duplicate helper events count only once.
+public class RaidwideMultiHit(BossModule module, uint startAction, uint[] hitActions, float firstDelay, float interval, int hits, string hint = "Raidwide") : CastCounter(module, startAction)
+{
+    public readonly uint[] HitActions = hitActions;
+    public string Hint = hint;
+    public int Remaining;
+    public DateTime NextHit;
+    public DateTime LastHit;
+    private float _interval;
+    private DateTime _lastCounted;
+    private int _numSequences;
+
+    protected virtual (int Hits, float Interval) Sequence(int index) => (hits, interval);
+
+    public override void AddGlobalHints(GlobalHints hints)
+    {
+        if (Remaining > 0 && Hint.Length > 0)
+            hints.Add($"{Hint} x{Remaining}");
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Remaining > 0)
+            hints.AddPredictedDamage(Raid.WithSlot().Mask(), NextHit, AIHints.PredictedDamageType.Raidwide, Remaining, LastHit);
+    }
+
+    public override void Update()
+    {
+        if (Remaining > 0 && WorldState.CurrentTime > LastHit.AddSeconds(3))
+            Remaining = 0;
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID != WatchedAction)
+            return;
+        (Remaining, _interval) = Sequence(_numSequences++);
+        NextHit = Module.CastFinishAt(spell, firstDelay);
+        LastHit = NextHit.AddSeconds(_interval * (Remaining - 1));
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (Remaining <= 0 || !HitActions.Contains(spell.Action.ID) || WorldState.CurrentTime < _lastCounted.AddSeconds(0.3f))
+            return;
+        _lastCounted = WorldState.CurrentTime;
+        ++NumCasts;
+        --Remaining;
+        NextHit = WorldState.FutureTime(_interval);
+        if (Remaining > 0)
+            LastHit = NextHit.AddSeconds(_interval * (Remaining - 1));
+    }
+}

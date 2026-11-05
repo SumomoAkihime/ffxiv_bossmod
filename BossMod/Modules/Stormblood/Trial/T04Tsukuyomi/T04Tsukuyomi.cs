@@ -187,11 +187,56 @@ sealed class MoonStatus(BossModule module) : BossComponent(module)
 // Anti-twilight is a raidwide that marks the end of the waxing/ waning phases.
 sealed class Antitwilight(BossModule module) : Components.RaidwideCast(module, (uint)AID.Antitwilight);
 
-sealed class Lunacy(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.Lunacy, 6f, 8, 8);
+class Lunacy(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.Lunacy, 6, 8, 8)
+{
+    private int _numSeries;
+    private int _remaining;
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        base.OnCastStarted(caster, spell);
+        if (spell.Action.ID == StackAction)
+            for (var i = 0; i < Stacks.Count; ++i)
+                Stacks[i] = Stacks[i] with { Hits = _numSeries == 0 ? 3 : 4 };
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell) { }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        switch ((AID)spell.Action.ID)
+        {
+            case AID.Lunacy:
+                _remaining = _numSeries++ == 0 ? 2 : 3;
+                UpdateStacks(2.1f);
+                break;
+            case AID.Lunacy1:
+                if (--_remaining <= 0)
+                    Stacks.Clear();
+                else
+                    UpdateStacks(1.1f);
+                break;
+        }
+    }
+
+    private void UpdateStacks(float nextHit)
+    {
+        for (var i = 0; i < Stacks.Count; ++i)
+            Stacks[i] = Stacks[i] with { Activation = WorldState.FutureTime(nextHit), Hits = _remaining };
+    }
+}
 
 sealed class BrightDarkBlade(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BrightBlade, (uint)AID.DarkBlade], new AOEShapeCone(70f, 105f.Degrees()));
 
-sealed class DanceOfTheDead(BossModule module) : Components.RaidwideCast(module, (uint)AID.DanceOfTheDead1);
+class DanceOfTheDead(BossModule module) : Components.RaidwideInstant(module, (uint)AID.DanceOfTheDead1, 5)
+{
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        base.OnEventCast(caster, spell);
+        if ((AID)spell.Action.ID == AID.DanceOfTheDead)
+            Activation = WorldState.FutureTime(Delay);
+    }
+}
 
 sealed class ToAshes(BossModule module) : Components.RaidwideCast(module, (uint)AID.ToAshes);
 

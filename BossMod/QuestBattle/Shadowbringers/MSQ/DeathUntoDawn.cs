@@ -88,7 +88,7 @@ internal class DeathUntoDawn(WorldState ws) : QuestBattle(ws)
                 obj.AddAIHints += (player, hints) => {
                     hints.PathfindMapCenter = new(0, -180);
                     hints.PathfindMapBounds = new ArenaBoundsCircle(20);
-                    if (!player.InCombat) { hints.ForcedTarget = hints.PotentialTargets.MinBy(t => player.DistanceToPoint(t.Actor.Position))?.Actor; } _ai.Execute(player, hints);
+                    if (!player.InCombat) { hints.PrioritizeAll(); } _ai.Execute(player, hints);
                 };
             })
             .CompleteOnKilled(0x3376),

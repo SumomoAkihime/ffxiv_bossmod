@@ -7,8 +7,16 @@ sealed class DynasticDiadem(BossModule module) : Components.SimpleAOEs(module, (
 sealed class RoyalBanishment(BossModule module) : Components.SimpleAOEGroupsByTimewindow(module, [(uint)AID.RoyalBanishment], new AOEShapeCone(100f, 15f.Degrees()));
 
 abstract class RaidwideMulti(BossModule module, uint aid) : Components.RaidwideCast(module, aid, "multiple Raidwides");
-sealed class RoyalBanishmentRaidwide(BossModule module) : RaidwideMulti(module, (uint)AID.RoyalBanishmentVisual);
+sealed class RoyalBanishmentRaidwide(BossModule module) : Components.RaidwideMultiHit(module,
+    (uint)AID.RoyalBanishmentVisual, [(uint)AID.RoyalBanishmentRaidwide], 1, 1.7f, 5);
 sealed class AbsoluteAuthorityRaidwide(BossModule module) : RaidwideMulti(module, (uint)AID.AbsoluteAuthorityRaidwide1);
+
+class AbsoluteAuthorityHits(BossModule module) : Components.RaidwideMultiHit(module, (uint)AID.AbsoluteAuthorityRaidwide1, [(uint)AID.AbsoluteAuthorityRaidwide2, (uint)AID.AbsoluteAuthorityRaidwide3, (uint)AID.AbsoluteAuthorityRaidwide4, (uint)AID.AbsoluteAuthorityRaidwide5], 6.7f, 1.2f, 11)
+{
+    protected override (int Hits, float Interval) Sequence(int index) => index == 0 ? (11, 1.2f) : (3, 1.4f);
+}
+
+class AethertitheTicks(BossModule module) : Components.RaidwideMultiHit(module, (uint)AID.AethertitheVisual, [(uint)AID.AethertitheRaidwide], 0.8f, 1.07f, 24);
 
 sealed class T03QueenEternalStates : StateMachineBuilder
 {
@@ -25,6 +33,9 @@ sealed class T03QueenEternalStates : StateMachineBuilder
             .ActivateOnEnter<ProsecutionOfWar>()
             .ActivateOnEnter<VirtualShiftRoyalDomain>()
             .ActivateOnEnter<AbsoluteAuthorityRaidwide>()
+            .ActivateOnEnter<AbsoluteAuthorityHits>()
+            .ActivateOnEnter<AethertitheTicks>()
+            .ActivateOnEnter<RoyalBanishmentRaidwide>()
             .ActivateOnEnter<DownburstKB>()
             .ActivateOnEnter<PowerfulGustKB>()
             .ActivateOnEnter<PowerfulGustDownburstRW>()

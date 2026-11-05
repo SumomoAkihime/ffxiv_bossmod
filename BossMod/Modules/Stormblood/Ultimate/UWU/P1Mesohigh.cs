@@ -1,8 +1,9 @@
 ﻿namespace BossMod.Stormblood.Ultimate.UWU;
 
+// TODO :implement hints...
 class Mesohigh(BossModule module) : Components.CastCounter(module, (uint)AID.Mesohigh)
 {
-    protected readonly List<Actor> _sisters = [.. module.Enemies((uint)OID.GarudaSister)];
+    protected readonly List<Actor> _sisters = module.Enemies(OID.GarudaSister);
     private const float _radius = 3;
     protected DateTime Activation;
 
@@ -20,7 +21,7 @@ class Mesohigh(BossModule module) : Components.CastCounter(module, (uint)AID.Mes
             if (tetherTarget != null)
             {
                 Arena.AddLine(s.Position, tetherTarget.Position, Colors.Danger);
-                Arena.ZoneCircleOutline(tetherTarget.Position, _radius, Colors.Danger);
+                Arena.AddCircleUnfilled(tetherTarget.Position, _radius, Colors.Danger);
             }
         }
     }
@@ -46,19 +47,27 @@ class P1Mesohigh(BossModule module) : Mesohigh(module)
         if (_sisters.Count != 2)
             return;
 
+        var tankTarget = Raid.WithoutSlot().FirstOrDefault(a => a.Role == Role.Tank && a.FindStatus(SID.ThermalLow)?.Extra == 2);
+        var dpsTarget = Raid.WithoutSlot().OrderBy(a => a.InstanceID).FirstOrDefault(a => a.Class.IsDD() && a.FindStatus(SID.ThermalLow)?.Extra == 1);
+
         Actor? desiredSource = null;
-        if (actor.Role == Role.Tank && actor.FindStatus((uint)SID.ThermalLow)?.Extra == 2)
+
+        if (actor.Role == Role.Tank && actor.FindStatus(SID.ThermalLow)?.Extra == 2)
+        {
             desiredSource = _sisters.MinBy(s => s.Position.X);
-        else if (actor == Raid.WithoutSlot(false, true, true).Where(a => a.Class.IsDD() && a.FindStatus((uint)SID.ThermalLow)?.Extra == 1).MinBy(a => a.InstanceID))
+        }
+        else if (actor == Raid.WithoutSlot().Where(a => a.Class.IsDD() && a.FindStatus(SID.ThermalLow)?.Extra == 1).MinBy(a => a.InstanceID))
+        {
             desiredSource = _sisters.MaxBy(s => s.Position.X);
+        }
 
         if (desiredSource != null)
         {
             var curTarget = WorldState.Actors.Find(desiredSource.Tether.Target);
             if (curTarget == actor)
             {
-                var destination = new WPos(desiredSource.Position.X > 100 ? 106 : 94, 100);
-                hints.AddForbiddenZone(new SDInvertedCircle(destination, 1), Activation);
+                var dest = new WPos(desiredSource.Position.X > 100 ? 106 : 94, 100);
+                hints.AddForbiddenZone(new SDInvertedCircle(dest, 1), Activation);
             }
             else if (curTarget != null)
             {
@@ -73,4 +82,47 @@ class P1Mesohigh(BossModule module) : Mesohigh(module)
     }
 }
 
-class P4Mesohigh(BossModule module) : Mesohigh(module);
+class P4Mesohigh(BossModule module) : Mesohigh(module)
+{
+    public int Order;
+    public bool EnableHints = true;
+
+    public bool NeedsIntercept(Actor actor) => EnableHints && Order == 2 && actor.FindStatus(SID.SearingWind) != null
+        && WorldState.Actors.Find(Module.PrimaryActor.Tether.Target) is { } target && target != actor;
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        base.AddAIHints(slot, actor, assignment, hints);
+        if (!EnableHints)
+            return;
+
+        if (NeedsIntercept(actor) && WorldState.Actors.Find(Module.PrimaryActor.Tether.Target) is { } currentTarget)
+        {
+            var intercept = Module.PrimaryActor.Position + Module.PrimaryActor.DirectionTo(currentTarget) * 7;
+            hints.AddForbiddenZone(new SDPrecisePosition(intercept, new(0, 1), 0.5f, actor.Position, 0.1f));
+        }
+
+        if (Order == 3)
+        {
+            var isTarget = actor.Role == Role.Tank && actor.FindStatus(SID.ThermalLow) != null;
+            if (isTarget && WorldState.Actors.Find(Module.PrimaryActor.Tether.Target) is { } tt)
+            {
+                if (tt == actor)
+                {
+                    hints.GoalZones.Add(AIHints.GoalProximity(Arena.Center, 5, 1));
+                }
+                else
+                {
+                    var targetToBoss = Module.PrimaryActor.Position - tt.Position;
+                    var farSide = targetToBoss.Normalized().OrthoR();
+                    if (tt.DirectionTo(actor).Dot(farSide) > 0)
+                        farSide = -farSide;
+                    var src = tt.Position;
+
+                    var inside = new SDCircle(Module.PrimaryActor.Position, targetToBoss.Length() - 2);
+                    hints.GoalZones.Add(p => inside.Contains(p) && p.InCone(src, farSide, 90.Degrees()) ? 1 : 0);
+                }
+            }
+        }
+    }
+}

@@ -336,7 +336,7 @@ public sealed class ConfigRoot
 
     private object? FromConsoleString(string str, Type t)
         => t == typeof(bool) ? bool.Parse(str)
-        : t == typeof(float) ? float.Parse(str)
+        : t == typeof(float) ? float.Parse(str, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture)
         : t == typeof(int) ? int.Parse(str)
         : t.IsAssignableTo(typeof(Enum)) ? Enum.Parse(t, str)
         : null;

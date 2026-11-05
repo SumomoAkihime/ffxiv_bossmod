@@ -8,6 +8,9 @@ static class UpstreamKage20261015Tests
     [
         ("BLM", Class.BLM),
         ("DNC", Class.DNC),
+        ("DRG", Class.DRG),
+        ("PCT", Class.PCT),
+        ("RPR", Class.RPR),
         ("MCH", Class.MCH),
         ("PLD", Class.PLD),
         ("SAM", Class.SAM),
@@ -27,9 +30,9 @@ static class UpstreamKage20261015Tests
         {
             foreach (var (name, classID) in Modules)
             {
-                var type = typeof(KageRotation<>).Assembly.GetType($"BossMod.Autorotation.kage.Kage{name}", true)!;
+                var type = typeof(KageShared<>).Assembly.GetType($"BossMod.Autorotation.kage.Kage{name}", true)!;
                 var definition = (RotationModuleDefinition)type.GetMethod("Definition")!.Invoke(null, null)!;
-                check(definition.Quality == RotationModuleQuality.Ok && definition.MaxLevel == 100 && definition.Configs.Count > 0, $"Kage {name} definition");
+                check((definition.Quality is RotationModuleQuality.Ok or RotationModuleQuality.Good) && definition.MaxLevel == 100 && definition.Configs.Count > 0, $"Kage {name} definition");
 
                 var strategy = new StrategyValues(definition.Configs);
                 var module = (RotationModule)Activator.CreateInstance(type, manager, player)!;

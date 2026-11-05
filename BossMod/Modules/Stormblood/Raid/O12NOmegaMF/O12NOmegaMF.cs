@@ -21,6 +21,7 @@ public enum AID : uint
     EfficientBladework = 13055, // Boss->self, 4.0s cast, range 10 circle
 
     SubjectSimulationF = 13041, // Boss->self, 2.0s cast, single-target
+    DischargerTransform = 13050,
     Discharger = 13046, // Boss/Omega->self, no cast, knockback
 
     OptimizedFireIII = 13069, // Boss/Omega->self, 3.0s cast, single-target
@@ -35,6 +36,7 @@ public enum AID : uint
     SuperliminalSteel2 = 13062, // Helper->self, 3.0s cast, range 80 width 36 rect
 
     SubjectSimulationM = 13044, // Boss->self, 2.0s cast, single-target
+    EfficientBladeworkTransform = 13048,
     EfficientBladeworkInstant = 13043, // Boss->self, no cast, range 10 circle
     SyntheticShield = 13053, // Boss->self, 2.0s cast, single-target
     BeyondStrength = 13056, // Boss->self, 4.0s cast, range 5-40 donut
@@ -147,64 +149,77 @@ class Passage(BossModule module) : Components.CastHint(module, (uint)AID.LaserSh
 class SpawnBladework(BossModule module) : Components.GenericAOEs(module, (uint)AID.EfficientBladeworkInstant)
 {
     private readonly AOEShapeCircle _shape = new(10);
-    private Actor? _follow;
-    private DateTime _followAt;
-    private readonly List<(WPos Pos, DateTime At)> _fixed = [];
+    private Actor? _source;
+    private DateTime _activation;
 
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) {
-        var resultAOEs = new List<AOEInstance>();
-        if (_follow != null)
-            resultAOEs.Add(new(_shape, _follow.Position, activation: _followAt));
-        foreach (var f in _fixed)
-            resultAOEs.Add(new(_shape, f.Pos, activation: f.At));
-        return CollectionsMarshal.AsSpan(resultAOEs);
-    }
+    private readonly List<AOEInstance> _portedAOEView = [];
 
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if (spell.Action.ID == (uint)AID.SubjectSimulationM)
-        {
-            _follow = caster;
-            _followAt = WorldState.FutureTime(14.3f);
-        }
+        _portedAOEView.Clear();
+        if (_source is { IsDeadOrDestroyed: false })
+            _portedAOEView.Add(new(_shape, _source.Position, activation: _activation));
+        return CollectionsMarshal.AsSpan(_portedAOEView);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (spell.Action.ID == (uint)AID.GroundZero)
-            _fixed.Add((spell.TargetPos.ToWPos(), WorldState.FutureTime(8.3f)));
-        else if (spell.Action.ID == (uint)AID.EfficientBladeworkInstant)
+        if (spell.Action.ID == (uint)AID.EfficientBladeworkTransform)
         {
-            _follow = null;
-            _fixed.Clear();
+            _source = caster;
+            _activation = WorldState.FutureTime(6.2f);
+        }
+        else if (spell.Action.ID == (uint)AID.EfficientBladeworkInstant && _source == caster)
+        {
+            _source = null;
             NumCasts++;
         }
     }
 
     public override void Update()
     {
-        if (_follow != null && _followAt.AddSeconds(1) < WorldState.CurrentTime)
-            _follow = null;
-        _fixed.RemoveAll(f => f.At.AddSeconds(1) < WorldState.CurrentTime);
+        if (_source != null && _activation.AddSeconds(1) < WorldState.CurrentTime)
+            _source = null;
+    }
+    public override void OnActorDestroyed(Actor actor)
+    {
+        if (_source == actor)
+            _source = null;
     }
 }
 
 class Discharger(BossModule module) : Components.GenericKnockback(module, (uint)AID.Discharger)
 {
     private const float Distance = 15;
-    private Actor? _follow;
-    private DateTime _followAt;
-    private readonly List<(WPos Pos, DateTime At)> _fixed = [];
+    private readonly List<(Actor Source, DateTime Activation)> _sources = [];
+
+    private readonly List<Knockback> _portedKnockbackView = [];
 
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
-        var result = new List<Knockback>();
-        if (_follow != null)
-            result.Add(new(_follow.Position, Distance, _followAt));
-        foreach (var f in _fixed)
-            result.Add(new(f.Pos, Distance, f.At));
-        result.Sort((a, b) => a.Activation.CompareTo(b.Activation));
-        return CollectionsMarshal.AsSpan(result);
+        _portedKnockbackView.Clear();
+        foreach (var source in _sources.OrderBy(s => s.Activation))
+            _portedKnockbackView.Add(new(source.Source.Position, Distance, source.Activation));
+        return CollectionsMarshal.AsSpan(_portedKnockbackView);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == (uint)AID.DischargerTransform)
+        {
+            _sources.RemoveAll(s => s.Source == caster);
+            _sources.Add((caster, WorldState.FutureTime(6.2f)));
+        }
+        else if (spell.Action.ID == (uint)AID.Discharger)
+        {
+            if (_sources.RemoveAll(s => s.Source == caster) > 0)
+                ++NumCasts;
+        }
+    }
+
+    public override void Update()
+    {
+        _sources.RemoveAll(s => s.Source.IsDeadOrDestroyed || s.Activation.AddSeconds(1) < WorldState.CurrentTime);
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -238,36 +253,7 @@ class Discharger(BossModule module) : Components.GenericKnockback(module, (uint)
 
     public override void OnActorDestroyed(Actor actor)
     {
-        if (_follow == actor)
-            _follow = null;
-    }
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if (spell.Action.ID == (uint)AID.SubjectSimulationF)
-        {
-            _follow = caster;
-            _followAt = WorldState.FutureTime(14.6f);
-        }
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if (spell.Action.ID == (uint)AID.ElectricSlide)
-            _fixed.Add((spell.TargetPos.ToWPos(), WorldState.FutureTime(8.3f)));
-        else if (spell.Action.ID == (uint)AID.Discharger)
-        {
-            _follow = null;
-            _fixed.Clear();
-            NumCasts++;
-        }
-    }
-
-    public override void Update()
-    {
-        if (_follow != null && _followAt.AddSeconds(1) < WorldState.CurrentTime)
-            _follow = null;
-        _fixed.RemoveAll(f => f.At.AddSeconds(1) < WorldState.CurrentTime);
+        _sources.RemoveAll(s => s.Source == actor);
     }
 }
 
@@ -368,8 +354,8 @@ class PacketFilter(BossModule module) : BossComponent(module)
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         var oid = _attack == Attack.M ? OID.Boss : _attack == Attack.F ? OID.OmegaF : 0;
-        if (oid != 0)
-            hints.ForcedTarget = Module.Enemies((uint)oid).FirstOrDefault(a => !a.IsDead);
+        if (oid != 0 && hints.FindEnemy(Module.Enemies(oid).FirstOrDefault(a => !a.IsDead)) is { } enemy)
+            enemy.ShouldBeTargeted = true;
     }
 }
 

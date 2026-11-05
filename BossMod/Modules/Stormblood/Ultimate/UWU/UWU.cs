@@ -9,7 +9,6 @@ sealed class P2Incinerate(BossModule module) : Components.Cleave(module, (uint)A
 sealed class P3RockBuster(BossModule module) : Components.Cleave(module, (uint)AID.RockBuster, new AOEShapeCone(10.55f, 60f.Degrees()), [(uint)OID.Titan]); // TODO: verify angle
 sealed class P3MountainBuster(BossModule module) : Components.Cleave(module, (uint)AID.MountainBuster, new AOEShapeCone(15.55f, 45f.Degrees()), [(uint)OID.Titan]); // TODO: verify angle
 sealed class P3WeightOfTheLand(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WeightOfTheLandAOE, 6f);
-sealed class P3Upheaval(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.Upheaval, 24f, true);
 sealed class P3Tumult(BossModule module) : Components.CastCounter(module, (uint)AID.Tumult);
 sealed class P4Blight(BossModule module) : Components.CastCounter(module, (uint)AID.Blight);
 sealed class P4HomingLasers(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.HomingLasers, 4f);
@@ -19,39 +18,13 @@ sealed class P5MistralSongCone(BossModule module) : Components.SimpleAOEs(module
 sealed class P5AetherochemicalLaser(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.AetherochemicalLaserCenter, (uint)AID.AetherochemicalLaserRight, (uint)AID.AetherochemicalLaserLeft], new AOEShapeRect(46f, 4f));
 
 sealed class P5LightPillar(BossModule module) : Components.SimpleAOEs(module, (uint)AID.LightPillarAOE, 3); // TODO: consider showing circle around baiter
-sealed class P5AethericBoom(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.AethericBoom, 10);
 
-class BossPositioning : BossComponent
-{
-    public Actor? Boss;
-    public WPos? DesiredPosition;
-    public Angle? DesiredRotation = 180f.Degrees();
 
-    public BossPositioning(BossModule module) : base(module)
-    {
-        Boss = module.PrimaryActor;
-        DesiredPosition = module.Arena.Center;
-        KeepOnPhaseChange = true;
-    }
-
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
-    {
-        if (hints.FindEnemy(Boss) is not { } target)
-            return;
-
-        if (DesiredPosition is { } position)
-            target.DesiredPosition = position;
-        if (DesiredRotation is { } rotation)
-            target.DesiredRotation = rotation;
-
-        if (target.Actor.PendingHPRatio < 0.02f && target.Actor.FindStatus((uint)SID.Woken) == null)
-            target.Priority = AIHints.Enemy.PriorityForbidden;
-    }
-}
 
 [ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.Garuda, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 539, PlanLevel = 70)]
 public sealed class UWU : BossModule
 {
+    public static readonly ArenaBoundsSquare PathfindHugBorderBounds = new(22);
     public static readonly WPos ArenaCenter = new(100f, 100f);
     private readonly List<Actor> _titan;
     private readonly List<Actor> _lahabrea;

@@ -33,6 +33,19 @@ enum SID : uint
 
 public abstract partial class AutoClear : ZoneModule
 {
+    public record struct GoalObject(Actor Actor, GoalType Type, float PlayerDistSq, int Tier = 0)
+    {
+        public readonly bool IsTreasure => Type is GoalType.Treasure or GoalType.ChestHoard;
+    }
+
+    public enum GoalType
+    {
+        ChestHoard,
+        Hoard,
+        Passage,
+        Treasure,
+    }
+
     public readonly int LevelCap;
 
     public static readonly HashSet<uint> BronzeChestIDs = [
@@ -50,7 +63,7 @@ public abstract partial class AutoClear : ZoneModule
     protected readonly List<(Actor Source, float Inner, float Outer, Angle HalfAngle)> Donuts = [];
     protected readonly List<(Actor Source, float Radius)> Circles = [];
     protected readonly List<(Actor Source, float Radius)> KnockbackZones = [];
-    protected readonly List<(Actor Source, AOEShape Zone, int Counter)> Voidzones = [];
+    protected readonly List<(Actor Source, AOEShape Zone, DateTime Activation, int Counter)> Voidzones = [];
     private readonly List<Gaze> Gazes = [];
     protected readonly List<Actor> Interrupts = [];
     protected readonly List<Actor> Stuns = [];
@@ -79,7 +92,8 @@ public abstract partial class AutoClear : ZoneModule
     private readonly List<WPos> ProblematicTrapLocations = [];
 
     private int Kills;
-    private int DesiredRoom;
+    private readonly List<GoalObject> InterestingObjects = [];
+    private GoalObject? MostInterestingObject;
     private bool BetweenFloors = true;
 
     protected struct PlayerImmuneState
@@ -106,8 +120,8 @@ public abstract partial class AutoClear : ZoneModule
             ws.SystemLogMessage.Subscribe(OnSystemLogMessage),
             ws.Actors.CastStarted.Subscribe(OnCastStarted),
             ws.Actors.CastFinished.Subscribe(OnCastFinished),
-            ws.Actors.CastEvent.Subscribe(OnEventCast),
-            ws.Actors.Added.Subscribe(OnActorCreated),
+            ws.Actors.CastEvent.Subscribe(HandleCastEvent),
+            ws.Actors.Added.Subscribe(HandleActorAdd),
             ws.Actors.InCombatChanged.Subscribe(OnActorCombatChanged),
             ws.Actors.StatusGain.Subscribe(OnActorStatusGain),
             ws.Actors.StatusLose.Subscribe(OnActorStatusLose),
@@ -119,17 +133,23 @@ public abstract partial class AutoClear : ZoneModule
             ws.Actors.EventObjectAnimation.Subscribe(OnEObjAnim),
             ws.DeepDungeon.MapDataChanged.Subscribe(_ =>
             {
-                if (BetweenFloors)
+                if (BetweenFloors && Palace.Rooms.Any(r => r > 0))
                 {
                     LoadWalls();
+                    LoadGeometry();
+                    BetweenFloors = false;
                 }
-                BetweenFloors = false;
             })
         );
 
         _trapsCurrentZone = GeneratedTrapData.Traps.TryGetValue(ws.CurrentZone, out var locations) ? locations : [];
 
-        ProblematicTrapLocations.AddRange(ProblematicTrapLocations);
+        if (ws.DeepDungeon.Rooms.Any(r => r > 0))
+        {
+            LoadWalls();
+            LoadGeometry();
+            BetweenFloors = false;
+        }
         IgnoreTraps.AddRange(ProblematicTrapLocations);
     }
 
@@ -239,9 +259,13 @@ public abstract partial class AutoClear : ZoneModule
         LOS.Clear();
         Walls.Clear();
         RoomCenters.Clear();
+        InterestingObjects.Clear();
+        MostInterestingObject = null;
+        _floorRects.Clear();
+        RoomCenters.Clear();
         IgnoreTraps.Clear();
         IgnoreTraps.AddRange(ProblematicTrapLocations);
-        DesiredRoom = 0;
+        DesiredRoom = default;
         Kills = 0;
         new Span<PlayerImmuneState>(_playerImmunes).Clear();
         _lastChestContentsGold = null;
@@ -257,7 +281,7 @@ public abstract partial class AutoClear : ZoneModule
     protected void AddGaze(Actor Source, AOEShape Shape) => Gazes.Add(new(Source, Shape));
     protected void AddGaze(Actor Source, float Radius) => AddGaze(Source, new AOEShapeCircle(Radius));
     protected void AddDonut(Actor Source, float Inner, float Outer, Angle? HalfAngle = null) => Donuts.Add((Source, Inner, Outer, HalfAngle ?? 180f.Degrees()));
-    protected void AddVoidzone(Actor Source, AOEShape Shape, int Counter = 0) => Voidzones.Add((Source, Shape, Counter));
+    protected void AddVoidzone(Actor Source, AOEShape Shape, int Counter = 0, DateTime Activation = default) => Voidzones.Add((Source, Shape, Activation, Counter));
 
     protected void AddLOS(Actor Source, float Range)
     {
@@ -308,6 +332,9 @@ public abstract partial class AutoClear : ZoneModule
         if (Palace.Party.Count(p => p.EntityId > 0ul) > 1)
             return false;
 
+        if (player.FindStatus(SID.ItemPenalty) != null)
+            return false;
+
         if (!Config.AutoPoms[(int)p])
             return false;
 
@@ -347,36 +374,26 @@ public abstract partial class AutoClear : ZoneModule
         if (!Config.Enable || Palace.IsBossFloor || BetweenFloors)
             return;
 
-        bool canNavigate;
+        foreach (var (w, rot) in Walls)
+            hints.TemporaryObstacles.Add(new SDRect(w.Position, (rot ? 90f : 0f).Degrees(), w.Depth, w.Depth, 20));
 
-        if (Config.MaxPull == 0)
+        if (Config.TrapHints && _trapsHidden)
         {
-            canNavigate = !player.InCombat;
-        }
-        else
-        {
-            var count = 0;
-            var countTargets = hints.PotentialTargets.Count;
-            for (var i = 0; i < countTargets; ++i)
-            {
-                var target = hints.PotentialTargets[i];
-                if (target.Actor.AggroPlayer && !target.Actor.IsDeadOrDestroyed)
-                {
-                    ++count;
-                    if (count >= Config.MaxPull)
-                        break;
-                }
-            }
-            canNavigate = count < Config.MaxPull;
+            var tshape = _trapsCurrentZone.Where(f => f.AlmostEqual(player.Position, 30) && !IgnoreTraps.Any(i => i.AlmostEqual(f, 1)) && IsTrapOnCurrentFloor(f)).Select(f => (ShapeDistance)new SDCircle(f, 1.75f)).ToList();
+            if (tshape.Count > 0)
+                hints.AddForbiddenZone(new SDUnion([.. tshape]));
         }
 
-        var countWalls = Walls.Count;
-        for (var i = 0; i < countWalls; ++i)
-        {
-            var wall = Walls[i];
-            var w = wall.Wall;
-            hints.TemporaryObstacles.Add(new SDRect(w.Position, (wall.Rotated ? 90f : default).Degrees(), w.Depth, w.Depth, 20f));
-        }
+        DrawAOEs(playerSlot, player, hints);
+
+        var numAggro = hints.PotentialTargets.Count(t => t.Actor.AggroPlayer && !t.Actor.IsDeadOrDestroyed);
+
+        (PlayerRoom, PlayerRoomBox) = FindClosestRoom(player.Position);
+        if (!HasRoomGeometry)
+            PlayerRoom = Palace.Party.FirstOrDefault(p => p.EntityId == player.InstanceID).Room;
+
+        // allow navigating when at max pull, i.e. so we can walk our dog to the nearest chest
+        var canNavigate = Config.MaxPull == 0 ? !player.InCombat : numAggro <= Config.MaxPull;
 
         if (canNavigate)
             HandleFloorPathfind(player, hints);
@@ -385,24 +402,23 @@ public abstract partial class AutoClear : ZoneModule
             foreach (var hpt in hints.PotentialTargets)
                 hpt.ForbidDOTs = true;
 
+        if (!Config.Enable)
+            return;
+
         CalculateExtraHints(playerSlot, player, hints);
 
-        var isStunned = IsPlayerTransformed(player) || player.Statuses.Any(s => s.ID is (uint)SID.Silence or (uint)SID.Pacification);
+        var isTransformed = IsPlayerTransformed(player);
+        var isStunned = isTransformed || player.Statuses.Any(s => (SID)s.ID is SID.Silence or SID.Pacification);
         var isOccupied = player.InCombat || isStunned;
 
-        Actor? coffer = null;
-        Actor? hoardLight = null;
-        Actor? passage = null;
-        List<ShapeDistance> revealedTraps = [];
-
-        PomanderID? pomanderToUseHere = null;
+        InterestingObjects.Clear();
 
         foreach (var a in World.Actors)
         {
             if (_chestContentsGold.TryGetValue(a.InstanceID, out var pid) && Palace.GetPomanderState(pid).Count == 3 && a.IsTargetable)
             {
                 if (CanAutoUse(pid, player))
-                    pomanderToUseHere ??= pid;
+                    hints.ActionsToExecute.Push(new ActionID(ActionType.Pomander, (uint)pid), null, ActionQueue.Priority.VeryHigh);
                 continue;
             }
 
@@ -410,178 +426,117 @@ public abstract partial class AutoClear : ZoneModule
                 // TODO use magicite/demiclone to prevent overcap
                 continue;
 
-            if (a.IsOpenTreasure || _fakeExits.Contains(a.InstanceID))
+            if (_fakeExits.Contains(a.InstanceID))
                 continue;
 
-            var oid = a.OID;
-            if (a.IsTargetable && (
-                oid == (uint)OID.GoldCoffer && OpenGold ||
-                oid == (uint)OID.SilverCoffer && OpenSilver && player.HPMP.CurHP > player.HPMP.MaxHP * 0.7f ||
-                BronzeChestIDs.Contains(a.OID) && OpenBronze ||
-                oid == (uint)OID.BandedCoffer
-            ))
+            var dist = (player.Position - a.Position).LengthSq();
+
+            var oid = (OID)a.OID;
+            if (IsInThisRoomOrAdjacent(a))
             {
-                if ((coffer?.DistanceToHitbox(player) ?? float.MaxValue) > a.DistanceToHitbox(player))
-                    coffer = a;
-            }
-
-            if (a.OID == (uint)OID.BandedCofferIndicator)
-                hoardLight = a;
-
-            if (a.OID is (uint)OID.CairnPalace or (uint)OID.BeaconHoH or (uint)OID.PylonEO or (uint)OID.PylonPT && (passage?.DistanceToHitbox(player) ?? float.MaxValue) > a.DistanceToHitbox(player))
-                passage = a;
-
-            if (RevealedTrapOIDs.Contains(a.OID))
-                revealedTraps.Add(new SDCircle(a.Position, 2f));
-        }
-
-        var fullClear = false;
-        if (Config.FullClear)
-        {
-            var unexplored = Array.FindIndex(Palace.Rooms, d => (byte)d > 0 && !d.HasFlag(RoomFlags.Revealed));
-            if (unexplored > 0)
-            {
-                DesiredRoom = unexplored;
-                fullClear = true;
-            }
-        }
-        if (Config.TrapHints && _trapsHidden)
-        {
-            var countTraps = _trapsCurrentZone.Length;
-            for (var i = 0; i < countTraps; ++i)
-            {
-                var trap = _trapsCurrentZone[i];
-                if (trap.InCircle(player.Position, 30f))
+                if (!isTransformed)
                 {
-                    var shouldIgnore = false;
-                    var countIgnoreTraps = IgnoreTraps.Count;
-                    for (var j = 0; j < countIgnoreTraps; ++j)
-                    {
-                        if (IgnoreTraps[j].AlmostEqual(trap, 1f))
-                        {
-                            shouldIgnore = true;
-                            break;
-                        }
-                    }
+                    if (oid == OID.BandedCoffer && a.IsTargetable && (Config.AutoMoveTreasure || player.DistanceToHitbox(a) < 3.5f))
+                        InterestingObjects.Add(new(a, GoalType.ChestHoard, dist));
 
-                    if (!shouldIgnore)
+                    if (Config.AutoMoveTreasure || player.DistanceToHitbox(a) < 3.5f)
                     {
-                        hints.AddForbiddenZone(new SDCircle(trap, 2f));
+                        if (oid == OID.GoldCoffer && OpenGold && a.IsTargetable)
+                            InterestingObjects.Add(new(a, GoalType.Treasure, dist, 3));
+
+                        if (oid == OID.SilverCoffer && OpenSilver && a.IsTargetable)
+                            InterestingObjects.Add(new(a, GoalType.Treasure, dist, 2));
+
+                        if (OpenBronze && BronzeChestIDs.Contains(a.OID) && !a.IsOpenTreasure)
+                            InterestingObjects.Add(new(a, GoalType.Treasure, dist, 1));
                     }
                 }
+
+                if (Config.AutoMoveTreasure && oid == OID.BandedCofferIndicator && Palace.Progress.HoardCurrentFloor)
+                    InterestingObjects.Add(new(a, GoalType.Hoard, dist));
+
+                if (oid is OID.CairnPalace or OID.BeaconHoH or OID.PylonEO or OID.PylonPT && Config.AutoPassage && Palace.PassageActive && !player.InCombat)
+                    InterestingObjects.Add(new(a, GoalType.Passage, dist));
+            }
+
+            if (RevealedTrapOIDs.Contains(a.OID))
+                hints.AddForbiddenZone(new SDCircle(a.Position, 1.75f));
+        }
+
+        PickARoom(player, hints);
+
+        InterestingObjects.SortBy(o => (Config.OpenChestsFirst && o.Type == GoalType.Treasure ? 2 : Config.OpenChestsFirst && o.Type == GoalType.Passage ? 3 : (int)o.Type, o.PlayerDistSq));
+
+        if (_lastChestContentsGold is PomanderID p && InterestingObjects.FirstOrNull(p => p.Type == GoalType.Treasure && p.Tier == 3) is { } goldOvercap)
+        {
+            _chestContentsGold[goldOvercap.Actor.InstanceID] = p;
+            _lastChestContentsGold = null;
+            return;
+        }
+
+        if (_lastChestMagicite && InterestingObjects.FirstOrNull(p => p.Type == GoalType.Treasure && p.Tier == 2) is { } silverOvercap)
+        {
+            _chestContentsSilver[silverOvercap.Actor.InstanceID] = 1;
+            _lastChestMagicite = false;
+            return;
+        }
+
+        MostInterestingObject = InterestingObjects.FirstOrNull(_ => true);
+
+        var goalWeight = player.InCombat ? 1 : 0.01f;
+
+        if (canNavigate)
+        {
+            switch (MostInterestingObject)
+            {
+                case { Type: GoalType.Passage, Actor: var c }:
+                    hints.GoalZones.Add(AIHints.GoalSingleTarget(c.Position, 2, goalWeight));
+                    hints.GoalZones.Add(AIHints.GoalSingleTarget(c.Position, 25, goalWeight));
+                    break;
+
+                case { Type: GoalType.Hoard, Actor: var h }:
+                    hints.GoalZones.Add(AIHints.GoalSingleTarget(h.Position, 2, 10));
+                    break;
+
+                case { IsTreasure: true, Actor: var d }:
+                    hints.GoalZones.Add(AIHints.GoalSingleTarget(d.Position, 25, goalWeight));
+                    if (Config.AutoMoveTreasure || player.DistanceToHitbox(d) < 3.5f)
+                        hints.InteractWithTarget = d;
+                    break;
             }
         }
 
-        DrawAOEs(playerSlot, player, hints);
+        if (MostInterestingObject is { IsTreasure: true, Actor: var nearby } && !isTransformed && player.DistanceToHitbox(nearby) < 3.5f)
+            hints.InteractWithTarget = nearby;
 
-        if (coffer != null)
+        var passageRevealed = Palace.Rooms.Any(r => r.HasFlag(FFXIVClientStructs.FFXIV.Client.Game.InstanceContent.InstanceContentDeepDungeon.RoomFlags.Passage) && r.HasFlag(FFXIVClientStructs.FFXIV.Client.Game.InstanceContent.InstanceContentDeepDungeon.RoomFlags.Revealed));
+
+        var canTarget = Config.AutoClear switch
         {
-            if (_lastChestContentsGold is PomanderID p)
-            {
-                _chestContentsGold[coffer.InstanceID] = p;
-                _lastChestContentsGold = null;
-                return;
-            }
-
-            if (_lastChestMagicite)
-            {
-                // TODO figure out why the system log args arent working
-                _chestContentsSilver[coffer.InstanceID] = 1;
-                _lastChestMagicite = false;
-                return;
-            }
-        }
-
-        var zones = hints.ForbiddenZones;
-        var countZ = zones.Count;
-        var playerInAOE = false;
-        for (var i = 0; i < countZ; ++i)
-        {
-            var z = zones[i];
-            if (z.shapeDistance.Contains(player.Position))
-            {
-                playerInAOE = true;
-                break;
-            }
-        }
-
-        if (!isStunned && pomanderToUseHere is PomanderID p2 && player.FindStatus((uint)SID.ItemPenalty) == null && !playerInAOE)
-            hints.ActionsToExecute.Push(new ActionID(ActionType.Pomander, (uint)p2), null, ActionQueue.Priority.VeryHigh);
-
-        Actor? wantCoffer = null;
-        if (coffer is Actor t && !IsPlayerTransformed(player) && (Config.AutoMoveTreasure && canNavigate || player.DistanceToHitbox(t) < 3.5f))
-            wantCoffer = t;
-
-        if (!player.InCombat && Config.AutoPassage && Palace.PassageActive)
-        {
-            if (DesiredRoom == 0)
-                DesiredRoom = Array.FindIndex(Palace.Rooms, d => d.HasFlag(RoomFlags.Passage));
-
-            if (passage is Actor c && !fullClear)
-            {
-                hints.GoalZones.Add(AIHints.GoalSingleTarget(c.Position, 2f, 0.5f));
-                // give pathfinder a little help lmao
-                hints.GoalZones.Add(AIHints.GoalSingleTarget(c.Position, 25f, 0.25f));
-                if (player.DistanceToHitbox(c) < player.DistanceToHitbox(coffer) && !Config.OpenChestsFirst)
-                    wantCoffer = null;
-            }
-        }
-
-        if (wantCoffer is Actor xxx)
-        {
-            wantCoffer = xxx;
-            hints.GoalZones.Add(AIHints.GoalSingleTarget(xxx.Position, 25f));
-            if (!playerInAOE)
-            {
-                hints.InteractWithTarget ??= xxx;
-            }
-        }
-
-        if (revealedTraps.Count > 0)
-            hints.AddForbiddenZone(new SDUnion([.. revealedTraps]));
-
-        if (!IsPlayerTransformed(player) && canNavigate && Config.AutoMoveTreasure && hoardLight is Actor h && Palace.GetPomanderState(PomanderID.Intuition).Active)
-            hints.GoalZones.Add(AIHints.GoalSingleTarget(h.Position, 2f, 10f));
-
-        var shouldTargetMobs = Config.AutoClear switch
-        {
-            AutoDDConfig.ClearBehavior.Passage => !Palace.PassageActive,
-            AutoDDConfig.ClearBehavior.Leveling => player.Level < LevelCap || !Palace.PassageActive,
+            AutoDDConfig.ClearBehavior.Passage => passageRevealed && !Palace.PassageActive,
+            AutoDDConfig.ClearBehavior.Leveling => player.Level < LevelCap || passageRevealed && !Palace.PassageActive,
             AutoDDConfig.ClearBehavior.All => true,
             _ => false
         };
 
-        var counttargets = hints.PotentialTargets.Count;
-        for (var i = 0; i < counttargets; ++i)
+        foreach (var pp in hints.PotentialTargets)
         {
-            var pp = hints.PotentialTargets[i];
             // enemy is petrified, any damage will kill
-            if (pp.Actor.FindStatus((uint)SID.StoneCurse)?.ExpireAt > World.FutureTime(1.5d))
-                pp.Priority = 0;
+            if (pp.Actor.FindStatus(SID.StoneCurse)?.ExpireAt > World.FutureTime(1.5f))
+                pp.ForcePriority(0);
 
             // pomander of storms was used, enemy can't autoheal; any damage will kill
-            else if (pp.Actor.FindStatus((uint)SID.AutoHealPenalty) != null && pp.Actor.HPMP.CurHP < 10u)
-                pp.Priority = 0;
+            else if (pp.Actor.FindStatus(SID.AutoHealPenalty) != null && pp.Actor.PendingHPRaw is > 0 and < 10)
+                pp.ForcePriority(0);
 
-            // if player does not have a target, prioritize everything so that AI picks one - skip dangerous enemies
-            else if (shouldTargetMobs)
+            // if not at max pull size, prioritize mobs
+            else if (canTarget && (numAggro < Config.MaxPull || Config.MaxPull == 0 && numAggro == 0) && !pp.Actor.Statuses.Any(s => IsDangerousOutOfCombatStatus(s.ID)) && IsInThisRoomOrAdjacent(pp.Actor) && !pp.Actor.AggroPlayer)
             {
-                var hasDangerousStatus = false;
-                var len = pp.Actor.Statuses.Length;
-                ref var statuses = ref pp.Actor.Statuses;
-                for (var j = 0; j < len; ++j)
-                {
-                    if (IsDangerousOutOfCombatStatus(statuses[j].ID))
-                    {
-                        hasDangerousStatus = true;
-                        break;
-                    }
-                }
-
-                if (!hasDangerousStatus)
-                {
+                // passive mobs shouldn't be prioritized over aggro'd ones
+                if (player.InCombat)
                     pp.Priority = 0;
-                }
+                else
+                    pp.ShouldBeTargeted = true;
             }
         }
     }
@@ -660,7 +615,7 @@ public abstract partial class AutoClear : ZoneModule
 
         IterAndExpire(Voidzones, d => d.Source.IsDeadOrDestroyed, d =>
         {
-            hints.AddForbiddenZone(d.Zone, d.Source.Position.Quantized(), d.Source.Rotation);
+            hints.AddForbiddenZone(d.Zone, d.Source.Position.Quantized(), d.Source.Rotation, d.Activation);
         });
 
         IterAndExpire(KnockbackZones, d => d.Source.CastInfo == null, kb =>
@@ -682,23 +637,23 @@ public abstract partial class AutoClear : ZoneModule
     private static bool IsPlayerTransformed(Actor player) => player.Statuses.Any(Autorotation.RotationModuleManager.IsTransformStatus);
     private static bool IsDangerousOutOfCombatStatus(uint statusRaw) => statusRaw is (uint)SID.DamageUp or (uint)SID.DreadBeastAura or (uint)SID.PhysicalDamageUp;
 
-    private void HandleFloorPathfind(Actor player, AIHints hints)
+    private void HandleLegacyFloorPathfind(Actor player, AIHints hints)
     {
         var slot = Array.FindIndex(Palace.Party, p => p.EntityId == player.InstanceID);
         if (slot < 0)
             return;
         var playerRoom = Palace.Party[slot].Room;
 
-        if (DesiredRoom == playerRoom || DesiredRoom == 0)
+        if (DesiredRoom.Index == playerRoom || DesiredRoom.Index == 0)
         {
-            DesiredRoom = 0;
+            DesiredRoom = default;
             return;
         }
 
-        var path = new FloorPathfind(Palace.Rooms).Pathfind(playerRoom, DesiredRoom);
+        var path = new FloorPathfind(Palace.Rooms).Pathfind(playerRoom, DesiredRoom.Index);
         if (path.Count == 0)
         {
-            Service.Log($"uh-oh, no path from {playerRoom} to {DesiredRoom}");
+            Service.Log($"uh-oh, no path from {playerRoom} to {DesiredRoom.Index}");
             return;
         }
         var next = path[0];
@@ -714,7 +669,7 @@ public abstract partial class AutoClear : ZoneModule
         else
         {
             Service.Log($"pathfinding instructions are nonsense: {string.Join(", ", path)}");
-            DesiredRoom = 0;
+            DesiredRoom = default;
             return;
         }
 
@@ -788,4 +743,24 @@ public abstract partial class AutoClear : ZoneModule
 
         return false;
     }
+
+    private void HandleActorAdd(Actor actor)
+    {
+        if ((OID)actor.OID is OID.BeaconHoH or OID.BandedCofferIndicator)
+            IgnoreTraps.Add(actor.Position);
+        OnActorCreated(actor);
+    }
+
+    private void HandleCastEvent(Actor actor, ActorCastEvent ev)
+    {
+        if (ev.Action.ID is 6275 or 6276 or 6277 or 6278 or 6279 or 11287 or 32375 or 44038 && HasRoomGeometry)
+        {
+            var box = FindClosestRoom(actor.Position).Room;
+            IgnoreTraps.AddRange(_trapsCurrentZone.Where(box.Contains));
+        }
+        OnEventCast(actor, ev);
+    }
+
+    private bool IsTrapOnCurrentFloor(WPos trap) => !HasRoomGeometry || _floorRects[Palace.Progress.Tileset]
+        .Any(r => r.Size != default && r.Contains(trap) && Palace.Rooms[r.Room] != RoomFlags.None && !Palace.Rooms[r.Room].HasFlag(RoomFlags.Home));
 }

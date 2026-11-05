@@ -169,6 +169,9 @@ public abstract class RotationModule(RotationModuleManager manager, Actor player
     // utility to resolve the target overrides; returns null on failure - in this case module is expected to run smart-targeting logic
     // expected usage is `ResolveTargetOverride(strategy) ?? CustomSmartTargetingLogic(...)`
     protected Actor? ResolveTargetOverride(in StrategyValueTrack strategy) => Manager.ResolveTargetOverride(strategy.Target, strategy.TargetParam);
+    protected Actor? ResolveTarget(in StrategyValueTrack strategy) => ResolveTargetOverride(strategy);
+    protected Actor? ResolveTarget<T>(in Track<T> track) where T : struct => ResolveTargetOverride(track.TrackRaw);
+    protected AIHints.Enemy? ResolveEnemy<T>(in Track<T> track) where T : struct => Hints.FindEnemy(ResolveTarget(track));
     protected AIHints.Enemy? ResolveTargetOverride<T>(in Track<T> track) where T : struct => Hints.FindEnemy(Manager.ResolveTargetOverride(track.TrackRaw.Target, track.TrackRaw.TargetParam));
     protected WPos ResolveTargetLocation(in StrategyValueTrack strategy) => Manager.ResolveTargetLocation(strategy.Target, strategy.TargetParam, strategy.Offset1, strategy.Offset2);
 

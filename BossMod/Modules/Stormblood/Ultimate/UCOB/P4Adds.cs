@@ -20,6 +20,9 @@ sealed class P4AddsPositioning(BossModule module) : BossComponent(module)
             nael.DesiredRotation = 90f.Degrees();
         }
 
+        if (spawned && actor.Class.GetRole() is Role.Healer or Role.Ranged)
+            hints.GoalZones.Add(AIHints.GoalSingleTarget(new WPos(18, -9), 5, 0.5f));
+
         if (!spawned)
         {
             switch (actor.Class.GetRole())

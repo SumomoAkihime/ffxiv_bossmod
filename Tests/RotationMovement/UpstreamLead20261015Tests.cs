@@ -115,11 +115,11 @@ static class UpstreamLead20261015Tests
         At(1);
         twister.AddAIHints(0, f.Player, Role.MT, hints);
         check(hints.ForcedMovement == null && !hints.ForbidDashes, "P3旋风：长读条前段不提前冻结移动");
-        hints.Clear(); At(2.3);
+        hints.Clear(); At(2.7);
         twister.AddAIHints(0, f.Player, Role.MT, hints);
         check(hints.ForcedMovement == Vector3.Zero && hints.MaxCastTime == 0 && hints.ForceCancelCast && hints.ForbidDashes,
             "P3旋风：按预测前窗口冻结移动、读条与冲刺");
-        hints.Clear(); At(3.91);
+        hints.Clear(); At(4.11);
         twister.AddAIHints(0, f.Player, Role.MT, hints);
         check(twister.ActiveAOEs(0, f.Player).Length == 1 && hints.ForcedMovement == null && hints.ForbidDashes && hints.Voidzones.Count == 1,
             "P3旋风：预测生成后释放走位但圈内禁止冲刺");

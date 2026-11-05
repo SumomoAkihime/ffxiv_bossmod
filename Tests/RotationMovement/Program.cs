@@ -215,7 +215,9 @@ class Program
             UpstreamOmega20261024Tests.Run(Check);
             Console.WriteLine("验证：Reborn20261024Tests");
             Reborn20261024Tests.Run(Check);
-            Console.WriteLine("循环/移动开关、预设改名与顺序、跟随、旧任务失效、视线及排序检查完成。");
+            Console.WriteLine("验证：Upstream20261105Tests");
+            Upstream20261105Tests.Run(manager, player, hints, Check);
+            Console.WriteLine($"完整循环与移动回归通过：{checks} 项断言。");
         }
         finally { ImGui.DestroyContext(imgui); }
     }

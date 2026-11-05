@@ -182,8 +182,43 @@ public static class PlanPresetConverter
             return j;
         });
 
+        res.Converters.Add((j, _, _) =>
+        {
+            foreach (var modules in EnumerateEntriesModules(j, plan))
+                foreach (var (name, module) in modules)
+                {
+                    if (module == null)
+                        continue;
+                    if (plan)
+                    {
+                        if (module["_defaults"] is JsonObject defaults)
+                            foreach (var (track, option) in defaults.ToList())
+                                if (option != null)
+                                    defaults[track] = RenameLegacyOption(name, track, option.GetValue<string>());
+                        foreach (var (track, entries) in module.AsObject())
+                            if (track != "_defaults" && entries is JsonArray windows)
+                                foreach (var entry in windows)
+                                    if (entry?["Option"] is { } option)
+                                        entry["Option"] = RenameLegacyOption(name, track, option.GetValue<string>());
+                    }
+                    else
+                        foreach (var entry in module.AsArray())
+                            if (entry?["Track"] is { } track && entry["Option"] is { } option)
+                                entry["Option"] = RenameLegacyOption(name, track.GetValue<string>(), option.GetValue<string>());
+                }
+            return j;
+        });
+
         return res;
     }
+
+    internal static string RenameLegacyOption(string module, string track, string option)
+        => option == "ASAP" && (module, track) is
+            ("BossMod.Autorotation.kage.KageBLM", "LeyLines") or
+            ("BossMod.Autorotation.kage.KageMCH", "Hypercharge") or
+            ("BossMod.Autorotation.kage.KageSAM", "Tsubame") or
+            ("BossMod.Autorotation.kage.KageVPR", "Reawaken") or
+            ("BossMod.Autorotation.kage.KageWHM", "Misery") ? "Force" : option;
 
     record struct OptionRename(string Module, string Option, string Before, string After);
 

@@ -1,55 +1,36 @@
 ﻿namespace BossMod.Stormblood.Ultimate.UWU;
 
 // predict puddles under all players until actual casts start
-class P1FeatherRain : Components.GenericAOEs
+class P1FeatherRain(BossModule module) : Components.GenericAOEs(module, (uint)AID.FeatherRain, "GTFO from puddle!")
 {
-    private readonly List<WPos> _predicted = new(8);
-    private readonly List<AOEInstance> _aoes = new(8);
+    private readonly List<WPos> _predicted = [];
+    private readonly List<Actor> _casters = [];
     private DateTime _activation;
 
-    private static readonly AOEShapeCircle _shape = new(3f);
-
-    public P1FeatherRain(BossModule module) : base(module, (uint)AID.FeatherRain)
-    {
-        KeepOnPhaseChange = true;
-    }
+    private static readonly AOEShapeCircle _shape = new(3);
 
     public bool CastsPredicted => _predicted.Count > 0;
-    public bool CastsActive => _aoes.Count > 0;
+    public bool CastsActive => _casters.Count > 0;
+
+    private readonly List<AOEInstance> _portedAOEView = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        var predictedCount = _predicted.Count;
-        var aoesCount = _aoes.Count;
-        var totalCount = predictedCount + aoesCount;
-
-        if (totalCount == 0)
-            return [];
-
-        var aoes = new AOEInstance[totalCount];
-        var index = 0;
-
-        for (var i = 0; i < predictedCount; ++i)
-        {
-            var p = _predicted[i];
-            aoes[index++] = new(_shape, p, default, _activation);
-        }
-
-        for (var i = 0; i < aoesCount; ++i)
-            aoes[index++] = _aoes[i];
-        return aoes;
+        _portedAOEView.Clear();
+        foreach (var p in _predicted)
+            _portedAOEView.Add(new(_shape, p, new(), _activation));
+        foreach (var c in _casters)
+            _portedAOEView.Add(new(_shape, c.CastInfo!.LocXZ, new(), Module.CastFinishAt(c.CastInfo!)));
+        return CollectionsMarshal.AsSpan(_portedAOEView);
     }
 
     public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
     {
-        if (id == 0x1E3A && actor.OID is (uint)OID.Garuda or (uint)OID.GarudaSister)
+        if (id == 0x1E3A && (OID)actor.OID is OID.Garuda or OID.GarudaSister)
         {
             _predicted.Clear();
-            var party = Raid.WithoutSlot(false, true, true);
-            var len = party.Length;
-            for (var i = 0; i < len; ++i)
-                _predicted.Add(party[i].Position);
-            _activation = WorldState.FutureTime(2.5d);
+            _predicted.AddRange(Raid.WithoutSlot().Select(p => p.Position));
+            _activation = WorldState.FutureTime(2.5f);
         }
     }
 
@@ -58,7 +39,7 @@ class P1FeatherRain : Components.GenericAOEs
         if (spell.Action.ID == WatchedAction)
         {
             _predicted.Clear();
-            _aoes.Add(new(_shape, spell.LocXZ, default, Module.CastFinishAt(spell)));
+            _casters.Add(caster);
         }
     }
 
@@ -66,7 +47,7 @@ class P1FeatherRain : Components.GenericAOEs
     {
         if (spell.Action.ID == WatchedAction)
         {
-            _aoes.RemoveAt(0);
+            _casters.Remove(caster);
         }
     }
 }

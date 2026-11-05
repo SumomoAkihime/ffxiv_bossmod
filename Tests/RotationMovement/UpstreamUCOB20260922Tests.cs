@@ -41,7 +41,7 @@ static class UpstreamUCOB20260922Tests
             twister.Update();
             hints.Clear();
             twister.AddAIHints(0, players[0], Role.MT, hints);
-            check(hints.MaxCastTime == float.MaxValue && !hints.ForceCancelCast && hints.ForcedMovement == null && !hints.GoalZonesEnabled, "绝巴哈旋风已预测位置后释放停步，优先离开预测圈");
+            check(hints.MaxCastTime == 0 && hints.ForceCancelCast && hints.ForcedMovement == null && !hints.GoalZonesEnabled && hints.ForbidDashes, "绝巴哈旋风已预测位置后释放停步，按新时序继续禁读条并优先离开预测圈");
         }
     }
 
@@ -156,9 +156,9 @@ static class UpstreamUCOB20260922Tests
         {
             var quote = Component(module, "Quote");
             Field(quote, "Source").SetValue(quote, module.PrimaryActor);
-            var pending = (List<uint>)Field(quote, "PendingMechanics").GetValue(quote)!;
-            pending.Add((uint)AID.IronChariot);
-            pending.Add((uint)AID.ThermionicBeam);
+            var pending = (List<AID>)Field(quote, "PendingMechanics").GetValue(quote)!;
+            pending.Add(AID.IronChariot);
+            pending.Add(AID.ThermionicBeam);
             var hints = new AIHints();
             quote.AddAIHints(0, players[0], Role.MT, hints);
             check(hints.GoalZones.Count == 1 && hints.GoalZones[0](module.PrimaryActor.Position) > hints.GoalZones[0](players[0].Position),

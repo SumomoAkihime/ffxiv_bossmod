@@ -34,7 +34,7 @@ static class UCOBUpstreamTests
         var (world, module, player) = Fixture();
         using (module)
         {
-            var quote = (UniformStackSpread)Component(module, "QuoteMeteorStream");
+            var quote = (StrictUniformStackSpread)Component(module, "QuoteMeteorStream");
             quote.AddSpread(player, world.FutureTime(5f));
             Set(quote, "Fixed", true);
             var hints = new AIHints();

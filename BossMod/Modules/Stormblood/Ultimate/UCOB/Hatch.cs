@@ -148,6 +148,14 @@ sealed class Hatch(BossModule module) : Components.CastCounter(module, (uint)AID
         }
         var linkShape = new SDUnion(shapeDistances);
 
+        if (Module.PrimaryActor is { IsTargetable: true, HPMP.CurHP: 1 })
+        {
+            hints.AddForbiddenZone(linkShape, DateTime.MaxValue);
+            foreach (var orb in Module.Enemies(OID.Oviform))
+                hints.AddForbiddenZone(new SDCircle(orb.Position, 2), DateTime.MaxValue);
+            return;
+        }
+
         if (_targets[slot])
         {
             // tiebreaker
@@ -190,7 +198,10 @@ sealed class Hatch(BossModule module) : Components.CastCounter(module, (uint)AID
 
             hints.GoalZones.Add(AIHints.GoalSingleTarget(myLink.Position, 5f, 0.5f));
 
-            hints.AddForbiddenZone(new SDInvertedCircle(myLink.Position, 2f), WorldState.FutureTime(leewaySeconds));
+            if (Twister)
+                hints.AddForbiddenZone(new SDInvertedDonutSector(myLink.Position, 3, 5, Module.PrimaryActor.AngleTo(myLink), 90.Degrees()), WorldState.FutureTime(leewaySeconds));
+            else
+                hints.AddForbiddenZone(new SDInvertedCircle(myLink.Position, 2f), WorldState.FutureTime(leewaySeconds));
         }
         else if (_tenstrikeUntargeted[slot])
         {

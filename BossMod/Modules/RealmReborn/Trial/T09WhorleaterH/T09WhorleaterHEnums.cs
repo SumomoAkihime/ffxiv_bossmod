@@ -51,6 +51,7 @@ public enum AID : uint
 
 public enum SID : uint
 {
+    MimicryTank = 2124,
     VeilOfTheWhorl = 478, // Boss->A88/Boss/A87, extra=0x64
     MantleOfTheWhorl = 477, // Tail->Tail, extra=0x64
     Invincibility = 775 // none->A88/Boss/Tail/A87, extra=0x0

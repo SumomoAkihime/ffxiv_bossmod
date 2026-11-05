@@ -35,8 +35,17 @@ public sealed class NetworkState
     }
 
     public IDScrambleFields IDScramble;
+    public float LastRTT;
 
-    public List<WorldState.Operation> CompareToInitial() => IDScramble != default ? [new OpIDScramble(IDScramble)] : [];
+    public List<WorldState.Operation> CompareToInitial()
+    {
+        List<WorldState.Operation> ops = [];
+        if (IDScramble != default)
+            ops.Add(new OpIDScramble(IDScramble));
+        if (LastRTT != 0)
+            ops.Add(new OpRTT(LastRTT));
+        return ops;
+    }
 
     public Event<OpLegacyIDScramble> LegacyIDScrambleChanged = new();
     public sealed class OpLegacyIDScramble(uint value) : WorldState.Operation
@@ -86,5 +95,16 @@ public sealed class NetworkState
             .Emit(p.SendTimestamp.Ticks)
             .Emit([.. p.Payload]);
         }
+    }
+    public Event<OpRTT> RTTUpdated = new();
+    public sealed class OpRTT(float rtt) : WorldState.Operation
+    {
+        public readonly float RTT = rtt;
+        protected override void Exec(WorldState ws)
+        {
+            ws.Network.LastRTT = RTT;
+            ws.Network.RTTUpdated.Fire(this);
+        }
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("RTT "u8).Emit(RTT);
     }
 }

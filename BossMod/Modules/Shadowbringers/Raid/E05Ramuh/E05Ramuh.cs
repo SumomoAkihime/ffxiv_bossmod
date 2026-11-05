@@ -7,6 +7,7 @@ public enum OID : uint
     Stormcloud = 0x2D03, // R1.000
     WillOfRamuh = 0x2D05, // R3.800
     WillOfIxion = 0x2D06, // R3.000
+    GatheredStorm = 0x2D04, // merged stormcloud
     SurgeOrb = 0x1EAF6B, // R0.500, EventObj
 }
 
@@ -31,6 +32,7 @@ public enum AID : uint
     GallopVisual = 19350, // WillOfIxion->self, 4.0s cast, single-target
     Gallop = 19351, // Helper->self, 4.5s cast, range 50 width 5 rect
     Thunderstorm = 19360, // Boss->self, 5.0s cast, single-target
+    ThePartingClouds = 19357,
     ShockStrike = 19361, // Helper->location, 2.5s cast, range 3 circle
     VoltStrike = 19698, // Helper->location, 2.5s cast, range 5 circle
     //_Weaponskill_ = 19403, // Boss->location, no cast, single-target
@@ -114,6 +116,8 @@ class StormcloudBait(BossModule module) : Components.BaitAwayIcon(module, new AO
         {
             // bait to edge by making a forbidden zone that's -1.5y the arena size
             hints.AddForbiddenZone(new SDRect(Arena.Center, new WDir(0, 1), 13.5f, 13.5f, 18.5f), b.Activation);
+            foreach (var other in ActiveBaitsNotOn(actor))
+                hints.AddForbiddenZone(new SDCircle(other.Target.Position, 15), b.Activation);
         }
     }
 }
@@ -204,6 +208,7 @@ class E05RamuhStates : StateMachineBuilder
             .ActivateOnEnter<SurgeOrbs>()
             .ActivateOnEnter<StormcloudBait>()
             .ActivateOnEnter<StormcloudVoidzone>()
+            .ActivateOnEnter<ThePartingClouds>()
             .ActivateOnEnter<DeadlyDischarge>()
             .ActivateOnEnter<DeadlyDischargeKnockback>()
             .ActivateOnEnter<Gallop>()
@@ -219,4 +224,26 @@ sealed class PredictedDanger(Func<WPos, bool> forbidden) : ShapeDistance
 {
     public override float Distance(in WPos p) => forbidden(p) ? 0 : 1;
     public override bool Contains(in WPos p) => forbidden(p);
+}
+
+class ThePartingClouds(BossModule module) : Components.RaidwideInstant(module, (uint)AID.ThePartingClouds, 4.7f, "3x heavy raidwide")
+{
+    public override void OnActorCreated(Actor actor)
+    {
+        if (actor.OID == (uint)OID.GatheredStorm)
+            Activation = WorldState.FutureTime(Delay);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        base.OnEventCast(caster, spell);
+        if (spell.Action.ID == WatchedAction && Module.Enemies((uint)OID.GatheredStorm).Any(a => !a.IsDeadOrDestroyed))
+            Activation = WorldState.FutureTime(3.1f);
+    }
+
+    public override void OnActorDestroyed(Actor actor)
+    {
+        if (actor.OID == (uint)OID.GatheredStorm && !Module.Enemies((uint)OID.GatheredStorm).Any(a => !a.IsDeadOrDestroyed))
+            Activation = default;
+    }
 }

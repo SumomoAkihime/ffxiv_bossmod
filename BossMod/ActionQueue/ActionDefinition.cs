@@ -83,6 +83,7 @@ public sealed record class ActionDefinition(ActionID ID)
     public bool IsRoleAction; // unlocked conditions are different for these
     public float InstantAnimLock = 0.6f; // animation lock if ability is instant-cast
     public float CastAnimLock = 0.1f; // animation lock if ability is non-instant
+    public float PositionLock; // extra time the action prevents movement after its cast
     public ConditionDelegate? ForbidExecute; // optional condition, if it returns true, action is not executed
     public SmartTargetDelegate? SmartTarget; // optional target transformation for 'smart targeting' feature
     public TransformAngleDelegate? TransformAngle; // optional facing angle transformation
@@ -398,7 +399,7 @@ public sealed class ActionDefinitions
                     return true;
         }
 
-        return hints.ForbiddenZones.Any(d => d.shapeDistance.Contains(to));
+        return hints.ForbiddenZones.Any(d => d.shapeDistance?.Contains(to) == true);
     }
 
     public BitMask SpellAllowedClasses(Lumina.Excel.Sheets.Action data)
@@ -507,7 +508,7 @@ public sealed class ActionDefinitions
     private Lumina.Excel.Sheets.Trait TraitData(uint id) => _traitSheet.GetRow(id);
 
     // registration for different kinds of actions
-    public void RegisterSpell(ActionID aid, bool isPhysRanged = false, float instantAnimLock = 0.6f, float castAnimLock = 0.1f)
+    public void RegisterSpell(ActionID aid, bool isPhysRanged = false, float instantAnimLock = 0.6f, float castAnimLock = 0.1f, float positionLock = 0)
     {
         var data = ActionData(aid.ID);
         var def = new ActionDefinition(aid)
@@ -525,14 +526,15 @@ public sealed class ActionDefinitions
             MaxChargesBase = SpellBaseMaxCharges(data),
             InstantAnimLock = instantAnimLock,
             CastAnimLock = castAnimLock,
+            PositionLock = positionLock,
             IsRoleAction = data.IsRoleAction,
             Category = (ActionCategory)data.ActionCategory.RowId
         };
         Register(aid, def);
     }
 
-    public void RegisterSpell<AID>(AID aid, bool isPhysRanged = false, float instantAnimLock = 0.6f, float castAnimLock = 0.1f) where AID : Enum
-        => RegisterSpell(ActionID.MakeSpell(aid), isPhysRanged, instantAnimLock, castAnimLock);
+    public void RegisterSpell<AID>(AID aid, bool isPhysRanged = false, float instantAnimLock = 0.6f, float castAnimLock = 0.1f, float positionLock = 0) where AID : Enum
+        => RegisterSpell(ActionID.MakeSpell(aid), isPhysRanged, instantAnimLock, castAnimLock, positionLock);
 
     private void Register(ActionID aid, ActionDefinition definition) => _definitions.Add(aid, definition);
 
@@ -594,7 +596,7 @@ public sealed class ActionDefinitions
 
     private void RegisterDeepDungeon(ActionID id)
     {
-        _definitions[id] = new(id) { AllowedTargets = ActionTargets.Self, InstantAnimLock = 2.1f };
+        _definitions[id] = new(id) { AllowedTargets = ActionTargets.Self, InstantAnimLock = 2.1f, PositionLock = id.Type == ActionType.Pomander ? 1 : id.Type == ActionType.Magicite ? 85 / 30f : 0 };
     }
 
     // hardcoded mechanic implementations

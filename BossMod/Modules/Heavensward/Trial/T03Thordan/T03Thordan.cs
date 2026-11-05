@@ -248,6 +248,7 @@ class T03ThordanStates : StateMachineBuilder
             .ActivateOnEnter<LightningStorm>()
             .ActivateOnEnter<BrightFlare>()
             .ActivateOnEnter<LightOfAscalon>()
+            .ActivateOnEnter<LightOfAscalonHits>()
             .ActivateOnEnter<Knights>()
             .ActivateOnEnter<Meteors>();
     }
@@ -255,3 +256,17 @@ class T03ThordanStates : StateMachineBuilder
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, Contributors = "Kagekazu", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 90, NameID = 3632)]
 public class T03Thordan(WorldState ws, Actor primary) : BossModule(ws, primary, new(0, 0), new ArenaBoundsCircle(24));
+
+class LightOfAscalonHits(BossModule module) : Components.RaidwideMultiHit(module, (uint)AID.LightOfAscalonStart, [(uint)AID.TheLightOfAscalon], 10.8f, 1.38f, 6)
+{
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == WatchedAction)
+        {
+            Remaining = 6;
+            NextHit = WorldState.FutureTime(10.8f);
+            LastHit = NextHit.AddSeconds(1.38f * 5);
+        }
+        base.OnEventCast(caster, spell);
+    }
+}

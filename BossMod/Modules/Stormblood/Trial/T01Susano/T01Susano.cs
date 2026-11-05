@@ -124,7 +124,37 @@ sealed class AmeNoMurakumoOrbs(BossModule module) : BossComponent(module)
     }
 }
 
-sealed class SeaSplitterCast(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Seasplitter, new AOEShapeRect(41f, 20f));
+class SeaSplitterCast(BossModule module) : Components.GenericAOEs(module, (uint)AID.Seasplitter)
+{
+    private readonly List<AOEInstance> _aoes = [];
+
+    private const float SafeStrip = 0.6f;
+    private static readonly AOEShapeRect _shape = new(21.5f - SafeStrip, 20);
+
+    private readonly List<AOEInstance> _portedAOEView = [];
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        _portedAOEView.Clear();
+        _portedAOEView.AddRange(_aoes);
+        return CollectionsMarshal.AsSpan(_portedAOEView);
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == WatchedAction)
+            _aoes.Add(new(_shape, caster.Position + SafeStrip * spell.Rotation.ToDirection(), spell.Rotation, Module.CastFinishAt(spell)));
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if ((AID)spell.Action.ID == AID.Seasplitter3)
+        {
+            ++NumCasts;
+            _aoes.RemoveAll(aoe => aoe.Rotation.AlmostEqual(spell.Rotation, 0.1f));
+        }
+    }
+}
 
 sealed class SeaSplitter1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Seasplitter1, new AOEShapeRect(27f, 20f));
 sealed class SeaSplitter2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Seasplitter2, new AOEShapeRect(27f, 20f));
@@ -132,7 +162,21 @@ sealed class SeaSplitter3(BossModule module) : Components.SimpleAOEs(module, (ui
 
 sealed class StormSplitter(BossModule module) : Components.IconSharedTankbuster(module, (uint)IconID.StormsplitterIcon, (uint)AID.Stormsplitter, new AOEShapeRect(40f, 2f));
 
-sealed class SheerForce(BossModule module) : Components.RaidwideInstant(module, (uint)AID.SheerForce);
+class SheerForce(BossModule module) : Components.RaidwideInstant(module, (uint)AID.SheerForce, 4)
+{
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if ((AID)spell.Action.ID == AID.AmeNoMurakumoWipe)
+            Activation = WorldState.FutureTime(Delay);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        base.OnEventCast(caster, spell);
+        if (spell.Action.ID == WatchedAction && NumCasts % 2 == 1)
+            Activation = WorldState.FutureTime(5);
+    }
+}
 
 [SkipLocalsInit]
 sealed class SusanoStates : StateMachineBuilder

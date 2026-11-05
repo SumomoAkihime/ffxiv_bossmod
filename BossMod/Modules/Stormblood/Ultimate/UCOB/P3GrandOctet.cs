@@ -1,6 +1,6 @@
 ﻿namespace BossMod.Stormblood.Ultimate.UCOB;
 
-sealed class P3GrandOctet(BossModule module) : Components.GenericAOEs(module)
+class P3GrandOctet(BossModule module) : Components.GenericAOEs(module)
 {
     public List<Actor> Casters = [];
     private Actor? _nael;
@@ -12,91 +12,136 @@ sealed class P3GrandOctet(BossModule module) : Components.GenericAOEs(module)
     public readonly int[] BaitOrder = new int[PartyState.MaxPartySize];
     public int NumBaitsAssigned = 1; // reserve for lunar dive
 
-    private readonly AOEShapeRect _shapeNaelTwin = new(63.96f, 4f);
-    private readonly AOEShapeRect _shapeBahamut = new(64.2f, 6f);
-    private readonly AOEShapeRect _shapeDrake = new(52f, 10f);
+    private readonly List<WPos> Towers = [];
+    private BitMask Stackers;
 
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(AOEs);
+    private static readonly AOEShapeRect _shapeNaelTwin = new(60, 4);
+    private static readonly AOEShapeRect _shapeBahamut = new(60, 6);
+    private static readonly AOEShapeRect _shapeDrake = new(52, 10);
+
+    private readonly List<AOEInstance> _portedAOEView = [];
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        _portedAOEView.Clear();
+        _portedAOEView.AddRange(AOEs);
+        return CollectionsMarshal.AsSpan(_portedAOEView);
+    }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        if (BaitOrder[slot] >= NextBaitOrder)
-        {
+        if ((uint)slot < PartyState.MaxPartySize && BaitOrder[slot] >= NextBaitOrder)
             hints.Add($"Bait {BaitOrder[slot]}", false);
-        }
         base.AddHints(slot, actor, hints);
     }
 
-    public override void AddGlobalHints(Actor actor, GlobalHints hints)
+    public override void AddGlobalHints(GlobalHints hints)
     {
         if (DiveOrder != 0)
-        {
             hints.Add($"Move {(DiveOrder < 0 ? "CW" : "CCW")}");
-        }
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         base.AddAIHints(slot, actor, assignment, hints);
 
+        // before nael has picked a target, everyone stand mid
         if (NumCasts == 0 && AOEs.Count == 0)
         {
-            hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center, 1f));
+            hints.AddForbiddenZone(new SDInvertedCircle(Arena.Center, 1));
             return;
         }
 
         if (DiveOrder == 0 || (uint)slot >= PartyState.MaxPartySize)
-        {
             return;
-        }
 
         WPos? baitSource = null;
+
         var order = BaitOrder[slot];
+
         if (order >= NextBaitOrder && order <= Casters.Count)
-        {
+            // bait impending
             baitSource = Casters[order - 1].Position;
-        }
         else if (order == 0 && NumBaitsAssigned == 6)
-        {
+            // one unassigned player gets bahamut
             baitSource = _baha?.Position;
-        }
         else if (order > 0 && order < NextBaitOrder)
         {
-            hints.GoalZones.Add(AIHints.GoalSingleTarget(Arena.Center, 5f));
+            // bait done, go back to mid so we can easily move to stack spot
+            hints.GoalZones.Add(AIHints.GoalSingleTarget(Arena.Center, 5));
             return;
         }
 
-        if (baitSource is { } source)
+        if (baitSource == null)
+            return;
+
+        var ctr = Arena.Center;
+        var baitAngle = (baitSource.Value - ctr).ToAngle();
+
+        // twin bait can stand relatively close so that they have the most time to get to the tower or to the stack destination
+        if (order == 8)
         {
-            var direction = (source - Arena.Center).ToAngle() + (DiveOrder * 34f).Degrees();
-            var edgeGoal = AIHints.GoalProximity(Arena.Center + direction.ToDirection() * 21f, 20f, 5f);
-            hints.GoalZones.Add(p => p.InCircle(Arena.Center, 19f) ? 0f : edgeGoal(p));
+            if (NumCasts < 7)
+            {
+                // baha dive might cover our spot
+                hints.GoalZones.Add(AIHints.GoalProximity(baitSource.Value, 20, 5));
+            }
+            else
+            {
+                baitAngle += (DiveOrder * 15).Degrees();
+                var closeBait = Arena.Center + baitAngle.ToDirection() * 21.5f;
+
+                if (Stackers.Any() && !Stackers[slot])
+                {
+                    // if not stacking, the plan is to preposition as close to our desired tower as possible, ensuring that nobody else's tower gets hit by twin
+                    var myTower = Towers.MinBy(t => (t - closeBait).LengthSq());
+                    foreach (var t in Towers)
+                    {
+                        hints.AddForbiddenZone(new SDCone(baitSource.Value, 100, (t - baitSource.Value).ToAngle(), MathF.Atan2(7, (t - baitSource.Value).Length()).Radians()));
+                    }
+                    // additionally make sure we hide on the correct side of the arena, since the stackers are using the other side
+                    hints.AddForbiddenZone(new SDHalfPlane(baitSource.Value, baitAngle.ToDirection().Rotate((90 * DiveOrder).Degrees())));
+                    // goal zone for tower
+                    hints.GoalZones.Add(AIHints.GoalProximity(myTower, 20, 5));
+                }
+                else
+                {
+                    // exact position isn't that important, but since we already use this one for tower assignments, just stand there
+                    hints.PathfindMapBounds = UCOB.PathfindHugBorderBounds;
+                    hints.AddForbiddenZone(new SDPrecisePosition(closeBait, new(0, 1), 0.5f, actor.Position, 0.1f));
+                }
+            }
+
+            return;
         }
+
+        baitAngle += (DiveOrder * 34).Degrees(); // approximation, i ain't doing no trigonometry
+        var goalEdge = AIHints.GoalProximity(ctr + baitAngle.ToDirection() * 22, 20, 5);
+        hints.GoalZones.Add(p => p.InCircle(ctr, 19) ? 0 : goalEdge(p));
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         // draw safespot
         if (NumCasts == 0 && AOEs.Count <= 1 && _initialSafespot != default)
-        {
-            Arena.ZoneCircleOutline(_initialSafespot, 1f, Colors.Safe);
-        }
+            Arena.AddCircleUnfilled(_initialSafespot, 1, Colors.Safe);
 
         // draw bait
         var order = BaitOrder[pcSlot];
         if (order >= NextBaitOrder && order <= Casters.Count)
         {
             var source = Casters[order - 1];
-            Arena.Actor(source, Colors.Object, true, true);
+            Arena.ActorInsideBounds(source.Position, source.Rotation, Colors.Object);
             BaitShape(order).Outline(Arena, source.Position, Angle.FromDirection(pc.Position - source.Position));
         }
     }
 
     public override void OnActorCreated(Actor actor)
     {
-        if (actor.OID is (uint)OID.Firehorn or (uint)OID.Iceclaw or (uint)OID.Thunderwing or (uint)OID.TailOfDarkness or (uint)OID.FangOfLight)
+        if ((OID)actor.OID is OID.Firehorn or OID.Iceclaw or OID.Thunderwing or OID.TailOfDarkness or OID.FangOfLight && !Casters.Contains(actor))
         {
             Casters.Add(actor);
+            InitIfReady();
         }
     }
 
@@ -105,8 +150,11 @@ sealed class P3GrandOctet(BossModule module) : Components.GenericAOEs(module)
         var shape = CastShape(spell.Action);
         if (shape != null)
         {
-            AOEs.Add(new(shape, spell.LocXZ, spell.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID));
+            AOEs.Add(new(shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell), actorID: caster.InstanceID));
         }
+
+        if ((AID)spell.Action.ID == AID.MegaflareTower)
+            Towers.Add(spell.LocXZ);
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
@@ -114,69 +162,50 @@ sealed class P3GrandOctet(BossModule module) : Components.GenericAOEs(module)
         var shape = CastShape(spell.Action);
         if (shape != null)
         {
-            var count = AOEs.Count;
-            var id = caster.InstanceID;
-            ++NumCasts;
-            var aoes = CollectionsMarshal.AsSpan(AOEs);
-            for (var i = 0; i < count; ++i)
-            {
-                ref var aoe = ref aoes[i];
-                if (aoe.ActorID == id)
-                {
-                    AOEs.RemoveAt(i);
-                    return;
-                }
-            }
+            if (AOEs.RemoveAll(aoe => aoe.ActorID == caster.InstanceID) > 0)
+                ++NumCasts;
         }
     }
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        var slot = Raid.FindSlot(actor.InstanceID);
-        if (slot < 0)
-        {
+        if (!Raid.TryFindSlot(actor.InstanceID, out var slot))
             return;
-        }
 
-        switch (iconID)
+        switch ((IconID)iconID)
         {
-            case (uint)IconID.LunarDive: // this happens at the same time (so arbitrary order) as first cauterize
+            case IconID.LunarDive: // this happens at the same time (so arbitrary order) as first cauterize
                 BaitOrder[slot] = 1;
                 break;
-            case (uint)IconID.Cauterize:
+            case IconID.Cauterize:
                 BaitOrder[slot] = ++NumBaitsAssigned;
                 break;
-            case (uint)IconID.MegaflareDive:
+            case IconID.MegaflareDive:
                 BaitOrder[slot] = ++NumBaitsAssigned;
                 if (NumBaitsAssigned == 7)
-                {
-                    var len = BaitOrder.Length;
-                    for (var i = 0; i < len; ++i)
-                    {
+                    for (var i = 0; i < BaitOrder.Length; ++i)
                         if (BaitOrder[i] == 0)
-                        {
                             BaitOrder[i] = 8; // twintania bait
-                        }
-                    }
-                }
+                break;
+            case IconID.MegaflareStack:
+                Stackers.Set(slot);
                 break;
         }
     }
 
     public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
     {
-        var oid = actor.OID;
-        if (oid == (uint)OID.NaelDeusDarnus && id == 0x1E43)
+        if ((OID)actor.OID == OID.NaelDeusDarnus && id == 0x1E43)
         {
             _nael = actor;
             InitIfReady();
         }
-        else if (oid == (uint)OID.Twintania && id == 0x1E44)
+        else if ((OID)actor.OID == OID.Twintania && id == 0x1E44)
         {
             Twintania = actor;
             InitIfReady();
         }
-        else if (oid == (uint)OID.BahamutPrime && id == 0x1E43)
+        else if ((OID)actor.OID == OID.BahamutPrime && id == 0x1E43)
         {
             _baha = actor;
             InitIfReady();
@@ -185,48 +214,36 @@ sealed class P3GrandOctet(BossModule module) : Components.GenericAOEs(module)
 
     private void InitIfReady()
     {
-        if (_nael == null || Twintania == null || _baha == null)
+        if (DiveOrder != 0 || _nael == null || Twintania == null || _baha == null || Casters.Count != 5)
             return;
 
         // at this point NextCasters should contain 5 drakes, order is not yet known
-        var center = Arena.Center;
-        var dirToNael = Angle.FromDirection(_nael.Position - center);
-        var dirToBaha = Angle.FromDirection(_baha.Position - center);
+        var dirToNael = Angle.FromDirection(_nael.Position - Module.Center);
+        var dirToTwin = Angle.FromDirection(Twintania.Position - Module.Center);
+        var dirToBaha = Angle.FromDirection(_baha.Position - Module.Center);
 
         // bahamut on cardinal => CCW dive order
         // bahamut on intercardinal => CW dive order
-        var bahamutIntercardinal = ((int)MathF.Round(dirToBaha.Deg / 45f) & 1) != 0;
+        var bahamutIntercardinal = ((int)MathF.Round(dirToBaha.Deg / 45) & 1) != 0;
         DiveOrder = bahamutIntercardinal ? -1 : +1;
-
-        var count = Casters.Count;
-        var orders = new float[count];
-        for (var i = 0; i < count; ++i)
-        {
-            var c = Casters[i];
-            orders[i] = DiveOrder * CCWDirection(Angle.FromDirection(c.Position - center), dirToBaha);
-        }
-
-        MemoryExtensions.Sort(orders, Casters.AsSpan());
+        var orders = Casters.Select(c => DiveOrder * CCWDirection(Angle.FromDirection(c.Position - Module.Center), dirToBaha)).ToList();
+        MemoryExtensions.Sort(orders.AsSpan(), Casters.AsSpan());
         Casters.Insert(0, _nael);
         Casters.Add(_baha);
         Casters.Add(Twintania);
 
         // safespot is opposite of bahamut; if nael is there - adjusted 45 degrees
-        var dirToSafespot = dirToBaha + 180f.Degrees();
+        var dirToSafespot = dirToBaha + 180.Degrees();
         if (dirToSafespot.AlmostEqual(dirToNael, 0.1f))
-        {
-            dirToSafespot += DiveOrder * 45f.Degrees();
-        }
-        _initialSafespot = center + 20f * dirToSafespot.ToDirection();
+            dirToSafespot += DiveOrder * 45.Degrees();
+        _initialSafespot = Module.Center + 20 * dirToSafespot.ToDirection();
     }
 
     private float CCWDirection(Angle direction, Angle reference)
     {
         var ccwDist = (direction - reference).Normalized().Deg;
         if (ccwDist < -5f)
-        {
-            ccwDist += 360f;
-        }
+            ccwDist += 360;
         return ccwDist;
     }
 
@@ -238,93 +255,76 @@ sealed class P3GrandOctet(BossModule module) : Components.GenericAOEs(module)
         _ => _shapeDrake
     };
 
-    private AOEShapeRect? CastShape(ActionID aid) => aid.ID switch
+    private AOEShapeRect? CastShape(ActionID aid) => (AID)aid.ID switch
     {
-        (uint)AID.Cauterize1 => _shapeDrake,
-        (uint)AID.Cauterize2 => _shapeDrake,
-        (uint)AID.Cauterize3 => _shapeDrake,
-        (uint)AID.Cauterize4 => _shapeDrake,
-        (uint)AID.Cauterize5 => _shapeDrake,
-        (uint)AID.LunarDive => _shapeNaelTwin,
-        (uint)AID.TwistingDive => _shapeNaelTwin,
-        (uint)AID.MegaflareDive => _shapeBahamut,
+        AID.Cauterize1 => _shapeDrake,
+        AID.Cauterize2 => _shapeDrake,
+        AID.Cauterize3 => _shapeDrake,
+        AID.Cauterize4 => _shapeDrake,
+        AID.Cauterize5 => _shapeDrake,
+        AID.LunarDive => _shapeNaelTwin,
+        AID.TwistingDive => _shapeNaelTwin,
+        AID.MegaflareDive => _shapeBahamut,
         _ => null
     };
 }
 
-sealed class P3GrandOctetTower : Components.CastTowers
+class P3GrandOctetTower : P3MegaflareTower
 {
-    private readonly P3GrandOctet _octet;
-    private readonly int[] _quickmarchOrder = Utils.MakeArray(PartyState.MaxPartySize, -1);
-    private BitMask _stackTargets;
-    private bool _assigned;
+    readonly P3GrandOctet go;
+    BitMask _stackTargets;
+    bool _assigned;
+    readonly int[] _qmtOrder = Utils.MakeArray(8, -1);
 
-    public P3GrandOctetTower(BossModule module) : base(module, (uint)AID.MegaflareTower, 3f)
+    public P3GrandOctetTower(BossModule module) : base(module)
     {
         EnableHints = false;
-        _octet = module.FindComponent<P3GrandOctet>()!;
+        go = module.FindComponent<P3GrandOctet>()!;
         foreach (var (slot, group) in Service.Config.Get<UCOBConfig>().P3QuickmarchTrioAssignments.Resolve(Raid))
-        {
             if ((uint)slot < PartyState.MaxPartySize)
-            {
-                _quickmarchOrder[slot] = group;
-            }
-        }
+                _qmtOrder[slot] = group;
     }
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        if (iconID != (uint)IconID.MegaflareStack)
+        if (iconID == (uint)IconID.MegaflareStack)
         {
-            return;
+            var slot = Raid.FindSlot(actor.InstanceID);
+            if ((uint)slot >= PartyState.MaxPartySize)
+                return;
+            _stackTargets.Set(slot);
+            foreach (ref var t in Towers.AsSpan())
+                t.ForbiddenSoakers.Set(slot);
+            AssignTowers();
         }
-
-        var slot = Raid.FindSlot(actor.InstanceID);
-        if (slot < 0)
-        {
-            return;
-        }
-
-        _stackTargets.Set(slot);
-        var towers = CollectionsMarshal.AsSpan(Towers);
-        for (var i = 0; i < towers.Length; ++i)
-        {
-            towers[i].ForbiddenSoakers.Set(slot);
-        }
-        AssignTowers();
     }
 
-    private void AssignTowers()
+    void AssignTowers()
     {
-        if (_assigned || _stackTargets.NumSetBits() != 4 || _octet.Twintania == null || Towers.Count != 4)
-        {
+        if (_assigned || _stackTargets.NumSetBits() != 4 || go == null || go.Twintania == null || Towers.Count != 4)
             return;
-        }
 
-        var twintaniaPosition = _octet.Twintania.Position;
-        Towers.Sort((a, b) => (a.Position - twintaniaPosition).LengthSq().CompareTo((b.Position - twintaniaPosition).LengthSq()));
+        var twinAngle = (go.Twintania.Position - Arena.Center).ToAngle();
+        var twinBaiterPos = Arena.Center + (twinAngle + (go.DiveOrder * 15).Degrees()).ToDirection() * 21.5f;
 
-        var allowed = Raid.WithSlot(true, true, true)
-            .ExcludedFromMask(_stackTargets)
-            .OrderBy(p => _quickmarchOrder[p.Item1] >= 0 ? (ulong)_quickmarchOrder[p.Item1] : p.Item2.InstanceID)
-            .ToList();
-        if (allowed.Count < Towers.Count)
-        {
+        Towers.SortBy(t => (t.Position - twinBaiterPos).LengthSq());
+
+        var allowedPlayers = Raid.WithSlot().ExcludedFromMask(_stackTargets).OrderBy(s => _qmtOrder[s.Item1] >= 0 ? (ulong)_qmtOrder[s.Item1] : s.Item2.InstanceID).ToList();
+
+        if (allowedPlayers.Count < Towers.Count)
             return;
+
+        var twinBait = allowedPlayers.FindIndex(p => go.BaitOrder[p.Item1] == 8);
+        if (twinBait >= 0)
+        {
+            var old = allowedPlayers[twinBait];
+            allowedPlayers.RemoveAt(twinBait);
+            allowedPlayers.Insert(0, old);
         }
 
-        var twinBait = allowed.FindIndex(p => _octet.BaitOrder[p.Item1] == 8);
-        if (twinBait > 0)
-        {
-            var baiter = allowed[twinBait];
-            allowed.RemoveAt(twinBait);
-            allowed.Insert(0, baiter);
-        }
+        for (var i = 0; i < Towers.Count; i++)
+            Towers.Ref(i).ForbiddenSoakers = ~BitMask.Build(allowedPlayers[i].Item1);
 
-        for (var i = 0; i < Towers.Count; ++i)
-        {
-            Towers.Ref(i).ForbiddenSoakers = ~BitMask.Build(allowed[i].Item1);
-        }
         _assigned = true;
     }
 }

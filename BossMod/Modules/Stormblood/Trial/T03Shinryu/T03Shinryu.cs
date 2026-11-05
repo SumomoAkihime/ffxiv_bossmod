@@ -444,6 +444,8 @@ sealed class ShinryuStates : StateMachineBuilder
             .ActivateOnEnter<BlazingTrail>()
             .ActivateOnEnter<Fetters>()
             .ActivateOnEnter<Raidwides>()
+            .ActivateOnEnter<SuperCycloneHits>()
+            .ActivateOnEnter<IceStormRaidwide>()
 
             //Phase 3 : new arena with sections that can be destroyed.
             .ActivateOnEnter<GyreCharge>()
@@ -477,3 +479,7 @@ sealed class ShinryuStates : StateMachineBuilder
 
 [SkipLocalsInit]
 public sealed class T03Shinryu(WorldState ws, Actor primary) : BossModule(ws, primary, default, new ArenaBoundsSquare(20f, mapResolution: 0.3f));
+
+class SuperCycloneHits(BossModule module) : Components.RaidwideMultiHit(module, (uint)AID.AerialBlastKB, [(uint)AID.SuperCycloneKB], -6.1f, 2.1f, 3);
+
+class IceStormRaidwide(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.IceStorm, (uint)AID.IceStormRaidwide, 0.6f);

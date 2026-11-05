@@ -120,6 +120,7 @@ public class JsonPresetConverter : JsonConverter<Preset>
                 {
                     case StrategyConfigTrack cfgTrack:
                         var optionName = js.GetProperty(nameof(StrategyValueTrack.Option)).GetString() ?? "";
+                        optionName = PlanPresetConverter.RenameLegacyOption(mt.FullName!, trackName, optionName);
                         var t = new StrategyValueTrack
                         {
                             Option = cfgTrack.Options.FindIndex(o => o.InternalName == optionName)

@@ -16,14 +16,23 @@ public enum AID : uint
     Sandslinger = 1000, // BossSecond->player, no cast, single-target (Accuracy Down)
 }
 
-class MadisonAdds(BossModule module) : Components.AddsMulti(module, [(uint)OID.ShallowtailReaver, (uint)OID.ScurvyDog, (uint)OID.ScurvyDogSmall], 1);
+class MadisonAdds(BossModule module) : Components.AddsMulti(module, [(uint)OID.ShallowtailReaver, (uint)OID.ScurvyDog, (uint)OID.ScurvyDogSmall], 1)
+{
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        foreach (var enemy in hints.PotentialTargets)
+            if (enemy.Actor.InCombat && OIDs.Contains(enemy.Actor.OID))
+                enemy.Priority = Math.Max(enemy.Priority, 1);
+    }
+}
 
 class D012CaptainMadisonStates : StateMachineBuilder
 {
     public D012CaptainMadisonStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<MadisonAdds>();
+            .ActivateOnEnter<MadisonAdds>()
+            .Raw.Update = () => Module.PrimaryActor.IsDeadOrDestroyed || Module.PrimaryActor.IsAlly;
     }
 }
 

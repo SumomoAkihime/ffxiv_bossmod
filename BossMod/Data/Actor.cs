@@ -225,6 +225,8 @@ public sealed class Actor(ulong instanceID, uint oid, int spawnIndex, uint layou
     public WDir LastFrameMovement => Position - PrevPosition;
     public Vector4 LastFrameMovementVec4 => PosRot - PrevPosRot;
     public Angle Rotation => PosRot.W.Radians();
+    public float? RawRotation;
+    public Angle ActualRotation => (RawRotation ?? PosRot.W).Radians();
     public bool Omnidirectional
     {
         get;
@@ -331,6 +333,7 @@ public sealed class Actor(ulong instanceID, uint oid, int spawnIndex, uint layou
     }
 
     public ActorStatus? FindStatus<SID>(SID sid, DateTime? expirationForPending = null) where SID : Enum => FindStatus((uint)(object)sid, expirationForPending);
+    public ActorStatus? FindStatus<SID>(SID sid, ulong source, DateTime? expirationForPending = null) where SID : Enum => FindStatus((uint)(object)sid, source, expirationForPending);
 
     public WDir DirectionTo(WPos other) => (other - Position).Normalized();
     public WDir DirectionTo(Actor other) => DirectionTo(other.Position);

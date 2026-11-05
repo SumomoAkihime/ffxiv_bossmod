@@ -9,7 +9,7 @@ class P1MistralSongBoss(BossModule module) : Components.GenericWildCharge(module
         {
             Source = Module.PrimaryActor;
             Activation = WorldState.FutureTime(5.2f);
-            foreach (var (i, p) in Raid.WithSlot(true, true, true))
+            foreach (var (i, p) in Raid.WithSlot(true))
                 PlayerRoles[i] = p == actor ? PlayerRole.TargetNotFirst : p.Role == Role.Tank && Module.PrimaryActor.TargetID != p.InstanceID ? PlayerRole.Share : PlayerRole.Avoid;
         }
     }
@@ -28,15 +28,11 @@ class P1MistralSongBoss(BossModule module) : Components.GenericWildCharge(module
     }
 }
 
-// TODO: generalize wild-charge to support this
-// TODO: for adds version, there doesn't seem to be an indication of which sister targets which player - so we just guess... it doesn't matter for usual strat where targets stack
-// TODO: verify width
 class P1MistralSongAdds(BossModule module) : Components.CastCounter(module, (uint)AID.MistralSongAdds)
 {
-    private readonly UWUConfig _config = Service.Config.Get<UWUConfig>();
     public bool EnableHints;
     private readonly DateTime _activation = module.WorldState.FutureTime(6.9f);
-    private readonly List<Actor> _sisters = [.. module.Enemies((uint)OID.GarudaSister).OrderBy(s => s.InstanceID)];
+    private readonly List<Actor> _sisters = [.. module.Enemies(OID.GarudaSister).OrderBy(s => s.InstanceID)];
     private readonly List<Actor> _targets = [];
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -46,7 +42,7 @@ class P1MistralSongAdds(BossModule module) : Components.CastCounter(module, (uin
 
         foreach (var sister in _sisters)
         {
-            if (Raid.WithoutSlot(false, true, true).Closest(sister.Position) is { } target)
+            if (Raid.WithoutSlot().Closest(sister.Position) is { } target)
             {
                 if (target == actor && actor.Role != Role.Tank)
                     hints.Add("GTFO from add!");
@@ -64,18 +60,12 @@ class P1MistralSongAdds(BossModule module) : Components.CastCounter(module, (uin
         foreach (var sister in _sisters)
         {
             Arena.Actor(sister, Colors.Object, true);
-            if (Raid.WithoutSlot(false, true, true).Closest(sister.Position) is { } target)
+            if (Raid.WithoutSlot().Closest(sister.Position) is { } target)
             {
                 if (MiniArena.Config.ShowOutlinesAndShadows)
                     Arena.AddLine(sister.Position, target.Position, 0xFF000000, 2);
                 Arena.AddLine(sister.Position, target.Position, Colors.Danger);
             }
-        }
-        if (_config.P1MistralSongFixedLocation && pc.Role != Role.Tank)
-        {
-            var loc = new WPos(107, 107);
-            var circle = new SDCircle(loc, 2f);
-            Arena.ZoneCircleOutline(loc, 2f, circle.Contains(pc.Position) ? Colors.Safe : Colors.Danger);
         }
     }
 
@@ -100,17 +90,65 @@ class P1MistralSongAdds(BossModule module) : Components.CastCounter(module, (uin
         }
         else
         {
-            foreach (var sister in _sisters)
-                hints.AddForbiddenZone(new SDCircle(sister.Position, 19.5f), _activation);
+            foreach (var s in _sisters)
+                hints.AddForbiddenZone(new SDCircle(s.Position, 19.5f), _activation);
         }
 
-        BitMask tanks = default;
-        foreach (var sister in _sisters)
-            tanks.Set(Raid.WithSlot(false, true, true).Closest(sister.Position).Item1);
+        BitMask tanks = new();
+        foreach (var s in _sisters)
+            tanks.Set(Raid.WithSlot().Closest(s.Position).Item1);
 
         hints.AddPredictedDamage(tanks, _activation, AIHints.PredictedDamageType.Tankbuster);
         hints.AddPredictedDamage(new BitMask(0xff & ~tanks.Raw), _activation, AIHints.PredictedDamageType.Raidwide);
     }
 }
 
-class P1GreatWhirlwind(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GreatWhirlwind, 8f);
+class P1GreatWhirlwind(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GreatWhirlwind, 8);
+
+class P4MistralSong(BossModule module) : Components.CastCounter(module, (uint)AID.MistralSongAdds)
+{
+    BitMask Targets;
+
+    readonly List<(Actor Source, Actor? Target)> Pairs = [];
+
+    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
+    {
+        if ((IconID)iconID == IconID.MistralSong)
+            Targets.Set(Raid.FindSlot(targetID));
+    }
+
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (actor.Role == Role.Tank && Pairs.Any(p => p.Target is { Role: not Role.Tank }))
+            hints.Add("Intercept add!");
+        else if (Pairs.Any(p => p.Target == actor))
+            hints.Add("GTFO from add!");
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        foreach (var (p, t) in Pairs)
+        {
+            Arena.Actor(p, Colors.Object, true);
+            if (t != null)
+            {
+                if (MiniArena.Config.ShowOutlinesAndShadows)
+                    Arena.AddLine(p.Position, t.Position, 0xFF000000, 2);
+                Arena.AddLine(p.Position, t.Position, Colors.Danger);
+            }
+        }
+    }
+
+    public override void Update()
+    {
+        Pairs.Clear();
+
+        if (Targets.Any())
+            foreach (var sister in Module.Enemies(OID.GarudaSister))
+            {
+                var targetCones = new SDUnion([.. Raid.WithSlot().IncludedInMask(Targets).Select(t => new SDCone(sister.Position, 40, sister.AngleTo(t.Item2), 90.Degrees()))]);
+
+                Pairs.Add((sister, Raid.WithoutSlot().Where(a => targetCones.Contains(a.Position)).Closest(sister.Position)));
+            }
+    }
+}

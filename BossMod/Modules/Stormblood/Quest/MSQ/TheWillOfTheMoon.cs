@@ -102,6 +102,43 @@ class AutoYshtola(BossModule module, WorldState ws) : QuestBattle.UnmanagedRotat
 
 class YshtolaAI(BossModule module) : QuestBattle.RotationModule<AutoYshtola>(module);
 
+class FollowHien(BossModule module) : Components.GenericAOEs(module)
+{
+    private WPos? _destination;
+    private DateTime _deadline;
+    private readonly AOEInstance[] _aoe = new AOEInstance[1];
+    private static readonly AOEShapeCircle Shape = new(2);
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        if (_destination is not { } destination)
+            return [];
+        _aoe[0] = new(Shape, destination, activation: _deadline, color: Colors.Safe, risky: false);
+        return _aoe;
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (_destination is { } destination)
+            hints.AddForbiddenZone(new SDInvertedCircle(destination, 2), _deadline);
+    }
+
+    public override void OnActorEAnim(Actor actor, uint state)
+    {
+        if (actor.OID == 0x1EA1A1 && state == 0x00010002)
+        {
+            _destination = actor.Position;
+            _deadline = Module.CastFinishAt(WorldState.Actors.FirstOrDefault(a => a.CastInfo?.IsSpell(AID.FlatlandFuryEnrage) == true)?.CastInfo);
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if ((AID)spell.Action.ID == AID.FlatlandFuryEnrage)
+            _destination = null;
+    }
+}
+
 class P1Hints(BossModule module) : BossComponent(module)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -148,6 +185,7 @@ class SaduHeavensflameStates : StateMachineBuilder
             .Raw.Update = () => module.Enemies((uint)OID.Magnai).Count != 0;
         TrivialPhase(1)
             .ActivateOnEnter<P2Hints>()
+            .ActivateOnEnter<FollowHien>()
             .ActivateOnEnter<YshtolaAI>()
             .ActivateOnEnter<Scales>()
             .ActivateOnEnter<FlatlandFury>()

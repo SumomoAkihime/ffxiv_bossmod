@@ -72,44 +72,26 @@ public sealed class T09WhorleaterH(WorldState ws, Actor primary) : BossModule(ws
 
     protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        var TankMimikry = actor.FindStatus(2124u); // Bluemage Tank Mimikry
-        var count = hints.PotentialTargets.Count;
-        for (var i = 0; i < count; ++i)
+        var tankMimicry = actor.FindStatus(SID.MimicryTank) != null;
+        var magic = actor.Class.GetClassCategory() is ClassCategory.Caster or ClassCategory.Healer || actor.Class is Class.BLU && !tankMimicry;
+        var physRanged = actor.Class.GetClassCategory() is ClassCategory.PhysRanged;
+        foreach (var e in hints.PotentialTargets)
         {
-            var e = hints.PotentialTargets[i];
-            if (actor.Class.GetClassCategory() is ClassCategory.Caster or ClassCategory.Healer || actor.Class is Class.BLU && TankMimikry == null)
+            e.Priority = (OID)e.Actor.OID switch
             {
-                e.Priority = e.Actor.OID switch
-                {
-                    (uint)OID.WavetoothSahagin => 4,
-                    (uint)OID.Spume => 3,
-                    (uint)OID.WavespineSahagin => 2,
-                    (uint)OID.Boss => 1,
-                    _ => AIHints.Enemy.PriorityUndesirable
-                };
-            }
-            else if (actor.Class.GetClassCategory() is ClassCategory.PhysRanged)
-            {
-                e.Priority = e.Actor.OID switch
-                {
-                    (uint)OID.WavetoothSahagin => 4,
-                    (uint)OID.Spume => 3,
-                    (uint)OID.WavespineSahagin => 2,
-                    (uint)OID.Tail => 1,
-                    _ => AIHints.Enemy.PriorityUndesirable
-                };
-            }
-            else if (actor.Class.GetClassCategory() is ClassCategory.Tank or ClassCategory.Melee || actor.Class is Class.BLU && TankMimikry != null)
-            {
-                e.Priority = e.Actor.OID switch
-                {
-                    (uint)OID.WavetoothSahagin => 4,
-                    (uint)OID.Spume => 3,
-                    (uint)OID.WavespineSahagin => 2,
-                    (uint)OID.Boss or (uint)OID.Tail => 1,
-                    _ => 0
-                };
-            }
+                OID.WavetoothSahagin => 4,
+                OID.Spume => 3,
+                OID.WavespineSahagin => 2,
+                OID.Boss or OID.Tail => 1,
+                _ => 0
+            };
+            if (physRanged && (OID)e.Actor.OID == OID.Boss && e.Actor.FindStatus(SID.VeilOfTheWhorl) != null
+                || magic && (OID)e.Actor.OID == OID.Tail && e.Actor.FindStatus(SID.MantleOfTheWhorl) != null)
+                e.Priority = AIHints.Enemy.PriorityForbidden;
         }
+
+        if (Enemies(OID.Converter).FirstOrDefault(c => c.IsTargetable) is { } converter
+            && Raid.WithoutSlot().Where(p => !p.IsDead).MinBy(converter.DistanceToHitbox) == actor)
+            hints.InteractWithTarget = converter;
     }
 }

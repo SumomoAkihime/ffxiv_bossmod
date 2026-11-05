@@ -2,12 +2,21 @@
 
 abstract class LiquidHellBase(BossModule module) : Components.VoidzoneAtCastTarget(module, 6f, (uint)AID.LiquidHell, m => m.Enemies((uint)OID.VoidzoneLiquidHell).Where(z => z.EventState != 7), 1.3d) // 1.8
 {
+    public DateTime NextCast;
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        base.OnEventCast(caster, spell);
+        if (spell.Action.ID == (uint)AID.LiquidHell)
+            NextCast = WorldState.FutureTime(1.2f);
+    }
+
     public int NumSources => Sources(Module).Count();
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         foreach (var prediction in _predictedByEvent)
-            if (prediction.time < WorldState.FutureTime(2.7d)) // upstream: 0.9s lookahead + 1.8s activation delay
+            if (prediction.time < WorldState.FutureTime(2.8d)) // upstream: 1s lookahead + 1.8s activation delay
                 hints.AddForbiddenZone(new SDCircle(prediction.pos, 6f), prediction.time);
 
         foreach (var z in Sources(Module))
@@ -40,7 +49,6 @@ sealed class P1LiquidHell(BossModule module) : LiquidHellBase(module)
     }
 
     BaitMode Mode;
-    DateTime NextCast;
     private readonly PartyRolesConfig _config = Service.Config.Get<PartyRolesConfig>();
     private readonly Hatch _hatch = module.FindComponent<Hatch>()!;
     private P1Fireball? _fireball;
@@ -190,5 +198,38 @@ sealed class P1LiquidHell(BossModule module) : LiquidHellBase(module)
 
             Baiters = farthestSlot >= 0 ? BitMask.Build(farthestSlot) : default;
         }
+    }
+}
+
+
+class P3LiquidHell : LiquidHellBase
+{
+    public P3LiquidHell(BossModule module) : base(module)
+    {
+        NextCast = module.WorldState.FutureTime(8.2f);
+    }
+
+    static readonly WPos[] FixedBaits = [new(9, 17), new(4.5f, 17.8f), new(-0.2f, 18), new(-4, 17.3f), new(-7.2f, 15.3f)];
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (assignment == PartyRolesConfig.Assignment.R1 && Module.Enemies(OID.Twintania).FirstOrDefault() is { } twin && NumCasts < 5)
+        {
+            hints.AddForbiddenZone(new SDPrecisePosition(FixedBaits[NumCasts], new(0, 1), 0.5f, actor.Position, 0.1f), NextCast);
+            return;
+        }
+
+        base.AddAIHints(slot, actor, assignment, hints);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        base.OnEventCast(caster, spell);
+
+        if (spell.Action.ID == WatchedAction)
+            NextCast = WorldState.FutureTime(1.2f);
+
+        if (NumCasts >= 5)
+            NextCast = default;
     }
 }

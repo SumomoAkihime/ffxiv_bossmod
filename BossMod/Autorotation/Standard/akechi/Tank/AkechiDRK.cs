@@ -97,277 +97,326 @@ public sealed class AkechiDRK(RotationModuleManager manager, Actor player) : Ake
         return res;
     }
 
-    private byte Blood;
-    private (byte State, bool IsActive) DarkArts;
-    private (float Timer, bool IsActive, bool NeedsRefresh) Darkside;
-    private (float Left, float CD, bool IsActive, bool IsReady) SaltedEarth;
-    private (float CD, bool IsReady) AbyssalDrain;
-    private (float CD, bool IsReady) CarveAndSpit;
-    private (ushort Step, float Left, int Stacks, float CD, bool IsActive, bool IsReady) Delirium;
-    private (float Timer, float CD, bool IsActive, bool IsReady) LivingShadow;
-    private (float Cooldown, float ReadyIn, bool HasCharges, bool IsReady) Shadowbringer;
-    private (float Left, bool IsActive, bool IsReady) Disesteem;
-    private bool WantAOE;
-    private int NumAOERectTargets;
-    private Enemy? BestAOERectTargets;
-    private bool ForceAOE;
+    private DarkKnightGauge Gauge => World.Client.GetGauge<DarkKnightGauge>();
+    private int Blood => Gauge.Blood;
+    private bool DarkArts => Gauge.DarkArtsState > 0;
+    private int DeliriumStep => Gauge.DeliriumStep;
+    private (float Left, bool Active) Darkside => Gauge.DarksideTimer / 1000f is var left ? (left, left > 0.1f) : default;
+    private (float CD, float Left, bool Active) Delirium => Status(DeliriumStatus, 15) is var left ? (Cooldown(BestDelirium), left, left > GCD) : default;
+    private (float Left, bool Active) SE => Status(SID.SaltedEarth, 15) is var left ? (left, left > 0) : default;
+    private float LSCD => Cooldown(AID.LivingShadow);
+    private float ScornLeft => Status(SID.Scorn, 30);
+    private bool InDeliriumCombo => DeliriumStep is 0 or 1 or 2;
+
+    private AID BestDelirium => Unlocked(AID.Delirium) ? AID.Delirium : AID.BloodWeapon;
+    private SID DeliriumStatus => Unlocked(AID.ScarletDelirium) ? SID.EnhancedDelirium : SID.Delirium;
 
     private AID BestEdge => Unlocked(AID.EdgeOfShadow) ? AID.EdgeOfShadow : Unlocked(AID.EdgeOfDarkness) ? AID.EdgeOfDarkness : AID.FloodOfDarkness;
     private AID BestFlood => Unlocked(AID.FloodOfShadow) ? AID.FloodOfShadow : AID.FloodOfDarkness;
-    private AID BestBloodSpender => WantAOE && Unlocked(AID.Quietus) ? AID.Quietus : AID.Bloodspiller;
-    private AID BestDelirium => Unlocked(AID.Delirium) ? AID.Delirium : AID.BloodWeapon;
     private AID BestCarve => Unlocked(AID.CarveAndSpit) ? AID.CarveAndSpit : AID.AbyssalDrain;
-    private SID BestBloodWeapon => Unlocked(AID.ScarletDelirium) ? SID.EnhancedDelirium : Unlocked(AID.Delirium) ? SID.Delirium : SID.BloodWeapon;
+    private AID BestBloodSpender => WantAOE && Unlocked(AID.Quietus) ? AID.Quietus : AID.Bloodspiller;
+
+    private bool BurstReady => !Unlocked(AID.LivingShadow) || CombatTimer >= 30 || LastComboAction is AID.Souleater;
+    private bool InBurst => Delirium.CD >= 40;
+    private bool RiskingBlood => LastComboAction is AID.SyphonStrike or AID.Unleash && Blood >= 80 || Delirium.CD <= GCD && Blood >= 70;
+    private int IncomingMP => (HasStatus(SID.BloodWeapon) ? 600 : 0) + (LastComboAction is AID.HardSlash or AID.Unleash ? 600 : 0);
+    private bool RiskingMP => MP + IncomingMP > 10000 || Darkside.Left <= 3;
+
+    private bool WantAOE;
+
+    private (Enemy? Best, int Targets) RectTargets;
+    private (Enemy? Best, int Targets) DrainTargets;
+    private Actor? RectTarget(AID action) => Unlocked(action) && RectTargets.Targets > 1 ? RectTargets.Best?.Actor : PrimaryTarget;
 
     public override void Execution(StrategyValues strategy, Enemy? primaryTarget)
     {
-        var gauge = World.Client.GetGauge<DarkKnightGauge>();
-        Blood = gauge.Blood;
-        DarkArts.State = gauge.DarkArtsState;
-        DarkArts.IsActive = DarkArts.State > 0;
-        Darkside.Timer = gauge.DarksideTimer / 1000f;
-        Darkside.IsActive = Darkside.Timer > 0.1f;
-        Darkside.NeedsRefresh = Darkside.Timer <= 3;
-        SaltedEarth.Left = Status(SID.SaltedEarth, 15);
-        SaltedEarth.CD = Cooldown(AID.SaltedEarth);
-        SaltedEarth.IsActive = SaltedEarth.Left > 0.1f;
-        SaltedEarth.IsReady = Unlocked(AID.SaltedEarth) && SaltedEarth.CD < 0.6f;
-        AbyssalDrain.CD = Cooldown(AID.AbyssalDrain);
-        AbyssalDrain.IsReady = Unlocked(AID.AbyssalDrain) && AbyssalDrain.CD < 0.6f;
-        CarveAndSpit.CD = Cooldown(AID.CarveAndSpit);
-        CarveAndSpit.IsReady = Unlocked(AID.CarveAndSpit) && CarveAndSpit.CD < 0.6f;
-        Disesteem.Left = Status(SID.Scorn, 30);
-        Disesteem.IsActive = Disesteem.Left > 0.1f;
-        Disesteem.IsReady = Unlocked(AID.Disesteem) && Disesteem.Left > 0.1f;
-        Delirium.Step = gauge.DeliriumStep;
-        Delirium.Left = Status(BestBloodWeapon, 15);
-        Delirium.Stacks = Stacks(BestBloodWeapon, 15);
-        Delirium.CD = Cooldown(BestDelirium);
-        Delirium.IsActive = Delirium.Left > 0.1f;
-        Delirium.IsReady = Unlocked(BestDelirium) && Delirium.CD < 0.6f;
-        LivingShadow.Timer = gauge.ShadowTimer / 1000f;
-        LivingShadow.CD = Cooldown(AID.LivingShadow);
-        LivingShadow.IsActive = LivingShadow.Timer > 0;
-        LivingShadow.IsReady = Unlocked(AID.LivingShadow) && LivingShadow.CD < 0.6f;
-        Shadowbringer.Cooldown = Cooldown(AID.Shadowbringer);
-        Shadowbringer.ReadyIn = ReadyIn(AID.Shadowbringer);
-        Shadowbringer.HasCharges = Cooldown(AID.Shadowbringer) <= 60;
-        Shadowbringer.IsReady = Unlocked(AID.Shadowbringer) && Shadowbringer.HasCharges;
-        WantAOE = TargetsInAOECircle(5f, 3) || ForceAOE;
-        (BestAOERectTargets, NumAOERectTargets) = GetBestTarget(primaryTarget, 10, Is10yRectTarget);
-        var mainTarget = primaryTarget?.Actor;
+        RectTargets = GetBestTarget(PrimaryEnemy, 10, Is10yRectTarget);
+        DrainTargets = GetBestTarget(PrimaryEnemy, 20, IsSplashTarget);
+        WantAOE = TargetsInAOECircle(5f, 3) || strategy.Option(Track.AOE).As<AOEStrategy>() is AOEStrategy.ForceAOEFinish or AOEStrategy.ForceAOEBreak;
 
         if (strategy.HoldEverything())
             return;
 
-        var aoe = strategy.Option(Track.AOE);
-        var aoeStrat = aoe.As<AOEStrategy>();
-        ForceAOE = aoeStrat is AOEStrategy.ForceAOEFinish or AOEStrategy.ForceAOEBreak;
-        var stFinish = ComboLastMove switch
+        if (strategy.AllowBuffs())
         {
-            AID.Unleash => Unlocked(AID.StalwartSoul) ? AID.StalwartSoul : AID.HardSlash,
-            AID.SyphonStrike => Unlocked(AID.Souleater) ? AID.Souleater : AID.HardSlash,
-            AID.HardSlash => Unlocked(AID.SyphonStrike) ? AID.SyphonStrike : AID.HardSlash,
-            _ => AID.HardSlash,
-        };
-        var stBreak = ComboLastMove switch
-        {
-            AID.SyphonStrike => Unlocked(AID.Souleater) ? AID.Souleater : AID.HardSlash,
-            AID.HardSlash => Unlocked(AID.SyphonStrike) ? AID.SyphonStrike : AID.HardSlash,
-            _ => AID.HardSlash,
-        };
-        var aoeFinish = ComboLastMove switch
-        {
-            AID.SyphonStrike => Unlocked(AID.Souleater) ? AID.Souleater : AID.Unleash,
-            AID.HardSlash => Unlocked(AID.SyphonStrike) ? AID.SyphonStrike : AID.Unleash,
-            AID.Unleash => Unlocked(AID.StalwartSoul) ? AID.StalwartSoul : AID.Unleash,
-            _ => AID.Unleash,
-        };
-        var aoeBreak = (ComboLastMove is AID.Unleash && Unlocked(AID.StalwartSoul)) ? AID.StalwartSoul : AID.Unleash;
-        var stTarget = SingleTargetChoice(mainTarget, aoe);
-        var autoTarget = WantAOE ? Player : stTarget;
-        var (aoeAction, aoeTarget) = aoeStrat switch
-        {
-            AOEStrategy.AutoFinish => (WantAOE ? aoeFinish : stFinish, autoTarget),
-            AOEStrategy.ForceSTFinish => (stFinish, stTarget),
-            AOEStrategy.ForceAOEFinish => (aoeFinish, Player),
-            AOEStrategy.AutoBreak => (WantAOE ? aoeBreak : stBreak, autoTarget),
-            AOEStrategy.ForceSTBreak => (stBreak, stTarget),
-            AOEStrategy.ForceAOEBreak => (aoeBreak, Player),
-            _ => (AID.None, null)
-        };
-        if ((WantAOE ? In5y(aoeTarget) : In3y(aoeTarget)) && aoeTarget != null)
-            QueueGCD(aoeAction, aoeTarget, GCDPriority.Low);
-
-        var RiskingBlood = (ComboLastMove is AID.SyphonStrike or AID.Unleash && Blood >= 80) || (Delirium.CD <= GCD && Blood >= 70);
-        var RiskingMP = MP >= 10000 || Darkside.NeedsRefresh;
-        var Opener = (CombatTimer < 30 && ComboLastMove is AID.Souleater) || CombatTimer >= 30;
-        if (!strategy.HoldAbilities())
-        {
-            if (!strategy.HoldCDs())
-            {
-                if (!strategy.HoldBuffs())
-                {
-                    var d = strategy.Option(Track.Delirium);
-                    var dStrat = d.As<OGCDStrategy>();
-                    if (ShouldUseOGCD(dStrat, mainTarget, Delirium.IsReady, InCombat(mainTarget) && CanWeaveIn && Darkside.IsActive && (Unlocked(AID.Delirium) ? Delirium.IsReady : ActionReady(AID.BloodWeapon)) && (Unlocked(AID.LivingShadow) ? Opener : CombatTimer > 0)))
-                        QueueOGCD(BestDelirium, Player, OGCDPrio(dStrat, OGCDPriority.VeryHigh));
-
-                    var ls = strategy.Option(Track.LivingShadow);
-                    var lsStrat = ls.As<OGCDStrategy>();
-                    if (ShouldUseOGCD(lsStrat, mainTarget, LivingShadow.IsReady, InCombat(mainTarget) && CanWeaveIn && Darkside.IsActive))
-                        QueueOGCD(AID.LivingShadow, Player, OGCDPrio(lsStrat, OGCDPriority.ExtremelyHigh));
-                }
-
-                var se = strategy.Option(Track.SaltedEarth);
-                var seStrat = se.As<OGCDStrategy>();
-                if (ShouldUseOGCD(seStrat, mainTarget, SaltedEarth.IsReady, InCombat(mainTarget) && CanWeaveIn && In3y(mainTarget) && Darkside.IsActive && Opener))
-                    QueueOGCD(AID.SaltedEarth, Player, OGCDPrio(seStrat, OGCDPriority.AboveAverage));
-
-                var sb = strategy.Option(Track.Shadowbringer);
-                var sbStrat = sb.As<OGCDStrategy>();
-                var sbTarget = AOETargetChoice(mainTarget, Unlocked(AID.Shadowbringer) && NumAOERectTargets > 1 ? BestAOERectTargets?.Actor : mainTarget, sb, strategy);
-                if (ShouldUseOGCD(sbStrat, sbTarget, Shadowbringer.IsReady, InCombat(sbTarget) && CanWeaveIn && Darkside.IsActive && (RaidBuffsLeft > 0f || (LivingShadow.CD > 80 && Delirium.CD > 40))))
-                    QueueOGCD(AID.Shadowbringer, sbTarget, OGCDPrio(sbStrat, OGCDPriority.Average));
-
-                var c = strategy.Option(Track.Carve);
-                var cStrat = c.As<CarveStrategy>();
-                var cTarget = WantAOE ? Player : SingleTargetChoice(mainTarget, c);
-                var cOptimal = InCombat(cTarget) && CanWeaveIn && (WantAOE ? In5y(cTarget) : In3y(cTarget)) && Darkside.IsActive && AbyssalDrain.IsReady && Opener && Delirium.CD >= 40;
-                var (cCondition, cAction, cPrio) = cStrat switch
-                {
-                    CarveStrategy.Automatic => (cOptimal, WantAOE ? AID.AbyssalDrain : BestCarve, OGCDPriority.BelowAverage),
-                    CarveStrategy.OnlyCarve => (cOptimal, BestCarve, OGCDPriority.BelowAverage),
-                    CarveStrategy.OnlyDrain => (cOptimal, AID.AbyssalDrain, OGCDPriority.BelowAverage),
-                    CarveStrategy.ForceCarve => (CarveAndSpit.IsReady, BestCarve, OGCDPriority.Forced),
-                    CarveStrategy.ForceDrain => (AbyssalDrain.IsReady, AID.AbyssalDrain, OGCDPriority.Forced),
-                    _ => (false, AID.None, OGCDPriority.None),
-                };
-                if (cCondition)
-                    QueueGCD(cAction, cTarget, cPrio);
-            }
-
-            if (!strategy.HoldGauge())
-            {
-                var bl = strategy.Option(Track.Blood);
-                var blStrat = bl.As<BloodStrategy>();
-                var blTarget = WantAOE ? Player : SingleTargetChoice(mainTarget, bl);
-                var blMinimum = Unlocked(BestBloodSpender) && (Blood >= 50 || Delirium.IsActive);
-                var blOptimal = InCombat(blTarget) && In3y(blTarget) && blMinimum && Darkside.IsActive && (Delirium.CD > 40 || RiskingBlood || RaidBuffsLeft > GCD);
-                var (blCondition, blAction, blPrio) = blStrat switch
-                {
-                    BloodStrategy.Automatic => (blOptimal, BestBloodSpender, GCDPriority.Average),
-                    BloodStrategy.OnlyBloodspiller => (blOptimal, AID.Bloodspiller, GCDPriority.Average),
-                    BloodStrategy.OnlyQuietus => (blOptimal, AID.Quietus, GCDPriority.Average),
-                    BloodStrategy.ForceBest => (blMinimum, BestBloodSpender, GCDPriority.Forced),
-                    BloodStrategy.ForceBloodspiller => (blMinimum, AID.Bloodspiller, GCDPriority.Forced),
-                    BloodStrategy.ForceQuietus => (blMinimum, AID.Quietus, GCDPriority.Forced),
-                    BloodStrategy.Conserve => (RiskingBlood || Delirium.Left > GCD, BestBloodSpender, GCDPriority.Average),
-                    _ => (false, AID.None, GCDPriority.None),
-                };
-                if (blCondition)
-                    QueueGCD(blAction, blTarget, blPrio);
-            }
+            QueueDelirium(strategy);
+            QueueLivingShadow(strategy);
         }
-
-        var de = strategy.Option(Track.Disesteem);
-        var deStrat = de.As<GCDStrategy>();
-        var deTarget = AOETargetChoice(mainTarget, Unlocked(AID.Disesteem) && NumAOERectTargets > 1 ? BestAOERectTargets?.Actor : mainTarget, de, strategy);
-        if (ShouldUseGCD(deStrat, deTarget, Disesteem.IsReady, InCombat(deTarget) && In10y(deTarget) && Darkside.IsActive && Disesteem.IsReady && (RaidBuffsLeft > 0 || (LivingShadow.CD > 80 && Delirium.CD > 30 && !Delirium.IsActive) || Status(SID.Scorn) < 10f)))
-            QueueGCD(AID.Disesteem, deTarget, deStrat is GCDStrategy.Force ? GCDPriority.Forced : CombatTimer < 30 ? GCDPriority.VeryHigh : GCDPriority.AboveAverage);
-
-        var mp = strategy.Option(Track.MP);
-        var mpStrat = mp.As<MPStrategy>();
-        var mp3k = MP >= 3000;
-        var mp6k = MP >= 6000;
-        var mp9k = MP >= 9000;
-        var burst = Delirium.CD >= 40;
-        var highAOE = Unlocked(AID.FloodOfShadow) && NumAOERectTargets >= 3;
-        var lowAOE = Unlocked(AID.FloodOfDarkness) && NumAOERectTargets >= 4;
-        var eosTarget = SingleTargetChoice(mainTarget, mp);
-        var mpTarget = highAOE ? BestAOERectTargets?.Actor : lowAOE ? BestAOERectTargets?.Actor : eosTarget;
-        var autoAction = highAOE ? AID.FloodOfShadow : lowAOE ? AID.FloodOfDarkness : BestEdge;
-        var autoPrio = RiskingMP ? OGCDPriority.Forced : OGCDPriority.Low;
-        var (mpCondition, mpAction, mpPrio) = mpStrat switch
+        if (strategy.AllowCDs())
         {
-            MPStrategy.Automatic =>
-                (RiskingMP ? mp3k || DarkArts.IsActive : //drop all conditions and spend if we need it
-                !Unlocked(AID.Delirium) ? mp3k : //just use at low level because who cares
-                (Unlocked(AID.TheBlackestNight) && DarkArts.IsActive && (burst || Delirium.CD >= Darkside.Timer + GCD)) ? mp3k : //use in burst or if free to spend optimally
-                (burst && InOddWindow(AID.LivingShadow)) ? MP >= 6000 : //use in 1m burst; 2 expected
-                burst && !InOddWindow(AID.LivingShadow) && mp3k,
-                autoAction, autoPrio),
-            MPStrategy.Auto3k => (mp3k || DarkArts.IsActive, autoAction, autoPrio),
-            MPStrategy.Auto6k => (mp6k || DarkArts.IsActive, autoAction, autoPrio),
-            MPStrategy.Auto9k => (mp9k || DarkArts.IsActive, autoAction, autoPrio),
-            MPStrategy.AutoRefresh => (RiskingMP, autoAction, autoPrio),
-            MPStrategy.Edge3k => (mp3k, BestEdge, autoPrio),
-            MPStrategy.Edge6k => (mp6k, BestEdge, autoPrio),
-            MPStrategy.Edge9k => (mp9k, BestEdge, autoPrio),
-            MPStrategy.EdgeRefresh => (RiskingMP, BestEdge, autoPrio),
-            MPStrategy.Flood3k => (mp3k || DarkArts.IsActive, BestFlood, autoPrio),
-            MPStrategy.Flood6k => (mp3k || DarkArts.IsActive, BestFlood, autoPrio),
-            MPStrategy.Flood9k => (mp9k || DarkArts.IsActive, BestFlood, autoPrio),
-            MPStrategy.FloodRefresh => (RiskingMP, BestFlood, autoPrio),
-            MPStrategy.ForceEdge => (Unlocked(AID.EdgeOfDarkness) && mp3k || DarkArts.IsActive, BestEdge, OGCDPriority.Forced),
-            MPStrategy.ForceFlood => (Unlocked(AID.FloodOfDarkness) && mp3k || DarkArts.IsActive, BestFlood, OGCDPriority.Forced),
-            _ => (false, AID.None, OGCDPriority.None)
-        };
-        if (mpCondition)
-            QueueOGCD(mpAction, mpTarget, mpPrio);
+            QueueSaltedEarth(strategy);
+            QueueShadowbringer(strategy);
+            QueueCarveOrDrain(strategy);
+        }
+        if (strategy.AllowGauge())
+            QueueBlood(strategy);
 
-        var dc = strategy.Option(Track.DeliriumCombo);
-        var dcStrat = dc.As<DeliriumComboStrategy>();
-        var dcTarget = SingleTargetChoice(mainTarget, dc);
-        var dcMinimum = Unlocked(AID.Delirium) && Delirium.IsActive && InCombat(dcTarget);
-        var anyStep = Delirium.Step is 0 or 1 or 2;
-        var (dcCondition, dcAction, dcPrio) = dcStrat switch
-        {
-            DeliriumComboStrategy.Automatic => ((WantAOE ? In5y(dcTarget) : In3y(dcTarget)) && anyStep,
-                WantAOE && anyStep ? AID.Impalement : Delirium.Step is 2 ? AID.Torcleaver : Delirium.Step is 1 ? AID.Comeuppance : Unlocked(AID.ScarletDelirium) ? AID.ScarletDelirium : BestBloodSpender,
-                Delirium.Left <= 9f ? GCDPriority.Forced : GCDPriority.SlightlyHigh),
-            DeliriumComboStrategy.ScarletDelirum => (Delirium.Step is 0, AID.ScarletDelirium, GCDPriority.Forced),
-            DeliriumComboStrategy.Comeuppance => (Delirium.Step is 1, AID.Comeuppance, GCDPriority.Forced),
-            DeliriumComboStrategy.Torcleaver => (Delirium.Step is 2, AID.Torcleaver, GCDPriority.Forced),
-            DeliriumComboStrategy.Impalement => (anyStep, Unlocked(AID.Impalement) ? AID.Impalement : AID.Quietus, GCDPriority.Forced),
-
-            _ => (false, AID.None, GCDPriority.Low)
-        };
-        if (dcMinimum && dcCondition)
-            QueueGCD(dcAction, dcTarget, dcPrio);
-
-        var sd = strategy.Option(Track.SaltAndDarkness);
-        var sdStrat = sd.As<OGCDStrategy>();
-        var seZone = World.Actors.FirstOrDefault(x => x.OID == 0x17C && x.OwnerID == Player.InstanceID);
-        if (seZone != null && ShouldUseOGCD(sdStrat, mainTarget, ActionReady(AID.SaltAndDarkness), InCombat(mainTarget) && CanWeaveIn && Cooldown(AID.SaltAndDarkness) < 0.6f &&
-            SaltedEarth.IsActive && (SaltedEarth.Left is <= 5f and not 0 || Hints.NumPriorityTargetsInAOECircle(seZone.Position, 5) > 0)))
-            QueueOGCD(AID.SaltAndDarkness, Player, OGCDPriority.AboveAverage);
-
-        var u = strategy.Option(Track.Unmend);
-        var uStrat = u.As<UnmendStrategy>();
-        var uTarget = SingleTargetChoice(mainTarget, u);
-        var (uCondition, uPrio) = uStrat switch
-        {
-            UnmendStrategy.Allow => (InCombat(uTarget) && !In3y(uTarget), GCDPriority.Low),
-            UnmendStrategy.Force => (true, GCDPriority.Low + 1),
-            UnmendStrategy.OpenerFar => (!In3y(uTarget) && CountdownRemaining < 0.8f, GCDPriority.Low),
-            UnmendStrategy.OpenerForce => (CountdownRemaining < 0.8f, GCDPriority.Low + 1),
-            _ => (false, GCDPriority.None)
-
-        };
-        if (uCondition)
-            QueueGCD(AID.Unmend, uTarget, uPrio);
-
-        if (strategy.Potion() switch
-        {
-            PotionStrategy.AlignWithBuffs => Player.InCombat && LivingShadow.CD <= 4f,
-            PotionStrategy.AlignWithRaidBuffs => Player.InCombat && (RaidBuffsIn <= 5000 || RaidBuffsLeft > 0),
-            PotionStrategy.Immediate => true,
-            _ => false
-        })
-            QueuePotSTR();
+        QueueDisesteem(strategy);
+        QueueMP(strategy);
+        QueueDeliriumCombo(strategy);
+        QueueSaltAndDarkness(strategy);
+        QueueUnmend(strategy);
+        QueuePotion(strategy, ActionDefinitions.IDPotionStr, LSCD <= 4f);
+        QueueCombo(strategy);
 
         GetNextTarget(strategy, ref primaryTarget, 3);
         GoalZoneCombined(strategy, 3, Hints.GoalAOECircle(5), AID.Unleash, 3, maximumActionRange: 20);
+    }
+
+    private void QueueCombo(StrategyValues strategy)
+    {
+        var track = strategy.Option(Track.AOE);
+        var stTarget = SingleTargetChoice(PrimaryTarget, track);
+        var (action, aoeIntent) = track.As<AOEStrategy>() switch
+        {
+            AOEStrategy.AutoFinish => (WantAOE ? AOEFinish : STFinish, WantAOE),
+            AOEStrategy.ForceSTFinish => (STFinish, false),
+            AOEStrategy.ForceAOEFinish => (AOEFinish, true),
+            AOEStrategy.AutoBreak => (WantAOE ? AOEBreak : STBreak, WantAOE),
+            AOEStrategy.ForceSTBreak => (STBreak, false),
+            AOEStrategy.ForceAOEBreak => (AOEBreak, true),
+            _ => (AID.None, false)
+        };
+
+        var isAOE = action is AID.Unleash or AID.StalwartSoul;
+        if (aoeIntent && !isAOE && !In3y(stTarget))
+            (action, isAOE) = (AOEBreak, true);
+
+        var inRange = isAOE ? aoeIntent || In5y(stTarget) : In3y(stTarget);
+        var target = isAOE ? Player : stTarget;
+        if (target != null && inRange && CountdownRemaining is not > 0.7f)
+            QueueGCD(action, target, GCDPriority.Low);
+    }
+
+    private AID STFinish => LastComboAction switch
+    {
+        AID.Unleash => Unlocked(AID.StalwartSoul) ? AID.StalwartSoul : AID.HardSlash,
+        AID.SyphonStrike => Unlocked(AID.Souleater) ? AID.Souleater : AID.HardSlash,
+        AID.HardSlash => Unlocked(AID.SyphonStrike) ? AID.SyphonStrike : AID.HardSlash,
+        _ => AID.HardSlash
+    };
+
+    private AID STBreak => LastComboAction switch
+    {
+        AID.SyphonStrike => Unlocked(AID.Souleater) ? AID.Souleater : AID.HardSlash,
+        AID.HardSlash => Unlocked(AID.SyphonStrike) ? AID.SyphonStrike : AID.HardSlash,
+        _ => AID.HardSlash
+    };
+
+    private AID AOEFinish => LastComboAction switch
+    {
+        AID.SyphonStrike => Unlocked(AID.Souleater) ? AID.Souleater : AID.Unleash,
+        AID.HardSlash => Unlocked(AID.SyphonStrike) ? AID.SyphonStrike : AID.Unleash,
+        AID.Unleash => Unlocked(AID.StalwartSoul) ? AID.StalwartSoul : AID.Unleash,
+        _ => AID.Unleash
+    };
+
+    private AID AOEBreak => LastComboAction is AID.Unleash && Unlocked(AID.StalwartSoul) ? AID.StalwartSoul : AID.Unleash;
+
+    private void QueueMP(StrategyValues strategy)
+    {
+        var track = strategy.Option(Track.MP);
+        var mp = track.As<MPStrategy>();
+        var mp3k = MP >= 3000;
+        var mp6k = MP >= 6000;
+        var mp9k = MP >= 9000;
+        var autoPriority = RiskingMP ? OGCDPriority.Forced : OGCDPriority.Low;
+
+        var (condition, priority) = mp switch
+        {
+            MPStrategy.Automatic => (ShouldSpendMP(mp3k, mp6k), autoPriority),
+            MPStrategy.Auto3k or MPStrategy.Flood3k => (mp3k || DarkArts, autoPriority),
+            MPStrategy.Auto6k or MPStrategy.Flood6k => (mp6k || DarkArts, autoPriority),
+            MPStrategy.Auto9k or MPStrategy.Flood9k => (mp9k || DarkArts, autoPriority),
+            MPStrategy.Edge3k => (mp3k, autoPriority),
+            MPStrategy.Edge6k => (mp6k, autoPriority),
+            MPStrategy.Edge9k => (mp9k, autoPriority),
+            MPStrategy.AutoRefresh or MPStrategy.EdgeRefresh or MPStrategy.FloodRefresh => (RiskingMP, autoPriority),
+            MPStrategy.ForceEdge => (Unlocked(AID.EdgeOfDarkness) && mp3k || DarkArts, OGCDPriority.Forced),
+            MPStrategy.ForceFlood => (Unlocked(AID.FloodOfDarkness) && mp3k || DarkArts, OGCDPriority.Forced),
+            _ => (false, OGCDPriority.None)
+        };
+
+        var (rectTarget, rectTargets) = condition ? RectTargets : (null, 0);
+        var floodOfShadow = Unlocked(AID.FloodOfShadow) && rectTargets >= 3;
+        var floodOfDarkness = Unlocked(AID.FloodOfDarkness) && rectTargets >= 4;
+        var action = mp switch
+        {
+            MPStrategy.Automatic or MPStrategy.Auto3k or MPStrategy.Auto6k or MPStrategy.Auto9k or MPStrategy.AutoRefresh
+                => floodOfShadow ? AID.FloodOfShadow : floodOfDarkness ? AID.FloodOfDarkness : BestEdge,
+            MPStrategy.Edge3k or MPStrategy.Edge6k or MPStrategy.Edge9k or MPStrategy.EdgeRefresh or MPStrategy.ForceEdge => BestEdge,
+            _ => BestFlood
+        };
+        var target = floodOfShadow || floodOfDarkness ? rectTarget?.Actor : SingleTargetChoice(PrimaryTarget, track);
+        if (condition)
+            QueueOGCD(action, target, priority);
+    }
+    private bool ShouldSpendMP(bool mp3k, bool mp6k)
+    {
+        var freeDarkArts = Unlocked(AID.TheBlackestNight) && DarkArts && (InBurst || Delirium.CD >= Darkside.Left + GCD);
+        var burstSpend = InBurst && (InOddWindow(AID.LivingShadow) ? mp6k : mp3k);
+        return RiskingMP ? mp3k || DarkArts : !Unlocked(AID.Delirium) || freeDarkArts ? mp3k : burstSpend;
+    }
+    private void QueueDelirium(StrategyValues strategy)
+    {
+        var delirium = strategy.Option(Track.Delirium).As<OGCDStrategy>();
+        var timing = Unlocked(AID.LivingShadow) ? BurstReady : CombatTimer > 0;
+        if (ShouldUseOGCD(delirium, PrimaryTarget, ActionReady(BestDelirium), InCombat(PrimaryTarget) && CanWeaveIn && Darkside.Active && timing))
+            QueueOGCD(BestDelirium, Player, OGCDPrio(delirium, OGCDPriority.VeryHigh));
+    }
+    private void QueueLivingShadow(StrategyValues strategy)
+    {
+        var ls = strategy.Option(Track.LivingShadow).As<OGCDStrategy>();
+        if (ShouldUseOGCD(ls, PrimaryTarget, ActionReady(AID.LivingShadow), InCombat(PrimaryTarget) && CanWeaveIn && Darkside.Active))
+            QueueOGCD(AID.LivingShadow, Player, OGCDPrio(ls, OGCDPriority.ExtremelyHigh));
+    }
+    private void QueueSaltedEarth(StrategyValues strategy)
+    {
+        var se = strategy.Option(Track.SaltedEarth).As<OGCDStrategy>();
+        if (ShouldUseOGCD(se, PrimaryTarget, ActionReady(AID.SaltedEarth), InCombat(PrimaryTarget) && CanWeaveIn && In3y(PrimaryTarget) && Darkside.Active && BurstReady))
+            QueueOGCD(AID.SaltedEarth, Player, OGCDPrio(se, OGCDPriority.AboveAverage));
+    }
+    private Actor? FindSaltedEarth()
+    {
+        Actor? found = null;
+        foreach (var actor in World.Actors)
+            if (found == null && actor.OID == 0x17C && actor.OwnerID == Player.InstanceID)
+                found = actor;
+        return found;
+    }
+    private void QueueSaltAndDarkness(StrategyValues strategy)
+    {
+        var sd = strategy.Option(Track.SaltAndDarkness).As<OGCDStrategy>();
+        var ready = sd != OGCDStrategy.Delay && SE.Active && ActionReady(AID.SaltAndDarkness);
+        var zone = ready ? FindSaltedEarth() : null;
+        var timing = SE.Left <= 5f || zone != null && Hints.NumPriorityTargetsInAOECircle(zone.Position, 5) > 0;
+        if (zone != null && ShouldUseOGCD(sd, PrimaryTarget, true, InCombat(PrimaryTarget) && timing))
+            QueueOGCD(AID.SaltAndDarkness, Player, OGCDPriority.AboveAverage);
+    }
+    private void QueueShadowbringer(StrategyValues strategy)
+    {
+        var track = strategy.Option(Track.Shadowbringer);
+        var sb = track.As<OGCDStrategy>();
+        var ready = sb != OGCDStrategy.Delay && Unlocked(AID.Shadowbringer) && Cooldown(AID.Shadowbringer) <= 60;
+        var target = ready ? AOETargetChoice(PrimaryTarget, RectTarget(AID.Shadowbringer), track, strategy) : null;
+        var timing = RaidBuffsLeft > 0f || LSCD > 80 && Delirium.CD > 40;
+        if (ShouldUseOGCD(sb, target, ready, InCombat(target) && CanWeaveIn && Darkside.Active && timing))
+            QueueOGCD(AID.Shadowbringer, target, OGCDPrio(sb, OGCDPriority.Average));
+    }
+    private void QueueCarveOrDrain(StrategyValues strategy)
+    {
+        var track = strategy.Option(Track.Carve);
+        var carve = track.As<CarveStrategy>();
+        var optimal = InCombat(PrimaryTarget) && CanWeaveIn && Darkside.Active && BurstReady && InBurst;
+        var forced = carve is CarveStrategy.ForceCarve or CarveStrategy.ForceDrain;
+        var ready = carve != CarveStrategy.Delay && (forced || optimal) && ActionReady(AID.AbyssalDrain);
+
+        Actor? STTarget() => SingleTargetChoice(PrimaryTarget, track);
+        Actor? AOETarget() => AOETargetChoice(PrimaryTarget, DrainTargets.Best?.Actor, track, strategy);
+        Actor? CarveTarget() => Unlocked(AID.CarveAndSpit) ? STTarget() : AOETarget();
+        var wantDrain = ready && carve == CarveStrategy.Automatic && DrainTargets.Targets > 2;
+
+        var (action, target, priority) = carve switch
+        {
+            CarveStrategy.Automatic => (wantDrain ? AID.AbyssalDrain : BestCarve, wantDrain ? AOETarget() : STTarget(), OGCDPriority.BelowAverage),
+            CarveStrategy.OnlyCarve => (BestCarve, CarveTarget(), OGCDPriority.BelowAverage),
+            CarveStrategy.OnlyDrain => (AID.AbyssalDrain, AOETarget(), OGCDPriority.BelowAverage),
+            CarveStrategy.ForceCarve => (BestCarve, CarveTarget(), OGCDPriority.Forced),
+            _ => (AID.AbyssalDrain, AOETarget(), OGCDPriority.Forced)
+        };
+        if (ready)
+            QueueOGCD(action, target, priority);
+    }
+
+    private void QueueDisesteem(StrategyValues strategy)
+    {
+        var track = strategy.Option(Track.Disesteem);
+        var disesteem = track.As<GCDStrategy>();
+        if (disesteem == GCDStrategy.Delay || !Unlocked(AID.Disesteem) || ScornLeft <= 0.1f)
+            return;
+
+        var target = AOETargetChoice(PrimaryTarget, RectTarget(AID.Disesteem), track, strategy);
+        var timing = RaidBuffsLeft > 0 || LSCD > 80 && Delirium.CD > 30 && !Delirium.Active || ScornLeft < 10f || !In3y(target);
+        var priority = disesteem is GCDStrategy.Force ? GCDPriority.Forced : CombatTimer < 30 ? GCDPriority.VeryHigh : GCDPriority.AboveAverage;
+        if (ShouldUseGCD(disesteem, target, true, InCombat(target) && In10y(target) && Darkside.Active && timing))
+            QueueGCD(AID.Disesteem, target, priority);
+    }
+    private void QueueDeliriumCombo(StrategyValues strategy)
+    {
+        var track = strategy.Option(Track.DeliriumCombo);
+        var target = SingleTargetChoice(PrimaryTarget, track);
+        if (!Unlocked(AID.ScarletDelirium) || !Delirium.Active || !InCombat(target))
+            return;
+
+        var autoAction = WantAOE ? AID.Impalement : DeliriumStep switch
+        {
+            2 => AID.Torcleaver,
+            1 => AID.Comeuppance,
+            _ => AID.ScarletDelirium
+        };
+        var autoPriority = Delirium.Left <= 9f ? GCDPriority.Forced : GCDPriority.SlightlyHigh;
+
+        var (condition, action, priority) = track.As<DeliriumComboStrategy>() switch
+        {
+            DeliriumComboStrategy.Automatic => ((WantAOE || In3y(target)) && InDeliriumCombo, autoAction, autoPriority),
+            DeliriumComboStrategy.ScarletDelirum => (DeliriumStep == 0, AID.ScarletDelirium, GCDPriority.Forced),
+            DeliriumComboStrategy.Comeuppance => (DeliriumStep == 1, AID.Comeuppance, GCDPriority.Forced),
+            DeliriumComboStrategy.Torcleaver => (DeliriumStep == 2, AID.Torcleaver, GCDPriority.Forced),
+            DeliriumComboStrategy.Impalement => (InDeliriumCombo, Unlocked(AID.Impalement) ? AID.Impalement : AID.Quietus, GCDPriority.Forced),
+            _ => (false, AID.None, GCDPriority.None)
+        };
+        if (condition)
+            QueueGCD(action, target, priority);
+    }
+    private void QueueBlood(StrategyValues strategy)
+    {
+        var track = strategy.Option(Track.Blood);
+        var blood = track.As<BloodStrategy>();
+        if (blood == BloodStrategy.Delay || Blood < 50 && !Delirium.Active)
+            return;
+
+        var action = blood switch
+        {
+            BloodStrategy.Automatic or BloodStrategy.ForceBest or BloodStrategy.Conserve => BestBloodSpender,
+            BloodStrategy.OnlyBloodspiller or BloodStrategy.ForceBloodspiller => AID.Bloodspiller,
+            BloodStrategy.OnlyQuietus or BloodStrategy.ForceQuietus => AID.Quietus,
+            _ => AID.None
+        };
+        var target = WantAOE && action == AID.Quietus ? Player : SingleTargetChoice(PrimaryTarget, track);
+        var canSpend = Unlocked(BestBloodSpender) && (Blood >= 50 || Delirium.Active);
+        var optimal = canSpend && InCombat(target) && In3y(target) && Darkside.Active && (Delirium.CD > 40 || RiskingBlood || RaidBuffsLeft > GCD);
+
+        var (condition, priority) = blood switch
+        {
+            BloodStrategy.Automatic or BloodStrategy.OnlyBloodspiller or BloodStrategy.OnlyQuietus => (optimal, GCDPriority.Average),
+            BloodStrategy.ForceBest or BloodStrategy.ForceBloodspiller or BloodStrategy.ForceQuietus => (canSpend, GCDPriority.Forced),
+            BloodStrategy.Conserve => (RiskingBlood || Delirium.Active, GCDPriority.Average),
+            _ => (false, GCDPriority.None)
+        };
+        if (condition)
+            QueueGCD(action, target, priority);
+    }
+    private void QueueUnmend(StrategyValues strategy)
+    {
+        var track = strategy.Option(Track.Unmend);
+        var unmend = track.As<UnmendStrategy>();
+        if (unmend == UnmendStrategy.Forbid)
+            return;
+
+        var target = SingleTargetChoice(PrimaryTarget, track);
+        var away = target != null && !In3y(target);
+        var prepull = NoPrepullWithin(0.7f);
+        var disesteemInstead = Unlocked(AID.Disesteem) && ScornLeft > GCD && In10y(target);
+
+        var (condition, priority) = unmend switch
+        {
+            UnmendStrategy.OpenerFar => (away && prepull, GCDPriority.Low),
+            UnmendStrategy.OpenerForce => (target != null && prepull, GCDPriority.Low + 1),
+            UnmendStrategy.Force => (true, GCDPriority.Low + 1),
+            UnmendStrategy.Allow => ((Player.InCombat || prepull) && away && !disesteemInstead, GCDPriority.Low),
+            _ => (false, GCDPriority.None)
+        };
+        if (condition)
+            QueueGCD(AID.Unmend, target, priority);
     }
 }

@@ -4,35 +4,39 @@ using static BossMod.AIHints;
 
 namespace BossMod.Autorotation.kage;
 
-public sealed class KagePLD(RotationModuleManager manager, Actor player) : KageRotation<KagePLD.Strategy>(manager, player)
+public sealed class KagePLD(RotationModuleManager manager, Actor player) : KageShared<KagePLD.Strategy>(manager, player)
 {
     public struct Strategy
     {
+        [Track(UiPriority = 500)]
         public Track<Targeting> Targeting;
+        [Track(UiPriority = 499)]
         public Track<AOEStrategy> AOE;
 
-        [Track("Burst (Fight or Flight, Requiescat, Circle of Scorn, Intervene)", InternalName = "Burst", MinLevel = 2)]
+        [Track("Burst (Fight or Flight, Requiescat, Circle of Scorn, Intervene)", InternalName = "Burst", MinLevel = 2, UiPriority = -20)]
         public Track<OffensiveStrategy> Burst;
 
-        [Track("Fight or Flight", MinLevel = 2, Action = AID.FightOrFlight)]
+        [Track("Fight or Flight", MinLevel = 2, Action = AID.FightOrFlight, UiPriority = 100)]
         public Track<OffensiveStrategy> FightOrFlight;
 
-        [Track("Requiescat / Imperator", MinLevel = 68, Actions = [AID.Requiescat, AID.Imperator])]
+        [Track("Requiescat / Imperator", MinLevel = 68, Actions = [AID.Requiescat, AID.Imperator], UiPriority = 99)]
         public Track<OffensiveStrategy> Requiescat;
 
-        [Track("Goring Blade", MinLevel = 54, Action = AID.GoringBlade)]
+        [Track("Goring Blade", MinLevel = 54, Action = AID.GoringBlade, UiPriority = 98)]
         public Track<OffensiveStrategy> Goring;
 
-        [Track("Circle of Scorn / Expiacion", MinLevel = 30, Actions = [AID.CircleOfScorn, AID.SpiritsWithin, AID.Expiacion])]
+        [Track("Circle of Scorn / Expiacion", MinLevel = 30, Actions = [AID.CircleOfScorn, AID.SpiritsWithin, AID.Expiacion], UiPriority = 97)]
         public Track<OffensiveStrategy> Spenders;
 
-        [Track("Intervene", MinLevel = 74, Action = AID.Intervene)]
-        public Track<InterveneStrategy> Intervene;
-
-        [Track("Sheltron (Oath overcap)", MinLevel = 35, Actions = [AID.Sheltron, AID.HolySheltron])]
+        [Track("Shield Lob / Holy Spirit", MinLevel = 15, UiPriority = 96.5f)]
+        public Track<RangedStrategy> Ranged;
+        [Track("Sheltron", MinLevel = 35, Actions = [AID.Sheltron, AID.HolySheltron], UiPriority = 96)]
         public Track<SheltronStrategy> Sheltron;
 
-        [Track("Potion")]
+        [Track("Intervene", MinLevel = 74, Action = AID.Intervene, UiPriority = 95)]
+        public Track<InterveneStrategy> Intervene;
+
+        [Track("Potion", Item = 1049234, UiPriority = 94)]
         public Track<PotionStrategy> Potion;
 
         [Track("Opener", MinLevel = 2, UiPriority = -10)]
@@ -41,12 +45,28 @@ public sealed class KagePLD(RotationModuleManager manager, Actor player) : KageR
 
     public enum InterveneStrategy
     {
-        [Option("Use in Fight or Flight; never overcap")]
+        [Option("Use in the rotation")]
         Automatic,
-        [Option("Also use as a gap closer", Targets = ActionTargets.Hostile)]
+        [Option("Use in rotation and to close gaps", Targets = ActionTargets.Hostile)]
         GapClose,
+        [Option("Use in rotation and to cancel knockback", Targets = ActionTargets.Hostile)]
+        Knockback,
+        [Option("Use in rotation, gap close and knockback", Targets = ActionTargets.Hostile)]
+        Both,
         [Option("Do not use")]
         Delay
+    }
+
+    public enum RangedStrategy
+    {
+        [Option("Holy Spirit if standing, else Shield Lob")]
+        Ranged,
+        [Option("Only Shield Lob")]
+        ShieldLob,
+        [Option("Only Holy Spirit")]
+        HolySpirit,
+        [Option("Do not use at range")]
+        Never
     }
 
     public enum SheltronStrategy
@@ -61,9 +81,11 @@ public sealed class KagePLD(RotationModuleManager manager, Actor player) : KageR
     {
         [Option("Do not use automatically")]
         Manual,
-        [Option("Use with Fight or Flight")]
+        [Option("Optimal: with Fight or Flight")]
         AlignWithBurst,
-        [Option("Use as soon as possible")]
+        [Option("Follow party raid buffs")]
+        AlignWithRaidBuffs,
+        [Option("Use ASAP")]
         Immediate
     }
 
@@ -73,13 +95,13 @@ public sealed class KagePLD(RotationModuleManager manager, Actor player) : KageR
         Standard,
         [Option("Early Fight or Flight opener")]
         EarlyBuff,
-        [Option("No opener-specific rules")]
+        [Option("No pre-pull or opener rules")]
         None
     }
 
     public static RotationModuleDefinition Definition()
     {
-        return new RotationModuleDefinition("Kage PLD", "Paladin", "Standard rotation (Kage)|Tank", "Kagekazu", RotationModuleQuality.Ok, BitMask.Build(Class.PLD, Class.GLA), 100).WithStrategies<Strategy>();
+        return new RotationModuleDefinition("Kage PLD", "Paladin", "Standard rotation (Kage)|Tanks", "Kagekazu", RotationModuleQuality.Good, BitMask.Build(Class.PLD, Class.GLA), 100).WithStrategies<Strategy>();
     }
 
     private const int HolySpiritMP = 1000;
@@ -102,7 +124,8 @@ public sealed class KagePLD(RotationModuleManager manager, Actor player) : KageR
     private Actor? BestMeleeSplashTarget;
     private int NumAOETargets;
     private bool AOEMode;
-    private bool InMelee;
+    private bool IsMoving;
+    private List<Actor> Loose = [];
 
     private AID ComboLastMove => (AID)World.Client.ComboState.Action;
     private int AoEMinTargets => Player.Level >= 94 ? 3 : 2;
@@ -119,7 +142,7 @@ public sealed class KagePLD(RotationModuleManager manager, Actor player) : KageR
         if (Player.FindStatus(PassageOfArmsSID, Player.InstanceID) != null)
             return;
 
-        var target = SelectTarget(strategy.Targeting.Value, ref primaryTarget, estimatedAnimLockDelay, 3, strategy.AOE.Value);
+        var target = SelectTarget(strategy, strategy.Targeting.Value, ref primaryTarget, estimatedAnimLockDelay, 3, strategy.AOE.Value);
         FightOrFlightStrat = WithBurst(strategy.Burst.Value, strategy.FightOrFlight.Value);
         RequiescatStrat = WithBurst(strategy.Burst.Value, strategy.Requiescat.Value);
         SpendersStrat = WithBurst(strategy.Burst.Value, strategy.Spenders.Value);
@@ -141,13 +164,17 @@ public sealed class KagePLD(RotationModuleManager manager, Actor player) : KageR
         NumAOETargets = Hints.NumPriorityTargetsInAOECircle(Player.Position, 5);
         if (strategy.AOE.Value == AOEStrategy.ForceST)
             NumAOETargets = NumAOETargets > 0 && target != null && TargetInAOECircle(target.Actor, Player.Position, 5) ? 1 : 0;
-        AOEMode = Unlocked(AID.TotalEclipse) && UseAOE(strategy.AOE.Value, NumAOETargets, AoEMinTargets);
-        InMelee = target != null && Player.DistanceToHitbox(target.Actor) <= 3;
+        IsMoving = isMoving;
+        Loose = Player.InCombat && !InBossFight && strategy.AOE.Value != AOEStrategy.ForceST
+            ? [.. Hints.PriorityTargets.Select(e => e.Actor).Where(a => a.InCombat && a.TargetID != Player.InstanceID && World.Party.FindSlot(a.TargetID) >= 0)]
+            : [];
+        AOEMode = Unlocked(AID.TotalEclipse) && (UseAOE(strategy.AOE.Value, NumAOETargets, AoEMinTargets)
+            || strategy.AOE.Value == AOEStrategy.AOE && NumAOETargets >= 2 && Loose.Any(a => TargetInAOECircle(a, Player.Position, 5)));
         BestSplashTarget = BestAOETarget(target, 25, allowAoE, (c, e) => TargetInAOECircle(e, c.Position, 5)).Best;
         BestMeleeSplashTarget = BestAOETarget(target, 3, allowAoE, (c, e) => TargetInAOECircle(e, c.Position, 5)).Best;
 
         if (UsePotion(strategy))
-            Hints.ActionsToExecute.Push(ActionDefinitions.IDPotionStr, Player, ActionQueue.Priority.Medium);
+            PushPotion(ActionDefinitions.IDPotionStr);
 
         if (World.Client.CountdownRemaining is > 0 and var countdown)
         {
@@ -166,6 +193,11 @@ public sealed class KagePLD(RotationModuleManager manager, Actor player) : KageR
 
         var goal = Hints.GoalSingleTarget(target.Actor, Player, World.Actors, 3);
         Hints.GoalZones.Add(allowAoE && Unlocked(AID.TotalEclipse) ? GoalCombined(goal, Hints.GoalAOECircle(5), AoEMinTargets) : goal);
+        if (Loose.Count > 0)
+        {
+            var loose = Loose;
+            Hints.GoalZones.Add(p => loose.Count(a => p.InCircle(a.Position, 5 + a.HitboxRadius)));
+        }
 
         GCDs(strategy, target);
         if (Player.InCombat)
@@ -203,7 +235,14 @@ public sealed class KagePLD(RotationModuleManager manager, Actor player) : KageR
             PushGCD(holyAction, holyTarget, 58);
 
         if (canHoly && DivineMightLeft > GCD && (FoFLeft > GCD || !InMelee || ComboLastMove == (AOEMode ? AID.TotalEclipse : AID.RiotBlade) || DivineMightLeft < 6))
-            PushGCD(holyAction, holyTarget, DivineMightLeft < 6 || FoFLeft <= GCD ? 46 : 44);
+            PushGCD(holyAction, holyTarget, FoFLeft > GCD && Player.Level < 94 ? 49 : DivineMightLeft < 6 || FoFLeft <= GCD ? 46 : 44);
+
+        if (Loose.Where(a => !TargetInAOECircle(a, Player.Position, 5) && Player.DistanceToHitbox(a) <= 20).MinBy(Player.DistanceToHitbox) is { } stray)
+        {
+            if (canHoly && DivineMightLeft > GCD)
+                PushGCD(AID.HolySpirit, stray, 55);
+            PushGCD(AID.ShieldLob, stray, 54);
+        }
 
         if (AOEMode)
         {
@@ -213,11 +252,12 @@ public sealed class KagePLD(RotationModuleManager manager, Actor player) : KageR
         }
         else
         {
-            if (!InMelee)
+            if (!InMelee && strategy.Ranged.Value != RangedStrategy.Never)
             {
-                if (canHoly)
+                if (strategy.Ranged.Value != RangedStrategy.ShieldLob && canHoly && (DivineMightLeft > GCD || InBossFight && !IsMoving))
                     PushGCD(AID.HolySpirit, target.Actor, 20);
-                PushGCD(AID.ShieldLob, target.Actor, 19);
+                if (strategy.Ranged.Value != RangedStrategy.HolySpirit)
+                    PushGCD(AID.ShieldLob, target.Actor, 19);
             }
 
             var spend = FoFLeft > GCD || ComboLastMove == AID.RiotBlade;
@@ -302,10 +342,14 @@ public sealed class KagePLD(RotationModuleManager manager, Actor player) : KageR
 
     private void Intervene(in Strategy strategy, Enemy target)
     {
-        if (InterveneStrat == InterveneStrategy.Delay || !CanWeave(AID.Intervene))
+        if (InterveneStrat == InterveneStrategy.Delay)
+            return;
+        if (InterveneStrat is InterveneStrategy.Knockback or InterveneStrategy.Both)
+            CancelKnockback(AID.Intervene, ResolveTarget(strategy.Intervene) ?? target.Actor);
+        if (!CanWeave(AID.Intervene))
             return;
         var dist = Player.DistanceToHitbox(target.Actor);
-        if (InterveneStrat == InterveneStrategy.GapClose && dist > 3 && dist <= 20)
+        if (InterveneStrat is InterveneStrategy.GapClose or InterveneStrategy.Both && dist > 3 && dist <= 20)
         {
             PushOGCD(AID.Intervene, ResolveTargetOverride(strategy.Intervene.TrackRaw) ?? target.Actor, 55);
             return;
@@ -323,10 +367,13 @@ public sealed class KagePLD(RotationModuleManager manager, Actor player) : KageR
 
     private bool UsePotion(in Strategy strategy) => strategy.Potion.Value switch
     {
-        PotionStrategy.AlignWithBurst => Player.InCombat && ReadyIn(AID.FightOrFlight) < 3 && (CombatTime > 15 || ComboLastMove is AID.RiotBlade or AID.FastBlade),
+        PotionStrategy.AlignWithBurst => PotionBurst(strategy) || PotionBeforeKill,
+        PotionStrategy.AlignWithRaidBuffs => PotionWithRaidBuffs(PotionBurst(strategy)) || PotionBeforeKill,
         PotionStrategy.Immediate => true,
         _ => false
     };
+
+    private bool PotionBurst(in Strategy strategy) => Player.InCombat && (FightOrFlightStrat == OffensiveStrategy.Delay ? RaidBuffsLeft > 0 || RaidBuffsIn < 5 : ReadyIn(AID.FightOrFlight) < 3 && (CombatTime > 15 || ComboLastMove == (strategy.Opener.Value == OpenerStrategy.EarlyBuff ? AID.FastBlade : AID.RiotBlade) || !Unlocked(AID.RiotBlade)));
 
     private void PushGCD(AID aid, Actor? target, int priority) => base.PushGCD(aid, target, priority, CastTime(aid));
 

@@ -864,8 +864,18 @@ public sealed unsafe class ActionManagerEx : IDisposable
             return true;
         }
 
-        var player = GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
-        var targetObj = GameObjectManager.Instance()->Objects.GetObjectByGameObjectId(targetID);
+        return CheckTargetLoS(targetID);
+    }
+
+    internal static bool CheckTargetLoS(ulong targetID)
+    {
+        var objects = GameObjectManager.Instance();
+        if (objects == null)
+            return true;
+        var player = objects->Objects.IndexSorted[0].Value;
+        if (player == null)
+            return true;
+        var targetObj = objects->Objects.GetObjectByGameObjectId(targetID);
         if (targetObj == null || targetObj->EntityId == player->EntityId)
         {
             return true;
@@ -879,6 +889,8 @@ public sealed unsafe class ActionManagerEx : IDisposable
 
         var offset = targetPos - playerPos;
         var maxDist = offset.Magnitude;
+        if (maxDist < 0.001f)
+            return true;
         var direction = offset / maxDist;
 
         return !BGCollisionModule.RaycastMaterialFilter(playerPos, direction, out _, maxDist);

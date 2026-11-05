@@ -584,11 +584,6 @@ public class O5NPhantomTrain(WorldState ws, Actor primary) : BossModule(ws, prim
             if (stream.IsTargetable && !_occupied)
                 hints.InteractWithTarget = stream;
         }
-
-        // drop when we're occupied (and thus interacting)
-        // nothing can cancel it at this point unless user error
-        if (_occupied && !backOnCart)
-            hints.ForcedMovement = default;
     }
 
     public override Actor? GetDefaultTarget(int slot)

@@ -34,6 +34,8 @@ public abstract class BossModule : IDisposable
     // per-oid enemy lists; filled on first request
     public readonly Dictionary<uint, List<Actor>> RelevantEnemies = []; // key = actor OID
 
+    public List<Actor> Enemies<OID>(OID oid) where OID : Enum => Enemies((uint)(object)oid);
+
     public List<Actor> Enemies(uint oid)
     {
         if (!RelevantEnemies.TryGetValue(oid, out var entry))

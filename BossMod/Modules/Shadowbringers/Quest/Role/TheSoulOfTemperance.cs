@@ -56,7 +56,7 @@ class SophrosyneStates : StateMachineBuilder
             .ActivateOnEnter<HolyBlur>()
             .ActivateOnEnter<Focus>()
             .ActivateOnEnter<Repose>()
-            .Raw.Update = () => module.Enemies((uint)OID.BossP2).Any(x => x.IsTargetable) || module.WorldState.CurrentCFCID != 673;
+            .Raw.Update = () => module.Enemies((uint)OID.BossP2).Any(x => x.IsTargetable);
         TrivialPhase(1)
             .ActivateOnEnter<SanctifiedAero>()
             .ActivateOnEnter<SanctifiedStone>()
@@ -65,12 +65,14 @@ class SophrosyneStates : StateMachineBuilder
             .ActivateOnEnter<ForceOfRestraint>()
             .ActivateOnEnter<SanctifiedHoly1>()
             .ActivateOnEnter<SanctifiedHoly2>()
-            .Raw.Update = () => module.Enemies((uint)OID.BossP2).All(x => x.IsDeadOrDestroyed) || module.WorldState.CurrentCFCID != 673;
+            .Raw.Update = () => module.Enemies((uint)OID.BossP2).All(x => x.IsDeadOrDestroyed);
     }
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.Quest, GroupID = 68808, NameID = 8777)]
-public class Sophrosyne(WorldState ws, Actor primary) : BossModule(ws, primary, new(-651.8f, -127.25f), new ArenaBoundsCircle(20))
+public class Sophrosyne(WorldState ws, Actor primary) : BossModule(ws, primary, new(-651.91f, -127.134f), new ArenaBoundsCircle(19.5f))
 {
+    protected override bool CheckPull() => PrimaryActor.InCombat;
+
     protected override void DrawEnemies(int pcSlot, Actor pc) => Arena.Actors(WorldState.Actors.Where(x => !x.IsAlly));
 }

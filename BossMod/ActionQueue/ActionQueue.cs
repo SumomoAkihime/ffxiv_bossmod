@@ -8,7 +8,7 @@
 // - repeat the process until no more actions can be found
 public sealed class ActionQueue
 {
-    public readonly record struct Entry(ActionID Action, Actor? Target, float Priority, float Expire, float Delay, float CastTime, Vector3 TargetPos, Angle? FacingAngle, bool Manual, bool Force);
+    public readonly record struct Entry(ActionID Action, Actor? Target, float Priority, float Expire, float Delay, float CastTime, Vector3 TargetPos, Angle? FacingAngle, bool Manual, bool Force, float PositionLock = 0);
 
     // reference priority guidelines
     // values divisible by 1000 are reserved for standard cooldown planner priorities
@@ -38,7 +38,7 @@ public sealed class ActionQueue
     public readonly List<Entry> Entries = [];
 
     public void Clear() => Entries.Clear();
-    public void Push(ActionID action, Actor? target, float priority, float expire = float.MaxValue, float delay = 0, float castTime = 0, Vector3 targetPos = default, Angle? facingAngle = null, bool manual = false, bool forced = false) => Entries.Add(new(action, target, priority, expire, delay, castTime, targetPos, facingAngle, manual, forced));
+    public void Push(ActionID action, Actor? target, float priority, float expire = float.MaxValue, float delay = 0, float castTime = 0, Vector3 targetPos = default, Angle? facingAngle = null, bool manual = false, bool forced = false, float positionLock = 0) => Entries.Add(new(action, target, priority, expire, delay, castTime, targetPos, facingAngle, manual, forced, positionLock));
 
     public Entry FindBest(WorldState ws, Actor player, ReadOnlySpan<Cooldown> cooldowns, float animationLock, AIHints hints, float instantAnimLockDelay, bool allowDismount)
     {
@@ -59,7 +59,7 @@ public sealed class ActionQueue
             if (!def.IsUnlocked(ws, player))
                 continue;
 
-            if (candidate.CastTime > hints.MaxCastTime)
+            if (candidate.CastTime + Math.Max(candidate.PositionLock, def.PositionLock) > hints.EffectiveMaxCastTime)
                 continue; // this cast can't be finished in time, look for something else
 
             var startDelay = Math.Max(Math.Max(candidate.Delay, animationLock), def.ReadyIn(cooldowns, ws.Client.DutyActions));

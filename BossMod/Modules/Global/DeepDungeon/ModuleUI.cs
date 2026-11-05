@@ -20,9 +20,9 @@ abstract partial class AutoClear : ZoneModule
             }
         }
 
-        var targetRoom = new Minimap(Palace, player?.Rotation ?? default, DesiredRoom, Math.Max(0, playerSlot), player?.InstanceID ?? default).Draw();
+        var targetRoom = new Minimap(Palace, player?.Rotation ?? default, DesiredRoom.Reason == PathfindReason.Nothing ? -1 : DesiredRoom.Index, Math.Max(0, playerSlot), player?.InstanceID ?? default).Draw();
         if (targetRoom >= 0)
-            DesiredRoom = targetRoom;
+            DesiredRoom = (targetRoom, PathfindReason.Manual);
 
         ImGui.Text($"Kills: {Kills}");
 

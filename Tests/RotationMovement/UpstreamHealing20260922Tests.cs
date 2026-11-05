@@ -64,7 +64,7 @@ static class UpstreamHealing20260922Tests
 
         try
         {
-            foreach (var methodName in new[] { "HealSingleNow", "HealSingleSoon" })
+            foreach (var methodName in new[] { "HealLowest" })
             {
                 var method = typeof(HealerAI).GetMethod(methodName, All)!;
                 var calls = 0;
@@ -117,8 +117,10 @@ static class UpstreamHealing20260922Tests
             var healer = new HealerAI(manager, player);
             var health = (TrackPartyHealth)typeof(HealerAI).GetField("Health", All)!.GetValue(healer)!;
             health.Update(hints);
+            var cached = (List<Actor>)typeof(HealerAI).GetField("_lightParty", All)!.GetValue(healer)!;
+            cached.AddRange(health.TrackedMembers.Select(p => p.Item2));
             var getCoverage = typeof(HealerAI).GetMethod("GetBestPartyCoverage", All)!;
-            var center = (System.Numerics.Vector3)getCoverage.Invoke(healer, [15f])!;
+            var center = (System.Numerics.Vector3)getCoverage.Invoke(healer, [15f, false])!;
             var covered = new[] { player, master, first, second }.All(actor =>
             {
                 if (actor == null)

@@ -26,7 +26,7 @@ sealed class P1Plummet(BossModule module) : Components.Cleave(module, (uint)AID.
                 if (originE?.DesiredRotation is Angle rot)
                 {
                     var predicted = Soak && IsSoaker(assignment) ? Shape.InvertedDistance(pos, rot) : Shape.Distance(pos, rot);
-                    hints.AddForbiddenZone(predicted, DateTime.MaxValue);
+                    hints.AddForbiddenZone(predicted, NextExpected);
                 }
             }
         }
@@ -51,8 +51,9 @@ sealed class P5MornAfah(BossModule module) : Components.StackWithCastTargets(mod
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.Twintania, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 280u, NameID = 3210u, PlanLevel = 70)]
-public sealed class UCOB(WorldState ws, Actor primary) : BossModule(ws, primary, default, new ArenaBoundsCircle(21f))
+public sealed class UCOB(WorldState ws, Actor primary) : BossModule(ws, primary, default, new ArenaBoundsCircle(22f))
 {
+    public static readonly ArenaBoundsSquare PathfindHugBorderBounds = new(22);
     private Actor? _nael;
     private Actor? _bahamutPrime;
 

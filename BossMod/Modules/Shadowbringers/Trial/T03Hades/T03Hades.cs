@@ -293,6 +293,7 @@ sealed class HadesStates : StateMachineBuilder
             .ActivateOnEnter<HellbornYawp>()
             .ActivateOnEnter<EchoOfTheLostCone>()
             .ActivateOnEnter<LastPhaseRaidwides>()
+            .ActivateOnEnter<TheDarkDevours>()
             .ActivateOnEnter<CaptivityBait>()
             .ActivateOnEnter<AetherialGaol>()
             .ActivateOnEnter<DoomTowers>()
@@ -327,3 +328,5 @@ public sealed class Hades(WorldState ws, Actor primary) : BossModule(ws, primary
         Arena.Actors(WorldState.Actors.Where(a => !a.IsAlly), Colors.Enemy);
     }
 }
+
+class TheDarkDevours(BossModule module) : Components.RaidwideMultiHit(module, (uint)AID.TheDarkDevours, [(uint)AID.TheDarkDevours1], 1.2f, 2.02f, 4);

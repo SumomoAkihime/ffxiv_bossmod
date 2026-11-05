@@ -81,7 +81,7 @@ sealed class P3DynamoTetherHelper(UCOB module) : BossComponent(module)
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (assignment is not (PartyRolesConfig.Assignment.MT or PartyRolesConfig.Assignment.OT) && _quote is { PendingMechanics: [(uint)AID.LunarDynamo, ..], NextActivation: var nextActivation })
+        if (assignment is not (PartyRolesConfig.Assignment.MT or PartyRolesConfig.Assignment.OT) && _quote is { PendingMechanics: [AID.LunarDynamo, ..], NextActivation: var nextActivation })
         {
             var bahaPos = _bahamut.Position;
             var naelPos = _nael.Position;

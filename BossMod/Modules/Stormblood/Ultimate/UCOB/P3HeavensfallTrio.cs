@@ -270,7 +270,7 @@ sealed class P3HeavensfallFireball(BossModule module) : Components.StackWithIcon
     }
 }
 
-sealed class P3ThermionicBurst(BossModule module) : ThermionicBurst(module)
+sealed class P3ThermionicBurst(BossModule module) : P2ThermionicBurst(module)
 {
     private readonly Angle[] _startingSlice = new Angle[PartyState.MaxPartySize];
 
@@ -315,7 +315,7 @@ sealed class P3ThermionicBurst(BossModule module) : ThermionicBurst(module)
     }
 }
 
-sealed class P3HeavensfallHypernova(BossModule module) : Hypernova(module)
+sealed class P3HeavensfallHypernova(BossModule module) : P2Hypernova(module)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {

@@ -46,7 +46,7 @@ public sealed class DMUConfig : ConfigNode {
         [PropertyDisplay("None")]
         GravenImage1None,
 
-        [PropertyDisplay("LPDU")]
+        [PropertyDisplay("LPDU / Kefka Bin (NA)")]
         GravenImage1LPDU,
     }
 
@@ -63,7 +63,10 @@ public sealed class DMUConfig : ConfigNode {
         DoubleTroubleNone,
 
         [PropertyDisplay("LPDU")]
-        DoubleTroubleLPDU
+        DoubleTroubleLPDU,
+
+        [PropertyDisplay("Kefka Bin (NA)")]
+        DoubleTroubleKefkaBin
     }
 
     [PropertyDisplay("P1 DoubleTrouble strategy")]
@@ -78,6 +81,9 @@ public sealed class DMUConfig : ConfigNode {
 
         [PropertyDisplay("LPDU - Uptime Graven Image 2")]
         GravenImage2LPDUUptime,
+
+        [PropertyDisplay("Kefka Bin (NA)")]
+        GravenImage2KefkaBin,
     }
 
     [PropertyDisplay("P1 Graven Image 2 strategy")]
@@ -109,6 +115,9 @@ public sealed class DMUConfig : ConfigNode {
 
         [PropertyDisplay("LPDU")]
         GravenImage3LPDU,
+
+        [PropertyDisplay("Kefka Bin (NA)")]
+        GravenImage3KefkaBin,
     }
 
     public enum P2ForsakenStrategy {

@@ -58,7 +58,9 @@ public sealed class ClassSCHUtilityEx(RotationModuleManager manager, Actor playe
         var entryEnd = World.FutureTime(strategy.Shield.TrackRaw.ExpireIn);
 
         var playersEnum = strategy.Shield.TrackRaw.Target == StrategyTarget.Automatic ? World.Party.WithoutSlot() : Manager.ResolvePartyMembers(strategy.Shield.TrackRaw.Target, strategy.Shield.TrackRaw.TargetParam);
-        var shieldPlayers = playersEnum.Where(p => !(p.FindStatus(SCH.SID.Galvanize, World.FutureTime(30))?.ExpireAt > entryEnd)).ToList();
+
+        // TODO: ignore players that have an existing shield that will expire before the entry end, succor/adlo does not reapply
+        var shieldPlayers = playersEnum.Where(p => p.IsTargetable && !(p.FindStatus(SCH.SID.Galvanize, World.FutureTime(30))?.ExpireAt > entryEnd)).ToList();
 
         // use succor to hit multiple allies
         // TODO: option to force adlo? not sure if it would ever be practical though

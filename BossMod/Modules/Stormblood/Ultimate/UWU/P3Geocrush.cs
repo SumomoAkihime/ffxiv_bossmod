@@ -1,28 +1,36 @@
 ﻿namespace BossMod.Stormblood.Ultimate.UWU;
 
-sealed class P3Geocrush1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Geocrush1, 18f);
+class P3Geocrush1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Geocrush1, new AOEShapeCircle(18));
 
 // TODO: add prediction after PATE xxx - need non-interpolated actor rotation for that...
-sealed class P3Geocrush2(BossModule module) : Components.GenericAOEs(module, (uint)AID.Geocrush2)
+class P3Geocrush2(BossModule module) : Components.GenericAOEs(module, (uint)AID.Geocrush2)
 {
-    private Actor? _caster;
+    private WPos? _source;
+    private WPos _bossSource;
+    private AOEShapeDonut? _shapeReduced;
+    private DateTime _playAction;
 
     //private static WDir[] _possibleOffsets = { new(14, 0), new(0, 14), new(-14, 0), new(0, -14) };
-    private static readonly AOEShapeCircle _shapeCrush = new(24f);
+    private static readonly AOEShapeCircle _shapeCrush = new(24);
+
+    private readonly List<AOEInstance> _portedAOEView = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if (_caster != null)
-            return new AOEInstance[1] { new(_shapeCrush, _caster.Position, _caster.CastInfo!.Rotation, Module.CastFinishAt(_caster.CastInfo)) };
-        return [];
+        _portedAOEView.Clear();
+        if (_source != null)
+            _portedAOEView.Add(new(_shapeCrush, _source.Value, default, _playAction.AddSeconds(5.1f)));
+        if (_shapeReduced != null)
+            _portedAOEView.Add(new(_shapeReduced, Module.Center));
+        return CollectionsMarshal.AsSpan(_portedAOEView);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         if (spell.Action.ID == WatchedAction)
         {
-            _caster = caster;
-            Arena.Bounds = new ArenaBoundsCircle(NumCasts == 0 ? 16f : 12f);
+            _source = spell.LocXZ;
+            _shapeReduced = new(NumCasts == 0 ? 16 : 12, Module.Bounds.Radius); // TODO: verify second radius
         }
     }
 
@@ -30,30 +38,84 @@ sealed class P3Geocrush2(BossModule module) : Components.GenericAOEs(module, (ui
     {
         if (spell.Action.ID == WatchedAction)
         {
-            _caster = null;
+            _source = null;
+            _bossSource = default;
+            _playAction = default;
         }
     }
 
-    //public override void Update()
-    //{
-    //    if (_caster == null || _caster.CastInfo != null)
-    //        return;
+    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
+    {
+        // titan's non interpolated rotation isn't correct even at this point
+        if ((OID)actor.OID == OID.Titan && id == 0x1E39)
+        {
+            _bossSource = actor.Position;
+            _playAction = WorldState.CurrentTime;
+        }
+    }
 
-    //    // TODO: find a way to get non-interpolated actor rotation...
-    //    if (_prevPredictedAngle == _caster.Rotation && ++_numFramesStill > 2)
-    //    {
-    //        var dir = _caster.Rotation.ToDirection();
-    //        _predictedPos = Arena.Center + _possibleOffsets.MinBy(o =>
-    //        {
-    //            var off = Arena.Center + o - _caster.Position;
-    //            var proj = off.Dot(dir);
-    //            return proj > 0 ? (off - proj * dir).LengthSq() : float.MaxValue;
-    //        });
-    //    }
-    //    else
-    //    {
-    //        _prevPredictedAngle = _caster.Rotation; // retry on next frame
-    //        _numFramesStill = 0;
-    //    }
-    //}
+    public override void Update()
+    {
+        if (_source == null && _playAction != default && WorldState.CurrentTime >= _playAction.AddSeconds(0.4f))
+        {
+            if (((UWU)Module).Titan() is not { } titan)
+                return;
+            var dir = titan.ActualRotation;
+            var toEdge = Intersect.RayCircle(_bossSource, dir.ToDirection(), Arena.Center, 14);
+            if (toEdge < float.MaxValue)
+                _source = _bossSource + dir.ToDirection() * toEdge;
+        }
+    }
+}
+
+class P3GeocrushBury(BossModule module) : Components.GenericAOEs(module, (uint)AID.Bury)
+{
+    readonly List<AOEInstance> _predicted = [];
+
+    public WPos? LastBoulder;
+
+    // assuming proximity is true north
+    static readonly WDir[] BombOffsets = [
+        new(-5, +5),
+        new(+5, +5),
+        new(-5, +12),
+        new(+5, +12),
+        new(-11, +11),
+        new(+11, +11)
+    ];
+
+    private readonly List<AOEInstance> _portedAOEView = [];
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        _portedAOEView.Clear();
+        _portedAOEView.AddRange(_predicted);
+        return CollectionsMarshal.AsSpan(_portedAOEView);
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == WatchedAction)
+        {
+            _predicted.RemoveAll(p => p.Origin.AlmostEqual(caster.Position, 1));
+            if (_predicted.Count == 1)
+            {
+                ref var last = ref _predicted.Ref(0);
+                LastBoulder = last.Origin;
+                last.Activation = WorldState.FutureTime(8);
+                last.Risky = false;
+            }
+        }
+
+        if ((AID)spell.Action.ID == AID.Burst && _predicted.Count == 1)
+            _predicted.Ref(0).Risky = true;
+
+        if ((AID)spell.Action.ID == AID.Geocrush2)
+        {
+            var toN = (caster.Position - Arena.Center).ToAngle() - 180.Degrees();
+
+            foreach (var off in BombOffsets)
+                _predicted.Add(new(new AOEShapeCircle(4.3f), Arena.Center + off.Rotate(toN), default, WorldState.FutureTime(5.5f)));
+        }
+    }
 }

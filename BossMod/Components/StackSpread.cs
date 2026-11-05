@@ -5,10 +5,11 @@
 
 public abstract class GenericStackSpread(BossModule module, bool raidwideOnResolve = true, bool includeDeadTargets = false) : BossComponent(module)
 {
-    public struct Stack(Actor target, float radius, int minSize = 2, int maxSize = int.MaxValue, DateTime activation = default, BitMask forbiddenPlayers = default, int? arenaProjectionLayer = null, bool? restrictToArenaProjectionLayer = true)
+    public struct Stack(Actor target, float radius, int minSize = 2, int maxSize = int.MaxValue, DateTime activation = default, BitMask forbiddenPlayers = default, int? arenaProjectionLayer = null, bool? restrictToArenaProjectionLayer = true, int hits = 1)
     {
         public Actor Target = target;
         public float Radius = radius;
+        public int Hits = hits;
         public int MinSize = minSize;
         public int MaxSize = maxSize;
         public DateTime Activation = activation;
@@ -576,7 +577,7 @@ public abstract class GenericStackSpread(BossModule module, bool raidwideOnResol
             }
             if (stackMask != default)
             {
-                hints.AddPredictedDamage(stackMask, firstStackActivation, AIHints.PredictedDamageType.Shared);
+                hints.AddPredictedDamage(stackMask, firstStackActivation, AIHints.PredictedDamageType.Shared, Stacks.Count > 0 ? Stacks.Max(s => s.Hits) : 1);
             }
         }
     }
@@ -677,20 +678,21 @@ public abstract class GenericStackSpread(BossModule module, bool raidwideOnResol
 
 // stack/spread with same properties for all stacks and all spreads (most common variant)
 [SkipLocalsInit]
-public abstract class UniformStackSpread(BossModule module, float stackRadius, float spreadRadius, int minStackSize = 2, int maxStackSize = int.MaxValue, bool raidwideOnResolve = true, bool includeDeadTargets = false)
+public abstract class UniformStackSpread(BossModule module, float stackRadius, float spreadRadius, int minStackSize = 2, int maxStackSize = int.MaxValue, bool raidwideOnResolve = true, bool includeDeadTargets = false, int stackHits = 1)
     : GenericStackSpread(module, raidwideOnResolve, includeDeadTargets)
 {
+    public int StackHits = stackHits;
     public float StackRadius = stackRadius;
     public float SpreadRadius = spreadRadius;
     public int MinStackSize = minStackSize;
     public int MaxStackSize = maxStackSize;
 
-    public void AddStack(Actor target, DateTime activation = default, BitMask forbiddenPlayers = default, int? arenaProjectionLayer = null, bool? restrictToArenaProjectionLayer = true) => Stacks.Add(new(target, StackRadius, MinStackSize, MaxStackSize, activation, forbiddenPlayers, arenaProjectionLayer, restrictToArenaProjectionLayer));
+    public void AddStack(Actor target, DateTime activation = default, BitMask forbiddenPlayers = default, int? arenaProjectionLayer = null, bool? restrictToArenaProjectionLayer = true) => Stacks.Add(new(target, StackRadius, MinStackSize, MaxStackSize, activation, forbiddenPlayers, arenaProjectionLayer, restrictToArenaProjectionLayer, StackHits));
     public void AddStacks(IEnumerable<Actor> targets, DateTime activation = default, int? arenaProjectionLayer = null, bool? restrictToArenaProjectionLayer = true)
     {
         foreach (var target in targets)
         {
-            Stacks.Add(new(target, StackRadius, MinStackSize, MaxStackSize, activation, arenaProjectionLayer: arenaProjectionLayer, restrictToArenaProjectionLayer: restrictToArenaProjectionLayer));
+            Stacks.Add(new(target, StackRadius, MinStackSize, MaxStackSize, activation, arenaProjectionLayer: arenaProjectionLayer, restrictToArenaProjectionLayer: restrictToArenaProjectionLayer, hits: StackHits));
         }
     }
     public void AddStacks(Actor[] targets, DateTime activation = default, int? arenaProjectionLayer = null, bool? restrictToArenaProjectionLayer = true)
@@ -698,7 +700,7 @@ public abstract class UniformStackSpread(BossModule module, float stackRadius, f
         var len = targets.Length;
         for (var i = 0; i < len; ++i)
         {
-            Stacks.Add(new(targets[i], StackRadius, MinStackSize, MaxStackSize, activation, arenaProjectionLayer: arenaProjectionLayer, restrictToArenaProjectionLayer: restrictToArenaProjectionLayer));
+            Stacks.Add(new(targets[i], StackRadius, MinStackSize, MaxStackSize, activation, arenaProjectionLayer: arenaProjectionLayer, restrictToArenaProjectionLayer: restrictToArenaProjectionLayer, hits: StackHits));
         }
     }
     public void AddStacks(List<Actor> targets, DateTime activation = default, int? arenaProjectionLayer = null, bool? restrictToArenaProjectionLayer = true)
@@ -706,7 +708,7 @@ public abstract class UniformStackSpread(BossModule module, float stackRadius, f
         var count = targets.Count;
         for (var i = 0; i < count; ++i)
         {
-            Stacks.Add(new(targets[i], StackRadius, MinStackSize, MaxStackSize, activation, arenaProjectionLayer: arenaProjectionLayer, restrictToArenaProjectionLayer: restrictToArenaProjectionLayer));
+            Stacks.Add(new(targets[i], StackRadius, MinStackSize, MaxStackSize, activation, arenaProjectionLayer: arenaProjectionLayer, restrictToArenaProjectionLayer: restrictToArenaProjectionLayer, hits: StackHits));
         }
     }
     public void AddSpread(Actor target, DateTime activation = default, int? arenaProjectionLayer = null, bool? restrictToArenaProjectionLayer = true) => Spreads.Add(new(target, SpreadRadius, activation, arenaProjectionLayer, restrictToArenaProjectionLayer));

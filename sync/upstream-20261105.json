@@ -1,0 +1,2264 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-05",
+  "status": "已通过 Release 构建与完整离线回归，未实机、未发布",
+  "localBase": "97dd646f39bcda097a7c6adae83788d28a1bcb21",
+  "reborn": {
+    "base": "ae64e3309905dafad0952dbe72680add167591f9",
+    "target": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
+    "tag": "7.5.7.4",
+    "changedPaths": 33
+  },
+  "awgil": {
+    "base": "21555358de458a56afd0dc361327f8b3b62ebc43",
+    "target": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
+    "tag": "v7.5.7.20",
+    "changedPaths": 301
+  },
+  "policy": {
+    "keepUI": true,
+    "preserveMagicTower": true,
+    "newExternalPackages": false,
+    "push": false,
+    "publish": false,
+    "version": "7.5.7.201"
+  },
+  "evidenceDirectory": "D:/mod-source/outputs/sync-20261105",
+  "notes": [
+    "317 条候选 C# 路径逐项记录，路径数包含重命名与删除，不代表本地修改文件数。",
+    "源码与用户规则整理改动分别暂存；两份用户未跟踪制作记录不进入提交。",
+    "保留全部旧 Kage 合并爆发控制、SAM 循环选择及 BLM 合并移动控制；ASAP 旧名称在预设导入与计划迁移处适配。",
+    "保留精确治疗覆盖算法；绝神兵接线不清空其他禁区，未知分配退回通用安全提示。",
+    "绝巴哈八连俯冲按来源清理、防重复初始化与缺员分配保护；O12 采用变身事件并独立管理多个放电来源。",
+    "未进行游戏内、实际插件联动或新战斗回放验证；DMU 上游 TODO 仍包含未完成的 P5。"
+  ],
+  "decisions": [
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod.SourceGen/ConfigGenerator.cs",
+      "localPath": "BossMod.SourceGen/ConfigGenerator.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/ActionTweaks/ActionTweaksConfig.cs",
+      "localPath": "BossMod/ActionTweaks/ActionTweaksConfig.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/ActionTweaks/ManualActionQueueTweak.cs",
+      "localPath": "BossMod/ActionTweaks/ManualActionQueueTweak.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/BossModule/BossModuleConfigWindow.cs",
+      "localPath": "BossMod/BossModule/BossModuleConfigWindow.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/BossModule/BossModuleMainWindow.cs",
+      "localPath": "BossMod/BossModule/BossModuleMainWindow.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/BossModule/BossModulePrePullHintsWindow.cs",
+      "localPath": "BossMod/BossModule/BossModulePrePullHintsWindow.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/Config/AboutTab.cs",
+      "localPath": "BossMod/Config/AboutTab.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/Config/GeneratedConfigMetadata.cs",
+      "localPath": "BossMod/Config/GeneratedConfigMetadata.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/Config/ModuleViewer.cs",
+      "localPath": "BossMod/Config/ModuleViewer.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/Framework/Plugin.cs",
+      "localPath": "BossMod/Framework/Plugin.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/Modules/Dawntrail/Ultimate/DMU/DMUConfig.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Ultimate/DMU/DMUConfig.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/Modules/Dawntrail/Ultimate/DMU/P1Data.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Ultimate/DMU/P1Data.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/Modules/Dawntrail/Ultimate/DMU/P1GravenImage3.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Ultimate/DMU/P1GravenImage3.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/Modules/Dawntrail/Ultimate/DMU/P1Gravitas.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Ultimate/DMU/P1Gravitas.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/RebornUI/InterfaceConfig.cs",
+      "localPath": "BossMod/RebornUI/InterfaceConfig.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/RebornUI/MaterialUI.cs",
+      "localPath": "BossMod/RebornUI/MaterialUI.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/RebornUI/Settings/EncounterSettingsWindow.cs",
+      "localPath": "BossMod/RebornUI/Settings/EncounterSettingsWindow.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/RebornUI/Settings/HomePage.cs",
+      "localPath": "BossMod/RebornUI/Settings/HomePage.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/RebornUI/Settings/PartyRolesPanel.cs",
+      "localPath": "BossMod/RebornUI/Settings/PartyRolesPanel.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/RebornUI/Settings/SettingsLayout.cs",
+      "localPath": "BossMod/RebornUI/Settings/SettingsLayout.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/RebornUI/Settings/SettingsRenderer.cs",
+      "localPath": "BossMod/RebornUI/Settings/SettingsRenderer.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/RebornUI/Settings/SettingsWindow.Commands.cs",
+      "localPath": "BossMod/RebornUI/Settings/SettingsWindow.Commands.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/RebornUI/Settings/SettingsWindow.cs",
+      "localPath": "BossMod/RebornUI/Settings/SettingsWindow.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/RebornUI/Settings/SupportedFights.cs",
+      "localPath": "BossMod/RebornUI/Settings/SupportedFights.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/RebornUI/Windows/FoldHost.cs",
+      "localPath": "BossMod/RebornUI/Windows/FoldHost.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/RebornUI/Windows/RebornFoldWindow.cs",
+      "localPath": "BossMod/RebornUI/Windows/RebornFoldWindow.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "reborn",
+      "upstreamPath": "BossMod/RebornUI/Windows/RebornWindow.cs",
+      "localPath": "BossMod/RebornUI/Windows/RebornWindow.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/MiscAI/AutoTarget.cs",
+      "localPath": "BossMod/Autorotation/MiscAI/AutoTarget.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/MiscAI/FateUtils.cs",
+      "localPath": "BossMod/Autorotation/MiscAI/FateUtils.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/MiscAI/NormalMovement.cs",
+      "localPath": "BossMod/Autorotation/MiscAI/NormalMovement.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/MiscAI/PassiveAggressive.cs",
+      "localPath": "BossMod/Autorotation/MiscAI/PassiveAggressive.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/MiscAI/StayWithinLeylines.cs",
+      "localPath": "BossMod/Autorotation/MiscAI/StayWithinLeylines.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/akechi/AkechiTools.cs",
+      "localPath": "BossMod/Autorotation/Standard/akechi/AkechiTools.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/akechi/DPS/AkechiBLM.cs",
+      "localPath": "BossMod/Autorotation/Standard/akechi/DPS/AkechiBLM.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/akechi/DPS/AkechiDRG.cs",
+      "localPath": "BossMod/Autorotation/Standard/akechi/DPS/AkechiDRG.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/akechi/DPS/AkechiMCH.cs",
+      "localPath": "BossMod/Autorotation/Standard/akechi/DPS/AkechiMCH.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/akechi/Healer/AkechiSCH.cs",
+      "localPath": "BossMod/Autorotation/Standard/akechi/Healer/AkechiSCH.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/akechi/PvP/AkechiGNBPvP.cs",
+      "localPath": "BossMod/Autorotation/Standard/akechi/PvP/AkechiGNBPvP.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/akechi/PvP/AkechiMCHPvP.cs",
+      "localPath": "BossMod/Autorotation/Standard/akechi/PvP/AkechiMCHPvP.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/akechi/PvP/AkechiSMNPvP.cs",
+      "localPath": "BossMod/Autorotation/Standard/akechi/PvP/AkechiSMNPvP.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/akechi/PvP/AkechiWHMPvP.cs",
+      "localPath": "BossMod/Autorotation/Standard/akechi/PvP/AkechiWHMPvP.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/akechi/Tank/AkechiDRK.cs",
+      "localPath": "BossMod/Autorotation/Standard/akechi/Tank/AkechiDRK.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/akechi/Tank/AkechiGNB.cs",
+      "localPath": "BossMod/Autorotation/Standard/akechi/Tank/AkechiGNB.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/akechi/Tank/AkechiPLD.cs",
+      "localPath": "BossMod/Autorotation/Standard/akechi/Tank/AkechiPLD.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/kage/BLM.cs",
+      "localPath": "BossMod/Autorotation/Standard/kage/BLM.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/kage/DNC.cs",
+      "localPath": "BossMod/Autorotation/Standard/kage/DNC.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/kage/DRG.cs",
+      "localPath": "BossMod/Autorotation/Standard/kage/DRG.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/kage/KageShared.cs",
+      "localPath": "BossMod/Autorotation/Standard/kage/KageHelpers.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/kage/MCH.cs",
+      "localPath": "BossMod/Autorotation/Standard/kage/MCH.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/kage/PCT.cs",
+      "localPath": "BossMod/Autorotation/Standard/kage/PCT.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/kage/PLD.cs",
+      "localPath": "BossMod/Autorotation/Standard/kage/PLD.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/kage/RPR.cs",
+      "localPath": "BossMod/Autorotation/Standard/kage/RPR.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/kage/SAM.cs",
+      "localPath": "BossMod/Autorotation/Standard/kage/SAM.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/kage/SGE.cs",
+      "localPath": "BossMod/Autorotation/Standard/kage/SGE.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/kage/VPR.cs",
+      "localPath": "BossMod/Autorotation/Standard/kage/VPR.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/kage/WHM.cs",
+      "localPath": "BossMod/Autorotation/Standard/kage/WHM.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/veyn/VeynBRD.cs",
+      "localPath": "BossMod/Autorotation/Standard/veyn/VeynBRD.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/xan/AI/DeepDungeon.cs",
+      "localPath": "BossMod/Autorotation/Standard/xan/AI/DeepDungeon.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/xan/AI/Healer.cs",
+      "localPath": "BossMod/Autorotation/Standard/xan/AI/Healer.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/xan/AI/Melee.cs",
+      "localPath": "BossMod/Autorotation/Standard/xan/AI/Melee.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/xan/BLU/Basic.cs",
+      "localPath": "BossMod/Autorotation/Standard/xan/BLU/Basic.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/xan/Casters/SMN.cs",
+      "localPath": "BossMod/Autorotation/Standard/xan/Casters/SMN.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/xan/Healers/SCH.cs",
+      "localPath": "BossMod/Autorotation/Standard/xan/Healers/SCH.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/xan/Healers/WHM.cs",
+      "localPath": "BossMod/Autorotation/Standard/xan/Healers/WHM.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/xan/Melee/BST.cs",
+      "localPath": "BossMod/Autorotation/Standard/xan/Melee/BST.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "最终增量仅删除 TODO 注释；BST 实验系统继续待办。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/xan/Melee/MNK.cs",
+      "localPath": "BossMod/Autorotation/Standard/xan/Melee/MNK.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Standard/xan/Tanks/PLD.cs",
+      "localPath": "BossMod/Autorotation/Standard/xan/Tanks/PLD.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Utility/ClassSCHUtilityEx.cs",
+      "localPath": "BossMod/Autorotation/Utility/ClassSCHUtilityEx.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Autorotation/Utility/ClassWHMUtilityEx.cs",
+      "localPath": "BossMod/Autorotation/Utility/ClassWHMUtilityEx.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Dungeon/D07StrayboroughDeadwalk/D071HisRoyalHeadnessLeonoggI.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Dungeon/D08StrayboroughDeadwalk/D081HisRoyalHeadnessLeonoggI.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Dungeon/D07StrayboroughDeadwalk/D072JackInThePot.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Dungeon/D08StrayboroughDeadwalk/D082JackInThePot.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Dungeon/D07StrayboroughDeadwalk/D073Traumerei.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Dungeon/D08StrayboroughDeadwalk/D083Träumerei.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Dungeon/D08TenderValley/D080YokHuyAttestant.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Dungeon/D07TenderValley/D073YokHuyAttestant.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Dungeon/D08TenderValley/D081Barreltender.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Dungeon/D07TenderValley/D071Barreltender.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Dungeon/D08TenderValley/D082Anthracite.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Dungeon/D07TenderValley/D072Anthracite.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Dungeon/D08TenderValley/D083GreatestSerpentOfTural.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Dungeon/D07TenderValley/D074GreatestSerpentOfTural.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Extreme/Ex4Zelenia/Ex4Zelenia.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Extreme/Ex4Zelenia/Ex4Zelenia.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Quantum/Q01TheFinalVerse/Q01TheFinalVerseConfig.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Quantum/Q01TheFinalVerse/Q01TheFinalVerseConfig.cs",
+      "decision": "按方案 A 排除界面或界面元数据",
+      "reason": "用户选择保留现有界面，不引入 RebornMaterial 或新宿主平台。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Quest/TheWarmthOfFamily.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Quest/TheWarmthOfFamily.cs",
+      "decision": "复用同身份首领，新增任务编排",
+      "reason": "本地已有主 OID 0x4638 首领；撤销重复候选，只加入 QuestBattle 编排。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Raid/RM01NBlackCat.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Raid/M01NBIackCat/M01NBIackCat.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Raid/RM02NHoneyBLovely.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Raid/M02NHoneyBLovely/M02NHoneyBLovely.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Raid/RM03NBruteBomber.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Raid/M03NBruteBomber/M3NBruteBomber.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Raid/RM04NWickedThunder.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Raid/M04NWickedThunder/M04NWickedThunder.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Raid/RM05NDancingGreen.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Raid/M05NDancingGreen/M05NDancingGreen.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Raid/RM06NSugarRiot.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Raid/M06NSugarRiot/M06NSugarRiot.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Raid/RM07NBruteAbombinator.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Raid/M07NBruteAbombinator/M07NBruteAbombinator.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Raid/RM08NHowlingBlade.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Raid/M08NHowlingBlade/M08NHowlingBlade.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Raid/RM12NTheLindwurm.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Raid/M12NLindwurm/M12NLindwurm.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Savage/RM12S2TheLindwurm/RM12S2TheLindwurm.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Savage/RM12S2TheLindwurm/RM12S2TheLindwurm.cs",
+      "decision": "暂不导入未完成模块",
+      "reason": "上游仍有 Incomplete/未完成标记；不通过提升成熟度覆盖可用模块。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Savage/RM12S2TheLindwurm/RM12S2TheLindwurmConfig.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Savage/RM12S2TheLindwurm/RM12S2TheLindwurmConfig.cs",
+      "decision": "暂不导入未完成模块",
+      "reason": "上游仍有 Incomplete/未完成标记；不通过提升成熟度覆盖可用模块。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Trial/T02Everkeep.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Trial/T02Everkeep.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Trial/T03QueenEternal.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Trial/T03QueenEternal/T03QueenEternal.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Trial/T04Zelenia.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Trial/T04Zelenia/T04Zelenia.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Trial/T05Necron.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Trial/T05Necron/T05Necron.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "上游本批仅禁用 P2 的 Jail；本地 Reborn 使用单阶段及按实际高度/传送标记启用的 Prisons，没有同一 P2 自动接线合同。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Trial/T07Doomtrain.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Trial/T07Doomtrain/T07Doomtrain.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Dawntrail/Trial/T08Enuo.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Trial/T08Enuo/T08Enuo.cs",
+      "decision": "复用已存在的 Reborn 同身份实现",
+      "reason": "已匹配副本身份，未新建重复注册。动作覆盖检查仅用于定位，不证明几何、时间轴或 AI 与 awgil 完全等价。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Global/Crucible/Board2/ElderTablitaurPiece.cs",
+      "localPath": "BossMod/Modules/Global/CrucibleOfTheUnbroken/SecondBoard/ElderTablitaurPiece.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Global/Crucible/Board3/GuttlerTheGutter.cs",
+      "localPath": "BossMod/Modules/Global/CrucibleOfTheUnbroken/ThirdBoard/GuttlerTheGutter.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "命名、注释、日志或目录变化；本地已有对应机制，无需重复搬迁。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Global/Crucible/Master2/LaudaTheSpellcleaver.cs",
+      "localPath": "BossMod/Modules/Global/CrucibleOfTheUnbroken/SecondMasterBoard/LaudaTheSpellcleaver.cs",
+      "decision": "暂不导入未完成模块",
+      "reason": "上游仍有 Incomplete/未完成标记；不通过提升成熟度覆盖可用模块。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Global/DeepDungeon/AutoClear.cs",
+      "localPath": "BossMod/Modules/Global/DeepDungeon/AutoClear.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Global/DeepDungeon/Config.cs",
+      "localPath": "BossMod/Modules/Global/DeepDungeon/Config.cs",
+      "decision": "保留现有界面与配置",
+      "reason": "金/银/铜箱、自动导航与出口选项保留；新目标与房间状态通过现有 ModuleUI 适配。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Global/DeepDungeon/FloorPathfind.cs",
+      "localPath": "BossMod/Modules/Global/DeepDungeon/FloorPathfind.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Global/DeepDungeon/Minimap.cs",
+      "localPath": "BossMod/Modules/Global/DeepDungeon/Minimap.cs",
+      "decision": "保留现有界面与配置",
+      "reason": "金/银/铜箱、自动导航与出口选项保留；新目标与房间状态通过现有 ModuleUI 适配。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Global/DeepDungeon/ModuleUI.cs",
+      "localPath": "BossMod/Modules/Global/DeepDungeon/ModuleUI.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Global/DeepDungeon/Rooms.cs",
+      "localPath": "BossMod/Modules/Global/DeepDungeon/Rooms.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Global/DeepDungeon/Traps.cs",
+      "localPath": "BossMod/Modules/Global/DeepDungeon/Traps.cs",
+      "decision": "部分功能已适配，保留本地数据源",
+      "reason": "陷阱触发后清理、楼层与房间过滤已纳入 AutoClear/Rooms；继续使用已有生成数据，不新增 Palantir 联动或新版相机平台。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Heavensward/Trial/T01Ravana.cs",
+      "localPath": "BossMod/Modules/Heavensward/Trial/T01Ravana/T01Ravana.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Heavensward/Trial/T02Bismarck.cs",
+      "localPath": "BossMod/Modules/Heavensward/Trial/T02Bismarck/T02Bismarck.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Heavensward/Trial/T03Thordan.cs",
+      "localPath": "BossMod/Modules/Heavensward/Trial/T03Thordan/T03Thordan.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/QuestBattle/ARealmReborn/ClassJobQuests/MNK/ReturnoftheHolyfist.cs",
+      "localPath": "BossMod/QuestBattle/ARealmReborn/ClassJobQuests/MNK/ReturnoftheHolyfist.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/QuestBattle/ARealmReborn/ClassJobQuests/PGL/ReturnoftheHolyfist.cs",
+      "localPath": "BossMod/QuestBattle/ARealmReborn/ClassJobQuests/MNK/ReturnoftheHolyfist.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/QuestBattle/ARealmReborn/ClassJobQuests/PGL/StarcrossedRivals.cs",
+      "localPath": "BossMod/QuestBattle/ARealmReborn/ClassJobQuests/MNK/StarcrossedRivals.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "命名、注释、日志或目录变化；本地已有对应机制，无需重复搬迁。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/QuestBattle/Dawntrail/MSQ/TheWarmthOfFamily.cs",
+      "localPath": "BossMod/QuestBattle/Dawntrail/MSQ/TheWarmthOfFamily.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/QuestBattle/Heavensward/ClassJobQuests/AST/SpearheadingInitiatives.cs",
+      "localPath": "BossMod/QuestBattle/Heavensward/ClassJobQuests/AST/SpearheadingInitiatives.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/QuestBattle/Heavensward/ClassJobQuests/DRK/OurCompromise.cs",
+      "localPath": "BossMod/QuestBattle/Heavensward/ClassJobQuests/DRK/OurCompromise.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/QuestBattle/Shadowbringers/MSQ/ASleepDisturbed.cs",
+      "localPath": "BossMod/QuestBattle/Shadowbringers/MSQ/ASleepDisturbed.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "命名、注释、日志或目录变化；本地已有对应机制，无需重复搬迁。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/QuestBattle/Shadowbringers/MSQ/DeathUntoDawn.cs",
+      "localPath": "BossMod/QuestBattle/Shadowbringers/MSQ/DeathUntoDawn.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/QuestBattle/Shadowbringers/MSQ/VowsOfVirtueDeedsOfCruelty.cs",
+      "localPath": "BossMod/QuestBattle/Shadowbringers/MSQ/VowsOfVirtueDeedsOfCruelty.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/QuestBattle/Stormblood/ClassJobQuests/WAR/TheHeartOfTheProblem.cs",
+      "localPath": "BossMod/QuestBattle/Stormblood/ClassJobQuests/WAR/TheHeartOfTheProblem.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/QuestBattle/Stormblood/ClassJobQuests/WHM/WhatSheAlwaysWanted.cs",
+      "localPath": "BossMod/QuestBattle/Stormblood/ClassJobQuests/WHM/WhatSheAlwaysWanted.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/RealmReborn/Dungeon/D01Sastasha/D012CaptainMadison.cs",
+      "localPath": "BossMod/Modules/RealmReborn/Dungeon/D01Sastasha/D012CaptainMadison.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/RealmReborn/Trial/T09WhorleaterH/T09WhorleaterH.cs",
+      "localPath": "BossMod/Modules/RealmReborn/Trial/T09WhorleaterH/T09WhorleaterH.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/RealmReborn/Trial/T09WhorleaterH/T09WhorleaterHEnums.cs",
+      "localPath": "BossMod/Modules/RealmReborn/Trial/T09WhorleaterH/T09WhorleaterHEnums.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/RealmReborn/Trial/T09WhorleaterH/T09WhorleaterHHints.cs",
+      "localPath": "BossMod/Modules/RealmReborn/Trial/T09WhorleaterH/T09WhorleaterHHints.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Shadowbringers/Dungeon/D06Amaurot/D063Therion.cs",
+      "localPath": "BossMod/Modules/Shadowbringers/Dungeon/D06Amaurot/D063Therion.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "命名、注释、日志或目录变化；本地已有对应机制，无需重复搬迁。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Shadowbringers/Quest/DeathUntoDawn/P1TelotekGamma.cs",
+      "localPath": "BossMod/Modules/Shadowbringers/Quest/MSQ/DeathUntoDawn/P1TelotekGamma.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Shadowbringers/Quest/FadedMemories/Ardbert.cs",
+      "localPath": "BossMod/Modules/Shadowbringers/Quest/MSQ/FadedMemories/Ardbert.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Shadowbringers/Quest/TheSoulOfTemperance.cs",
+      "localPath": "BossMod/Modules/Shadowbringers/Quest/Role/TheSoulOfTemperance.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Shadowbringers/Raid/E04Titan.cs",
+      "localPath": "BossMod/Modules/Shadowbringers/Raid/E04Titan/E04Titan.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Shadowbringers/Raid/E05Ramuh.cs",
+      "localPath": "BossMod/Modules/Shadowbringers/Raid/E05Ramuh/E05Ramuh.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Shadowbringers/Raid/E07TheIdolOfDarkness.cs",
+      "localPath": "BossMod/Modules/Shadowbringers/Raid/E07TheIdolOfDarkness/E07TheIdolOfDarkness.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Shadowbringers/Raid/E08Shiva.cs",
+      "localPath": "BossMod/Modules/Shadowbringers/Raid/E08Shiva/E08Shiva.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Shadowbringers/Raid/E09CloudOfDarkness.cs",
+      "localPath": "BossMod/Modules/Shadowbringers/Raid/E09CloudOfDarkness/E09CloudOfDarkness.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Shadowbringers/Trial/T02Innocence.cs",
+      "localPath": "BossMod/Modules/Shadowbringers/Trial/T02Innocence/T02Innocence.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批仅 SortOrder 调整；保留本地同身份多阶段注册与排序。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Shadowbringers/Trial/T03Hades.cs",
+      "localPath": "BossMod/Modules/Shadowbringers/Trial/T03Hades/T03Hades.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Shadowbringers/Trial/T04WarriorOfLight.cs",
+      "localPath": "BossMod/Modules/Shadowbringers/Trial/T04WarriorOfLight.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Stormblood/Quest/TheWillOfTheMoon.cs",
+      "localPath": "BossMod/Modules/Stormblood/Quest/MSQ/TheWillOfTheMoon.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Stormblood/Quest/TheWillOfTheMoon/P1Sadu.cs",
+      "localPath": "BossMod/Modules/Stormblood/Quest/MSQ/TheWillOfTheMoon.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Stormblood/Quest/TheWillOfTheMoon/P2Magnai.cs",
+      "localPath": "BossMod/Modules/Stormblood/Quest/TheWillOfTheMoon/P2Magnai.cs",
+      "decision": "保留完整本地双阶段，合入事件增量",
+      "reason": "保留 Sadu/Magnai、九斧处理与 AutoYshtola；FollowHien 事件安全点已纳入原文件，避免拆分后的重复身份。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Stormblood/Raid/O10NMidgardsormr/O10NMidgardsormr.cs",
+      "localPath": "BossMod/Modules/Stormblood/Raid/O10NMidgardsormr/O10NMidgardsormr.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Stormblood/Raid/O11NOmega/O11NOmega.cs",
+      "localPath": "BossMod/Modules/Stormblood/Raid/O11NOmega/O11NOmega.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Stormblood/Raid/O12NOmegaMF/O12NOmegaMF.cs",
+      "localPath": "BossMod/Modules/Stormblood/Raid/O12NOmegaMF/O12NOmegaMF.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Stormblood/Raid/O1NAlteRoite/O1NAlteRoite.cs",
+      "localPath": "BossMod/Modules/Stormblood/Raid/O1NAlteRoite/O1NAlteRoite.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Stormblood/Raid/O5NPhantomTrain/O5NPhantomTrain.cs",
+      "localPath": "BossMod/Modules/Stormblood/Raid/O5NPhantomTrain/O5NPhantomTrain.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Stormblood/Trial/T01Susano.cs",
+      "localPath": "BossMod/Modules/Stormblood/Trial/T01Susano/T01Susano.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Stormblood/Trial/T03Shinryu.cs",
+      "localPath": "BossMod/Modules/Stormblood/Trial/T03Shinryu/T03Shinryu.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Modules/Stormblood/Trial/T04Tsukuyomi.cs",
+      "localPath": "BossMod/Modules/Stormblood/Trial/T04Tsukuyomi/T04Tsukuyomi.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Components/StrictStackSpread.cs",
+      "localPath": "BossMod/Components/StrictStackSpread.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Dawntrail/Ultimate/FRU/FRUAI.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Ultimate/FRU/FRUAI.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "上游仅切换新版/旧版栅格参数；本地继续现有栅格器，不导入新 Sdf 寻路架构。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Dawntrail/Ultimate/UMAD/P1Gravitas.cs",
+      "localPath": "BossMod/Modules/Dawntrail/Ultimate/DMU/P1Gravitas.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/Hatch.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/Hatch.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/LiquidHell.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/LiquidHell.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/Multibox.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/Multibox.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/P1Fireball.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/P1Fireball.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/P2BahamutsFavor.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/P2BahamutsFavor.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/P2Cauterize.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/P2Cauterize.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/P2Heavensfall.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/P2Heavensfall.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/P3BlackfireTrio.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/P3BlackfireTrio.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/P3GrandOctet.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/P3GrandOctet.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/P3HeavensfallTrio.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/P3HeavensfallTrio.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/P3QuickmarchTrio.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/P3QuickmarchTrio.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/P3TenstrikeTrio.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/P3TenstrikeTrio.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/P4Adds.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/P4Adds.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/Quote.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/Quote.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/Twister.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/Twister.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/UCOB.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/UCOB.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/UCOBConfig.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/UCOBConfig.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UCOB/UCOBStates.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UCOB/UCOBStates.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/BeyondLimits.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/BeyondLimits.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/Multibox.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/Multibox.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P1FeatherRain.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P1FeatherRain.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P1Mesohigh.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P1Mesohigh.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P1MistralSong.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P1MistralSong.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P1Plumes.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P1Plumes.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P1WickedWheel.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P1WickedWheel.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P2CrimsonCyclone.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P2CrimsonCyclone.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P2Eruption.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P2Eruption.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P2FlamingCrush.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P2FlamingCrush.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P2Nails.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P2Nails.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P2SearingWind.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P2SearingWind.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P3Burst.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P3Burst.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P3Gaols.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P3Gaols.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P3Geocrush.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P3Geocrush.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P3Landslide.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P3Landslide.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P4Freefire.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P4Freefire.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P4UltimateAnnihilation.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P4UltimateAnnihilation.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P4UltimatePredation.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P4UltimatePredation.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P4UltimateSuppression.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P4UltimateSuppression.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P4ViscousAetheroplasm.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P4ViscousAetheroplasm.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/P5Aetheroplasm.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/P5Aetheroplasm.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/Positioning.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/Positioning.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/UWU.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/UWU.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/UWUConfig.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/UWUConfig.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/UWUEnums.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/UWUEnums.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod.Ultimate/Stormblood/Ultimate/UWU/UWUStates.cs",
+      "localPath": "BossMod/Modules/Stormblood/Ultimate/UWU/UWUStates.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/AI/AIWindow.cs",
+      "localPath": "BossMod/AI/AIWindow.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/ActionDefinition.cs",
+      "localPath": "BossMod/ActionQueue/ActionDefinition.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/ActionQueue.cs",
+      "localPath": "BossMod/ActionQueue/ActionQueue.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Casters/BLM.cs",
+      "localPath": "BossMod/ActionQueue/Casters/BLM.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Casters/PCT.cs",
+      "localPath": "BossMod/ActionQueue/Casters/PCT.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Casters/RDM.cs",
+      "localPath": "BossMod/ActionQueue/Casters/RDM.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Casters/SMN.cs",
+      "localPath": "BossMod/ActionQueue/Casters/SMN.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/ClassShared.cs",
+      "localPath": "BossMod/ActionQueue/ClassShared.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Healers/AST.cs",
+      "localPath": "BossMod/ActionQueue/Healers/AST.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Healers/SCH.cs",
+      "localPath": "BossMod/ActionQueue/Healers/SCH.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Healers/SGE.cs",
+      "localPath": "BossMod/ActionQueue/Healers/SGE.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Healers/WHM.cs",
+      "localPath": "BossMod/ActionQueue/Healers/WHM.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Melee/DRG.cs",
+      "localPath": "BossMod/ActionQueue/Melee/DRG.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Melee/MNK.cs",
+      "localPath": "BossMod/ActionQueue/Melee/MNK.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Melee/NIN.cs",
+      "localPath": "BossMod/ActionQueue/Melee/NIN.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Melee/RPR.cs",
+      "localPath": "BossMod/ActionQueue/Melee/RPR.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Melee/SAM.cs",
+      "localPath": "BossMod/ActionQueue/Melee/SAM.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Melee/VPR.cs",
+      "localPath": "BossMod/ActionQueue/Melee/VPR.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Ranged/BRD.cs",
+      "localPath": "BossMod/ActionQueue/Ranged/BRD.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Ranged/DNC.cs",
+      "localPath": "BossMod/ActionQueue/Ranged/DNC.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Ranged/MCH.cs",
+      "localPath": "BossMod/ActionQueue/Ranged/MCH.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Tanks/DRK.cs",
+      "localPath": "BossMod/ActionQueue/Tanks/DRK.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Tanks/GNB.cs",
+      "localPath": "BossMod/ActionQueue/Tanks/GNB.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Tanks/PLD.cs",
+      "localPath": "BossMod/ActionQueue/Tanks/PLD.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionQueue/Tanks/WAR.cs",
+      "localPath": "BossMod/ActionQueue/Tanks/WAR.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/ActionTweaks/ManualActionQueueTweak.cs",
+      "localPath": "BossMod/ActionTweaks/ManualActionQueueTweak.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Autorotation/PlanDatabase.cs",
+      "localPath": "BossMod/Autorotation/PlanDatabase.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Autorotation/Preset.cs",
+      "localPath": "BossMod/Autorotation/Preset.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Autorotation/PresetDatabase.cs",
+      "localPath": "BossMod/Autorotation/PresetDatabase.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Autorotation/RotationDatabase.cs",
+      "localPath": "BossMod/Autorotation/RotationDatabase.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Autorotation/RotationModule.cs",
+      "localPath": "BossMod/Autorotation/RotationModule.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Autorotation/RotationModuleManager.cs",
+      "localPath": "BossMod/Autorotation/RotationModuleManager.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Autorotation/UIPresetDatabaseEditor.cs",
+      "localPath": "BossMod/Autorotation/UIPresetDatabaseEditor.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Autorotation/UIRotationWindow.cs",
+      "localPath": "BossMod/Autorotation/UIRotationWindow.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/AIHints.cs",
+      "localPath": "BossMod/BossModule/AIHints.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/AIHintsBuilder.cs",
+      "localPath": "BossMod/BossModule/AIHintsBuilder.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/AIHintsVisualizer.cs",
+      "localPath": "BossMod/BossModule/AIHintsVisualizer.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/BossModule.cs",
+      "localPath": "BossMod/BossModule/BossModule.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/BossModuleConfig.cs",
+      "localPath": "BossMod/BossModule/BossModuleConfig.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/BossModuleHintsWindow.cs",
+      "localPath": "BossMod/BossModule/BossModuleHintsWindow.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/BossModuleMainWindow.cs",
+      "localPath": "BossMod/BossModule/BossModuleMainWindow.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/BossModuleManager.cs",
+      "localPath": "BossMod/BossModule/BossModuleManager.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/MiniArena.cs",
+      "localPath": "BossMod/BossModule/MiniArena.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/QuestBattle.cs",
+      "localPath": "BossMod/QuestBattle/QuestBattle.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/RaidCooldowns.cs",
+      "localPath": "BossMod/BossModule/RaidCooldowns.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/StateMachine.cs",
+      "localPath": "BossMod/BossModule/StateMachine.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/ZoneModuleRegistry.cs",
+      "localPath": "BossMod/BossModule/ZoneModuleRegistry.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/BossModule/ZoneModuleWindow.cs",
+      "localPath": "BossMod/BossModule/ZoneModuleWindow.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Components/Adds.cs",
+      "localPath": "BossMod/Components/Adds.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "现有 PrioritizeTargetsByOIDAndForbidDOTs 已支持负优先级和禁 DoT，功能已覆盖。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Components/StackSpread.cs",
+      "localPath": "BossMod/Components/StackSpread.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Components/UnavoidableDamage.cs",
+      "localPath": "BossMod/Components/UnavoidableDamage.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Components/WildCharge.cs",
+      "localPath": "BossMod/Components/WildCharge.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批使用的雷达没有新 IconLineStack.Hits 调用；多段预测已接入本地 StackSpread/RaidwideMultiHit，未额外扩充未用接口。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Config/AboutTab.cs",
+      "localPath": "BossMod/Config/AboutTab.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Config/ConfigChangelog.cs",
+      "localPath": "BossMod/Config/ConfigChangelog.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Config/ConfigNode.cs",
+      "localPath": "BossMod/Config/ConfigNode.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Config/ConfigRoot.cs",
+      "localPath": "BossMod/Config/ConfigRoot.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Config/ConfigUI.cs",
+      "localPath": "BossMod/Config/ConfigUI.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Config/ConfigWindow.cs",
+      "localPath": "BossMod/Config/ConfigWindow.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Config/ModuleViewer.cs",
+      "localPath": "BossMod/Config/ModuleViewer.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Config/MultiExport.cs",
+      "localPath": "BossMod/Config/MultiExport.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Config/PartyRolesConfig.cs",
+      "localPath": "BossMod/Config/PartyRolesConfig.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Data/Actor.cs",
+      "localPath": "BossMod/Data/Actor.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Data/ActorState.cs",
+      "localPath": "BossMod/Data/ActorState.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Data/BozjaID.cs",
+      "localPath": "BossMod/Data/BozjaID.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Data/Food.cs",
+      "localPath": "BossMod/Data/Food.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "上游仅移除数据表空值保护；保留本地保护。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Data/ReplayState.cs",
+      "localPath": "BossMod/Data/ReplayState.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Debug/DebugAction.cs",
+      "localPath": "BossMod/Debug/DebugAction.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Debug/DebugGraphics.cs",
+      "localPath": "BossMod/Debug/DebugGraphics.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Debug/DebugInput.cs",
+      "localPath": "BossMod/Debug/DebugInput.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Debug/DebugObjects.cs",
+      "localPath": "BossMod/Debug/DebugObjects.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Debug/DebugObstacles.cs",
+      "localPath": "BossMod/Debug/DebugObstacles.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Debug/DebugQuests.cs",
+      "localPath": "BossMod/Debug/DebugQuests.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Debug/MainDebugWindow.cs",
+      "localPath": "BossMod/Debug/MainDebugWindow.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Dev/GeometryHelper.cs",
+      "localPath": "BossMod/Dev/GeometryHelper.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Dev/MainDevWindow.cs",
+      "localPath": "BossMod/Dev/MainDevWindow.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Dev/PathfindingTest.cs",
+      "localPath": "BossMod/Dev/PathfindingTest.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Dev/PetData.cs",
+      "localPath": "BossMod/Dev/PetData.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/ActionManagerEx.cs",
+      "localPath": "BossMod/Framework/ActionManagerEx.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/Camera.cs",
+      "localPath": "BossMod/Framework/Camera.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/ClientStructsEx.cs",
+      "localPath": "BossMod/Framework/ClientStructsEx.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/DeveloperConfig.cs",
+      "localPath": "BossMod/Framework/DeveloperConfig.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/DtrConfig.cs",
+      "localPath": "BossMod/Framework/DtrConfig.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/Message.cs",
+      "localPath": "BossMod/Framework/Message.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/MovementOverride.cs",
+      "localPath": "BossMod/Framework/MovementOverride.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本地用 MisdirectionThreshold=180 表示关闭，已包含上游开关分支的等价语义；保留 vnavmesh 让出。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/MultiboxUnlock.cs",
+      "localPath": "BossMod/Framework/MultiboxUnlock.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/PackLoader.cs",
+      "localPath": "BossMod/Framework/PackLoader.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/Plugin.cs",
+      "localPath": "BossMod/Framework/Plugin.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/Program.cs",
+      "localPath": "BossMod/Framework/Program.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/Service.cs",
+      "localPath": "BossMod/Framework/Service.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/Utils.cs",
+      "localPath": "BossMod/Framework/Utils.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Framework/WorldStateGameSync.cs",
+      "localPath": "BossMod/Framework/WorldStateGameSync.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Interfaces/IAmex.cs",
+      "localPath": "BossMod/Interfaces/IAmex.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Interfaces/ICamera.cs",
+      "localPath": "BossMod/Interfaces/ICamera.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Interfaces/IHintExecutor.cs",
+      "localPath": "BossMod/Interfaces/IHintExecutor.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Interfaces/IMovementOverride.cs",
+      "localPath": "BossMod/Interfaces/IMovementOverride.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Interfaces/IWorldStateSync.cs",
+      "localPath": "BossMod/Interfaces/IWorldStateSync.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Network/PacketInterceptor.cs",
+      "localPath": "BossMod/Network/PacketInterceptor.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Pathfinding/NavigationDecision.cs",
+      "localPath": "BossMod/Pathfinding/NavigationDecision.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本地已有危险像素中优先逃生并抑制站位奖励；继续使用当前 ShapeDistance 寻路和 GoalZonesEnabled，不引入 Sdf/Tensors 栅格平台。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Pathfinding/ObstacleMapManager.cs",
+      "localPath": "BossMod/Pathfinding/ObstacleMapManager.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Replay/Analysis/ClassDefinitions.cs",
+      "localPath": "BossMod/Replay/Analysis/ClassDefinitions.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Replay/ReplayManagementWindow.cs",
+      "localPath": "BossMod/Replay/ReplayManagementWindow.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Replay/ReplayManager.cs",
+      "localPath": "BossMod/Replay/ReplayManager.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Replay/ReplayParserLog.cs",
+      "localPath": "BossMod/Replay/ReplayParserLog.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Replay/Visualization/GaugeVisualizer.cs",
+      "localPath": "BossMod/Replay/Visualization/GaugeVisualizer.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Replay/Visualization/OpList.cs",
+      "localPath": "BossMod/Replay/Visualization/OpList.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Replay/Visualization/ReplayDetailsWindow.cs",
+      "localPath": "BossMod/Replay/Visualization/ReplayDetailsWindow.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Services/AutoBitmapService.cs",
+      "localPath": "BossMod/Services/AutoBitmapService.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Services/DtrService.cs",
+      "localPath": "BossMod/Framework/DTRProvider.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Services/IpcService.cs",
+      "localPath": "BossMod/Framework/IPCProvider.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Services/ModulePackService.cs",
+      "localPath": "BossMod/Services/ModulePackService.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Services/OverlayService.cs",
+      "localPath": "BossMod/Services/OverlayService.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Services/PingService.cs",
+      "localPath": "BossMod/Services/PingService.cs",
+      "decision": "已适配到现有生命周期",
+      "reason": "对应 Framework/NetworkLatencyProbe.cs、NetworkState 和回放读取；复用系统 RTT 接口，不引入宿主服务包。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Services/SaveConfigService.cs",
+      "localPath": "BossMod/Services/SaveConfigService.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Services/SlashCommandService.cs",
+      "localPath": "BossMod/Services/SlashCommandService.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Services/TickService.cs",
+      "localPath": "BossMod/Services/TickService.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Timeline/Timeline.cs",
+      "localPath": "BossMod/Timeline/Timeline.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Util/ApplicationDelay.cs",
+      "localPath": "BossMod/Util/ApplicationDelay.cs",
+      "decision": "已适配到本地源码",
+      "reason": "按固定最终树整合；保留本地接口、配置兼容、必要安全与生命周期约束。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Util/Event.cs",
+      "localPath": "BossMod/Util/Event.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Util/Hook.cs",
+      "localPath": "BossMod/Util/Hook.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Util/Overlays.cs",
+      "localPath": "BossMod/Util/Overlays.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Util/SensibleFileWatcher.cs",
+      "localPath": "BossMod/Util/SensibleFileWatcher.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    },
+    {
+      "origin": "awgil",
+      "upstreamPath": "BossMod/Util/UIMisc.cs",
+      "localPath": "BossMod/Util/UIMisc.cs",
+      "decision": "保留主线，未直接导入",
+      "reason": "本批为选择性功能整合，不作整树追平；现有单插件平台、公共接口与界面继续沿用。"
+    }
+  ],
+  "validation": {
+    "releaseDLLSHA256": "5B63B7FEC0FDB4FCA1CA367E13322BFD5F184364CBC04BA8DCD0365BE6E380B3",
+    "rotationAssertions": 1695,
+    "supportAssertions": 331,
+    "polygonAssertions": 67922,
+    "totalAssertions": 69948,
+    "evidenceFile": "D:/mod-source/outputs/sync-20261105/validation.json"
+  }
+}

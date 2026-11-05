@@ -43,17 +43,17 @@ static class UpstreamUCOB20261008Tests
                 twister.Update();
                 var hints = new AIHints();
                 twister.AddAIHints(0, player, Role.MT, hints);
-                check(twister.PredictionTime == 0.65d && twister.ActiveAOEs(0, player).Length == 0 && hints.ForcedMovement == new System.Numerics.Vector3(0f)
+                check(twister.PredictionTime == 0.6d && twister.ActiveAOEs(0, player).Length == 0 && hints.ForcedMovement == new System.Numerics.Vector3(0f)
                     && hints.ForceCancelCast && hints.MaxCastTime == 0f, name + "：计入NPC延迟后1.94秒仍停止移动并取消读条");
 
-                world.Frame = new(start.AddSeconds(1.96d), 0, 0, 0, 0, 1);
+                world.Frame = new(start.AddSeconds(2.01d), 0, 0, 0, 0, 1);
                 twister.Update();
                 hints.Clear();
                 twister.AddAIHints(0, player, Role.MT, hints);
                 var aoes = twister.ActiveAOEs(0, player);
-                check(aoes.Length == 1 && Math.Abs((aoes[0].Activation - start).TotalSeconds - 2.6d) < 0.0001d, name + "：1.95秒记录位置并保留2.6秒绝对生效时间");
+                check(aoes.Length == 1 && Math.Abs((aoes[0].Activation - start).TotalSeconds - 2.6d) < 0.0001d, name + "：2.0秒记录位置并保留2.6秒绝对生效时间");
                 check(hints.ForbiddenZones.Count == 1 && hints.ForbiddenZones[0].shapeDistance.Distance(player.Position) < 0f
-                    && hints.ForcedMovement == null && !hints.ForceCancelCast && !hints.GoalZonesEnabled, name + "：预测后释放移动并关闭圈内站位奖励");
+                    && hints.ForcedMovement == null && hints.ForceCancelCast && hints.MaxCastTime == 0 && !hints.GoalZonesEnabled, name + "：预测后释放移动并关闭圈内站位奖励");
                 player.PosRot = new(15f, player.PosRot.Y, 5f, player.PosRot.W);
                 hints.Clear();
                 twister.AddAIHints(0, player, Role.MT, hints);
@@ -256,7 +256,7 @@ static class UpstreamUCOB20261008Tests
     private static Actor Create(WorldState world, ulong id, uint oid, ActorType type, WPos position)
     {
         world.Execute(new ActorState.OpCreate(id, oid, (int)id, 0, "fixture", 0, type, type == ActorType.Player ? Class.PLD : Class.None, 100,
-            new(position.X, 0f, position.Z, 0f), 0.5f, default, true, type == ActorType.Player, 0, 0, 0));
+            new(position.X, 0f, position.Z, 0f), 0.5f, new(1000, 1000, 0, 10000, 10000), true, type == ActorType.Player, 0, 0, 0));
         return world.Actors.Find(id)!;
     }
 

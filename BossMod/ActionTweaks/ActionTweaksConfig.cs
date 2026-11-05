@@ -87,4 +87,37 @@ public sealed class ActionTweaksConfig : ConfigNode
     }
     [PropertyDisplay("Automatic target selection for ground-targeted abilities")]
     public GroundTargetingMode GTMode = GroundTargetingMode.Manual;
+
+    private static Dalamud.Plugin.IDalamudPluginInterface? _rsrInterface;
+    private static long _rsrNextCheck;
+    private static bool _rsrEnabled;
+
+    internal static bool IsRSREnabled()
+    {
+        var pluginInterface = Service.PluginInterface;
+        var now = Environment.TickCount64;
+        if (ReferenceEquals(pluginInterface, _rsrInterface) && now < _rsrNextCheck)
+            return _rsrEnabled;
+
+        _rsrInterface = pluginInterface;
+        _rsrNextCheck = now + 1000;
+        _rsrEnabled = false;
+        try
+        {
+            const string name = "Rotation Solver Reborn";
+            if (pluginInterface != null)
+                foreach (var plugin in pluginInterface.InstalledPlugins)
+                    if (plugin.IsLoaded && (plugin.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
+                        || plugin.InternalName.Equals(name, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        _rsrEnabled = true;
+                        break;
+                    }
+        }
+        catch
+        {
+            // An unavailable plugin list must not disable normal manual targeting.
+        }
+        return _rsrEnabled;
+    }
 }

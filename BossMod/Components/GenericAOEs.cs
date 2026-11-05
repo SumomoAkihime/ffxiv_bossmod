@@ -29,6 +29,14 @@ public abstract class GenericAOEs(BossModule module, uint aid = default, string 
 
     public abstract ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor);
 
+    public bool Check(int slot, Actor actor, WPos position)
+    {
+        foreach (var aoe in ActiveAOEs(slot, actor))
+            if (aoe.Risky && aoe.Check(position))
+                return true;
+        return false;
+    }
+
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
         var aoes = ActiveAOEs(slot, actor);
