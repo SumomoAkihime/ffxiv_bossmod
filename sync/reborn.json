@@ -687,7 +687,7 @@
   ],
   "lastValidation": {
     "date": "2026-11-05",
-    "sourceCodeCommit": "19542fa9a919928cca2db680c60b884af5810c53",
+    "sourceCodeCommit": "49466ef3013281b885b0f9bcabaca04cdb088ead",
     "sourceCommit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
     "sourceTag": "7.5.7.4",
     "awgilCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
@@ -707,15 +707,16 @@
     "totalOfflineAssertions": 69948,
     "protectedSourceFilesUnchanged": 40,
     "userRecordsUnchanged": true,
-    "releaseDLLSHA256": "5B63B7FEC0FDB4FCA1CA367E13322BFD5F184364CBC04BA8DCD0365BE6E380B3",
-    "version": "7.5.7.201",
-    "buildGitHead": "97dd646f39bcda097a7c6adae83788d28a1bcb21",
-    "sourceState": "构建时HEAD为97dd646f39bcda097a7c6adae83788d28a1bcb21，包含本批源码工作区；已逐项核实3953个构建输入与整合提交19542fa9a919928cca2db680c60b884af5810c53一致（文本允许Git换行归一）。三个测试入口加载同一DLL；版本未变。",
-    "scope": "完整RotationMovement及本批专项，SupportJobs，PolygonQueries默认与distance-first。保留现有界面及40个保护源码；未实机、未运行新战斗回放、未推送或发布。DMU上游仍注明P5未完成。",
-    "validationEvidence": "D:/mod-source/outputs/sync-20261105",
-    "buildLog": "D:/mod-source/outputs/sync-20261105/build-18.log",
-    "buildInputManifestSHA256": "93abd47c64a129fb3ab4443620d7af3cc2b10e2a7c3ad50e5b93b8a4f8714bf0",
-    "testInputManifestSHA256": "cadbd5f693d341461092090ca10ac8c568ec26ca17a553503176959f72219089"
+    "releaseDLLSHA256": "BD6126958807125447AA4B8A45BF10B39EA71F2BD50A11F5CB127C3A92C0F4C0",
+    "version": "7.5.7.401",
+    "buildGitHead": "49466ef3013281b885b0f9bcabaca04cdb088ead",
+    "sourceState": "本次正式版本从已提交的 49466ef3013281b885b0f9bcabaca04cdb088ead 构建；功能源码与已验收的 19542fa9a919928cca2db680c60b884af5810c53 一致，仅递增项目与清单版本。全部离线入口重新运行并使用正式包同一DLL。",
+    "scope": "正式发布候选：完整RotationMovement、SupportJobs、PolygonQueries两种顺序及包内清单/程序集/身份/作者核对。实机与新战斗回放未执行。",
+    "validationEvidence": "D:/mod-source/outputs/release-7.5.7.401",
+    "buildLog": "D:/mod-source/outputs/release-7.5.7.401/build.log",
+    "buildInputManifestSHA256": "FDD0EDA3CB17B246368C23CEE11F1C8C0B40A3D72A677EE53CD801FA5F5B83BF",
+    "testInputManifestSHA256": "cadbd5f693d341461092090ca10ac8c568ec26ca17a553503176959f72219089",
+    "packageZIPHash": "344560B0D15149EAEA63218FBF581A225E6D6AA883C8C988E764071A4F15F41E"
   },
   "lastRelease": {
     "date": "2026-10-24",
@@ -795,5 +796,16 @@
     "otherEncounterModules": "用户允许与上游同步，包括有本地实现的模块；整合时保留必要本地API兼容、安全约束和制作/验收证据。",
     "o3AndO8": "按固定awgil上游实现整合并适配本地API；O8保留等价击退安全约束。",
     "dmuDecision": "整体按Reborn 7.5.7.2更新，包含Contributed默认可加载等级；P5未完成状态保留。"
+  },
+  "pendingRelease": {
+    "date": "2026-11-05",
+    "version": "7.5.7.401",
+    "sourceCodeCommit": "49466ef3013281b885b0f9bcabaca04cdb088ead",
+    "functionalCodeCommit": "19542fa9a919928cca2db680c60b884af5810c53",
+    "zipSHA256": "344560B0D15149EAEA63218FBF581A225E6D6AA883C8C988E764071A4F15F41E",
+    "releaseDLLSHA256": "BD6126958807125447AA4B8A45BF10B39EA71F2BD50A11F5CB127C3A92C0F4C0",
+    "status": "已通过构建与完整离线验证，等待双仓推送及Raw检查",
+    "published": false,
+    "validationEvidence": "D:/mod-source/outputs/release-7.5.7.401"
   }
 }
