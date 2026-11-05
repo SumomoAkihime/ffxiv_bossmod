@@ -1,12 +1,12 @@
 ﻿{
   "schemaVersion": 1,
-  "updated": "2026-10-24",
+  "updated": "2026-11-05",
   "source": {
     "repository": "https://github.com/FFXIV-CombatReborn/BossmodReborn",
-    "commit": "ae64e3309905dafad0952dbe72680add167591f9",
-    "releaseTag": "7.5.7.2",
-    "releaseCommit": "ae64e3309905dafad0952dbe72680add167591f9",
-    "status": "选择性整合至Reborn 7.5.7.2/ae64e330；本批按上游最终树同步DMU、幻神龙与CastShadow，保留超魔之塔和必要本地兼容/安全修正；不表示整树一致。"
+    "commit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
+    "releaseTag": "7.5.7.4",
+    "releaseCommit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
+    "status": "选择性整合 Reborn 7.5.7.4 与 awgil v7.5.7.20 功能增量；保留现有界面、超魔之塔、本地接口与已验证安全修正；逐路径取舍见 upstream-20261105.json，不表示整树一致。"
   },
   "forkBaseline": "787148f34",
   "purpose": "以 Reborn 雷达与共享支撑为主体，融合 awgil 职业循环及移动、保留多预设与外部插件联动、自建雷达和已验证修复。",
@@ -98,6 +98,15 @@
       "sourceCommit": "ae64e3309905dafad0952dbe72680add167591f9",
       "sourceTag": "7.5.7.2",
       "scope": "对照Reborn be8ff771..ae64e330最终树20路径：妖星乱舞绝境战P1重写及配置迁移、Contributed默认加载等级；新增幻神龙；CastShadow末段修正。保留超魔之塔、必要本地兼容与安全修正。"
+    },
+    {
+      "commit": "19542fa9a919928cca2db680c60b884af5810c53",
+      "sourceCommit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
+      "sourceTag": "7.5.7.4",
+      "awgilCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
+      "awgilTag": "v7.5.7.20",
+      "scope": "DMU NA策略与RSR；循环/治疗及位置锁定、多段预测；普通雷达与任务、绝巴哈和绝神兵状态机/组件；深层迷宫目标与房间导航；朝向/RTT快照与回放。保留旧预设控制、精确治疗覆盖、安全清理、现有界面与超魔之塔。仅本地提交，未推送、未升版发布。",
+      "audit": "upstream-20261105.json"
     }
   ],
   "requiredPatches": [
@@ -352,6 +361,20 @@
         "BossMod/Modules/Heavensward/Trial/T03Thordan/T03Thordan.cs"
       ],
       "behavior": "Kage ResolveTargetOverride传TrackRaw保留友方Actor；冲刺途经圆使用本地布尔线段相交，允许从圆内向外脱离。俾斯麦使用世界顶点及对应bounds.Center同步切换；托尔丹HeavyImpact清理后须base.Update刷新AOE缓存。"
+    },
+    {
+      "paths": [
+        "BossMod/Autorotation/Standard/kage",
+        "BossMod/Autorotation/PlanPresetConverter.cs",
+        "BossMod/Autorotation/Preset.cs",
+        "BossMod/Autorotation/Standard/xan/AI/Healer.cs",
+        "BossMod/Components/StrictStackSpread.cs",
+        "BossMod/Modules/Stormblood/Ultimate/UWU/P1Mesohigh.cs",
+        "BossMod/Modules/Stormblood/Ultimate/UWU/P2SearingWind.cs",
+        "BossMod/Modules/Stormblood/Ultimate/UCOB/P3GrandOctet.cs",
+        "BossMod/Modules/Stormblood/Raid/O12NOmegaMF/O12NOmegaMF.cs"
+      ],
+      "behavior": "保留旧Kage合并爆发、SAM循环及BLM合并移动控制，名称迁移同时支持预设导入与计划；治疗圈精确选点不回退。Strict未知分配退回通用避险；绝神兵接线不得清空其他禁区。八连俯冲按ActorID独立清理、缺员不分配、迟到实体补齐且重复事件不再初始化。O12按变身事件独立管理放电来源，保留连续落点/免疫及销毁清理。"
     }
   ],
   "localRadars": "local-radars.json",
@@ -391,14 +414,6 @@
       "reason": "继续保留本地完整机制和分配；原版P3策略重写及前批P4 AssignAdds角色分配需成套验证，本批只适配独立机制更新。"
     },
     {
-      "scope": "AkechiDRK策略重写与新WHMUtilityEx",
-      "reason": "DRK大幅策略与WHMUtilityEx满血空列表MaxBy问题继续单独评估；此前Kage MCH/VPR及本批另外6职业已达到Ok并完整适配。"
-    },
-    {
-      "scope": "AST新Card1～3量谱接口",
-      "reason": "当前SDK仍是CurrentCards接口，保持现有兼容实现，不为本批升级外部依赖。"
-    },
-    {
       "scope": "StifledScreams(CFC382)目标遮挡/绕墙兼容",
       "reason": "本地缺Actor.Visibility.Blocked；候选仅存outputs/sync-20261015/quests，不能删掉该分支并标完整Contributed。"
     },
@@ -408,7 +423,16 @@
     },
     {
       "scope": "原版既有普通讨伐/旧副本额外AI与时间轴差异",
-      "reason": "Reborn主体已有同身份可用模块；本批优先补缺失的9普通雷达，不整文件替换既有成熟模块。QueenEternal/Necron等原版差异仍需逐组件审查。"
+      "reason": "本批已合入普通女王多段团伤和适用增量；Necron的上游P2 Jail改动与本地单阶段Prisons合同不同，保留现行实现。19个同身份Reborn普通模块不重复导入；身份及动作覆盖不等于与awgil所有几何/AI/时序完全一致，具体剩余差异继续按回放审查。"
+    },
+    {
+      "scope": "本批新增未完成模块与排除的平台差异",
+      "sourceCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
+      "modules": [
+        "LaudaTheSpellcleaver",
+        "RM12S2TheLindwurm"
+      ],
+      "reason": "上游仍标未完成；RebornMaterial、新宿主服务、拆包热加载及Sdf/Tensors平台按用户确认的方案A不导入。详见upstream-20261105.json。"
     }
   ],
   "excluded": [
@@ -453,7 +477,7 @@
     "Release 构建；涉及模块的专项离线回归；实机验证组合场景"
   ],
   "externalIntegration": {
-    "awgilCommit": "0b741f5fa813afe18d4f96c79c8d9eb157ada755",
+    "awgilCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
     "autoDutyRepository": "https://github.com/ffxivcode/AutoDuty",
     "autoDutyCommit": "53f4e7400f9791f4534f803a2ec2d2ff709375ba",
     "verifiedModules": 31,
@@ -469,9 +493,12 @@
       "vnav.PathIsRunning 移动让出"
     ],
     "legacy": "AI.SetPreset/GetPreset 继续为空兼容；当前官方 AutoDuty 未调用，不恢复旧 AI 自动选预设",
-    "lastValidationDate": "2026-10-15",
-    "registeredIPCInterfaces": 70,
-    "configurationIPCSourceCommit": "be8ff771cc545f8f8b5b548b5dd7271d80460f89"
+    "lastValidationDate": "2026-11-05",
+    "registeredIPCInterfaces": 71,
+    "configurationIPCSourceCommit": "be8ff771cc545f8f8b5b548b5dd7271d80460f89",
+    "awgilCheckedCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
+    "awgilStableTag": "v7.5.7.20",
+    "awgilIntegrationStatus": "按固定最终树选择性功能适配，保留本地多预设、首个移动模块负责权、总停止、旧异步路径失效及vnavmesh让出；不表示整树追平。"
   },
   "supportJobs": {
     "sourceCommit": "20b8092f4a5673f8b7d1a3959f4671732a67710c",
@@ -621,35 +648,74 @@
       "localCommit": "e140b94cc3c7c36d8f2037faf67f633027181b03",
       "published": true,
       "releaseVersion": "7.5.7.201"
+    },
+    {
+      "date": "2026-11-05",
+      "sourceCodeCommit": "19542fa9a919928cca2db680c60b884af5810c53",
+      "sourceCommit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
+      "sourceTag": "7.5.7.4",
+      "awgilCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
+      "validationLevel": "Release构建与完整离线回归，未实机",
+      "releaseBuild": "零警告、零错误",
+      "compiled": true,
+      "offlineTestsRun": true,
+      "gameTestRun": false,
+      "replayTestRun": false,
+      "movementAndIPCAssertions": 1695,
+      "registeredIPCInterfaces": 71,
+      "supportJobsRun": true,
+      "supportJobsAssertions": 331,
+      "polygonAssertions": 67922,
+      "polygonDefaultAssertions": 33959,
+      "polygonDistanceFirstAssertions": 33963,
+      "totalOfflineAssertions": 69948,
+      "protectedSourceFilesUnchanged": 40,
+      "userRecordsUnchanged": true,
+      "releaseDLLSHA256": "5B63B7FEC0FDB4FCA1CA367E13322BFD5F184364CBC04BA8DCD0365BE6E380B3",
+      "version": "7.5.7.201",
+      "buildGitHead": "97dd646f39bcda097a7c6adae83788d28a1bcb21",
+      "sourceState": "构建时HEAD为97dd646f39bcda097a7c6adae83788d28a1bcb21，包含本批源码工作区；已逐项核实3953个构建输入与整合提交19542fa9a919928cca2db680c60b884af5810c53一致（文本允许Git换行归一）。三个测试入口加载同一DLL；版本未变。",
+      "scope": "完整RotationMovement及本批专项，SupportJobs，PolygonQueries默认与distance-first。保留现有界面及40个保护源码；未实机、未运行新战斗回放、未推送或发布。DMU上游仍注明P5未完成。",
+      "validationEvidence": "D:/mod-source/outputs/sync-20261105",
+      "buildLog": "D:/mod-source/outputs/sync-20261105/build-18.log",
+      "buildInputManifestSHA256": "93abd47c64a129fb3ab4443620d7af3cc2b10e2a7c3ad50e5b93b8a4f8714bf0",
+      "testInputManifestSHA256": "cadbd5f693d341461092090ca10ac8c568ec26ca17a553503176959f72219089",
+      "localCommit": "19542fa9a919928cca2db680c60b884af5810c53",
+      "published": false,
+      "pushed": false
     }
   ],
   "lastValidation": {
-    "date": "2026-10-24",
-    "sourceCodeCommit": "e140b94cc3c7c36d8f2037faf67f633027181b03",
-    "sourceCommit": "ae64e3309905dafad0952dbe72680add167591f9",
-    "sourceTag": "7.5.7.2",
-    "validationLevel": "Release构建与离线回归，未实机",
+    "date": "2026-11-05",
+    "sourceCodeCommit": "19542fa9a919928cca2db680c60b884af5810c53",
+    "sourceCommit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
+    "sourceTag": "7.5.7.4",
+    "awgilCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
+    "validationLevel": "Release构建与完整离线回归，未实机",
     "releaseBuild": "零警告、零错误",
     "compiled": true,
     "offlineTestsRun": true,
     "gameTestRun": false,
-    "movementAndIPCAssertions": 1627,
+    "replayTestRun": false,
+    "movementAndIPCAssertions": 1695,
     "registeredIPCInterfaces": 71,
+    "supportJobsRun": true,
+    "supportJobsAssertions": 331,
     "polygonAssertions": 67922,
     "polygonDefaultAssertions": 33959,
     "polygonDistanceFirstAssertions": 33963,
-    "supportJobsRun": false,
+    "totalOfflineAssertions": 69948,
     "protectedSourceFilesUnchanged": 40,
-    "protectedSourceScope": "本批同步前后完整40文件快照一致；超魔之塔及两份用户未跟踪制作记录保持不变。",
-    "releaseDLLSHA256": "F287D5F0E22AA2E37A651B7DFA3A81AF2DA9DABDB2A719CB89E5C679F3985DC4",
-    "packageZIPHash": "33D9A9B650EE1E077C21A0243E6946C959F7F338B4E2BA8251D17DFB69DDBEAD",
+    "userRecordsUnchanged": true,
+    "releaseDLLSHA256": "5B63B7FEC0FDB4FCA1CA367E13322BFD5F184364CBC04BA8DCD0365BE6E380B3",
     "version": "7.5.7.201",
-    "buildGitHead": "303fe05854e60e8113846cc55242966fdae39828",
-    "sourceState": "构建时HEAD为修复提交303fe058；随后提交e140b94c的同步源码逐文件哈希与被测文件一致，另含7.5.7.201的csproj与清单版本改动。",
-    "scope": "完整RotationMovement含欧米茄/绝神兵适配回归、DMU配置迁移与P1转场、幻神龙注册/场地、CastShadow末段；71个IPC接口；两种PolygonQueries。独立SupportJobs未运行，实机与战斗回放未运行。DMU按上游Contributed更新，TODO仍注明P5未完成。",
-    "validationEvidence": "D:/mod-source/outputs/sync-reborn-7.5.7.2-20261024",
-    "buildLog": "D:/mod-source/outputs/sync-reborn-7.5.7.2-20261024/build-2.log",
-    "gameTest": "尚未实机或战斗回放验证。"
+    "buildGitHead": "97dd646f39bcda097a7c6adae83788d28a1bcb21",
+    "sourceState": "构建时HEAD为97dd646f39bcda097a7c6adae83788d28a1bcb21，包含本批源码工作区；已逐项核实3953个构建输入与整合提交19542fa9a919928cca2db680c60b884af5810c53一致（文本允许Git换行归一）。三个测试入口加载同一DLL；版本未变。",
+    "scope": "完整RotationMovement及本批专项，SupportJobs，PolygonQueries默认与distance-first。保留现有界面及40个保护源码；未实机、未运行新战斗回放、未推送或发布。DMU上游仍注明P5未完成。",
+    "validationEvidence": "D:/mod-source/outputs/sync-20261105",
+    "buildLog": "D:/mod-source/outputs/sync-20261105/build-18.log",
+    "buildInputManifestSHA256": "93abd47c64a129fb3ab4443620d7af3cc2b10e2a7c3ad50e5b93b8a4f8714bf0",
+    "testInputManifestSHA256": "cadbd5f693d341461092090ca10ac8c568ec26ca17a553503176959f72219089"
   },
   "lastRelease": {
     "date": "2026-10-24",
@@ -682,12 +748,15 @@
     "sourceCommitMeaning": "sourceRepositoryCommit为包含版本与发布ZIP的提交；后续仅发布证明的元数据提交不改变制品。"
   },
   "lastIntegration": {
-    "date": "2026-10-24",
-    "commit": "e140b94cc3c7c36d8f2037faf67f633027181b03",
-    "sourceCommit": "ae64e3309905dafad0952dbe72680add167591f9",
-    "validationLevel": "Release构建与离线回归，未实机",
-    "validationEvidence": "D:/mod-source/outputs/sync-reborn-7.5.7.2-20261024",
-    "note": "修复提交303fe058与同步提交e140b94c均进入本批候选包；本次版本7.5.7.201。"
+    "date": "2026-11-05",
+    "commit": "19542fa9a919928cca2db680c60b884af5810c53",
+    "sourceCommit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
+    "awgilCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
+    "validationLevel": "Release构建与完整离线回归，未实机",
+    "validationEvidence": "D:/mod-source/outputs/sync-20261105",
+    "note": "已按确认方案A完成本地功能整合与完整离线验收；正式版本7.5.7.201不变，未推送、未发布。",
+    "published": false,
+    "pushed": false
   },
   "worktreeRepair": {
     "date": "2026-10-24",
