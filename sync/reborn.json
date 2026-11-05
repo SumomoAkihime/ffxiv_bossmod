@@ -106,7 +106,8 @@
       "awgilCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
       "awgilTag": "v7.5.7.20",
       "scope": "DMU NA策略与RSR；循环/治疗及位置锁定、多段预测；普通雷达与任务、绝巴哈和绝神兵状态机/组件；深层迷宫目标与房间导航；朝向/RTT快照与回放。保留旧预设控制、精确治疗覆盖、安全清理、现有界面与超魔之塔。仅本地提交，未推送、未升版发布。",
-      "audit": "upstream-20261105.json"
+      "audit": "upstream-20261105.json",
+      "releasedInVersion": "7.5.7.401"
     }
   ],
   "requiredPatches": [
@@ -681,8 +682,12 @@
       "buildInputManifestSHA256": "93abd47c64a129fb3ab4443620d7af3cc2b10e2a7c3ad50e5b93b8a4f8714bf0",
       "testInputManifestSHA256": "cadbd5f693d341461092090ca10ac8c568ec26ca17a553503176959f72219089",
       "localCommit": "19542fa9a919928cca2db680c60b884af5810c53",
-      "published": false,
-      "pushed": false
+      "published": true,
+      "pushed": true,
+      "releaseVersion": "7.5.7.401",
+      "releaseSourceCommit": "49466ef3013281b885b0f9bcabaca04cdb088ead",
+      "releasePackageCommit": "00491b55ec303f8fcd304190cb9cde845d58eb51",
+      "releaseValidationEvidence": "D:/mod-source/outputs/release-7.5.7.401"
     }
   ],
   "lastValidation": {
@@ -719,34 +724,41 @@
     "packageZIPHash": "344560B0D15149EAEA63218FBF581A225E6D6AA883C8C988E764071A4F15F41E"
   },
   "lastRelease": {
-    "date": "2026-10-24",
-    "version": "7.5.7.201",
+    "date": "2026-11-05",
+    "version": "7.5.7.401",
     "author": "veyn&Sumomo",
-    "sourceCodeCommit": "e140b94cc3c7c36d8f2037faf67f633027181b03",
-    "rebornTag": "7.5.7.2",
-    "rebornCommit": "ae64e3309905dafad0952dbe72680add167591f9",
-    "sourceRepositoryCommit": "914526da928e40bbce28df73df2efc4ece8cd9c9",
-    "distributionRepositoryCommit": "26090d84b3658ed737b840293f038663d0f2c3bd",
+    "sourceCodeCommit": "49466ef3013281b885b0f9bcabaca04cdb088ead",
+    "rebornTag": "7.5.7.4",
+    "rebornCommit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
+    "awgilTag": "v7.5.7.20",
+    "awgilCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
+    "sourceRepositoryCommit": "00491b55ec303f8fcd304190cb9cde845d58eb51",
+    "distributionRepositoryCommit": "4fef305faf57ea711e6d330ee1a941bc54d512a4",
     "releaseBuild": "零警告、零错误",
-    "releaseDLLSHA256": "F287D5F0E22AA2E37A651B7DFA3A81AF2DA9DABDB2A719CB89E5C679F3985DC4",
-    "zipSHA256": "33D9A9B650EE1E077C21A0243E6946C959F7F338B4E2BA8251D17DFB69DDBEAD",
-    "movementAndIPCAssertions": 1627,
+    "releaseDLLSHA256": "BD6126958807125447AA4B8A45BF10B39EA71F2BD50A11F5CB127C3A92C0F4C0",
+    "zipSHA256": "344560B0D15149EAEA63218FBF581A225E6D6AA883C8C988E764071A4F15F41E",
+    "movementAndIPCAssertions": 1695,
     "registeredIPCInterfaces": 71,
+    "supportJobsRun": true,
+    "supportJobsAssertions": 331,
     "polygonAssertions": 67922,
     "polygonDefaultAssertions": 33959,
     "polygonDistanceFirstAssertions": 33963,
-    "supportJobsRun": false,
+    "totalOfflineAssertions": 69948,
     "gameTestRun": false,
     "replayTestRun": false,
-    "gameTest": "尚未实机或战斗回放验证。DMU上游TODO仍注明P5未完成。",
+    "gameTest": "尚未实机或新战斗回放验证；DMU上游仍注明P5未完成。",
     "protectedSourceFilesUnchanged": 40,
     "userRecordsUnchanged": true,
     "published": true,
-    "rawIndexVersion": "7.5.7.201",
-    "rawCheckedUTC": "2026-10-24T03:30:29.415287+00:00",
-    "validationEvidence": "D:/mod-source/outputs/release-7.5.7.201",
-    "scope": "发布欧米茄/绝神兵修复及Reborn 7.5.7.2最终树增量；DMU整体按上游Contributed同步，新增幻神龙和CastShadow末段修复。超魔之塔保持本地。两仓使用同一ZIP；默认发布分支与测试分支均包含代码及制品。",
-    "sourceCommitMeaning": "sourceRepositoryCommit为包含版本与发布ZIP的提交；后续仅发布证明的元数据提交不改变制品。"
+    "pushed": true,
+    "rawIndexVersion": "7.5.7.401",
+    "rawIndexLastUpdate": 1793887545,
+    "rawCheckedUTC": "2026-11-05T14:09:46.471865+00:00",
+    "validationEvidence": "D:/mod-source/outputs/release-7.5.7.401",
+    "versionRule": "Reborn 7.5.7.4 → 7.5.7.401（尾段4×100+1）",
+    "scope": "发布已验收的Reborn 7.5.7.4与awgil v7.5.7.20功能整合。保留超魔之塔、现有界面与用户原记录；同一ZIP进入源码默认/测试发布分支及独立插件仓。",
+    "sourceCommitMeaning": "sourceRepositoryCommit是包含版本和ZIP的发布提交；后续发布证明提交只更新元数据，不改变制品。"
   },
   "lastIntegration": {
     "date": "2026-11-05",
@@ -755,9 +767,11 @@
     "awgilCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
     "validationLevel": "Release构建与完整离线回归，未实机",
     "validationEvidence": "D:/mod-source/outputs/sync-20261105",
-    "note": "已按确认方案A完成本地功能整合与完整离线验收；正式版本7.5.7.201不变，未推送、未发布。",
-    "published": false,
-    "pushed": false
+    "note": "方案A功能整合完成后，按用户2026-11-05新增的发布指令进入7.5.7.401双仓发布。新授权不改变此前保留界面、超魔之塔与安全/配置兼容的范围。",
+    "published": true,
+    "pushed": true,
+    "releaseVersion": "7.5.7.401",
+    "publicationCommit": "00491b55ec303f8fcd304190cb9cde845d58eb51"
   },
   "worktreeRepair": {
     "date": "2026-10-24",
@@ -797,15 +811,36 @@
     "o3AndO8": "按固定awgil上游实现整合并适配本地API；O8保留等价击退安全约束。",
     "dmuDecision": "整体按Reborn 7.5.7.2更新，包含Contributed默认可加载等级；P5未完成状态保留。"
   },
-  "pendingRelease": {
-    "date": "2026-11-05",
-    "version": "7.5.7.401",
-    "sourceCodeCommit": "49466ef3013281b885b0f9bcabaca04cdb088ead",
-    "functionalCodeCommit": "19542fa9a919928cca2db680c60b884af5810c53",
-    "zipSHA256": "344560B0D15149EAEA63218FBF581A225E6D6AA883C8C988E764071A4F15F41E",
-    "releaseDLLSHA256": "BD6126958807125447AA4B8A45BF10B39EA71F2BD50A11F5CB127C3A92C0F4C0",
-    "status": "已通过构建与完整离线验证，等待双仓推送及Raw检查",
-    "published": false,
-    "validationEvidence": "D:/mod-source/outputs/release-7.5.7.401"
-  }
+  "releaseHistory": [
+    {
+      "date": "2026-10-24",
+      "version": "7.5.7.201",
+      "author": "veyn&Sumomo",
+      "sourceCodeCommit": "e140b94cc3c7c36d8f2037faf67f633027181b03",
+      "rebornTag": "7.5.7.2",
+      "rebornCommit": "ae64e3309905dafad0952dbe72680add167591f9",
+      "sourceRepositoryCommit": "914526da928e40bbce28df73df2efc4ece8cd9c9",
+      "distributionRepositoryCommit": "26090d84b3658ed737b840293f038663d0f2c3bd",
+      "releaseBuild": "零警告、零错误",
+      "releaseDLLSHA256": "F287D5F0E22AA2E37A651B7DFA3A81AF2DA9DABDB2A719CB89E5C679F3985DC4",
+      "zipSHA256": "33D9A9B650EE1E077C21A0243E6946C959F7F338B4E2BA8251D17DFB69DDBEAD",
+      "movementAndIPCAssertions": 1627,
+      "registeredIPCInterfaces": 71,
+      "polygonAssertions": 67922,
+      "polygonDefaultAssertions": 33959,
+      "polygonDistanceFirstAssertions": 33963,
+      "supportJobsRun": false,
+      "gameTestRun": false,
+      "replayTestRun": false,
+      "gameTest": "尚未实机或战斗回放验证。DMU上游TODO仍注明P5未完成。",
+      "protectedSourceFilesUnchanged": 40,
+      "userRecordsUnchanged": true,
+      "published": true,
+      "rawIndexVersion": "7.5.7.201",
+      "rawCheckedUTC": "2026-10-24T03:30:29.415287+00:00",
+      "validationEvidence": "D:/mod-source/outputs/release-7.5.7.201",
+      "scope": "发布欧米茄/绝神兵修复及Reborn 7.5.7.2最终树增量；DMU整体按上游Contributed同步，新增幻神龙和CastShadow末段修复。超魔之塔保持本地。两仓使用同一ZIP；默认发布分支与测试分支均包含代码及制品。",
+      "sourceCommitMeaning": "sourceRepositoryCommit为包含版本与发布ZIP的提交；后续仅发布证明的元数据提交不改变制品。"
+    }
+  ]
 }
