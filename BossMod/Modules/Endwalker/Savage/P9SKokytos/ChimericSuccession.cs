@@ -12,7 +12,22 @@ class ChimericSuccession(BossModule module) : Components.UniformStackSpread(modu
     public override void Update()
     {
         Stacks.Clear();
-        var target = JumpActive ? Raid.WithSlot(false, true, true).ExcludedFromMask(_forbiddenStack).Actors().Farthest(Module.PrimaryActor.Position) : null;
+        Actor? target = null;
+        if (JumpActive)
+        {
+            var bestDistSq = float.MinValue;
+            foreach (var (s, p) in Raid.WithSlot(false, true, true))
+            {
+                if (_forbiddenStack[s])
+                    continue;
+                var distSq = (p.Position - Module.PrimaryActor.Position).LengthSq();
+                if (distSq > bestDistSq)
+                {
+                    bestDistSq = distSq;
+                    target = p;
+                }
+            }
+        }
         if (target != null)
             AddStack(target, _jumpActivation, _forbiddenStack);
         base.Update();

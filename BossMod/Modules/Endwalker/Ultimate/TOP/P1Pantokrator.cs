@@ -107,7 +107,7 @@ sealed class P1Pantokrator(BossModule module) : P1CommonAssignments(module)
         var stackOrder = NextStackOrder();
         if (ps.Order == NextSpreadOrder())
         {
-            hints.Add("Spread!", Raid.WithoutSlot(false, true, true).InRadiusExcluding(actor, _spreadRadius).Any());
+            hints.Add("Spread!", Raid.WithoutSlot(false, true, true).AnyInRadiusExcluding(actor, _spreadRadius));
         }
         else if (ps.Order != stackOrder)
         {
@@ -182,13 +182,11 @@ class P1DiffuseWaveCannonKyrios : Components.GenericBaitAway
                 var distB = (b.Position - Arena.Center).LengthSq();
                 return distA.CompareTo(distB);
             });
-        List<Bait> baits = [];
         var len = party.Length;
         for (var i = Math.Max(0, len - 2); i < len; ++i)
         {
-            baits.Add(new(Module.PrimaryActor, party[i], _shape));
+            CurrentBaits.Add(new(Module.PrimaryActor, party[i], _shape));
         }
-        CurrentBaits.AddRange(baits);
     }
 }
 

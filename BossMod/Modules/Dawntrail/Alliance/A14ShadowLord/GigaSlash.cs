@@ -7,7 +7,7 @@ sealed class GigaSlash(BossModule module) : Components.GenericAOEs(module)
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        return AOEs.Count != 0 ? new AOEInstance[1] { AOEs[0] with { Risky = Module.FindComponent<DarkNebula>()?.Casters.Count == 0 } } : [];
+        return AOEs.Count != 0 ? new AOEInstance[1] { AOEs[0] with { Risky = Module.FindComponent<DarkNebula>()?.KBs.Count == 0 } } : [];
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -18,7 +18,7 @@ sealed class GigaSlash(BossModule module) : Components.GenericAOEs(module)
         base.AddAIHints(slot, actor, assignment, hints);
         var aoe = AOEs[0];
         // stay close to the middle if there is next imminent aoe from same origin
-        if (Module.FindComponent<DarkNebula>()?.Casters.Count == 0 && count > 1 && aoe.Origin == AOEs[1].Origin)
+        if (Module.FindComponent<DarkNebula>()?.KBs.Count == 0 && count > 1 && aoe.Origin == AOEs[1].Origin)
             hints.AddForbiddenZone(new SDInvertedCircle(aoe.Origin, 3f), aoe.Activation);
     }
 

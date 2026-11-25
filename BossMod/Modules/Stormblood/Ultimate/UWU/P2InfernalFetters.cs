@@ -37,4 +37,10 @@ class P2InfernalFetters(BossModule module) : BossComponent(module)
             Fetters[Raid.FindSlot(actor.InstanceID)] = false;
         }
     }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Fetters[slot] && actor.Role != Role.Tank && Raid.WithSlot().IncludedInMask(Fetters).FirstOrNull(p => p.Item2 != actor) is { } partner)
+            hints.GoalZones.Add(AIHints.GoalSingleTarget(partner.Item2.Position, 5, 0.5f));
+    }
 }

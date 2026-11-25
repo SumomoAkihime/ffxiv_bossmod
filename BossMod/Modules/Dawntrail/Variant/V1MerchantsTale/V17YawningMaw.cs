@@ -38,9 +38,21 @@ sealed class GemHints(BossModule module) : BossComponent(module)
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (Gems.Count != 0 && !_succ)
+        var count = Gems.Count;
+        if (count != 0 && !_succ)
         {
-            var closestGem = Gems.MinBy(actor.DistanceToHitbox);
+            Actor? closestGem = null;
+            var minDistance = float.MaxValue;
+            for (var i = 0; i < count; ++i)
+            {
+                var gem = Gems[i];
+                var distance = actor.DistanceToHitbox(gem);
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    closestGem = gem;
+                }
+            }
             if (closestGem != null)
             {
                 hints.AddForbiddenZone(new SDInvertedCircle(closestGem.Position, 4f));

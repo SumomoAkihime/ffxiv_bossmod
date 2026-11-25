@@ -11,6 +11,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="BossMod" HintPath="$(BossModAssembly)" />
+    <Reference Include="RebornMaterial" HintPath="$([System.IO.Path]::GetDirectoryName('$(BossModAssembly)'))/RebornMaterial.dll" />
+    <Reference Include="TerraFX.Interop.Windows" HintPath="$([System.IO.Path]::GetDirectoryName('$(BossModAssembly)'))/TerraFX.Interop.Windows.dll" />
     <Reference Include="Lumina" HintPath="$(DalamudLibPath)/Lumina.dll" />
     <Reference Include="Lumina.Excel" HintPath="$(DalamudLibPath)/Lumina.Excel.dll" />
     <Reference Include="Dalamud" HintPath="$(DalamudLibPath)/Dalamud.dll" />

@@ -52,7 +52,7 @@ public sealed class AST(RotationModuleManager manager, Actor player) : Castxan<A
 
         var gauge = World.Client.GetGauge<AstrologianGauge>();
 
-        Cards = gauge.CurrentCards;
+        unsafe { Cards = [gauge.CurrentCards[0], gauge.CurrentCards[1], gauge.CurrentCards[2]]; }
         Arcana = gauge.CurrentArcana;
 
         LightspeedLeft = StatusLeft(SID.Lightspeed);

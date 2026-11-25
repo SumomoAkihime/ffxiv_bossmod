@@ -27,8 +27,9 @@ class DualspellFire(BossModule module) : Components.GenericStackSpread(module)
         if (_active && radius != 0)
         {
             // assume always targets supports
-            foreach (var p in Raid.WithoutSlot(true, true, true).Where(p => p.Class.IsSupport()))
-                Stacks.Add(new(p, radius, 2, 2, WorldState.FutureTime(4.5f)));
+            foreach (var p in Raid.WithoutSlot(true, true, true))
+                if (p.Class.IsSupport())
+                    Stacks.Add(new(p, radius, 2, 2, WorldState.FutureTime(4.5f)));
         }
     }
 }

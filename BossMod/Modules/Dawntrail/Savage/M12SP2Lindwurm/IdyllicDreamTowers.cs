@@ -34,7 +34,8 @@ sealed class IdyllicDreamArena(BossModule module) : Components.GenericAOEs(modul
     public void Predict(double seconds)
     {
         var center = Arena.Center;
-        _aoe = [new(new AOEShapeCustom([new Square(center, 20f)], splitArena), center, default, WorldState.FutureTime(seconds))];
+        var shape = new AOEShapeCustom(center, [new Square(center, 20f)], splitArena);
+        _aoe = [new(shape, center, default, WorldState.FutureTime(seconds), shapeDistance: shape.Distance(center, default))];
     }
 }
 
@@ -933,6 +934,22 @@ sealed class IdyllicDreamLindwurmsDarkII(BossModule module) : Components.Generic
 
     static readonly AOEShapeRect DarkRect = new(50, 5);
 
+    private static Actor? ClosestTo(Actor[] party, WPos origin, bool farthest = false)
+    {
+        Actor? best = null;
+        var bestDistSq = farthest ? float.MinValue : float.MaxValue;
+        for (var i = 0; i < party.Length; ++i)
+        {
+            var distSq = (party[i].Position - origin).LengthSq();
+            if (farthest ? distSq > bestDistSq : distSq < bestDistSq)
+            {
+                bestDistSq = distSq;
+                best = party[i];
+            }
+        }
+        return best;
+    }
+
     public override void Update()
     {
         if (!_initialized)
@@ -966,12 +983,13 @@ sealed class IdyllicDreamLindwurmsDarkII(BossModule module) : Components.Generic
             return;
 
         var count = _sources.Count;
+        var party = Raid.WithoutSlot(true, true, true);
         for (var i = 0; i < count; ++i)
         {
             var (src, activation) = _sources[i];
 
             // closest player in 3y circle
-            var target = Raid.WithoutSlot().Closest(src.Position);
+            var target = ClosestTo(party, src.Position);
             if (target == null)
                 continue;
 
@@ -1132,7 +1150,7 @@ sealed class IdyllicDreamHotBlooded : Components.StayMove
         var sources = CollectionsMarshal.AsSpan(_sources);
         var sourceCount = sources.Length;
 
-        foreach (var (slot, player) in Raid.WithSlot())
+        foreach (var (slot, player) in Raid.WithSlot(true, true, true))
         {
             var pos = player.Position;
 
@@ -1166,7 +1184,7 @@ sealed class IdyllicDreamHotBlooded : Components.StayMove
 
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID != SID.HotBlooded)
+        if (status.ID != (uint)SID.HotBlooded)
             return;
 
         _resolved = true;
@@ -1178,7 +1196,7 @@ sealed class IdyllicDreamHotBlooded : Components.StayMove
 
     public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID != SID.HotBlooded)
+        if (status.ID != (uint)SID.HotBlooded)
             return;
 
         var slot = Raid.FindSlot(actor.InstanceID);
@@ -1227,9 +1245,9 @@ sealed class LindwurmsPortent(BossModule module) : Components.GenericBaitAway(mo
         if (slot < 0)
             return;
 
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.FarawayPortent:
+            case (uint)SID.FarawayPortent:
                 _sources.Add(new Portent
                 {
                     Source = actor,
@@ -1239,7 +1257,7 @@ sealed class LindwurmsPortent(BossModule module) : Components.GenericBaitAway(mo
                 _farawayPortentSlots.Set(slot);
                 break;
 
-            case SID.NearbyPortent:
+            case (uint)SID.NearbyPortent:
                 _sources.Add(new Portent
                 {
                     Source = actor,
@@ -1275,7 +1293,7 @@ sealed class LindwurmsPortent(BossModule module) : Components.GenericBaitAway(mo
             if (s.Far)
             {
                 var maxDist = -1f;
-                foreach (var (_, player) in Raid.WithSlot())
+                foreach (var player in Raid.WithoutSlot(true, true, true))
                 {
                     var dist = (player.Position - sourcePos).LengthSq();
                     if (dist > maxDist)
@@ -1288,7 +1306,7 @@ sealed class LindwurmsPortent(BossModule module) : Components.GenericBaitAway(mo
             else
             {
                 var minDist = float.MaxValue;
-                foreach (var (_, player) in Raid.WithSlot())
+                foreach (var player in Raid.WithoutSlot(true, true, true))
                 {
                     if (player == s.Source)
                         continue;
@@ -1321,7 +1339,7 @@ sealed class LindwurmsPortent(BossModule module) : Components.GenericBaitAway(mo
         if (sharedState == null)
             return;
 
-        foreach (var (slot, actor) in Raid.WithSlot(true))
+        foreach (var (slot, actor) in Raid.WithSlot(true, true, true))
         {
             var (towerIndex, element, position) = sharedState.GetTowerSoak(slot);
             if (towerIndex < 0)
@@ -1388,7 +1406,7 @@ sealed class LindwurmsPortent(BossModule module) : Components.GenericBaitAway(mo
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID != AID.LindwurmsThunderII)
+        if (spell.Action.ID != (uint)AID.LindwurmsThunderII)
             return;
 
         NumCasts++;

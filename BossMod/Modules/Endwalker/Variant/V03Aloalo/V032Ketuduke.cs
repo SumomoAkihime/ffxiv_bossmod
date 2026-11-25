@@ -1,11 +1,5 @@
 ﻿namespace BossMod.Endwalker.Variant.V03Aloalo.V032Ketuduke;
 
-abstract class LegacyAOEs(BossModule module, uint aid = default) : Components.GenericAOEs(module, aid)
-{
-    protected abstract IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor);
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => EnumerateAOEs(slot, actor).ToArray();
-}
-
 public enum OID : uint
 {
     Boss = 0x4091, // R8.000, x1
@@ -104,14 +98,14 @@ public enum TetherID : uint
     WaterIIIStretch = 57, // Apa->player, too close
 }
 
-class TidalRoar(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.TidalRoar, (uint)AID.TidalRoarAOE, 1);
-class BubbleNet(BossModule module) : Components.RaidwideCast(module, (uint)AID.BubbleNetAOE);
-class BubbleNetSand(BossModule module) : Components.RaidwideCast(module, (uint)AID.BubbleNetSandAOE);
-class Hydrobomb(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HydrobombAOE, 5);
-class Hydroblast(BossModule module) : Components.SingleTargetCast(module, (uint)AID.Hydroblast);
-class Roar(BossModule module) : Components.CastHint(module, (uint)AID.Roar, "Zaratan adds spawning");
+sealed class TidalRoar(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.TidalRoar, (uint)AID.TidalRoarAOE, 1);
+sealed class BubbleNet(BossModule module) : Components.RaidwideCast(module, (uint)AID.BubbleNetAOE);
+sealed class BubbleNetSand(BossModule module) : Components.RaidwideCast(module, (uint)AID.BubbleNetSandAOE);
+sealed class Hydrobomb(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HydrobombAOE, 5);
+sealed class Hydroblast(BossModule module) : Components.SingleTargetCast(module, (uint)AID.Hydroblast);
+sealed class Roar(BossModule module) : Components.CastHint(module, (uint)AID.Roar, "Zaratan adds spawning");
 
-class WaterIII(BossModule module) : LegacyAOEs(module, (uint)AID.WaterIII)
+sealed class WaterIII(BossModule module) : Components.GenericAOEs(module, (uint)AID.WaterIII)
 {
     private readonly List<Actor> _casters = [];
     private readonly List<(Actor Apa, Actor Target, bool Stretched)> _tethers = [];
@@ -119,10 +113,13 @@ class WaterIII(BossModule module) : LegacyAOEs(module, (uint)AID.WaterIII)
     private const float MinStretch = 20;
     private static readonly AOEShapeCircle _tooClose = new(MinStretch);
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor)
+    private readonly List<AOEInstance> _aoesBuffer = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
+        _aoesBuffer.Clear();
         foreach (var c in _casters)
-            yield return new(_tooClose, c.Position, default, Module.CastFinishAt(c.CastInfo));
+            _aoesBuffer.Add(new(_tooClose, c.Position, default, Module.CastFinishAt(c.CastInfo)));
+        return CollectionsMarshal.AsSpan(_aoesBuffer);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -139,25 +136,27 @@ class WaterIII(BossModule module) : LegacyAOEs(module, (uint)AID.WaterIII)
 
     public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
-        if ((TetherID)tether.ID is not (TetherID.WaterIIIGood or TetherID.WaterIIIStretch))
+        if (tether.ID is not ((uint)TetherID.WaterIIIGood or (uint)TetherID.WaterIIIStretch))
             return;
-        if ((OID)source.OID != OID.SummonedApa || WorldState.Actors.Find(tether.Target) is not { } target)
+        if (source.OID != (uint)OID.SummonedApa || WorldState.Actors.Find(tether.Target) is not { } target)
             return;
 
         _tethers.RemoveAll(t => t.Apa == source || t.Target == target);
-        _tethers.Add((source, target, (TetherID)tether.ID == TetherID.WaterIIIGood));
+        _tethers.Add((source, target, tether.ID == (uint)TetherID.WaterIIIGood));
     }
 
     public override void OnUntethered(Actor source, in ActorTetherInfo tether)
     {
-        if ((OID)source.OID == OID.SummonedApa)
+        if (source.OID == (uint)OID.SummonedApa)
             _tethers.RemoveAll(t => t.Apa == source);
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        foreach (var t in _tethers.Where(t => t.Target == actor))
+        foreach (var t in _tethers)
         {
+            if (!(t.Target == actor))
+                continue;
             if (!t.Stretched)
                 hints.Add("Stretch tether!");
             else
@@ -168,8 +167,10 @@ class WaterIII(BossModule module) : LegacyAOEs(module, (uint)AID.WaterIII)
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         base.AddAIHints(slot, actor, assignment, hints);
-        foreach (var t in _tethers.Where(t => t.Target == actor && !t.Stretched))
+        foreach (var t in _tethers)
         {
+            if (!(t.Target == actor && !t.Stretched))
+                continue;
             var activation = t.Apa.CastInfo != null ? Module.CastFinishAt(t.Apa.CastInfo) : default;
             hints.AddForbiddenZone(_tooClose.Distance(t.Apa.Position, default), activation);
         }
@@ -180,42 +181,35 @@ class WaterIII(BossModule module) : LegacyAOEs(module, (uint)AID.WaterIII)
         foreach (var t in _tethers)
         {
             var color = t.Stretched ? Colors.Safe : Colors.Danger;
-            if (MiniArena.Config.ShowOutlinesAndShadows)
-                Arena.AddLine(t.Apa.Position, t.Target.Position, 0xFF000000, 2);
             Arena.AddLine(t.Apa.Position, t.Target.Position, color);
         }
     }
 }
 
-class SpringCrystals(BossModule module) : LegacyAOEs(module)
+sealed class SpringCrystals(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<(ulong InstanceID, AOEInstance AOE)> _aoes = [];
 
     private static readonly AOEShapeCircle _sphere = new(8);
     private static readonly AOEShapeRect _rect = new(38, 5, 38);
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor)
+    private readonly List<AOEInstance> _aoesBuffer = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
+        _aoesBuffer.Clear();
         // make not risky for hints if Hydrosurge is active so AI doesn't try to cross the midline
         var soften = Module.FindComponent<Hydrosurge>()?.Active == true;
         foreach (var a in _aoes)
-        {
-            var aoe = a.AOE;
-            if (soften)
-            {
-                aoe.Color = Colors.AOE;
-                aoe.Risky = false;
-            }
-            yield return aoe;
-        }
+            _aoesBuffer.Add(soften ? a.AOE with { Color = Colors.AOE, Risky = false } : a.AOE);
+        return CollectionsMarshal.AsSpan(_aoesBuffer);
     }
 
     public override void OnActorCreated(Actor actor)
     {
-        AOEShape? shape = (OID)actor.OID switch
+        AOEShape? shape = actor.OID switch
         {
-            OID.SpringCrystalSphere => _sphere,
-            OID.SpringCrystalRect => _rect,
+            (uint)OID.SpringCrystalSphere => _sphere,
+            (uint)OID.SpringCrystalRect => _rect,
             _ => null
         };
         if (shape == null)
@@ -226,9 +220,9 @@ class SpringCrystals(BossModule module) : LegacyAOEs(module)
 
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID != SID.Bubble)
+        if (status.ID != (uint)SID.Bubble)
             return;
-        if ((OID)actor.OID is not (OID.SpringCrystalSphere or OID.SpringCrystalRect))
+        if (actor.OID is not ((uint)OID.SpringCrystalSphere or (uint)OID.SpringCrystalRect))
             return;
 
         var index = _aoes.FindIndex(a => a.InstanceID == actor.InstanceID);
@@ -241,12 +235,12 @@ class SpringCrystals(BossModule module) : LegacyAOEs(module)
         ref var entry = ref _aoes.Ref(index);
         // bubble crystals move +20 towards center
         var origin = entry.AOE.Origin + new WDir(entry.AOE.Origin.X < Module.Center.X ? 20 : -20, 0);
-        entry.AOE.Origin = origin;
+        entry = (entry.InstanceID, entry.AOE with { Origin = origin });
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is not (AID.SaturateSphere or AID.SaturateSphereFast or AID.SaturateRect or AID.SaturateRectFast))
+        if (spell.Action.ID is not ((uint)AID.SaturateSphere or (uint)AID.SaturateSphereFast or (uint)AID.SaturateRect or (uint)AID.SaturateRectFast))
             return;
 
         var index = _aoes.FindIndex(a => a.InstanceID == caster.InstanceID);
@@ -255,14 +249,12 @@ class SpringCrystals(BossModule module) : LegacyAOEs(module)
 
         ref var entry = ref _aoes.Ref(index);
         // update from actor position
-        entry.AOE.Origin = caster.Position;
-        entry.AOE.Rotation = spell.Rotation;
-        entry.AOE.Activation = Module.CastFinishAt(spell);
+        entry = (entry.InstanceID, entry.AOE with { Origin = caster.Position, Rotation = spell.Rotation, Activation = Module.CastFinishAt(spell) });
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is not (AID.SaturateSphere or AID.SaturateSphereFast or AID.SaturateRect or AID.SaturateRectFast))
+        if (spell.Action.ID is not ((uint)AID.SaturateSphere or (uint)AID.SaturateSphereFast or (uint)AID.SaturateRect or (uint)AID.SaturateRectFast))
             return;
 
         _aoes.RemoveAll(a => a.InstanceID == caster.InstanceID);
@@ -271,28 +263,28 @@ class SpringCrystals(BossModule module) : LegacyAOEs(module)
 
     public override void OnActorDestroyed(Actor actor)
     {
-        if ((OID)actor.OID is OID.SpringCrystalSphere or OID.SpringCrystalRect)
+        if (actor.OID is (uint)OID.SpringCrystalSphere or (uint)OID.SpringCrystalRect)
             _aoes.RemoveAll(a => a.InstanceID == actor.InstanceID);
     }
 }
 
-class StrewnBubbles(BossModule module) : LegacyAOEs(module)
+sealed class StrewnBubbles(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<AOEInstance> _aoes = [];
 
     private static readonly AOEShapeRect _shape = new(20, 5);
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor) => _aoes.Take(4);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Count > 4 ? CollectionsMarshal.AsSpan(_aoes)[..4] : CollectionsMarshal.AsSpan(_aoes);
 
     public override void OnActorCreated(Actor actor)
     {
-        if ((OID)actor.OID == OID.BubbleStrewer)
+        if (actor.OID == (uint)OID.BubbleStrewer)
             _aoes.Add(new(_shape, actor.Position, actor.Rotation, WorldState.FutureTime(5.8f)));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID != AID.SphereShatter)
+        if (spell.Action.ID != (uint)AID.SphereShatter)
             return;
 
         var count = _aoes.RemoveAll(aoe => aoe.Origin.AlmostEqual(caster.Position, 1));
@@ -302,24 +294,24 @@ class StrewnBubbles(BossModule module) : LegacyAOEs(module)
     }
 }
 
-class Twintides(BossModule module) : LegacyAOEs(module)
+sealed class Twintides(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<AOEInstance> _aoes = [];
 
     private static readonly AOEShapeCircle _shapeOut = new(14);
     private static readonly AOEShapeDonut _shapeIn = new(8, 60);
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor) => _aoes.Take(1);
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Count > 1 ? CollectionsMarshal.AsSpan(_aoes)[..1] : CollectionsMarshal.AsSpan(_aoes);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.RecedingTwintides:
+            case (uint)AID.RecedingTwintides:
                 _aoes.Add(new(_shapeOut, caster.Position, default, Module.CastFinishAt(spell)));
                 _aoes.Add(new(_shapeIn, caster.Position, default, Module.CastFinishAt(spell, 3.6f)));
                 break;
-            case AID.EncroachingTwintides:
+            case (uint)AID.EncroachingTwintides:
                 _aoes.Add(new(_shapeIn, caster.Position, default, Module.CastFinishAt(spell)));
                 _aoes.Add(new(_shapeOut, caster.Position, default, Module.CastFinishAt(spell, 3.6f)));
                 break;
@@ -328,7 +320,7 @@ class Twintides(BossModule module) : LegacyAOEs(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.RecedingTwintides or AID.EncroachingTwintides or AID.FarTide or AID.NearTide)
+        if (spell.Action.ID is (uint)AID.RecedingTwintides or (uint)AID.EncroachingTwintides or (uint)AID.FarTide or (uint)AID.NearTide)
         {
             ++NumCasts;
             if (_aoes.Count > 0)
@@ -337,7 +329,7 @@ class Twintides(BossModule module) : LegacyAOEs(module)
     }
 }
 
-class BlowingBubbles(BossModule module) : BossComponent(module)
+sealed class BlowingBubbles(BossModule module) : BossComponent(module)
 {
     private readonly List<Actor> _bubbles = [];
 
@@ -345,13 +337,13 @@ class BlowingBubbles(BossModule module) : BossComponent(module)
 
     public override void OnActorCreated(Actor actor)
     {
-        if ((OID)actor.OID == OID.AiryBubble)
+        if (actor.OID == (uint)OID.AiryBubble)
             _bubbles.Add(actor);
     }
 
     public override void OnActorDestroyed(Actor actor)
     {
-        if ((OID)actor.OID == OID.AiryBubble)
+        if (actor.OID == (uint)OID.AiryBubble)
             _bubbles.Remove(actor);
     }
 
@@ -368,7 +360,7 @@ class BlowingBubbles(BossModule module) : BossComponent(module)
     }
 }
 
-class TidalWave(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.TidalWaveAOE, 27, ignoreImmunes: true, shape: new AOEShapeRect(46, 23), kind: Kind.DirForward)
+sealed class TidalWave(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.TidalWaveAOE, 27, ignoreImmunes: true, shape: new AOEShapeRect(46, 23), kind: Kind.DirForward)
 {
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
@@ -385,75 +377,97 @@ class TidalWave(BossModule module) : Components.SimpleKnockbacks(module, (uint)A
     }
 }
 
-class Hydrosurge(BossModule module) : LegacyAOEs(module)
+sealed class Hydrosurge(BossModule module) : Components.GenericAOEs(module)
 {
     private AOEInstance? _aoe;
     private static readonly AOEShapeRect _shape = new(20, 5, 20);
 
     public bool Active => _aoe != null;
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor)
+    private readonly List<AOEInstance> _aoesBuffer = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
+        _aoesBuffer.Clear();
         if (_aoe is { } aoe)
-            yield return aoe;
+            _aoesBuffer.Add(aoe);
+        return CollectionsMarshal.AsSpan(_aoesBuffer);
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.HydrosurgeAOE)
+        if (spell.Action.ID == (uint)AID.HydrosurgeAOE)
             _aoe = new(_shape, caster.Position, spell.Rotation, WorldState.CurrentTime);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.FlukeTyphoonAnila)
+        if (spell.Action.ID == (uint)AID.FlukeTyphoonAnila)
             _aoe = null;
     }
 }
 
-class WavefoamBubbles(BossModule module) : Components.GenericTowers(module)
+sealed class WavefoamBubbles(BossModule module) : Components.GenericTowers(module)
 {
     private bool _ogrebonBubbled;
 
     public override void Update()
     {
-        var ogrebon = Module.Enemies((uint)OID.AloaloOgrebon).FirstOrDefault(o => !o.IsDeadOrDestroyed);
+        Actor? ogrebon = null;
+        foreach (var o in Module.Enemies((uint)OID.AloaloOgrebon))
+        {
+            if (!o.IsDeadOrDestroyed)
+            {
+                ogrebon = o;
+                break;
+            }
+        }
         if (ogrebon == null)
         {
             _ogrebonBubbled = false;
             return;
         }
 
-        _ogrebonBubbled = ogrebon.FindStatus(SID.Bubble) != null;
+        _ogrebonBubbled = ogrebon.FindStatus((uint)SID.Bubble) != null;
         if (_ogrebonBubbled)
             Towers.Clear();
         else
         {
             foreach (var b in Module.Enemies((uint)OID.WavefoamBubble))
-                if (!Towers.Any(t => t.Position.AlmostEqual(b.Position, 1)))
+            {
+                var known = false;
+                for (var i = 0; i < Towers.Count; ++i)
+                {
+                    if (Towers[i].Position.AlmostEqual(b.Position, 1f))
+                    {
+                        known = true;
+                        break;
+                    }
+                }
+                if (!known)
                     Towers.Add(new(b.Position, 2, activation: WorldState.FutureTime(8)));
+            }
         }
     }
 
     public override void OnActorCreated(Actor actor)
     {
-        if ((OID)actor.OID != OID.WavefoamBubble)
+        if (actor.OID != (uint)OID.WavefoamBubble)
             return;
         // if fish is bubbled, don't soak towers
-        if (Module.Enemies((uint)OID.AloaloOgrebon).Any(o => !o.IsDeadOrDestroyed && o.FindStatus(SID.Bubble) != null))
+        if (Module.Enemies((uint)OID.AloaloOgrebon).Any(o => !o.IsDeadOrDestroyed && o.FindStatus((uint)SID.Bubble) != null))
             return;
         Towers.Add(new(actor.Position, 2, activation: WorldState.FutureTime(12)));
     }
 
     public override void OnActorDestroyed(Actor actor)
     {
-        if ((OID)actor.OID == OID.WavefoamBubble)
+        if (actor.OID == (uint)OID.WavefoamBubble)
             Towers.RemoveAll(t => t.Position.AlmostEqual(actor.Position, 1));
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.FlukeTyphoonAnila or AID.AerialShockAOE or AID.UpdraftStoneAOE)
+        if (spell.Action.ID is (uint)AID.FlukeTyphoonAnila or (uint)AID.AerialShockAOE or (uint)AID.UpdraftStoneAOE)
             Towers.Clear();
     }
 
@@ -469,24 +483,24 @@ class WavefoamBubbles(BossModule module) : Components.GenericTowers(module)
     }
 }
 
-class FlukeTyphoonAnila(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.FlukeTyphoonAnila, 20, ignoreImmunes: true, shape: new AOEShapeRect(40, 20), kind: Kind.DirForward);
+sealed class FlukeTyphoonAnila(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.FlukeTyphoonAnila, 20, ignoreImmunes: true, shape: new AOEShapeRect(40, 20), kind: Kind.DirForward);
 
-class AerialShock(BossModule module) : LegacyAOEs(module, (uint)AID.AerialShockAOE)
+sealed class AerialShock(BossModule module) : Components.GenericAOEs(module, (uint)AID.AerialShockAOE)
 {
     private AOEInstance? _aoe;
     private static readonly AOEShapeCircle _shape = new(35);
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor)
+    private readonly List<AOEInstance> _aoesBuffer = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
+        _aoesBuffer.Clear();
         if (_aoe is not { } aoe)
-            yield break;
-        var ogrebonBubbled = Module.Enemies((uint)OID.AloaloOgrebon).Any(o => o.FindStatus(SID.Bubble) != null);
-        if (ogrebonBubbled)
-        {
-            aoe.Color = Colors.SafeFromAOE;
-            aoe.Risky = false;
-        }
-        yield return aoe;
+            return CollectionsMarshal.AsSpan(_aoesBuffer);
+        var ogrebonBubbled = false;
+        foreach (var o in Module.Enemies((uint)OID.AloaloOgrebon))
+            ogrebonBubbled |= o.FindStatus((uint)SID.Bubble) != null;
+        _aoesBuffer.Add(ogrebonBubbled ? aoe with { Color = Colors.SafeFromAOE, Risky = false } : aoe);
+        return CollectionsMarshal.AsSpan(_aoesBuffer);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -502,29 +516,26 @@ class AerialShock(BossModule module) : LegacyAOEs(module, (uint)AID.AerialShockA
     }
 }
 
-class HundredLashings(BossModule module) : LegacyAOEs(module)
+sealed class HundredLashings(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<(Actor Caster, AOEInstance AOE, bool Bubbled)> _aoes = [];
     private static readonly AOEShapeCone _shape = new(60, 90.Degrees());
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor)
+    private readonly List<AOEInstance> _aoesBuffer = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
+        _aoesBuffer.Clear();
         foreach (var a in _aoes)
         {
             // bubbled half safe
-            var aoe = a.AOE;
-            if (a.Bubbled)
-            {
-                aoe.Color = Colors.SafeFromAOE;
-                aoe.Risky = false;
-            }
-            yield return aoe;
+            _aoesBuffer.Add(a.Bubbled ? (a.AOE with { Color = Colors.SafeFromAOE, Risky = false }) : a.AOE);
         }
+        return CollectionsMarshal.AsSpan(_aoesBuffer);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID != AID.HundredLashings)
+        if (spell.Action.ID != (uint)AID.HundredLashings)
             return;
         var bubbled = caster.FindStatus((uint)SID.Bubble) != null;
         _aoes.Add((caster, new(_shape, caster.Position, spell.Rotation, Module.CastFinishAt(spell)), bubbled));
@@ -532,7 +543,7 @@ class HundredLashings(BossModule module) : LegacyAOEs(module)
 
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID != SID.Bubble || (OID)actor.OID != OID.AloaloZaratan)
+        if (status.ID != (uint)SID.Bubble || actor.OID != (uint)OID.AloaloZaratan)
             return;
         var i = _aoes.FindIndex(a => a.Caster == actor);
         if (i >= 0)
@@ -544,13 +555,13 @@ class HundredLashings(BossModule module) : LegacyAOEs(module)
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.HundredLashings or AID.HundredLashingsVisual or AID.HundredLashingsElevated)
+        if (spell.Action.ID is (uint)AID.HundredLashings or (uint)AID.HundredLashingsVisual or (uint)AID.HundredLashingsElevated)
             _aoes.RemoveAll(a => a.Caster == caster || a.Caster.InstanceID == caster.InstanceID);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is AID.HundredLashings or AID.HundredLashingsElevated)
+        if (spell.Action.ID is (uint)AID.HundredLashings or (uint)AID.HundredLashingsElevated)
         {
             _aoes.RemoveAll(a => a.Caster == caster || a.AOE.Origin.AlmostEqual(caster.Position, 1));
             ++NumCasts;
@@ -558,7 +569,7 @@ class HundredLashings(BossModule module) : LegacyAOEs(module)
     }
 }
 
-class V032KetudukeStates : StateMachineBuilder
+sealed class V032KetudukeStates : StateMachineBuilder
 {
     public V032KetudukeStates(BossModule module) : base(module)
     {
@@ -583,5 +594,5 @@ class V032KetudukeStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 961, NameID = 12605, Contributors = "croizat")]
-public class V032Ketuduke(WorldState ws, Actor primary) : BossModule(ws, primary, new(-790, -395), new ArenaBoundsSquare(20));
+[ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 961, NameID = 12605, Contributors = "croizat (ported from upstream by LTS)")]
+public sealed class V032Ketuduke(WorldState ws, Actor primary) : BossModule(ws, primary, new(-790, -395), new ArenaBoundsSquare(20));

@@ -20,15 +20,23 @@ sealed class P3OversampledWaveCannon(BossModule module) : BossComponent(module)
         if (_playerOrder[slot] != 0)
             hints.Add($"Order: {(IsMonitor(slot) != default ? "M" : "N")}{_playerOrder[slot]}", false);
 
-        var numHitBy = AOEs(slot).Count(a => !a.source && _shape.Check(actor.Position, a.origin, a.rot));
+        var aoes = AOEs(slot);
+        var numHitBy = 0;
+        for (var i = 0; i < aoes.Length; ++i)
+        {
+            var a = aoes[i];
+            if (!a.source && _shape.Check(actor.Position, a.origin, a.rot))
+                ++numHitBy;
+        }
         if (numHitBy != 1)
             hints.Add($"Hit by {numHitBy} monitors!");
     }
 
     public override void AddMovementHints(int slot, Actor actor, MovementHints movementHints)
     {
-        foreach (var p in SafeSpots(slot).Where(p => p.assigned))
-            movementHints.Add(actor.Position, p.pos, Colors.Safe);
+        foreach (var p in SafeSpots(slot))
+            if (p.assigned)
+                movementHints.Add(actor.Position, p.pos, Colors.Safe);
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
@@ -53,26 +61,31 @@ sealed class P3OversampledWaveCannon(BossModule module) : BossComponent(module)
         al.Forbidden.Clear();
         al.Center = actor.Position;
 
-        var safeConePlayers = Raid.WithoutSlot(false, true, true).ClockOrder(actor, Arena.Center, !targetCW).Skip(2).Take(2).ToList();
-        if (safeConePlayers.Count < 2)
-            return;
+        var raid = Raid.WithoutSlot(false, true, true);
+        var raidL = ArrayListWrapper<Actor>.Wrap(raid);
+        var safeConePlayers = raidL.ClockOrder(actor, Arena.Center, !targetCW);
+        if (safeConePlayers.Length >= 4)
+        {
+            var scp = safeConePlayers.AsSpan().Slice(2, 2);
+            if (targetCW)
+            {
+                scp.Reverse();
+            }
 
-        if (targetCW)
-            safeConePlayers.Reverse();
+            var angleRight = actor.AngleTo(scp[0]);
+            var angleLeft = actor.AngleTo(scp[1]);
 
-        var angleRight = actor.AngleTo(safeConePlayers[0]);
-        var angleLeft = actor.AngleTo(safeConePlayers[1]);
+            // forbid angle ranges that don't face the player toward or away from their intended targets
+            al.ForbidArc(angleLeft, (angleRight + 180f.Degrees()).Normalized());
+            al.ForbidArc((angleLeft + 180f.Degrees()).Normalized(), angleRight);
 
-        // forbid angle ranges that don't face the player toward or away from their intended targets
-        al.ForbidArc(angleLeft, (angleRight + 180f.Degrees()).Normalized());
-        al.ForbidArc((angleLeft + 180f.Degrees()).Normalized(), angleRight);
+            // forbid any angle that would hit the boss with the monitor; eliminates one of the two remaining facing cones
+            var dirToUnsafeCleave = actor.DirectionTo(Arena.Center).ToAngle() - _playerAngles[slot];
+            al.ForbidArc(dirToUnsafeCleave - 90.Degrees(), dirToUnsafeCleave + 90f.Degrees());
 
-        // forbid any angle that would hit the boss with the monitor; eliminates one of the two remaining facing cones
-        var dirToUnsafeCleave = actor.DirectionTo(Arena.Center).ToAngle() - _playerAngles[slot];
-        al.ForbidArc(dirToUnsafeCleave - 90.Degrees(), dirToUnsafeCleave + 90f.Degrees());
-
-        foreach (var (min, max) in al.Forbidden.Segments)
-            hints.ForbiddenDirections.Add((((max + min) * 0.5f).Radians(), ((max - min) * 0.5f).Radians() + 1f.Degrees(), _resolve));
+            foreach (var (min, max) in al.Forbidden.Segments)
+                hints.ForbiddenDirections.Add((((max + min) * 0.5f).Radians(), ((max - min) * 0.5f).Radians() + 1f.Degrees(), _resolve));
+        }
     }
 
     public override void DrawArenaBackground(int pcSlot, Actor pc)

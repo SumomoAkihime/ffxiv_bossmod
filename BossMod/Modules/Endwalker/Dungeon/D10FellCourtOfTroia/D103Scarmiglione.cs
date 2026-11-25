@@ -187,7 +187,11 @@ sealed class ArenaChanges(BossModule module) : Components.GenericAOEs(module)
     public override void Update()
     {
         // safety precaution so AI can properly pathfind back into arena if it somehow got knocked out of it...
-        var player = Raid.Player()!.Position;
+        if (Raid.Player() is not Actor pc)
+        {
+            return;
+        }
+        var player = pc.Position;
         if (_aoe.Length == 0 && defaultArena && !Arena.InBounds(player))
         {
             _aoe = [new(donut, Arena.Center)];

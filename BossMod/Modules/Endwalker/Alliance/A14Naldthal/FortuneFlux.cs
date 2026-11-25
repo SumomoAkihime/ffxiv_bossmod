@@ -126,6 +126,7 @@ class FortuneFluxAOE(BossModule module) : Components.GenericAOEs(module)
 
     private static readonly AOEShapeCircle _shape = new(20f);
 
+    private AOEInstance[] _aoesBuffer = [];
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
 
@@ -142,7 +143,10 @@ class FortuneFluxAOE(BossModule module) : Components.GenericAOEs(module)
         if (validCount == 0)
             return [];
 
-        var aoes = new AOEInstance[validCount];
+        var aoesLen = validCount;
+        if (_aoesBuffer.Length < aoesLen)
+            _aoesBuffer = new AOEInstance[aoesLen];
+        var aoes = _aoesBuffer;
         var index = 0;
 
         for (var i = _order.NumComplete; i < count; ++i)
@@ -151,7 +155,7 @@ class FortuneFluxAOE(BossModule module) : Components.GenericAOEs(module)
             if (m.mechanic == FortuneFluxOrder.Mechanic.AOE)
                 aoes[index++] = new(_shape, m.source, default, m.activation);
         }
-        return aoes;
+        return aoes.AsSpan(0, aoesLen);
     }
 }
 
@@ -160,6 +164,7 @@ class FortuneFluxKnockback(BossModule module) : Components.GenericKnockback(modu
     private readonly FortuneFluxOrder? _order = module.FindComponent<FortuneFluxOrder>();
     private static readonly Angle a45 = 45f.Degrees(), a180 = 180f.Degrees();
 
+    private Knockback[] _sourcesBuffer = [];
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
         if (_order == null || _order.Mechanics.Count <= _order.NumComplete)
@@ -179,7 +184,10 @@ class FortuneFluxKnockback(BossModule module) : Components.GenericKnockback(modu
         if (count == 0)
             return [];
 
-        var sources = new Knockback[count];
+        var sourcesLen = count;
+        if (_sourcesBuffer.Length < sourcesLen)
+            _sourcesBuffer = new Knockback[sourcesLen];
+        var sources = _sourcesBuffer;
         var index = 0;
 
         for (var i = _order.NumComplete; i < countM; ++i)
@@ -189,7 +197,7 @@ class FortuneFluxKnockback(BossModule module) : Components.GenericKnockback(modu
                 sources[index++] = new(m.source, 30f, m.activation);
         }
 
-        return sources;
+        return sources.AsSpan(0, sourcesLen);
     }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)

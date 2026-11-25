@@ -70,7 +70,7 @@ sealed class WorldStateGameSync : IDisposable
     private readonly Hook<ProcessMapEffectNDelegate> _processMapEffect3Hook;
 
     public unsafe delegate byte ProcessLegacyMapEffectDelegate(EventFramework* fwk, EventId eventId, byte seq, byte unk, void* data, ulong length);
-    private readonly Hook<ProcessLegacyMapEffectDelegate> _processLegacyMapEffectHook;
+    private readonly Hook<ProcessLegacyMapEffectDelegate>? _processLegacyMapEffectHook;
 
     private unsafe delegate void ProcessPacketRSVDataDelegate(byte* packet);
     private readonly Hook<ProcessPacketRSVDataDelegate> _processPacketRSVDataHook;
@@ -95,7 +95,7 @@ sealed class WorldStateGameSync : IDisposable
     private unsafe delegate void ProcessPacketPlayActionTimelineSync(Network.ServerIPC.PlayActionTimelineSync* data);
     private readonly Hook<ProcessPacketPlayActionTimelineSync> _processPlayActionTimelineSyncHook;
 
-    private readonly Hook<ActionManager.Delegates.GetActionInRangeOrLoS> _getActionInRangeOrLoSHook;
+    private readonly Hook<ActionManager.Delegates.GetActionInRangeOrLoS>? _getActionInRangeOrLoSHook;
 
     public unsafe WorldStateGameSync(WorldState ws, ActionManagerEx amex)
     {
@@ -179,9 +179,16 @@ sealed class WorldStateGameSync : IDisposable
         _calculateMoveSpeedMulti = (delegate* unmanaged<ContainerInterface*, float>)Service.SigScanner.ScanText("E8 ?? ?? ?? ?? 44 0F 28 D8 45 0F 57 D2");
         Service.Log($"[WSG] CalculateMovementSpeedMultiplier address = 0x{(nint)_calculateMoveSpeedMulti:X}");
 
-        _processLegacyMapEffectHook = Service.Hook.HookFromSignature<ProcessLegacyMapEffectDelegate>("89 54 24 10 48 89 4C 24 ?? 53 56 57 41 55 41 57 48 83 EC 30 48 8B 99 ?? ?? ?? ??", ProcessLegacyMapEffectDetour);
-        _processLegacyMapEffectHook.Enable();
-        Service.Log($"[WSG] LegacyMapEffect address = {_processLegacyMapEffectHook.Address:X}");
+        if (Service.SigScanner.TryScanText("89 54 24 10 48 89 4C 24 ?? 53 56 57 41 55 41 57 48 83 EC 30 48 8B 99 ?? ?? ?? ??", out var legacyMapEffectAddr) && legacyMapEffectAddr != 0)
+        {
+            _processLegacyMapEffectHook = Service.Hook.HookFromAddress<ProcessLegacyMapEffectDelegate>(legacyMapEffectAddr, ProcessLegacyMapEffectDetour);
+            _processLegacyMapEffectHook.Enable();
+            Service.Log($"[WSG] LegacyMapEffect address = {_processLegacyMapEffectHook.Address:X}");
+        }
+        else
+        {
+            Service.Log("[WSG] LegacyMapEffect signature unavailable; hook skipped");
+        }
 
         _inventoryAckHook = Service.Hook.HookFromSignature<InventoryAckDelegate>("48 89 5C 24 ?? 57 48 83 EC 30 48 8B 05 ?? ?? ?? ?? 48 8B D9 41 0F B6 50 ??", InventoryAckDetour);
         _inventoryAckHook.Enable();
@@ -191,16 +198,24 @@ sealed class WorldStateGameSync : IDisposable
         _processPlayActionTimelineSyncHook.Enable();
         Service.Log($"[WSG] ProcessPlayActionTimelineSync address = {_processPlayActionTimelineSyncHook.Address:X}");
 
-        _getActionInRangeOrLoSHook = Service.Hook.HookFromAddress<ActionManager.Delegates.GetActionInRangeOrLoS>((nint)ActionManager.MemberFunctionPointers.GetActionInRangeOrLoS, GetActionInRangeOrLoSDetour);
-        _getActionInRangeOrLoSHook.Enable();
-        Service.Log($"[WSG] GetActionInRangeOrLoS address = 0x{_getActionInRangeOrLoSHook.Address:X}");
+        var getActionInRangeOrLoSAddr = (nint)ActionManager.MemberFunctionPointers.GetActionInRangeOrLoS;
+        if (getActionInRangeOrLoSAddr != 0)
+        {
+            _getActionInRangeOrLoSHook = Service.Hook.HookFromAddress<ActionManager.Delegates.GetActionInRangeOrLoS>(getActionInRangeOrLoSAddr, GetActionInRangeOrLoSDetour);
+            _getActionInRangeOrLoSHook.Enable();
+            Service.Log($"[WSG] GetActionInRangeOrLoS address = 0x{_getActionInRangeOrLoSHook.Address:X}");
+        }
+        else
+        {
+            Service.Log("[WSG] GetActionInRangeOrLoS address is null — hook skipped (CS may need updating for this client)");
+        }
     }
 
     public void Dispose()
     {
         _processPlayActionTimelineSyncHook.Dispose();
         _inventoryAckHook.Dispose();
-        _processLegacyMapEffectHook.Dispose();
+        _processLegacyMapEffectHook?.Dispose();
         _processMapEffect1Hook.Dispose();
         _processMapEffect2Hook.Dispose();
         _processMapEffect3Hook.Dispose();
@@ -215,7 +230,7 @@ sealed class WorldStateGameSync : IDisposable
         _processPacketOpenTreasureHook.Dispose();
         _processPacketFateTradeHook.Dispose();
         _processPacketFateInfoHook.Dispose();
-        _getActionInRangeOrLoSHook.Dispose();
+        _getActionInRangeOrLoSHook?.Dispose();
         _subscriptions.Dispose();
         _latencyProbe.Dispose();
         _netConfig.Dispose();
@@ -409,7 +424,7 @@ sealed class WorldStateGameSync : IDisposable
             act = _actorsByIndex[index] = _ws.Actors.Find(obj->EntityId)!;
 
             // note: for now, we continue relying on network messages for tether changes, since sometimes multiple changes can happen in a single frame, and some components rely on seeing all of them...
-            var tether = chr != null ? new ActorTetherInfo(chr->Vfx.Tethers[0].Id, chr->Vfx.Tethers[0].TargetId) : default;
+            var tether = chr != null ? new ActorTetherInfo(chr->Vfx.Tethers[0].Id, SanitizedObjectID(chr->Vfx.Tethers[0].TargetId)) : default;
             if (tether.ID != default)
             {
                 _ws.Execute(new ActorState.OpTether(act.InstanceID, tether));
@@ -713,8 +728,8 @@ sealed class WorldStateGameSync : IDisposable
             ref var m = ref _ws.Party.Members[i];
             if (m.ContentId != 0)
             {
-                // slot was occupied by player => see if it's still in party; either update to current state or clear if it's no longer in party
-                var member = group->GetPartyMemberByContentId(m.ContentId);
+                // clear the current POV's previous slot after a replay viewpoint change, so the former POV can be added below
+                var member = m.ContentId == _ws.Party.Members[PartyState.PlayerSlot].ContentId ? null : group->GetPartyMemberByContentId(m.ContentId);
                 UpdatePartySlot(i, BuildPartyMember(member));
             }
             else if (m.InstanceId != 0)
@@ -1218,16 +1233,34 @@ sealed class WorldStateGameSync : IDisposable
 
     private unsafe ClientState.Gauge GaugeData()
     {
-        var curGauge = JobGaugeManager.Instance()->CurrentGauge;
-        return curGauge != null ? new(Utils.ReadField<ulong>(curGauge, 8), Utils.ReadField<ulong>(curGauge, 16)) : default;
+        var mgr = JobGaugeManager.Instance();
+        var curGauge = mgr->CurrentGauge;
+        if (curGauge == null)
+        {
+            return default;
+        }
+        var readHigh = (Class)mgr->ClassJobId is Class.DRK or Class.AST or Class.BLM or Class.RDM or Class.RPR or Class.VPR or Class.BST;
+        return new(Utils.ReadField<ulong>(curGauge, 8), readHigh ? Utils.ReadField<ulong>(curGauge, 16) : 0ul);
     }
+
+    private static bool IsNoisyServerPacket(Network.ServerIPC.PacketID id) => id is
+        Network.ServerIPC.PacketID.ActorMove or
+        Network.ServerIPC.PacketID.ActorSetPos or
+        Network.ServerIPC.PacketID.UpdateHate or
+        Network.ServerIPC.PacketID.UpdateHater or
+        Network.ServerIPC.PacketID.UpdateHpMpTp or
+        Network.ServerIPC.PacketID.UpdateClassInfo or
+        Network.ServerIPC.PacketID.PlayerStats or
+        Network.ServerIPC.PacketID.CharaVisualEffect or
+        Network.ServerIPC.PacketID.ItemInfo or
+        Network.ServerIPC.PacketID.ContainerInfo;
 
     private unsafe void ServerIPCReceived(DateTime sendTimestamp, uint sourceServerActor, uint targetServerActor, ushort opcode, uint epoch, Span<byte> payload)
     {
         var id = _opcodeMap.ID(opcode);
         // targetServerActor is always a player?..
         var ipc = new NetworkState.ServerIPC(id, opcode, epoch, sourceServerActor, sendTimestamp, [.. payload]);
-        if (_netConfig.Data.RecordServerPackets)
+        if (_netConfig.Data.RecordServerPackets && (!_netConfig.Data.FilterNoisyServerPackets || !IsNoisyServerPacket(id)))
         {
             _globalOps.Add(new NetworkState.OpServerIPC(ipc));
         }
@@ -1294,13 +1327,13 @@ sealed class WorldStateGameSync : IDisposable
         switch ((Network.ServerIPC.ActorControlCategory)category)
         {
             case Network.ServerIPC.ActorControlCategory.TargetIcon:
-                _actorOps.GetOrAdd(actorID).Add(new ActorState.OpIcon(actorID, p1 - Network.IDScramble.Delta, p2));
+                _actorOps.GetOrAdd(actorID).Add(new ActorState.OpIcon(actorID, p1 - Network.IDScramble.Delta, SanitizedObjectID(p2)));
                 break;
             case Network.ServerIPC.ActorControlCategory.TargetVFX:
                 _actorOps.GetOrAdd(actorID).Add(new ActorState.OpVFX(actorID, p1, p2));
                 break;
             case Network.ServerIPC.ActorControlCategory.Tether:
-                _actorOps.GetOrAdd(actorID).Add(new ActorState.OpTether(actorID, new(p2, p3)));
+                _actorOps.GetOrAdd(actorID).Add(new ActorState.OpTether(actorID, new(p2, SanitizedObjectID(p3))));
                 break;
             case Network.ServerIPC.ActorControlCategory.TetherCancel:
                 // note: this seems to clear tether only if existing matches p2
@@ -1406,7 +1439,7 @@ sealed class WorldStateGameSync : IDisposable
 
     private unsafe byte ProcessLegacyMapEffectDetour(EventFramework* fwk, EventId eventId, byte seq, byte unk, void* data, ulong length)
     {
-        var res = _processLegacyMapEffectHook.Original(fwk, eventId, seq, unk, data, length);
+        var res = _processLegacyMapEffectHook!.Original(fwk, eventId, seq, unk, data, length);
         _globalOps.Add(new WorldState.OpLegacyMapEffect(seq, unk, new Span<byte>(data, (int)length).ToArray()));
         return res;
     }
@@ -1446,7 +1479,7 @@ sealed class WorldStateGameSync : IDisposable
 
     private unsafe uint GetActionInRangeOrLoSDetour(uint actionId, GameObject* sourceObject, GameObject* targetObject)
     {
-        var res = _getActionInRangeOrLoSHook.Original(actionId, sourceObject, targetObject);
+        var res = _getActionInRangeOrLoSHook!.Original(actionId, sourceObject, targetObject);
         if (res is 562 && sourceObject->EntityId == UIState.Instance()->PlayerState.EntityId)
             _globalOps.Add(new ClientState.OpActionFailedLoS(actionId, SanitizedObjectID(targetObject->EntityId)));
         return res;

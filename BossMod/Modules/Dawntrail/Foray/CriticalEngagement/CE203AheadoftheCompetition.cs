@@ -79,11 +79,11 @@ sealed class Shock(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        AOEShape? shape = (AID)spell.Action.ID switch
+        AOEShape? shape = spell.Action.ID switch
         {
-            AID.Shock => new AOEShapeCircle(10.0f),
-            AID.LevinRingMiddle => new AOEShapeDonut(10.0f, 20.0f),
-            AID.LevinRingOuter => new AOEShapeDonut(20.0f, 30.0f),
+            (uint)AID.Shock => new AOEShapeCircle(10.0f),
+            (uint)AID.LevinRingMiddle => new AOEShapeDonut(10.0f, 20.0f),
+            (uint)AID.LevinRingOuter => new AOEShapeDonut(20.0f, 30.0f),
             _ => null
         };
 
@@ -175,8 +175,30 @@ sealed class ManyHeadedBreath(BossModule module) : Components.GenericAOEs(module
     }
 }
 
-sealed class Dissipate(BossModule module) : Components.Voidzone(module, 8.5f, module => module.Enemies((uint)OID.PoisonOrb).Where(z => z.EventState != 7))
+sealed class Dissipate(BossModule module) : Components.Voidzone(module, 8.5f, GetVoidzones)
 {
+    private readonly List<AOEInstance> _aoesBuffer = [];
+    private static Actor[] GetVoidzones(BossModule module)
+    {
+        var enemies = module.Enemies((uint)OID.PoisonOrb);
+        var count = enemies.Count;
+        if (count == 0)
+        {
+            return [];
+        }
+        var voidzones = new Actor[count];
+        var index = 0;
+        for (var i = 0; i < count; ++i)
+        {
+            var z = enemies[i];
+            if (z.EventState != 7)
+            {
+                voidzones[index++] = z;
+            }
+        }
+        return voidzones[..index];
+    }
+
     private bool active = false;
 
     public override void OnActorEAnim(Actor actor, uint state)
@@ -197,7 +219,8 @@ sealed class Dissipate(BossModule module) : Components.Voidzone(module, 8.5f, mo
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        var aoes = new List<AOEInstance>();
+        var aoes = _aoesBuffer;
+        aoes.Clear();
 
         foreach (var source in Sources(Module))
         {
@@ -244,7 +267,17 @@ sealed class CE203AheadoftheCompetitionStates : StateMachineBuilder
     SortOrder = 14,
     PlanLevel = 0)]
 [SkipLocalsInit]
-public sealed class CE203AheadoftheCompetition(WorldState ws, Actor primary) : BossModule(ws, primary, new(-82.000f, 485.000f), new ArenaBoundsCircle(20f))
+public sealed class CE203AheadoftheCompetition : BossModule
 {
-    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 20f);
+    public CE203AheadoftheCompetition(WorldState ws, Actor primary) : this(ws, primary, BuildArena()) { }
+
+    private CE203AheadoftheCompetition(WorldState ws, Actor primary, (WPos center, ArenaBoundsCustom arena) a) : base(ws, primary, a.center, a.arena) { }
+
+    private static (WPos center, ArenaBoundsCustom arena) BuildArena()
+    {
+        var arena = new ArenaBoundsCustom([new Polygon(new(-82f, 485f), 19.5f, 32)]);
+        return (arena.Center, arena);
+    }
+
+    protected override bool CheckPull() => base.CheckPull() && Raid.Player() is Actor player && player.Position.InCircle(Arena.Center, 20f);
 }

@@ -180,6 +180,7 @@ sealed class Burst(BossModule module) : Components.GenericAOEs(module)
 }
 
 sealed class Immersion(BossModule module) : Components.RaidwideCast(module, (uint)AID.Immersion);
+sealed class TroublesomeTail(BossModule module) : Components.RaidwideCast(module, (uint)AID.TroublesomeTail);
 sealed class WorrisomeWaveBoss(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WorrisomeWave1, WorrisomeWavePlayer.Cone);
 
 sealed class WorrisomeWavePlayer(BossModule module) : Components.GenericBaitAway(module, centerAtTarget: true)
@@ -235,7 +236,11 @@ sealed class WorrisomeWavePlayer(BossModule module) : Components.GenericBaitAway
             var lenP = party.Length;
             for (var j = 0; j < lenP; ++j)
             {
-                hints.ForbiddenDirections.Add((Angle.FromDirection(party[j].Position - pos), angle, act));
+                var p = party[j];
+                if (p != actor) // direction to self is undefined and would forbid facing north
+                {
+                    hints.ForbiddenDirections.Add((Angle.FromDirection(p.Position - pos), angle, act));
+                }
             }
         }
     }
@@ -248,6 +253,7 @@ sealed class D031FeatherRayStates : StateMachineBuilder
         TrivialPhase()
             .ActivateOnEnter<AiryBubble>()
             .ActivateOnEnter<Immersion>()
+            .ActivateOnEnter<TroublesomeTail>()
             .ActivateOnEnter<Burst>()
             .ActivateOnEnter<HydroRing>()
             .ActivateOnEnter<WorrisomeWaveBoss>()

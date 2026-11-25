@@ -45,26 +45,30 @@ class CarnemLevareDonut(BossModule module) : Components.GenericAOEs(module)
     private static readonly Angle a90 = 90.Degrees();
     private static readonly AOEShapeDonutSector[] sectors = [new(12, 17, a90), new(2, 7, a90), new(17, 22, a90), new(7, 12, a90)];
 
+    private AOEInstance[] _aoesBuffer = [];
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         var count = _aoes.Count;
         if (count == 0)
             return [];
         var max = count > 4 ? 4 : count;
-        var aoes = new AOEInstance[max];
+        var aoesLen = max;
+        if (_aoesBuffer.Length < aoesLen)
+            _aoesBuffer = new AOEInstance[aoesLen];
+        var aoes = _aoesBuffer;
         for (var i = 0; i < max; ++i)
             aoes[i] = _aoes[i];
-        return aoes;
+        return aoes.AsSpan(0, aoesLen);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        var shape = (AID)spell.Action.ID switch
+        var shape = spell.Action.ID switch
         {
-            AID.CarnemLevare2 => sectors[0],
-            AID.CarnemLevare3 => sectors[1],
-            AID.CarnemLevare4 => sectors[2],
-            AID.CarnemLevare5 => sectors[3],
+            (uint)AID.CarnemLevare2 => sectors[0],
+            (uint)AID.CarnemLevare3 => sectors[1],
+            (uint)AID.CarnemLevare4 => sectors[2],
+            (uint)AID.CarnemLevare5 => sectors[3],
             _ => null
         };
 
@@ -74,7 +78,7 @@ class CarnemLevareDonut(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.CarnemLevare2 or AID.CarnemLevare3 or AID.CarnemLevare4 or AID.CarnemLevare5)
+        if (spell.Action.ID is (uint)AID.CarnemLevare2 or (uint)AID.CarnemLevare3 or (uint)AID.CarnemLevare4 or (uint)AID.CarnemLevare5)
             _aoes.RemoveAt(0);
     }
 }

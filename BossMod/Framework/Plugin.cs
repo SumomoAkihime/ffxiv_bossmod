@@ -136,17 +136,19 @@ public sealed class Plugin : IAsyncDalamudPlugin
         _wndBossmodPrePullHints = new(_bossmod);
         _wndZone = new(_zonemod);
         var config = Service.Config.Get<ReplayManagementConfig>();
-        var replayDir = string.IsNullOrEmpty(config.ReplayFolder) ? _dalamud.ConfigDirectory.FullName + "/replays" : config.ReplayFolder;
-        _wndReplay = new ReplayManagementWindow(_ws, _bossmod, _rotationDB, new DirectoryInfo(replayDir));
+        var defaultReplayDir = new DirectoryInfo(_dalamud.ConfigDirectory.FullName + "/replays");
+        var replayDir = string.IsNullOrEmpty(config.ReplayFolder) ? defaultReplayDir.FullName : config.ReplayFolder;
+        _wndReplay = new ReplayManagementWindow(_ws, _bossmod, _rotationDB, defaultReplayDir);
         _configUI = new(Service.Config, _ws, new DirectoryInfo(replayDir), _rotationDB);
-        config.Modified.ExecuteAndSubscribe(() => _wndReplay.UpdateLogDirectory());
         _wndRotation = new(_rotation, _amex, () => OpenConfigUI("Autorotation presets"));
         _wndDebug = new(_ws, _rotation, _zonemod, _amex, _movementOverride, _hintsBuilder, _dalamud, _rsr);
 
+        RebornUI.MaterialUI.Start(_dalamud, _ws, _rotationDB, _rotation, _ai, new DirectoryInfo(replayDir));
+
         _dalamud.UiBuilder.DisableAutomaticUiHide = true;
         _dalamud.UiBuilder.Draw += DrawUI;
-        _dalamud.UiBuilder.OpenMainUi += () => OpenConfigUI();
-        _dalamud.UiBuilder.OpenConfigUi += () => OpenConfigUI();
+        _dalamud.UiBuilder.OpenMainUi += OpenDefaultConfigUI;
+        _dalamud.UiBuilder.OpenConfigUi += OpenDefaultConfigUI;
     }
 
     public async ValueTask DisposeAsync()
@@ -154,6 +156,9 @@ public sealed class Plugin : IAsyncDalamudPlugin
         await Service.Framework.RunOnFrameworkThread(() =>
         {
             _dalamud.UiBuilder.Draw -= DrawUI;
+            _dalamud.UiBuilder.OpenMainUi -= OpenDefaultConfigUI;
+            _dalamud.UiBuilder.OpenConfigUi -= OpenDefaultConfigUI;
+            RebornUI.MaterialUI.Stop();
             Service.Condition.ConditionChange -= OnConditionChanged;
             Dx11ArenaRenderer.SetWorldOverlayNode(null);
             _worldOverlayNode?.Dispose();
@@ -245,7 +250,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
             switch (messageData[1].ToUpperInvariant())
             {
                 case "ON":
-                    _wndReplay.StartRecording("");
+                    _wndReplay.StartRecording("", true);
                     break;
                 case "OFF":
                     _wndReplay.StopRecording();
@@ -296,14 +301,19 @@ public sealed class Plugin : IAsyncDalamudPlugin
         return true;
     }
 
+    private void OpenDefaultConfigUI() => OpenConfigUI();
+
     private void OpenConfigUI(string showTab = "")
     {
+        if (RebornUI.MaterialUI.OpenSettings(showTab))
+            return;
         _configUI.ShowTab(showTab);
         _ = new UISimpleWindow("BossModReborn", _configUI.Draw, true, new(300, 300));
     }
 
     private void DrawUI()
     {
+        RebornUI.MaterialUI.BeginFrame();
         var tsStart = DateTime.Now;
         var moveImminent = _movementOverride.IsMoveRequested() && (!_amex.PreventMovingWhileCasting || _movementOverride.IsForceUnblocked());
 

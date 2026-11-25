@@ -1,11 +1,5 @@
 ﻿namespace BossMod.Endwalker.Variant.V03Aloalo.V035Loquloqui;
 
-abstract class LegacyAOEs(BossModule module, uint aid = default) : Components.GenericAOEs(module, aid)
-{
-    protected abstract IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor);
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => EnumerateAOEs(slot, actor).ToArray();
-}
-
 public enum OID : uint
 {
     Boss = 0x3FD6, // R6.480-16.200, x1
@@ -60,14 +54,14 @@ public static class Arenas
     public static readonly ArenaBoundsRect Shrunk = new(20, 15);
 }
 
-class LongLostLight(BossModule module) : Components.RaidwideCast(module, (uint)AID.LongLostLight)
+sealed class LongLostLight(BossModule module) : Components.RaidwideCast(module, (uint)AID.LongLostLight)
 {
     private bool _shrunk;
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
         base.OnCastFinished(caster, spell);
-        if (!_shrunk && (AID)spell.Action.ID == AID.LongLostLight)
+        if (!_shrunk && spell.Action.ID == (uint)AID.LongLostLight)
         {
             _shrunk = true;
             Module.Arena.Bounds = Arenas.Shrunk;
@@ -75,48 +69,64 @@ class LongLostLight(BossModule module) : Components.RaidwideCast(module, (uint)A
     }
 }
 
-class ProtectiveWill(BossModule module) : Components.SingleTargetCast(module, (uint)AID.ProtectiveWill);
-class LandWave(BossModule module) : Components.SimpleAOEs(module, (uint)AID.LandWave, new AOEShapeRect(25, 20));
+sealed class ProtectiveWill(BossModule module) : Components.SingleTargetCast(module, (uint)AID.ProtectiveWill);
+sealed class LandWave(BossModule module) : Components.SimpleAOEs(module, (uint)AID.LandWave, new AOEShapeRect(25, 20));
 
-class Rush(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Rush, new AOEShapeRect(35, 1));
-class RushFlourish(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RushFlourish, new AOEShapeRect(35, 5));
-class Turnabout(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Turnabout, 4);
-class TurnaboutFlourish(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnaboutFlourish, 12);
+sealed class Rush(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Rush, new AOEShapeRect(35, 1));
+sealed class RushFlourish(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RushFlourish, new AOEShapeRect(35, 5));
+sealed class Turnabout(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Turnabout, 4);
+sealed class TurnaboutFlourish(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TurnaboutFlourish, 12);
 
-class PliantPetals(BossModule module) : LegacyAOEs(module)
+sealed class PliantPetals(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<(WPos Origin, DateTime Activation, int Wave)> _aoes = [];
     private static readonly AOEShapeCircle _shape = new(15);
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor)
+    private readonly List<AOEInstance> _aoesBuffer = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
+        _aoesBuffer.Clear();
         if (_aoes.Count == 0)
-            yield break;
+            return CollectionsMarshal.AsSpan(_aoesBuffer);
 
-        var known = _aoes.Where(a => a.Wave >= 0).ToList();
-        var imminentWave = known.Count > 0 ? known.Min(a => a.Wave) : -1;
-        var hasSubsequent = known.Any(a => a.Wave > imminentWave);
+        // waves that are already known: the lowest one is imminent
+        var knownCount = 0;
+        var imminentWave = int.MaxValue;
         foreach (var a in _aoes)
         {
-            var isImminent = known.Count == 0 || a.Wave >= 0 && a.Wave == imminentWave;
+            if (a.Wave >= 0)
+            {
+                ++knownCount;
+                imminentWave = Math.Min(imminentWave, a.Wave);
+            }
+        }
+        if (knownCount == 0)
+            imminentWave = -1;
+        var hasSubsequent = false;
+        foreach (var a in _aoes)
+            hasSubsequent |= a.Wave >= 0 && a.Wave > imminentWave;
+        foreach (var a in _aoes)
+        {
+            var isImminent = knownCount == 0 || a.Wave >= 0 && a.Wave == imminentWave;
             var solid = isImminent && hasSubsequent;
             var risky = !hasSubsequent || isImminent;
-            yield return new(_shape, a.Origin, default, a.Activation, solid ? Colors.Danger : Colors.AOE, risky: risky);
+            _aoesBuffer.Add(new(_shape, a.Origin, default, a.Activation, solid ? Colors.Danger : Colors.AOE, risky: risky));
         }
+        return CollectionsMarshal.AsSpan(_aoesBuffer);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.OPetalsUnfurl:
+            case (uint)AID.OPetalsUnfurl:
                 _aoes.Clear();
                 break;
-            case AID.PetalTravelShort:
-            case AID.PetalTravelLong:
+            case (uint)AID.PetalTravelShort:
+            case (uint)AID.PetalTravelLong:
                 RefreshFromTravels();
                 break;
-            case AID.PliantPetals:
+            case (uint)AID.PliantPetals:
                 Upsert(spell.LocXZ, Module.CastFinishAt(spell), wave: null);
                 break;
         }
@@ -124,7 +134,7 @@ class PliantPetals(BossModule module) : LegacyAOEs(module)
 
     public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
-        if ((OID)source.OID != OID.PetalMarkerA || tether.ID != (uint)TetherID.Flourish)
+        if (source.OID != (uint)OID.PetalMarkerA || tether.ID != (uint)TetherID.Flourish)
             return;
         Upsert(source.Position, WorldState.FutureTime(20), -1);
         ReclassifyByDistance();
@@ -132,7 +142,7 @@ class PliantPetals(BossModule module) : LegacyAOEs(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID != AID.PliantPetals)
+        if (spell.Action.ID != (uint)AID.PliantPetals)
             return;
 
         var origin = caster.CastInfo?.LocXZ ?? caster.Position;
@@ -156,7 +166,7 @@ class PliantPetals(BossModule module) : LegacyAOEs(module)
         {
             if (a.CastInfo == null)
                 continue;
-            if ((AID)a.CastInfo.Action.ID is not (AID.PetalTravelShort or AID.PetalTravelLong))
+            if (a.CastInfo.Action.ID is not ((uint)AID.PetalTravelShort or (uint)AID.PetalTravelLong))
                 continue;
             var wall = a.CastInfo.LocXZ;
             if (wall == default)
@@ -296,7 +306,7 @@ class PliantPetals(BossModule module) : LegacyAOEs(module)
     }
 }
 
-class BrilliantBlossoms(BossModule module) : LegacyAOEs(module, (uint)AID.BrilliantBlossoms)
+sealed class BrilliantBlossoms(BossModule module) : Components.GenericAOEs(module, (uint)AID.BrilliantBlossoms)
 {
     private readonly List<AOEInstance> _aoes = [];
     private static readonly AOEShapeRect _shape = new(5, 5, 5);
@@ -309,20 +319,19 @@ class BrilliantBlossoms(BossModule module) : LegacyAOEs(module, (uint)AID.Brilli
         new(-15, 10), new(-5, 10), new(5, 10), new(15, 10),
     ];
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor)
+    private readonly List<AOEInstance> _aoesBuffer = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
+        _aoesBuffer.Clear();
         var imminent = _aoes.Count > 0 ? _aoes[0].Activation.AddSeconds(1.0f) : default;
         foreach (var a in _aoes)
-        {
-            var aoe = a;
-            aoe.Color = a.Activation <= imminent ? Colors.Danger : Colors.AOE;
-            yield return aoe;
-        }
+            _aoesBuffer.Add(a with { Color = a.Activation <= imminent ? Colors.Danger : Colors.AOE });
+        return CollectionsMarshal.AsSpan(_aoesBuffer);
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID != AID.OIsleBloom)
+        if (spell.Action.ID != (uint)AID.OIsleBloom)
             return;
 
         _aoes.Clear();
@@ -336,7 +345,7 @@ class BrilliantBlossoms(BossModule module) : LegacyAOEs(module, (uint)AID.Brilli
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID != AID.BrilliantBlossoms)
+        if (spell.Action.ID != (uint)AID.BrilliantBlossoms)
             return;
 
         ++NumCasts;
@@ -349,12 +358,12 @@ class BrilliantBlossoms(BossModule module) : LegacyAOEs(module, (uint)AID.Brilli
     }
 }
 
-class Sanctuary(BossModule module) : Components.ProximityAOEs(module, (uint)AID.Sanctuary, 18);
+sealed class Sanctuary(BossModule module) : Components.ProximityAOEs(module, (uint)AID.Sanctuary, 18);
 
-class IslebloomLight(BossModule module) : Components.SimpleAOEs(module, (uint)AID.IslebloomLight, 7);
+sealed class IslebloomLight(BossModule module) : Components.SimpleAOEs(module, (uint)AID.IslebloomLight, 7);
 
 // TODO: better AI support. I can get it to adjust on the first shockwave but subsequent it gives up cause my inverted rect forbids the whole arena.
-class Shockwave(BossModule module) : Components.GenericKnockback(module, (uint)AID.Shockwave, stopAtWall: false)
+sealed class Shockwave(BossModule module) : Components.GenericKnockback(module, (uint)AID.Shockwave, stopAtWall: false)
 {
     private DateTime _next;
     private int _left;
@@ -362,10 +371,14 @@ class Shockwave(BossModule module) : Components.GenericKnockback(module, (uint)A
     private const float StandOffset = 2f;
     private const float WallMargin = 2.5f;
 
-    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor) => _left > 0 && _next != default ? new Knockback[] { new(Module.Center, Distance, _next) } : [];
-
-    public override bool DestinationUnsafe(int slot, Actor actor, WPos pos)
-        => !Arena.InBounds(pos) || (Module.FindComponent<IslebloomLight>() is { } puddles && puddles.ActiveAOEs(slot, actor).ToArray().Any(a => a.Check(pos)));
+    private readonly List<Knockback> _kbBuffer = [];
+    public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
+    {
+        _kbBuffer.Clear();
+        if (_left > 0 && _next != default)
+            _kbBuffer.Add(new(Module.Center, Distance, _next));
+        return CollectionsMarshal.AsSpan(_kbBuffer);
+    }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
@@ -373,9 +386,17 @@ class Shockwave(BossModule module) : Components.GenericKnockback(module, (uint)A
             return;
 
         var origin = Module.Center;
-        var puddles = Module.FindComponent<IslebloomLight>()?.ActiveAOEs(slot, actor).ToArray()
-            .Select(a => a.Origin).Distinct().ToArray() ?? [];
-        var aim = SafeAim(origin, puddles);
+        _puddlesBuffer.Clear();
+        if (Module.FindComponent<IslebloomLight>() is { } light)
+        {
+            var aoes = light.ActiveAOEs(slot, actor);
+            for (var i = 0; i < aoes.Length; ++i)
+            {
+                if (!_puddlesBuffer.Contains(aoes[i].Origin))
+                    _puddlesBuffer.Add(aoes[i].Origin);
+            }
+        }
+        var aim = SafeAim(origin, CollectionsMarshal.AsSpan(_puddlesBuffer));
         var stand = origin + aim * StandOffset;
 
         // soft hint only cause a hard makes the ai confused
@@ -383,7 +404,9 @@ class Shockwave(BossModule module) : Components.GenericKnockback(module, (uint)A
         hints.AddForbiddenZone(new SDInvertedCircle(stand, 1.5f), _next);
     }
 
-    private WDir SafeAim(WPos origin, WPos[] puddles)
+    private readonly List<WPos> _puddlesBuffer = [];
+
+    private WDir SafeAim(WPos origin, ReadOnlySpan<WPos> puddles)
     {
         WDir best = new(1, 0); // prefer long axis of shrunk rect
         var bestScore = float.MinValue;
@@ -409,7 +432,7 @@ class Shockwave(BossModule module) : Components.GenericKnockback(module, (uint)A
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.StirringOfSpirits)
+        if (spell.Action.ID == (uint)AID.StirringOfSpirits)
         {
             _left = 4;
             NumCasts = 0;
@@ -419,7 +442,7 @@ class Shockwave(BossModule module) : Components.GenericKnockback(module, (uint)A
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID != AID.Shockwave || _left <= 0)
+        if (spell.Action.ID != (uint)AID.Shockwave || _left <= 0)
             return;
 
         ++NumCasts;
@@ -428,7 +451,7 @@ class Shockwave(BossModule module) : Components.GenericKnockback(module, (uint)A
     }
 }
 
-class V035LoquloquiStates : StateMachineBuilder
+sealed class V035LoquloquiStates : StateMachineBuilder
 {
     public V035LoquloquiStates(BossModule module) : base(module)
     {
@@ -448,5 +471,5 @@ class V035LoquloquiStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 961, NameID = 12636, Contributors = "croizat")]
-public class V035Loquloqui(WorldState ws, Actor primary) : BossModule(ws, primary, new(950, -860), Arenas.Initial);
+[ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 961, NameID = 12636, Contributors = "croizat (ported from upstream and modified by LTS)")]
+public sealed class V035Loquloqui(WorldState ws, Actor primary) : BossModule(ws, primary, new(950, -860), Arenas.Initial);

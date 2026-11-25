@@ -16,6 +16,7 @@ class Polyominoid(BossModule module) : Components.GenericAOEs(module, (uint)AID.
 
     private static readonly AOEShape _shape = new AOEShapeRect(5f, 5f, 5f);
 
+    private AOEInstance[] _aoesBuffer = [];
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         var indices = _dangerCells.SetBits();
@@ -24,10 +25,13 @@ class Polyominoid(BossModule module) : Components.GenericAOEs(module, (uint)AID.
         if (count == 0)
             return [];
 
-        var aoes = new AOEInstance[count];
+        var aoesLen = count;
+        if (_aoesBuffer.Length < aoesLen)
+            _aoesBuffer = new AOEInstance[aoesLen];
+        var aoes = _aoesBuffer;
         for (var i = 0; i < count; ++i)
             aoes[i] = new(_shape, IndexToPosition(indices[i]));
-        return aoes;
+        return aoes.AsSpan(0, aoesLen);
     }
 
     public override void Update()

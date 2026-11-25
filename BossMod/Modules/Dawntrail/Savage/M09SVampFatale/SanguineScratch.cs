@@ -1,5 +1,4 @@
-﻿
-namespace BossMod.Dawntrail.Savage.M09SVampFatale;
+﻿namespace BossMod.Dawntrail.Savage.M09SVampFatale;
 
 // TODO: track bat players are tethered to, figure out max distance; still OK within boss hitbox (12f from center, say 10f max?)
 // 3s from last scratch to bat explode; explosion only 1s cast so maybe necessary
@@ -40,7 +39,7 @@ sealed class BreakdownWing(BossModule module) : Components.GenericAOEs(module)
             // action enum says 8-15 but inner radius more like 4 in replay; based on boss stacks?
             if (status.Extra is 0x426 or 0x427)
             {
-                for (var i = 0; i < _vamps.Count(); i++)
+                for (var i = 0; i < _vamps.Count; ++i)
                 {
                     if (_vamps[i].Actor.InstanceID == actor.InstanceID)
                     {
@@ -86,7 +85,8 @@ sealed class BreakdownWing(BossModule module) : Components.GenericAOEs(module)
     public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         // tethers practically same time as action timeline (0.0 - 0.1s)
-        if (tether.ID == (uint)TetherID.Chains)
+        // the bat tether uses the stretched id while the player is too far, including when it first appears (as handled upstream)
+        if (tether.ID is (uint)TetherID.Chains or (uint)TetherID.ChainsStretched)
         {
             var slot = Raid.FindSlot(source.InstanceID);
 
@@ -116,7 +116,7 @@ sealed class BreakdownWing(BossModule module) : Components.GenericAOEs(module)
 
         var danger = pc.DistanceToPoint(tethered.Position) > _vampRadius;
 
-        for (var i = 0; i < _vamps.Count; i++)
+        for (var i = 0; i < _vamps.Count; ++i)
         {
             if (tethered.InstanceID == _vamps[i].Actor.InstanceID)
                 Arena.ZoneCircleOutline(_vamps[i].Actor.Position, _vampRadius, danger ? Colors.Danger : Colors.Safe, 2f);
@@ -157,28 +157,21 @@ sealed class BreakdownWing(BossModule module) : Components.GenericAOEs(module)
         base.AddAIHints(slot, actor, assignment, hints);
     }
 }
+
 sealed class SanguineScratch(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = [];
+    private readonly List<AOEInstance> _aoes = new(8);
+    private readonly AOEShapeCone cone = new(40f, 15f.Degrees());
 
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        if (_aoes.Count == 0)
-            return [];
-        return CollectionsMarshal.AsSpan(_aoes)[..1];
-    }
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         if (spell.Action.ID == (uint)AID.SanguineScratchFirst)
         {
-            if (_aoes.Count > 0)
-                return;
-
-            for (var i = 0; i < 5; i++)
-            {
-                _aoes.Add(new(CreateScratchCones(caster.Rotation + (22.5f * i).Degrees()), caster.Position, default, Module.CastFinishAt(spell).AddSeconds(2.4d * i)));
-            }
+            var loc = spell.LocXZ;
+            var rot = spell.Rotation;
+            _aoes.Add(new(cone, loc, rot, Module.CastFinishAt(spell), shapeDistance: cone.Distance(loc, rot)));
         }
     }
 
@@ -186,25 +179,29 @@ sealed class SanguineScratch(BossModule module) : Components.GenericAOEs(module)
     {
         if (spell.Action.ID is (uint)AID.SanguineScratchFirst or (uint)AID.SanguineScratchRest)
         {
-            if (_aoes.Count > 0)
+            var count = _aoes.Count;
+            ++NumCasts;
+            if (count > 0)
             {
-                ++NumCasts;
-                if (NumCasts % 8 == 0)
+                if ((NumCasts & 7) == 0)
                 {
-                    _aoes.RemoveAt(0);
+                    if (NumCasts is 40 or 80)
+                    {
+                        _aoes.Clear();
+                        return;
+                    }
+                    var act = WorldState.FutureTime(2.4d);
+                    var a23 = 22.5f.Degrees();
+                    var aoes = CollectionsMarshal.AsSpan(_aoes);
+                    for (var i = 0; i < count; ++i)
+                    {
+                        ref var aoe = ref aoes[i];
+                        aoe.Rotation += a23;
+                        aoe.ShapeDistance = aoe.Shape.Distance(aoe.Origin, aoe.Rotation);
+                        aoe.Activation = act;
+                    }
                 }
             }
         }
-    }
-
-    private AOEShapeCustom CreateScratchCones(Angle rotation)
-    {
-        var cones = new Shape[8];
-        for (var i = 0; i < cones.Length; i++)
-        {
-            cones[i] = new Cone(Arena.Center, 40f, (i * 45f - 15f).Degrees() + rotation, (i * 45f + 15f).Degrees() + rotation);
-        }
-
-        return new AOEShapeCustom(cones);
     }
 }

@@ -2,7 +2,7 @@
 
 // common mechanics that are used for entire fight
 // TODO: consider splitting into multiple components, at least for mechanics that start in later phases...
-class Mechanics(BossModule module) : BossComponent(module)
+sealed class Mechanics(BossModule module) : BossComponent(module)
 {
     private readonly int[] _tankStacks = new int[PartyState.MaxPartySize];
 
@@ -13,20 +13,32 @@ class Mechanics(BossModule module) : BossComponent(module)
 
     private Angle? _magitekOffset;
 
-    private static readonly AOEShapeCircle _aoeCleave = new(2);
-    private static readonly AOEShapeCone _aoeDiffractive = new(12, 60.Degrees());
-    private static readonly AOEShapeRect _aoeAssaultCannon = new(45, 1);
-    private static readonly AOEShapeRect _aoeMagitekRay = new(40, 3);
+    private readonly AOEShapeCircle _aoeCleave = new(2f);
+    private readonly AOEShapeCone _aoeDiffractive = new(12f, 60f.Degrees());
+    private readonly AOEShapeRect _aoeAssaultCannon = new(45f, 1f);
+    private readonly AOEShapeRect _aoeMagitekRay = new(40f, 3f);
     //private static readonly float _homingLasersRange = 4;
     //private static readonly float _ceruleumVentRange = 8;
-    private const float _orbSharedRange = 8;
-    private const float _orbFixateRange = 6;
+    private const float _orbSharedRange = 8f;
+    private const float _orbFixateRange = 6f;
 
     public override void Update()
     {
         // TODO: this is bad, we need to find a way to associate orb to kiter...
         if (_orbKiters.Count > 0 && Module.Enemies((uint)OID.Aetheroplasm).Count == 0)
             _orbKiters.Clear();
+    }
+
+    private bool BitHits(Actor actor)
+    {
+        var bits = Module.Enemies((uint)OID.MagitekBit);
+        for (var i = 0; i < bits.Count; ++i)
+        {
+            var bit = bits[i];
+            if (bit.CastInfo != null && _aoeAssaultCannon.Check(actor.Position, bit))
+                return true;
+        }
+        return false;
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -58,7 +70,7 @@ class Mechanics(BossModule module) : BossComponent(module)
         //    hints.Add("Move from boss");
         //}
 
-        //if (Raid.WithoutSlot(false, true, true).InRadiusExcluding(actor, _homingLasersRange).Any())
+        //if (Raid.WithoutSlot(false, true, true).AnyInRadiusExcluding(actor, _homingLasersRange))
         //{
         //    hints.Add("Spread");
         //}
@@ -73,7 +85,7 @@ class Mechanics(BossModule module) : BossComponent(module)
             hints.Add("Kite the orb!");
         }
 
-        if (Module.Enemies((uint)OID.MagitekBit).Any(bit => bit.CastInfo != null && _aoeAssaultCannon.Check(actor.Position, bit)))
+        if (BitHits(actor))
         {
             hints.Add("GTFO from bit aoe!");
         }
@@ -86,30 +98,44 @@ class Mechanics(BossModule module) : BossComponent(module)
         if (_magitekOffset != null)
             _aoeMagitekRay.Draw(Arena, Module.PrimaryActor.Position, Module.PrimaryActor.Rotation + _magitekOffset.Value);
 
-        foreach (var bit in Module.Enemies((uint)OID.MagitekBit).Where(bit => bit.CastInfo != null))
-            _aoeAssaultCannon.Draw(Arena, bit);
+        foreach (var bit in Module.Enemies((uint)OID.MagitekBit))
+            if (bit.CastInfo != null)
+                _aoeAssaultCannon.Draw(Arena, bit);
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         var mt = WorldState.Actors.Find(Module.PrimaryActor.TargetID);
-        foreach (var player in Raid.WithoutSlot(false, true, true).Exclude(pc))
-            Arena.Actor(player, _orbKiters.Contains(player.InstanceID) ? Colors.Danger : player == mt ? Colors.PlayerInteresting : Colors.PlayerGeneric);
+        foreach (var player in Raid.WithoutSlot(false, true, true))
+        {
+            if (!(player != pc))
+                continue;
+            if (player == pc)
+            {
+                continue;
+            }
+            var isKiter = _orbKiters.Contains(player.InstanceID);
+            Arena.Actor(player, isKiter ? Colors.Danger : player == mt ? Colors.PlayerInteresting : Colors.PlayerGeneric, drawWorld: isKiter || player == mt ? true : null);
+        }
         if (mt != null)
             Arena.ZoneCircleOutline(mt.Position, _aoeCleave.Radius, Colors.Danger);
 
         //if (pc.Role is Role.Healer or Role.Ranged)
         //    Arena.ZoneCircleOutline(Module.PrimaryActor.Position, _ceruleumVentRange, Colors.Danger);
 
-        foreach (var orb in Module.Enemies((uint)OID.Ultimaplasm).Where(orb => !_orbsSharedExploded.Contains(orb.InstanceID)))
+        foreach (var orb in Module.Enemies((uint)OID.Ultimaplasm))
         {
+            if (!(!_orbsSharedExploded.Contains(orb.InstanceID)))
+                continue;
             // TODO: line between paired orbs
             Arena.Actor(orb, Colors.Danger, true);
             Arena.ZoneCircleOutline(orb.Position, _orbSharedRange, Colors.Safe);
         }
 
-        foreach (var orb in Module.Enemies((uint)OID.Aetheroplasm).Where(orb => !_orbsKitedExploded.Contains(orb.InstanceID)))
+        foreach (var orb in Module.Enemies((uint)OID.Aetheroplasm))
         {
+            if (!(!_orbsKitedExploded.Contains(orb.InstanceID)))
+                continue;
             // TODO: line from corresponding target
             Arena.Actor(orb, Colors.Danger, true);
             Arena.ZoneCircleOutline(orb.Position, _orbFixateRange, Colors.Danger);
@@ -123,23 +149,23 @@ class Mechanics(BossModule module) : BossComponent(module)
 
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.ViscousAetheroplasm)
+        if (status.ID == (uint)SID.ViscousAetheroplasm)
             SetTankStacks(actor, status.Extra);
     }
 
     public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.ViscousAetheroplasm)
+        if (status.ID == (uint)SID.ViscousAetheroplasm)
             SetTankStacks(actor, 0);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        Angle? ray = (AID)spell.Action.ID switch
+        Angle? ray = spell.Action.ID switch
         {
-            AID.MagitekRayCenter => 0.Degrees(),
-            AID.MagitekRayLeft => 45.Degrees(),
-            AID.MagitekRayRight => -45.Degrees(),
+            (uint)AID.MagitekRayCenter => default,
+            (uint)AID.MagitekRayLeft => 45f.Degrees(),
+            (uint)AID.MagitekRayRight => -45f.Degrees(),
             _ => null
         };
         if (ray == null)
@@ -151,21 +177,21 @@ class Mechanics(BossModule module) : BossComponent(module)
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.MagitekRayCenter or AID.MagitekRayLeft or AID.MagitekRayRight)
+        if (spell.Action.ID is (uint)AID.MagitekRayCenter or (uint)AID.MagitekRayLeft or (uint)AID.MagitekRayRight)
             _magitekOffset = null;
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.AetheroplasmBoom:
+            case (uint)AID.AetheroplasmBoom:
                 _orbsSharedExploded.Add(caster.InstanceID);
                 break;
-            case AID.AetheroplasmFixated:
+            case (uint)AID.AetheroplasmFixated:
                 _orbsKitedExploded.Add(caster.InstanceID);
                 break;
-            case AID.OrbFixate:
+            case (uint)AID.OrbFixate:
                 _orbKiters.Add(spell.MainTargetID);
                 break;
         }

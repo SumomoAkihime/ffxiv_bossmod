@@ -19,7 +19,7 @@ class Transmission(BossModule module) : Components.CastCounter(module, (uint)AID
         _clippedByOthers.Reset();
         foreach (var e in ActiveAOEs())
         {
-            _clippedByOthers |= _clips[e.slot] = Raid.WithSlot(false, true, true).Exclude(e.player).InShape(_shape, e.player.Position, e.direction).Mask();
+            _clippedByOthers |= _clips[e.slot] = Raid.WithSlot(false, true, true).MaskInShape(_shape, e.player.Position, e.direction, e.player);
         }
     }
 

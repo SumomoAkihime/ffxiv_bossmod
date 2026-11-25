@@ -28,10 +28,9 @@ sealed class AbsoluteAuthorityDorito(BossModule module) : Components.GenericStac
 
     public override void Update()
     {
-        if (Stacks.Count != 0)
+        if (Stacks.Count != 0 && Raid.Player() is Actor player)
         {
             var party = Raid.WithoutSlot(false, true, true);
-            var player = Raid.Player()!;
             var pPos = player.Position;
             Actor? closest = null;
 

@@ -56,8 +56,8 @@ public sealed class ClientState
         public readonly byte HandInCount = handInCount;
         public readonly uint ObjectiveNpc = objectiveNpc;
 
-        public static bool operator ==(Fate left, Fate right) => left.ID == right.ID;
-        public static bool operator !=(Fate left, Fate right) => left.ID != right.ID;
+        public static bool operator ==(Fate left, Fate right) => left.ID == right.ID && left.Center == right.Center && left.Radius == right.Radius && left.Progress == right.Progress && left.HandInCount == right.HandInCount && left.ObjectiveNpc == right.ObjectiveNpc;
+        public static bool operator !=(Fate left, Fate right) => left.ID != right.ID || left.Center != right.Center || left.Radius != right.Radius || left.Progress != right.Progress || left.HandInCount != right.HandInCount || left.ObjectiveNpc != right.ObjectiveNpc;
 
         public readonly bool Equals(Fate other) => this == other;
         public override readonly bool Equals(object? obj) => obj is Fate other && Equals(other);
@@ -93,8 +93,8 @@ public sealed class ClientState
         public static bool operator !=(Stats left, Stats right) => left.SkillSpeed != right.SkillSpeed || left.SpellSpeed != right.SpellSpeed || left.Haste != right.Haste;
 
         public readonly bool Equals(Stats other) => this == other;
-        public override readonly bool Equals(object? obj) => obj is Combo other && Equals(other);
-        public override readonly int GetHashCode() => (SkillSpeed, SpellSpeed, Haste).GetHashCode();
+        public override readonly bool Equals(object? obj) => obj is Stats other && Equals(other);
+        public override readonly int GetHashCode() => HashCode.Combine(SkillSpeed, SpellSpeed, Haste);
     }
 
     public readonly struct Pet(ulong instanceID, byte order, byte stance)
@@ -118,12 +118,12 @@ public sealed class ClientState
         public readonly float TimeLeft = timeLeft;
         public readonly bool Stabled = stabled;
 
-        public static bool operator ==(Companion left, Companion right) => left.InstanceID == right.InstanceID && left.Stance == right.Stance && left.TimeLeft == right.TimeLeft;
-        public static bool operator !=(Companion left, Companion right) => left.InstanceID != right.InstanceID || left.Stance != right.Stance || left.TimeLeft != right.TimeLeft;
+        public static bool operator ==(Companion left, Companion right) => left.InstanceID == right.InstanceID && left.Stance == right.Stance && left.TimeLeft == right.TimeLeft && left.Stabled == right.Stabled;
+        public static bool operator !=(Companion left, Companion right) => left.InstanceID != right.InstanceID || left.Stance != right.Stance || left.TimeLeft != right.TimeLeft || left.Stabled != right.Stabled;
 
         public readonly bool Equals(Companion other) => this == other;
         public override readonly bool Equals(object? obj) => obj is Companion other && Equals(other);
-        public override readonly int GetHashCode() => (InstanceID, Stance, TimeLeft).GetHashCode();
+        public override readonly int GetHashCode() => HashCode.Combine(InstanceID, Stance, TimeLeft, Stabled);
         public override readonly string ToString() => $"ID: {InstanceID}, Stance: {Stance}";
     }
 
@@ -196,9 +196,12 @@ public sealed class ClientState
     public ClientState()
     {
         Inventory = [];
-        foreach (var it in ActionDefinitions.Instance.SupportedItems)
+        if (Service.LuminaGameData != null)
         {
-            Inventory[it] = default;
+            foreach (var it in ActionDefinitions.Instance.SupportedItems)
+            {
+                Inventory[it] = default;
+            }
         }
     }
 
@@ -292,7 +295,7 @@ public sealed class ClientState
         {
             if (DutyActions[i] != default)
             {
-                ops.Add(new OpDutyActionsChange(DutyActions));
+                ops.Add(new OpDutyActionsChange([.. DutyActions]));
                 break;
             }
         }
@@ -319,7 +322,7 @@ public sealed class ClientState
         {
             if (BlueMageSpells[i] != default)
             {
-                ops.Add(new OpBlueMageSpellsChange(BlueMageSpells));
+                ops.Add(new OpBlueMageSpellsChange([.. BlueMageSpells]));
                 break;
             }
         }
@@ -328,7 +331,7 @@ public sealed class ClientState
         {
             if (ClassJobLevels[i] != default)
             {
-                ops.Add(new OpClassJobLevelsChange(ClassJobLevels));
+                ops.Add(new OpClassJobLevelsChange([.. ClassJobLevels]));
                 break;
             }
         }
@@ -343,6 +346,11 @@ public sealed class ClientState
             ops.Add(new OpActivePetChange(ActivePet));
         }
 
+        if (ActiveCompanion != default)
+        {
+            ops.Add(new OpActiveCompanionChange(ActiveCompanion));
+        }
+
         if (FocusTargetId != default)
         {
             ops.Add(new OpFocusTargetChange(FocusTargetId));
@@ -353,10 +361,28 @@ public sealed class ClientState
             ops.Add(new OpForcedMovementDirectionChange(ForcedMovementDirection));
         }
 
+        for (var i = 0; i < ContentKeyValueData.Length; ++i)
+        {
+            if (ContentKeyValueData[i] != default)
+            {
+                ops.Add(new OpContentKVDataChange([.. ContentKeyValueData]));
+                break;
+            }
+        }
+
+        for (var i = 0; i < ProcTimers.Length; ++i)
+        {
+            if (ProcTimers[i] != default)
+            {
+                ops.Add(new OpProcTimersChange([.. ProcTimers]));
+                break;
+            }
+        }
+
         ref readonly var hate = ref CurrentTargetHate;
         if (hate.InstanceID != default)
         {
-            ops.Add(new OpHateChange(hate.InstanceID, hate.Targets));
+            ops.Add(new OpHateChange(hate.InstanceID, [.. hate.Targets]));
         }
         else
         {
@@ -365,7 +391,7 @@ public sealed class ClientState
                 ref readonly var h = ref hate.Targets[i];
                 if (h != default)
                 {
-                    ops.Add(new OpHateChange(hate.InstanceID, hate.Targets));
+                    ops.Add(new OpHateChange(hate.InstanceID, [.. hate.Targets]));
                     break;
                 }
             }
@@ -791,6 +817,10 @@ public sealed class ClientState
         {
             output.EmitFourCC("HATE"u8).EmitActor(InstanceID);
             var countNonEmpty = Array.IndexOf(Targets, default);
+            if (countNonEmpty < 0)
+            {
+                countNonEmpty = Targets.Length;
+            }
             output.Emit(countNonEmpty);
             for (var i = 0; i < countNonEmpty; ++i)
             {

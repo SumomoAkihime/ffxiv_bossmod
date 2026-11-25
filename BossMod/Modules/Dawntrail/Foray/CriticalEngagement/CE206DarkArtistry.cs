@@ -136,5 +136,5 @@ sealed class CE206DarkArtistryStates : StateMachineBuilder
 [SkipLocalsInit]
 public sealed class CE206DarkArtistry(WorldState ws, Actor primary) : BossModule(ws, primary, new(224f, -860f), new ArenaBoundsSquare(20f))
 {
-    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InSquare(Arena.Center, 20f);
+    protected override bool CheckPull() => base.CheckPull() && Raid.Player() is Actor player && player.Position.InSquare(Arena.Center, 20f);
 }

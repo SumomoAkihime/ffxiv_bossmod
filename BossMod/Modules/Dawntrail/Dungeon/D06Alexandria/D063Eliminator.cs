@@ -21,7 +21,8 @@ public enum AID : uint
     PartitionVisual3 = 36768, // Boss->self, 4.3+0.7s cast, single-target
     PartitionVisual4 = 36766, // Boss->self, no cast, single-target
     PartitionVisual5 = 36767, // Boss->self, no cast, single-target
-    Partition1 = 39007, // Helper->self, 5.0s cast, range 40 180-degree cone
+    Partition1 = 39007, // Helper->self, 5.0s cast, range 40 180-degree cone (cleave right)
+    Partition4 = 39008, // Helper->self, 5.0s cast, range 40 180-degree cone (cleave left)
     Partition2 = 39238, // Helper->self, 7.0s cast, range 40 180-degree cone
     Partition3 = 39249, // Helper->self, 7.0s cast, range 40 180-degree cone
 
@@ -97,7 +98,7 @@ sealed class DisruptionArenaChange(BossModule module) : Components.GenericAOEs(m
 
 sealed class Disruption(BossModule module) : Components.RaidwideCast(module, (uint)AID.Disruption);
 
-sealed class Partition(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.Partition1, (uint)AID.Partition2, (uint)AID.Partition3], new AOEShapeCone(40f, 90f.Degrees()));
+sealed class Partition(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.Partition1, (uint)AID.Partition2, (uint)AID.Partition3, (uint)AID.Partition4], new AOEShapeCone(40f, 90f.Degrees()));
 sealed class Terminate(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Terminate, new AOEShapeRect(40f, 5f));
 sealed class HaloOfDestruction(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HaloOfDestruction, new AOEShapeDonut(6f, 40f));
 
@@ -109,14 +110,13 @@ sealed class Electray(BossModule module) : Components.SpreadFromCastTargets(modu
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         if (_aoe1.Casters.Count != 0 || _aoe2.Casters.Count != 0)
-        { }
-        else
         {
-            base.AddAIHints(slot, actor, assignment, hints);
-            if (Spreads.Count != 0)
-            {
-                hints.AddForbiddenZone(new SDCircle(Arena.Center - new WDir(default, 15f), 15f), Spreads.Ref(0).Activation);
-            }
+            return;
+        }
+        base.AddAIHints(slot, actor, assignment, hints);
+        if (Spreads.Count != 0)
+        {
+            hints.AddForbiddenZone(new SDCircle(Arena.Center - new WDir(default, 15f), 15f), Spreads.Ref(0).Activation);
         }
     }
 }
@@ -163,9 +163,9 @@ sealed class LightOfSalvation(BossModule module) : Components.GenericBaitAway(mo
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.LightOfSalvationMarker)
+        if (spell.Action.ID == (uint)AID.LightOfSalvationMarker && WorldState.Actors.Find(spell.TargetID) is Actor target)
         {
-            CurrentBaits.Add(new(caster, WorldState.Actors.Find(spell.TargetID)!, rect, Module.CastFinishAt(spell, 0.2d)));
+            CurrentBaits.Add(new(caster, target, rect, Module.CastFinishAt(spell, 0.2d)));
         }
     }
 
@@ -187,9 +187,7 @@ sealed class LightOfSalvation(BossModule module) : Components.GenericBaitAway(mo
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
-        if (_kb.Casters.Count != 0)
-        { }
-        else
+        if (_kb.Casters.Count == 0)
         {
             base.AddAIHints(slot, actor, assignment, hints);
         }

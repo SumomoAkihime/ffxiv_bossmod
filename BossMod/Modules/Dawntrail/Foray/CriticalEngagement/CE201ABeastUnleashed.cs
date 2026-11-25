@@ -2,247 +2,168 @@
 
 public enum OID : uint
 {
-    Boss = 0x4C4F, // R9.07
-    YellowGem = 0x4C50, // R1.0
-    Helper = 0x233C,
-    ReflectionCardinals = 0x1EC045, // EventObj, four cardinal walls
-    ReflectionOffset = 0x1EC046 // EventObj, four offset walls
+    AtlasCarbuncle = 0x4C4F, // R9.067, x1
+    AtlasCarbuncleHelper = 0x233C, // R0.500, x20, Helper type
+    AtlasCarbuncle1 = 0x4D88, // R1.000, x1
+    TopazStone = 0x4C50, // R1.000, x12
+    TopazOutline1 = 0x1EC045, // R0.500, x1, EventObj type
+    TopazOutline2 = 0x1EC046 // R0.500, x2, EventObj type
 }
 
 public enum AID : uint
 {
-    YellowGemVisual = 48280, // Boss->self, 3.0s cast
-    YellowGemRay1 = 48281, // YellowGem->self, 3.0s cast, range 4 circle
-    YellowGemRay2 = 48282, // YellowGem->self, 3.0s cast, range 4 circle
-    RedRubyLight = 48284, // Boss->self, 3.0s cast
-    RedRubyReflectionShort = 48285, // Helper->self, no cast, 20x20 rect
-    RedRubyReflectionLong1 = 48286, // Helper->self, no cast, 40x40 rect
-    RedRubyReflectionLong2 = 48287, // Helper->self, no cast, 40x40 rect
-    StarvingDreadSecondVisual = 48288, // Helper->self, 2.5s cast
-    StarvingDreadFirstVisual = 48289, // Helper->self, 2.5s cast
-    StarvingDreadFirst = 48291, // Boss->location, 8.0s cast, directional knockback 15
-    StarvingDreadSecond = 48292, // Boss->location, no cast, knockback 30
-    ClawThenTail = 48294, // Boss->self, 6.0s cast, range 45 front 180-degree cone
-    TailThenClaw = 48295, // Boss->self, 6.0s cast, range 40 rear 180-degree cone
-    ClawThenTailSecond = 48296, // Boss->self, no cast, range 40 rear 180-degree cone
-    TailThenClawSecond = 48297, // Boss->self, no cast, range 45 front 180-degree cone
-    SonicHowl = 48298, // Boss->self, 5.0s cast, raidwide
-    StarvingDreadSecondDamage = 49506, // Helper->self, no cast
-    StarvingDreadFirstDamage = 49507, // Helper->self, no cast
-    ReflectOuter = 50418, // Boss->self, 3.0s cast
-    RedRubyLightDamage = 50637 // Helper->self, no cast
+    AutoAttack = 50852, // AtlasCarbuncle->player, no cast, single-target
+    SonicHowl = 48298, // AtlasCarbuncle->self, 5.0s cast, ???
+    SonicHowl1 = 49505, // AtlasCarbuncleHelper->self, no cast, ???
+    TailToClaw = 48295, // AtlasCarbuncle->self, 6.0s cast, range 40 180.000-degree cone
+    TailToClaw1 = 48297, // AtlasCarbuncle->self, no cast, range 45 ?-degree cone
+
+    SpinebreakingStampedeCast = 48291, // AtlasCarbuncle->location, 8.0s cast, ???
+    SpinebreakingStampedeMiddleVisual = 48289, // Helper->self, 2.5s cast, range 40 width 60 rect
+    SpinebreakingStampedeMiddle = 49507, // Helper->self, no cast, ???
+    SpinebreakingStampedeCircleVisual = 48288, // Helper->self, 2.5s cast, range 60 circle
+    SpinebreakingStampedeCircle = 49506, // Helper->self, no cast, ???
+    SpinebreakingStampedeTeleport = 48299, // AtlasCarbuncle->location, no cast, single-target
+    SpinebreakingStampedeTeleport1 = 48292, // AtlasCarbuncle->location, no cast, ???
+
+    DeathWall = 49104, // AtlasCarbuncle1->self, no cast, ???
+    ClawToTail = 48294, // AtlasCarbuncle->self, 6.0s cast, range 40 180.000-degree cone
+    ClawToTail1 = 48296, // AtlasCarbuncle->self, no cast, range 45 ?-degree cone
+    TopazStones = 48280, // AtlasCarbuncle->self, 3.0s cast, single-target
+    TopazRay1 = 48281, // TopazStone->self, 3.0s cast, range 4 circle
+    TopazRay2 = 48282, // TopazStone->self, 3.0s cast, range 4 circle
+    UnknownAbility1 = 50461, // AtlasCarbuncle->self, no cast, single-target
+    WeaponskillRubyGlow = 48284, // AtlasCarbuncle->self, 3.0s cast, ???
+    AbilityRubyGlow = 50637, // AtlasCarbuncleHelper->self, no cast, ???
+    ReflectiveCoat = 50418, // AtlasCarbuncle->self, 3.0s cast, single-target
+    RubyReflection = 48287, // AtlasCarbuncleHelper->self, no cast, range 40 width 40 rect
+    RubyReflection1 = 48286, // AtlasCarbuncleHelper->self, no cast, range 40 width 40 rect
+    RubyReflection2 = 48285, // Helper->self, no cast, range 20 width 20 rect
 }
 
-sealed class YellowGemRays(BossModule module) : Components.GenericAOEs(module)
-{
-    private static readonly AOEShapeCircle Shape = new(4f);
-    private readonly List<AOEInstance> _aoes = new(12);
-
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
-
-    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
-    {
-        if (actor.OID != (uint)OID.YellowGem || id != 9353)
-            return;
-
-        _aoes.RemoveAll(a => a.ActorID == actor.InstanceID);
-        _aoes.Add(new(Shape, actor.Position, actorID: actor.InstanceID));
-    }
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if (spell.Action.ID == (uint)AID.YellowGemVisual)
-        {
-            _aoes.Clear();
-            return;
-        }
-        if (spell.Action.ID is not (uint)AID.YellowGemRay1 and not (uint)AID.YellowGemRay2)
-            return;
-
-        var aoe = new AOEInstance(Shape, caster.Position, activation: Module.CastFinishAt(spell), actorID: caster.InstanceID);
-        var index = _aoes.FindIndex(a => a.ActorID == caster.InstanceID);
-        if (index >= 0)
-            _aoes[index] = aoe;
-        else
-            _aoes.Add(aoe);
-    }
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if (spell.Action.ID is (uint)AID.YellowGemRay1 or (uint)AID.YellowGemRay2)
-            _aoes.RemoveAll(a => a.ActorID == caster.InstanceID);
-    }
-}
-
-sealed class RedRubyLight(BossModule module) : Components.RaidwideCast(module, (uint)AID.RedRubyLight);
 sealed class SonicHowl(BossModule module) : Components.RaidwideCast(module, (uint)AID.SonicHowl);
+sealed class RubyGlow(BossModule module) : Components.RaidwideCastDelay(module, (uint)AID.WeaponskillRubyGlow, (uint)AID.AbilityRubyGlow, 0.7d); // ported from upstream
 
-sealed class RedRubyReflection(BossModule module) : Components.GenericAOEs(module)
+sealed class TailToClaw(BossModule module) : Components.GenericAOEs(module)
 {
-    private enum WallPattern { None, Cardinals, Offset }
-
-    private static readonly AOEShapeRect Cell = new(5f, 5f, 5f);
-    private static readonly (WDir A, WDir B)[] CardinalWalls =
-    [
-        (new(0f, -20f), new(0f, 20f)),
-        (new(-20f, 0f), new(20f, 0f))
-    ];
-    private static readonly (WDir A, WDir B)[] OffsetWalls =
-    [
-        (new(0f, -20f), new(0f, 20f)),
-        (new(-10f, -10f), new(0f, -10f)),
-        (new(-10f, -10f), new(-10f, 10f)),
-        (new(-20f, 10f), new(-10f, 10f)),
-        (new(0f, 10f), new(10f, 10f)),
-        (new(10f, -10f), new(10f, 10f)),
-        (new(10f, -10f), new(20f, -10f))
-    ];
-    private readonly List<AOEInstance> _aoes = new(16);
-    private readonly Dictionary<ulong, WPos> _gems = new(12);
-    private WallPattern _pattern;
-    private DateTime _activation;
-    private int _offsetTransform;
-
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
-
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
-    {
-        foreach (var wall in ActiveWalls())
-            Arena.AddLine(Arena.Center + wall.A, Arena.Center + wall.B, Colors.Border);
-    }
-
-    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
-    {
-        if (actor.OID == (uint)OID.YellowGem && id == 9353)
-            _gems[actor.InstanceID] = actor.Position;
-    }
-
-    public override void OnActorEAnim(Actor actor, uint state)
-    {
-        if (state is not 0x00100020 and not 0x01000200)
-            return;
-
-        var pattern = actor.OID switch
-        {
-            (uint)OID.ReflectionCardinals => WallPattern.Cardinals,
-            (uint)OID.ReflectionOffset => WallPattern.Offset,
-            _ => WallPattern.None
-        };
-        if (pattern == WallPattern.None)
-            return;
-
-        _pattern = pattern;
-        _aoes.Clear();
-        _activation = WorldState.FutureTime(pattern == WallPattern.Cardinals ? 12d : 15d);
-        var quarterTurns = ((int)MathF.Round(actor.Rotation.Deg / 90f) % 4 + 4) % 4;
-        _offsetTransform = state == 0x00100020 ? (quarterTurns + 3) & 3 : 4 + quarterTurns;
-        if (_gems.Count != 0)
-            RebuildAOEs();
-    }
+    private readonly List<AOEInstance> _aoes = [];
+    private readonly AOEShapeCone cone = new(45f, 90f.Degrees());
+    private readonly RubyReflection rubyaoe = module.FindComponent<RubyReflection>()!;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.YellowGemVisual)
+        if (spell.Action.ID is (uint)AID.ClawToTail or (uint)AID.TailToClaw)
         {
-            _gems.Clear();
-            return;
-        }
-        if (spell.Action.ID != (uint)AID.YellowGemRay1 || _pattern == WallPattern.None)
-            return;
+            var loc = spell.LocXZ;
+            var rot = spell.Rotation;
+            var act = Module.CastFinishAt(spell);
 
-        _gems[caster.InstanceID] = caster.Position;
-        _activation = Module.CastFinishAt(spell, 0.1d);
-        RebuildAOEs();
+            AddAOE();
+            AddAOE(180f.Degrees(), 3.1d);
+
+            void AddAOE(Angle offset = default, double delay = default)
+            {
+                var pos = delay != default ? loc - 5f * rot.ToDirection() : loc;
+                var rot2 = rot + offset;
+                _aoes.Add(new(cone, pos, rot2, delay != default ? act.AddSeconds(delay) : act, shapeDistance: cone.Distance(pos, rot2)));
+            }
+        }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if (_pattern != WallPattern.None && spell.Action.ID is (uint)AID.RedRubyReflectionShort or (uint)AID.RedRubyReflectionLong1 or (uint)AID.RedRubyReflectionLong2)
+        if (_aoes.Count is var count && count != 0 && spell.Action.ID is (uint)AID.TailToClaw or (uint)AID.TailToClaw1 or (uint)AID.ClawToTail or (uint)AID.ClawToTail1)
         {
-            _pattern = WallPattern.None;
-            _aoes.Clear();
-            _gems.Clear();
-            ++NumCasts;
+            _aoes.RemoveAt(0);
+            if (count == 2)
+            {
+                ref var aoe2 = ref _aoes.Ref(0);
+                var rot = aoe2.Rotation;
+                aoe2.Origin -= 5f * rot.ToDirection();
+                aoe2.ShapeDistance = cone.Distance(aoe2.Origin, rot);
+            }
         }
     }
 
-    private (WDir A, WDir B)[] ActiveWalls()
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        if (_pattern == WallPattern.Cardinals)
-            return CardinalWalls;
-        if (_pattern != WallPattern.Offset)
+        if (rubyaoe.AOEs.Count != 0)
+        {
             return [];
-
-        var walls = new (WDir A, WDir B)[OffsetWalls.Length];
-        for (var i = 0; i < walls.Length; ++i)
-            walls[i] = (Transform(OffsetWalls[i].A, _offsetTransform), Transform(OffsetWalls[i].B, _offsetTransform));
-        return walls;
-    }
-
-    private void RebuildAOEs()
-    {
-        var activeWalls = ActiveWalls();
-        var dangerousCells = 0u;
-        foreach (var gem in _gems.Values)
-        {
-            if (TouchesWall(gem, activeWalls))
-                dangerousCells |= RegionMask(CellIndex(gem), activeWalls);
         }
+        return CollectionsMarshal.AsSpan(_aoes);
+    }
+}
 
-        _aoes.Clear();
-        for (var i = 0; i < 16; ++i)
+sealed class TopazRay(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.TopazRay1, (uint)AID.TopazRay2], 4f)
+{
+    public readonly List<Actor> Actors = new(10);
+    private RubyReflection? rubyreflection;
+    private bool intercept;
+
+    public override void OnActorPlayActionTimelineEvent(Actor actor, ushort id)
+    {
+        if (actor.OID == (uint)OID.TopazStone && id == 0x2489)
         {
-            if ((dangerousCells & (1u << i)) != 0)
-                _aoes.Add(new(Cell, CellCenter(i), default, _activation));
+            Actors.Add(actor);
         }
     }
 
-    private bool TouchesWall(WPos position, (WDir A, WDir B)[] walls)
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        var offset = position - Arena.Center;
-        return walls.Any(w => DistanceToSegmentSq(offset, w.A, w.B) <= 16.1f);
-    }
-
-    private uint RegionMask(int start, (WDir A, WDir B)[] walls)
-    {
-        var result = 0u;
-        var pending = new Stack<int>();
-        pending.Push(start);
-        while (pending.Count != 0)
+        if (spell.Action.ID is (uint)AID.TopazRay1 or (uint)AID.TopazRay2)
         {
-            var cell = pending.Pop();
-            var bit = 1u << cell;
-            if ((result & bit) != 0)
-                continue;
-            result |= bit;
-
-            var row = cell >> 2;
-            var column = cell & 3;
-            if (column > 0 && !CellsSeparated(cell, cell - 1, walls))
-                pending.Push(cell - 1);
-            if (column < 3 && !CellsSeparated(cell, cell + 1, walls))
-                pending.Push(cell + 1);
-            if (row > 0 && !CellsSeparated(cell, cell - 4, walls))
-                pending.Push(cell - 4);
-            if (row < 3 && !CellsSeparated(cell, cell + 4, walls))
-                pending.Push(cell + 4);
+            Actors.Clear();
+            intercept = false;
         }
-        return result;
     }
 
-    private static bool CellsSeparated(int first, int second, (WDir A, WDir B)[] walls)
+    public override void OnActorEAnim(Actor actor, uint state)
     {
-        var midpoint = 0.5f * (CellOffset(first) + CellOffset(second));
-        return walls.Any(w => DistanceToSegmentSq(midpoint, w.A, w.B) < 0.01f);
+        if (actor.OID is var oid && oid == (uint)OID.TopazOutline1 && state == 0x00010002u || oid == (uint)OID.TopazOutline2 && state is 0x00100020u or 0x01000200u)
+        {
+            intercept = true;
+        }
     }
 
-    private int CellIndex(WPos position)
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        var offset = position - Arena.Center;
-        return (CoordinateIndex(offset.Z) << 2) | CoordinateIndex(offset.X);
+        if (!intercept)
+        {
+            base.OnCastStarted(caster, spell);
+        }
+        else if (spell.Action.ID is (uint)AID.TopazRay1 or (uint)AID.TopazRay2)
+        {
+            rubyreflection ??= Module.FindComponent<RubyReflection>()!;
+            var center = Arena.Center;
+            var origin = spell.LocXZ;
+            AOEShape shape;
+            var aoes = CollectionsMarshal.AsSpan(rubyreflection.AOEs);
+            var count = aoes.Length;
+            var act = Module.CastFinishAt(spell);
+            for (var i = 0; i < count; ++i)
+            {
+                ref var aoe = ref aoes[i];
+                if (aoe.Shape is AOEShapeRect && Intersect.CircleAARectEdge(origin - aoe.Origin, 4f, 10f, 10f)
+                    || aoe.Shape is AOEShapeCustom custom && custom.Polygon.PolygonCircleIntersection(center - origin, 4f) == PolygonShapeRelation.Intersecting)
+                {
+                    shape = new AOEShapeCustom(center, [new Square(CellCenter(CellIndex(origin)), 5f)], shapes2: [new Circle(origin, 4f)], operand: OperandType.Intersection);
+                    Casters.Add(new(shape, center, default, act, actorID: caster.InstanceID, shapeDistance: shape.Distance(center, default)));
+                    return;
+                }
+            }
+            shape = Shape;
+            Casters.Add(new(shape, spell.LocXZ, default, act, actorID: caster.InstanceID, shapeDistance: shape.Distance(origin, default)));
+        }
     }
 
-    private static int CoordinateIndex(float coordinate) => coordinate switch
+    public int CellIndex(WPos pos)
+    {
+        var off = pos - Arena.Center;
+        return (CoordinateIndex(off.Z) << 2) | CoordinateIndex(off.X);
+    }
+
+    private int CoordinateIndex(float coord) => coord switch
     {
         < -10f => 0,
         < 0f => 1,
@@ -250,29 +171,114 @@ sealed class RedRubyReflection(BossModule module) : Components.GenericAOEs(modul
         _ => 3
     };
 
-    private WPos CellCenter(int index) => Arena.Center + CellOffset(index);
-
-    private static WDir CellOffset(int index) => new(-15f + 10f * (index & 3), -15f + 10f * (index >> 2));
-
-    private static WDir Transform(WDir offset, int transform)
+    public WPos CellCenter(int index)
     {
-        var x = offset.X;
-        var z = transform >= 4 ? -offset.Z : offset.Z;
-        return (transform & 3) switch
-        {
-            0 => new(x, z),
-            1 => new(-z, x),
-            2 => new(-x, -z),
-            _ => new(z, -x)
-        };
+        var x = -15f + 10f * (index & 3);
+        var z = -15f + 10f * (index >> 2);
+        return Arena.Center + new WDir(x, z);
+    }
+}
+
+sealed class RubyReflection : Components.GenericAOEs
+{
+    public RubyReflection(BossModule module) : base(module)
+    {
+        var center = Arena.Center;
+        Reflection1Zero =
+        [
+            new(center, [new Square(new(223f, 337f), 5f), new Square(new(233f, 337f), 5f), new Square(new(233f, 347f), 5f), new Square(new(233f, 357f), 5f)]),
+            new(center, [new Square(new(223f, 347f), 5f), new Square(new(223f, 357f), 5f), new Square(new(223f, 367f), 5f), new Square(new(233f, 367f), 5f)]),
+            new(center, [new Square(new(243f, 337f), 5f), new Square(new(253f, 337f), 5f), new Square(new(253f, 347f), 5f), new Square(new(253f, 357f), 5f)]),
+            new(center, [new Square(new(243f, 347f), 5f), new Square(new(243f, 357f), 5f), new Square(new(243f, 367f), 5f), new Square(new(253f, 367f), 5f)])
+        ];
+        Reflection2Zero =
+        [
+            new(center, [new Square(new(223f, 337f), 5f), new Square(new(223f, 347f), 5f), new Square(new(233f, 347f), 5f), new Square(new(243f, 347f), 5f)]),
+            new(center, [new Square(new(233f, 337f), 5f), new Square(new(243f, 337f), 5f), new Square(new(253f, 337f), 5f), new Square(new(253f, 347f), 5f)]),
+            new(center, [new Square(new(223f, 357f), 5f), new Square(new(223f, 367f), 5f), new Square(new(233f, 367f), 5f), new Square(new(243f, 367f), 5f)]),
+            new(center, [new Square(new(233f, 357f), 5f), new Square(new(243f, 357f), 5f), new Square(new(253f, 357f), 5f), new Square(new(253f, 367f), 5f)]),
+        ];
+        TopazComponent = module.FindComponent<TopazRay>()!;
+    }
+    private readonly TopazRay TopazComponent;
+    public readonly List<AOEInstance> AOEs = [];
+    private readonly AOEShapeRect rect = new(10f, 10f, 10f);
+    private readonly WPos[] Quadrants = [new(228f, 342f), new(248f, 342f), new(228f, 362f), new(248f, 362f)];
+    private readonly AOEShapeCustom[] Reflection1Zero;
+    private readonly AOEShapeCustom[] Reflection2Zero;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        return CollectionsMarshal.AsSpan(AOEs);
     }
 
-    private static float DistanceToSegmentSq(WDir point, WDir start, WDir end)
+    public override void OnActorEAnim(Actor actor, uint state)
     {
-        var segment = end - start;
-        var lengthSq = segment.LengthSq();
-        var t = lengthSq > 0f ? Math.Clamp((point - start).Dot(segment) / lengthSq, 0f, 1f) : 0f;
-        return (point - (start + t * segment)).LengthSq();
+        if (actor.OID == (uint)OID.TopazOutline1)
+        {
+            if (state == 0x00010002u)
+            {
+                var act = WorldState.FutureTime(11.8d);
+                var quadCount = Quadrants.Length;
+                var topaz = CollectionsMarshal.AsSpan(TopazComponent.Actors);
+                var topazCount = topaz.Length;
+                for (var i = 0; i < topazCount; ++i)
+                {
+                    var t = topaz[i];
+                    var pos = t.Position;
+                    var rot = t.Rotation;
+                    for (var j = 0; j < quadCount; ++j)
+                    {
+                        var quad = Quadrants[j];
+                        var p = pos + (rot + 180f.Degrees()).ToDirection() * 3f;
+                        if (quad.InSquare(pos, 10f) && !quad.InSquare(p, 10f))
+                        {
+                            AOEs.Add(new(rect, quad, activation: act, shapeDistance: rect.Distance(quad, default)));
+                        }
+                    }
+                }
+            }
+        }
+        else if (actor.OID == (uint)OID.TopazOutline2)
+        {
+            if (state is 0x00100020u or 0x01000200u)
+            {
+                var act = WorldState.FutureTime(14.8d);
+                var shapes = state == 0x00100020u ? Reflection2Zero : Reflection1Zero;
+                var rubyRot = actor.Rotation;
+                var center = Arena.Center;
+                var shapeCount = shapes.Length;
+                var topaz = CollectionsMarshal.AsSpan(TopazComponent.Actors);
+                var topazCount = topaz.Length;
+                for (var i = 0; i < topazCount; ++i)
+                {
+                    var t = topaz[i];
+                    var pos = t.Position;
+                    var rot = t.Rotation;
+                    for (var j = 0; j < shapeCount; ++j)
+                    {
+                        var shape = shapes[j];
+                        var poly = shape.Polygon.Transform(default, rubyRot.ToDirection());
+                        poly.InitPolygonIndex();
+                        var p = pos + (rot + 180f.Degrees()).ToDirection() * 3f;
+                        if (poly.Contains(pos - center) && !poly.Contains(p - center))
+                        {
+                            var aoe = new AOEShapeCustom(center, [], skipPolygonInit: true);
+                            aoe.ReplacePolygon(poly, center);
+                            AOEs.Add(new(aoe, center, activation: act, shapeDistance: aoe.Distance(center, default)));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID is (uint)AID.RubyReflection or (uint)AID.RubyReflection1 or (uint)AID.RubyReflection2)
+        {
+            AOEs.Clear();
+        }
     }
 }
 
@@ -367,7 +373,7 @@ sealed class StarvingDread(BossModule module) : Components.GenericKnockback(modu
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.StarvingDreadFirst)
+        if (spell.Action.ID == (uint)AID.SpinebreakingStampedeCast)
         {
             var movement = spell.LocXZ - caster.Position;
             if (movement.LengthSq() > 1f)
@@ -376,7 +382,7 @@ sealed class StarvingDread(BossModule module) : Components.GenericKnockback(modu
                 _firstActivation = Module.CastFinishAt(spell, 0.75d);
             }
         }
-        else if (spell.Action.ID == (uint)AID.StarvingDreadSecondVisual)
+        else if (spell.Action.ID == (uint)AID.SpinebreakingStampedeCircleVisual)
             _second = new(caster.Position, 30f, Module.CastFinishAt(spell, 6.1d));
     }
 
@@ -384,59 +390,15 @@ sealed class StarvingDread(BossModule module) : Components.GenericKnockback(modu
     {
         // The actual first hit follows the boss's cast end by about 0.65s.
         // Keep the preparation constraint until it resolves; each hit has duplicate helper events.
-        if (spell.Action.ID == (uint)AID.StarvingDreadFirstDamage && _firstDirection != null)
+        if (spell.Action.ID == (uint)AID.SpinebreakingStampedeMiddle && _firstDirection != null)
         {
             _firstDirection = null;
             ++NumCasts;
         }
-        else if (spell.Action.ID == (uint)AID.StarvingDreadSecondDamage && _second != null)
+        else if (spell.Action.ID == (uint)AID.SpinebreakingStampedeCircle && _second != null)
         {
             _second = null;
             ++NumCasts;
-        }
-    }
-}
-
-sealed class ClawTailCombo(BossModule module) : Components.GenericAOEs(module)
-{
-    private static readonly AOEShapeCone Front = new(45f, 90f.Degrees());
-    private static readonly AOEShapeCone Rear = new(40f, 90f.Degrees());
-    private readonly List<AOEInstance> _aoes = new(2);
-
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
-    {
-        var aoes = CollectionsMarshal.AsSpan(_aoes);
-        for (var i = 0; i < aoes.Length; ++i)
-        {
-            aoes[i].Color = i == 0 ? Colors.Danger : Colors.AOE;
-            aoes[i].Risky = i == 0;
-        }
-        return aoes;
-    }
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        var activation = Module.CastFinishAt(spell);
-        switch (spell.Action.ID)
-        {
-            case (uint)AID.ClawThenTail:
-                _aoes.Add(new(Front, caster.Position, spell.Rotation, activation, actorID: caster.InstanceID));
-                _aoes.Add(new(Rear, caster.Position, spell.Rotation + 180f.Degrees(), activation.AddSeconds(3.1d), actorID: caster.InstanceID));
-                break;
-            case (uint)AID.TailThenClaw:
-                _aoes.Add(new(Rear, caster.Position, spell.Rotation, activation, actorID: caster.InstanceID));
-                _aoes.Add(new(Front, caster.Position, spell.Rotation + 180f.Degrees(), activation.AddSeconds(3.1d), actorID: caster.InstanceID));
-                break;
-        }
-    }
-
-    public override void OnEventCast(Actor caster, ActorCastEvent spell)
-    {
-        if (spell.Action.ID is (uint)AID.ClawThenTail or (uint)AID.TailThenClaw or (uint)AID.ClawThenTailSecond or (uint)AID.TailThenClawSecond)
-        {
-            var index = _aoes.FindIndex(a => a.ActorID == caster.InstanceID);
-            if (index >= 0)
-                _aoes.RemoveAt(index);
         }
     }
 }
@@ -446,24 +408,17 @@ sealed class ABeastUnleashedStates : StateMachineBuilder
     public ABeastUnleashedStates(BossModule module) : base(module)
     {
         TrivialPhase()
-            .ActivateOnEnter<YellowGemRays>()
-            .ActivateOnEnter<RedRubyLight>()
-            .ActivateOnEnter<RedRubyReflection>()
-            .ActivateOnEnter<StarvingDread>()
-            .ActivateOnEnter<ClawTailCombo>()
-            .ActivateOnEnter<SonicHowl>();
+            .ActivateOnEnter<SonicHowl>()
+            .ActivateOnEnter<RubyGlow>()
+            .ActivateOnEnter<TopazRay>()
+            .ActivateOnEnter<RubyReflection>()
+            .ActivateOnEnter<TailToClaw>()
+            .ActivateOnEnter<StarvingDread>();
     }
 }
 
-// Temporary module; remove when upstream adds an encounter for OID 0x4C4F.
-[ModuleInfo(BossModuleInfo.Maturity.Contributed,
-    StatesType = typeof(ABeastUnleashedStates),
-    ObjectIDType = typeof(OID),
-    ActionIDType = typeof(AID),
-    PrimaryActorOID = (uint)OID.Boss,
-    Expansion = BossModuleInfo.Expansion.Dawntrail,
-    Category = BossModuleInfo.Category.Foray,
-    GroupType = BossModuleInfo.GroupType.CFC,
-    GroupID = 1093,
-    NameID = 14791)]
-public sealed class ABeastUnleashed(WorldState ws, Actor primary) : BossModule(ws, primary, new(238f, 352f), new ArenaBoundsSquare(20f));
+[ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.AtlasCarbuncle, Contributors = "gynorhino", GroupType = BossModuleInfo.GroupType.CriticalEngagement, GroupID = 1093u, NameID = 56u)]
+public sealed class ABeastUnleashed(WorldState ws, Actor primary) : BossModule(ws, primary, new(238f, 352f), new ArenaBoundsSquare(20f))
+{
+    protected override bool CheckPull() => base.CheckPull() && Raid.Player() is Actor player && player.Position.InSquare(Arena.Center, 20f);
+}

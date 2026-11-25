@@ -1557,3 +1557,66 @@ sealed class P3Enrage(BossModule module) : BossComponent(module)
         }
     }
 }
+
+sealed class P3Firewall(BossModule module) : Components.GenericInvincible(module)
+{
+    private enum Side { None, Epic, Fated }
+    private readonly Side[] _sides = new Side[PartyState.MaxPartySize];
+    private readonly Actor[] _forbidden = new Actor[1];
+    private Actor? _epicBoss;
+    private Actor? _fatedBoss;
+
+    protected override ReadOnlySpan<Actor> ForbiddenTargets(int slot, Actor actor)
+    {
+        if (slot < 0 || slot >= _sides.Length)
+            return [];
+        var otherBoss = _sides[slot] switch
+        {
+            Side.Epic => _fatedBoss,
+            Side.Fated => _epicBoss,
+            _ => null
+        };
+        if (otherBoss == null)
+            return [];
+        _forbidden[0] = otherBoss;
+        return _forbidden;
+    }
+
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        switch (status.ID)
+        {
+            case (uint)SID.EpicHero:
+            case (uint)SID.FatedHero:
+                var slot = Raid.FindSlot(actor.InstanceID);
+                if (slot >= 0)
+                    _sides[slot] = status.ID == (uint)SID.EpicHero ? Side.Epic : Side.Fated;
+                break;
+            case (uint)SID.EpicVillain:
+                _epicBoss = actor;
+                break;
+            case (uint)SID.FatedVillain:
+                _fatedBoss = actor;
+                break;
+        }
+    }
+
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
+    {
+        switch (status.ID)
+        {
+            case (uint)SID.EpicHero:
+            case (uint)SID.FatedHero:
+                var slot = Raid.FindSlot(actor.InstanceID);
+                if (slot >= 0)
+                    _sides[slot] = Side.None;
+                break;
+            case (uint)SID.EpicVillain:
+                _epicBoss = null;
+                break;
+            case (uint)SID.FatedVillain:
+                _fatedBoss = null;
+                break;
+        }
+    }
+}

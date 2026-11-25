@@ -14,6 +14,7 @@ sealed class M10NDaringDevilsStates : StateMachineBuilder
             .ActivateOnEnter<DeepImpact>()
             .ActivateOnEnter<DiversDare>()
             .ActivateOnEnter<DiversDareBlue>()
+            .ActivateOnEnter<FiresnakingWatersnaking>()
 
             .ActivateOnEnter<CutbackBlazeBait>()
             .ActivateOnEnter<CutbackBlazePersistent>()

@@ -274,18 +274,57 @@ static class RadarDrawingTests
     {
         using var f = new Fixture();
         var boss = f.Create(0x25B7, new(600, 290));
-        var turret = f.Create(0x25B8, new(621.2f, 290), 135f.Degrees());
+        Actor[] turrets =
+        [
+            f.Create(0x25B8, new(621.2f, 290), 135f.Degrees()),
+            f.Create(0x25B8, new(600, 268.7f), -135f.Degrees()),
+            f.Create(0x25B8, new(578.8f, 290), -45f.Degrees()),
+            f.Create(0x25B8, new(600, 311), 45f.Degrees())
+        ];
         using var module = new BossMod.Stormblood.Alliance.A31Mustadio.A31Mustadio(f.World, boss);
         var beam = Activate<GenericAOEs>(module, "BossMod.Stormblood.Alliance.A31Mustadio.SatelliteBeam");
-        beam.OnCastStarted(turret, Cast(14145, new(610.590f, 300.588f), turret.Rotation, 1.7f));
-        var aoes = beam.ActiveAOEs(0, f.Player);
-        check(aoes.Length == 1 && aoes[0].Origin.AlmostEqual(turret.Position, 0.01f), "姆斯塔迪奥卫星射线使用机械兵坐标，不使用后移15米的读条目标点");
-        check(aoes[0].Check(turret.Position + turret.Rotation.ToDirection() * 29) && !aoes[0].Check(turret.Position - turret.Rotation.ToDirection()), "姆斯塔迪奥卫星射线朝机械兵前方覆盖四分之一场地");
-        beam.OnEventCast(turret, Event(14145));
-        check(beam.ActiveAOEs(0, f.Player).IsEmpty, "姆斯塔迪奥卫星射线结算清除");
-        beam.OnCastStarted(turret, Cast(14145, new(610.590f, 300.588f), turret.Rotation, 1.7f));
-        beam.OnActorDestroyed(turret);
-        check(beam.ActiveAOEs(0, f.Player).IsEmpty, "姆斯塔迪奥机械兵提前销毁清除预警");
+        for (var first = 0; first < turrets.Length; ++first)
+        {
+            for (var second = first + 1; second < turrets.Length; ++second)
+            {
+                var a = turrets[first];
+                var b = turrets[second];
+                beam.OnTethered(a, new(88, boss.InstanceID));
+                beam.OnTethered(b, new(88, boss.InstanceID));
+                beam.OnTethered(a, new(88, boss.InstanceID));
+                var predicted = beam.ActiveAOEs(0, f.Player);
+                check(predicted.Length == 2 && predicted.ToArray().All(aoe => aoe.ActorID == a.InstanceID || aoe.ActorID == b.InstanceID), "穆斯塔迪奥四台随机两台只显示激活来源，重复连线不重复添加");
+                foreach (var aoe in predicted)
+                {
+                    var direction = aoe.Rotation.ToDirection();
+                    var side = direction.OrthoL();
+                    check(aoe.Check(aoe.Origin + direction * 14.9f) && aoe.Check(aoe.Origin - direction * 14.9f)
+                        && !aoe.Check(aoe.Origin + direction * 15.1f) && !aoe.Check(aoe.Origin - direction * 15.1f), "穆斯塔迪奥卫星射线以机器人为中心，前后各覆盖15米");
+                    check(aoe.Check(aoe.Origin + side * 14.9f) && !aoe.Check(aoe.Origin + side * 15.1f), "穆斯塔迪奥卫星射线方形全宽30米");
+                }
+                var cast = Cast(14145, a.Position - a.Rotation.ToDirection() * 15, a.Rotation, 1.7f);
+                beam.OnCastStarted(a, cast);
+                var active = beam.ActiveAOEs(0, f.Player).ToArray();
+                var current = active.Single(aoe => aoe.ActorID == a.InstanceID);
+                check(active.Length == 2 && current.Origin == a.Position && current.Check(a.Position - a.Rotation.ToDirection() * 14.9f)
+                    && !current.Check(a.Position + a.Rotation.ToDirection() * 15.1f), "穆斯塔迪奥读条接管后保持相同的居中方形");
+                beam.OnEventCast(a, Event(14145));
+                var remaining = beam.ActiveAOEs(0, f.Player);
+                check(remaining.Length == 1 && remaining[0].ActorID == b.InstanceID, "穆斯塔迪奥单台结算只移除自己的范围");
+                beam.OnActorDestroyed(b);
+                check(beam.ActiveAOEs(0, f.Player).IsEmpty, "穆斯塔迪奥另一台提前销毁清除其预警");
+            }
+        }
+        var completed = Cast(14145, turrets[0].Position, turrets[0].Rotation, 1.7f);
+        completed.ElapsedTime = completed.TotalTime;
+        beam.OnCastStarted(turrets[0], completed);
+        beam.OnCastFinished(turrets[0], completed);
+        check(beam.ActiveAOEs(0, f.Player).Length == 1, "穆斯塔迪奥正常读条结束后保留范围直到实际伤害结算");
+        beam.OnEventCast(turrets[0], Event(14145));
+        var cancelled = Cast(14145, turrets[0].Position, turrets[0].Rotation, 1.7f);
+        beam.OnCastStarted(turrets[0], cancelled);
+        beam.OnCastFinished(turrets[0], cancelled);
+        check(beam.ActiveAOEs(0, f.Player).IsEmpty, "穆斯塔迪奥取消读条清除范围");
     }
 
     static void ThunderGodHallowedBolt(Action<bool, string> check)

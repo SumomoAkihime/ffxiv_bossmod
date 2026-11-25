@@ -116,7 +116,7 @@ sealed class FRUStates : StateMachineBuilder
             .DeactivateOnExit<P1UtopianSkyAIInitial>()
             .SetHint(StateMachine.StateHint.Tankbuster);
         ComponentCondition<P1UtopianSkyBlastingZone>(id + 0x20, 8.9f, comp => comp.NumCasts > 0, "Lines")
-            .ExecOnEnter<P1UtopianSkySpreadStack>(comp => comp.Show(Module.WorldState.FutureTime(9.7f)))
+            .ExecOnEnter<P1UtopianSkySpreadStack>(comp => comp.Show(9.7d))
             .ActivateOnEnter<P1UtopianSkyAIResolve>()
             .DeactivateOnExit<P1UtopianSkyBlastingZone>();
         ComponentCondition<P1UtopianSkySpreadStack>(id + 0x21, 0.8f, comp => !comp.Active, "Spread/stack")

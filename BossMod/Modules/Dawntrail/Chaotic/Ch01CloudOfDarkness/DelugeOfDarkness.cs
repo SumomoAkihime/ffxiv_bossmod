@@ -12,12 +12,14 @@ sealed class Phase2InnerCells(BossModule module) : Components.GenericAOEs(module
     private static readonly AOEShapeRect square = new(3f, 3f, 3f);
     private static readonly Dictionary<int, (int x, int y)> _cellIndexToCoordinates = GenerateCellIndexToCoordinates();
 
+    private readonly AOEInstance[] _tiles = new AOEInstance[28];
+
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         if (!_config.ShowOccupiedTiles)
             return [];
         var cell = CellIndex(actor.Position - Arena.Center) - 3;
-        var tiles = new AOEInstance[28];
+        var tiles = _tiles;
         var index = 0;
         for (var i = 0; i < 28; ++i)
         {

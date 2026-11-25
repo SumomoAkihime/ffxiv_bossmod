@@ -138,5 +138,5 @@ sealed class CE210ImbalancedDietStates : StateMachineBuilder
 [SkipLocalsInit]
 public sealed class CE210ImbalancedDiet(WorldState ws, Actor primary) : BossModule(ws, primary, new WPos(765f, 0f).Quantized(), new ArenaBoundsCircle(24f))
 {
-    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 24f);
+    protected override bool CheckPull() => base.CheckPull() && Raid.Player() is Actor player && player.Position.InCircle(Arena.Center, 24f);
 }

@@ -56,7 +56,7 @@ public sealed class UIRotationWindow : UIWindow
         var activeModule = _mgr.Bossmods.ActiveModule;
         if (activeModule != null)
         {
-            ImGui.TextUnformatted($"CD Plan:");
+            ImGui.TextUnformatted(Loc.Tr("CD Plan:"));
 
             if (activeModule.Info?.PlanLevel > 0)
             {
@@ -70,7 +70,7 @@ public sealed class UIRotationWindow : UIWindow
                 }
 
                 ImGui.SameLine();
-                if (ImGui.Button(plans.SelectedIndex >= 0 ? "Edit" : "New"))
+                if (ImGui.Button(plans.SelectedIndex >= 0 ? Loc.UiLabel("Edit") : Loc.UiLabel("New")))
                 {
                     if (plans.SelectedIndex < 0)
                     {
@@ -90,7 +90,7 @@ public sealed class UIRotationWindow : UIWindow
             }
         }
 
-        ImGui.TextUnformatted("Modules: ");
+        ImGui.TextUnformatted(Loc.Tr("Modules: "));
 
         var dups = _mgr.DuplicateModules.ToList();
         if (dups.Count > 0)
@@ -143,7 +143,7 @@ public sealed class UIRotationWindow : UIWindow
         if (mgr.Player == null)
             return modified;
 
-        ImGui.TextUnformatted("Presets:");
+        ImGui.TextUnformatted(Loc.Tr("Presets:"));
 
         ImGui.SameLine();
 
@@ -151,7 +151,7 @@ public sealed class UIRotationWindow : UIWindow
         using (ImRaii.PushColor(ImGuiCol.ButtonHovered, Colors.ButtonPushColor3, mgr.IsForceDisabled))
         using (ImRaii.PushColor(ImGuiCol.ButtonActive, Colors.ButtonPushColor4, mgr.IsForceDisabled))
         {
-            if (ImGui.Button("Disabled"))
+            if (ImGui.Button(Loc.UiLabel("Disabled")))
             {
                 if (mgr.IsForceDisabled)
                     mgr.Clear();

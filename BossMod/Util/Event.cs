@@ -11,11 +11,18 @@ public sealed class EventSubscription(Action unsubscribe) : IDisposable
 [SkipLocalsInit]
 public sealed class EventSubscriptions : IDisposable
 {
-    private Action? _dispose;
+    private Action _dispose = () => { };
 
-    public EventSubscriptions(params EventSubscription[] subscriptions) => Array.ForEach(subscriptions, Add);
+    public EventSubscriptions(params EventSubscription[] subscriptions)
+    {
+        Add(subscriptions);
+    }
     public void Dispose() => _dispose?.Invoke();
-    public void Add(EventSubscription a) => _dispose += a.Dispose;
+    public void Add(params EventSubscription[] a)
+    {
+        foreach (var s in a)
+            _dispose += s.Dispose;
+    }
 }
 
 // a replacement for standard events

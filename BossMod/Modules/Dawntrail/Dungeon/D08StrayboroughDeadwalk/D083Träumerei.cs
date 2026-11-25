@@ -64,15 +64,23 @@ sealed class ImpactArenaChange(BossModule module) : BossComponent(module)
             }
         }
     }
+    private static readonly ArenaBoundsSquare squareBounds = new(19.5f);
+    private ArenaBoundsCustom? crossBounds;
+
     public override void DrawArenaBackground(int pcSlot, Actor pc)
     {
         if (active)
         {
             var isSquare = Arena.Bounds is ArenaBoundsSquare;
             var ghostly = ghost.Ghostly[pcSlot];
-            Arena.Bounds = ghostly && !isSquare ? new ArenaBoundsSquare(19.5f)
-            : !ghostly && isSquare ? new ArenaBoundsCustom([new Square(Arena.Center, 19.5f)], [new Cross(Arena.Center, 20f, 1.5f)])  // for some reason the obstacle cross is smaller than the AOE;
-            : Arena.Bounds;
+            if (ghostly && !isSquare)
+            {
+                Arena.Bounds = squareBounds;
+            }
+            else if (!ghostly && isSquare)
+            {
+                Arena.Bounds = crossBounds ??= new ArenaBoundsCustom([new Square(Arena.Center, 19.5f)], [new Cross(Arena.Center, 20f, 1.5f)]);
+            }
         }
     }
 }
@@ -98,7 +106,12 @@ sealed class GhostlyGuise(BossModule module) : Components.GenericAOEs(module)
         {
             return [];
         }
+        UpdateState(slot);
+        return circles;
+    }
 
+    private void UpdateState(int slot)
+    {
         if (_avoid.Spreads.Count != 0)
         {
             risky = !Ghostly[slot];
@@ -116,15 +129,6 @@ sealed class GhostlyGuise(BossModule module) : Components.GenericAOEs(module)
         else
         {
             risky = true;
-        }
-        return circles;
-    }
-
-    public override void Update()
-    {
-        if (!activated)
-        {
-            return;
         }
         var color = risky ? default : Colors.SafeFromAOE;
         for (var i = 0; i < 4; ++i)
@@ -164,17 +168,17 @@ sealed class GhostlyGuise(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        if (status.ID == (uint)SID.GhostlyGuise)
+        if (status.ID == (uint)SID.GhostlyGuise && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
         {
-            Ghostly.Set(Raid.FindSlot(actor.InstanceID));
+            Ghostly.Set(slot);
         }
     }
 
     public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if (status.ID == (uint)SID.GhostlyGuise)
+        if (status.ID == (uint)SID.GhostlyGuise && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0)
         {
-            Ghostly.Clear(Raid.FindSlot(actor.InstanceID));
+            Ghostly.Clear(slot);
         }
     }
 
@@ -200,6 +204,11 @@ sealed class GhostlyGuise(BossModule module) : Components.GenericAOEs(module)
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
+        if (!activated)
+        {
+            return;
+        }
+        UpdateState(slot);
         if (!risky && shapeDistances != null)
         {
             hints.AddForbiddenZone(shapeDistances, activation);

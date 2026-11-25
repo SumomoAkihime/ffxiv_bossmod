@@ -12,13 +12,13 @@ public class MeleeAI(RotationModuleManager manager, Actor player) : AIBase<Melee
         public Track<EnabledByDefault> Bloodbath;
         [Track(Action = ClassShared.AID.LegSweep)]
         public Track<EnabledByDefault> Stun;
+        [Track("Feint", InternalName = "Feint", Action = ClassShared.AID.Feint)]
+        public Track<DisabledByDefault> Feint;
         [Track("Limit Break", InternalName = "Limit Break", Actions = [ClassShared.AID.Braver, ClassShared.AID.Bladedance])]
         public Track<EnabledByDefault> LimitBreak;
 
         [Track(Actions = [BossMod.MNK.AID.Thunderclap, BossMod.DRG.AID.WingedGlide, BossMod.NIN.AID.Shukuchi, BossMod.SAM.AID.HissatsuGyoten, BossMod.RPR.AID.HellsIngress, BossMod.VPR.AID.Slither])]
         public Track<EnabledByDefault> Dash;
-        [Track("Feint", InternalName = "Feint", Action = ClassShared.AID.Feint)]
-        public Track<DisabledByDefault> Feint;
     }
 
     public static RotationModuleDefinition Definition()

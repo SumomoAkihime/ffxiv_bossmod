@@ -53,6 +53,7 @@ public enum TetherID : uint
 sealed class Implosion(BossModule module) : Components.RaidwideCast(module, (uint)AID.Implosion);
 sealed class ArachnidFunnel(BossModule module) : Components.GenericAOEs(module)
 {
+    private readonly List<AOEInstance> _aoesBuffer = [];
     // boss tethers to next add after each jump
     // casts web to next add / aoe order
     // any pattern to positions? able to predict based on add rotation towards location?
@@ -65,11 +66,12 @@ sealed class ArachnidFunnel(BossModule module) : Components.GenericAOEs(module)
             return [];
         }
 
-        List<AOEInstance> aoes = [];
+        var aoes = _aoesBuffer;
+        aoes.Clear();
         var actors = CollectionsMarshal.AsSpan(_actors);
         var count = actors.Length;
 
-        for (var i = 0; i < count - 1; i++)
+        for (var i = 0; i < count - 1; ++i)
         {
             ref var source = ref actors[i];
             ref var target = ref actors[i + 1];
@@ -134,6 +136,7 @@ sealed class Conformity(BossModule module) : Components.SimpleAOEs(module, (uint
 
 sealed class ConformityAdds(BossModule module) : Components.GenericAOEs(module)
 {
+    private readonly List<AOEInstance> _aoesBuffer = [];
     // any pattern to how adds move after being assigned status?
     // loses status little before reaching final spot
     // get angle on status gain, get final angle after rotation to predict final position?
@@ -148,10 +151,11 @@ sealed class ConformityAdds(BossModule module) : Components.GenericAOEs(module)
             return [];
         }
 
-        List<AOEInstance> aoes = [];
+        var aoes = _aoesBuffer;
+        aoes.Clear();
         var conformities = CollectionsMarshal.AsSpan(_conformities);
         var count = conformities.Length;
-        for (var i = 0; i < count; i++)
+        for (var i = 0; i < count; ++i)
         {
             ref var conformity = ref conformities[i];
 
@@ -164,10 +168,9 @@ sealed class ConformityAdds(BossModule module) : Components.GenericAOEs(module)
                 var coneDirection = Arena.Center - edgePosition;
                 // going by finished rotation not exact; adds may swerver a bit towards the middle
                 // adds not always cardinals; maybe card & intercards? try setting to closest 45deg spot
-                var cardIntercard = Angle.AnglesCardinals.Concat(Angle.AnglesIntercardinals).ToArray();
-                for (var j = 0; j < 8; j++)
+                for (var j = 0; j < 8; ++j)
                 {
-                    var angle = cardIntercard[j];
+                    var angle = Angle.AnglesCardinals.Concat(Angle.AnglesIntercardinals).ToArray()[j];
                     var rotation = coneDirection.ToAngle();
                     if (rotation.AlmostEqual(angle, 20f.Degrees().Rad))
                     {
@@ -205,7 +208,7 @@ sealed class ConformityAdds(BossModule module) : Components.GenericAOEs(module)
         {
             var conformities = CollectionsMarshal.AsSpan(_conformities);
             var count = conformities.Length;
-            for (var i = 0; i < count; i++)
+            for (var i = 0; i < count; ++i)
             {
                 ref var conformity = ref conformities[i];
 
@@ -251,7 +254,7 @@ sealed class BedrockUplift(BossModule module) : Components.ConcentricAOEs(module
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        var order = (uint)(AID)spell.Action.ID switch
+        var order = (uint)spell.Action.ID switch
         {
             (uint)AID.BedrockUplift1 => 0,
             (uint)AID.BedrockUplift2 => 1,
@@ -267,7 +270,7 @@ sealed class BedrockUplift(BossModule module) : Components.ConcentricAOEs(module
         {
             var seqs = CollectionsMarshal.AsSpan(Sequences);
             var count = seqs.Length;
-            for (var i = 0; i < count; i++)
+            for (var i = 0; i < count; ++i)
             {
                 ref var seq = ref seqs[i];
                 if (seq.NumCastsDone == 0)
@@ -289,27 +292,6 @@ sealed class BedrockUplift(BossModule module) : Components.ConcentricAOEs(module
 
 sealed class ArachneDaughter(BossModule module) : Components.Adds(module, (uint)OID.ArachneDaughter, 2);
 sealed class VenomEruption(BossModule module) : Components.RaidwideCast(module, (uint)AID.VenomEruption, "Kill adds before they cast!");
-sealed class Debug(BossModule module) : BossComponent(module)
-{
-    public override void DrawArenaForeground(int pcSlot, Actor pc)
-    {
-        var adds = WorldState.Actors.Where(x => x.OID == (uint)OID.ArachneDaughter).ToList();
-        for (var i = 0; i < adds.Count; i++)
-        {
-            Arena.ZoneCircle(adds[i].Position, 2f, Colors.SafeFromAOE);
-        }
-
-        var compass = Angle.AnglesCardinals.Concat(Angle.AnglesIntercardinals).ToArray();
-        for (var i = 0; i < compass.Length; i++)
-        {
-            var edgeDistance = Arena.Bounds.IntersectRay(default, compass[i].ToDirection());
-            var edgePosition = Arena.Center + compass[i].ToDirection() * edgeDistance;
-            Arena.ZoneCircleOutline(edgePosition, 3f, default);
-        }
-    }
-}
-
-[SkipLocalsInit]
 sealed class CE215WebofTerrorStates : StateMachineBuilder
 {
     public CE215WebofTerrorStates(BossModule module) : base(module)
@@ -322,7 +304,6 @@ sealed class CE215WebofTerrorStates : StateMachineBuilder
             .ActivateOnEnter<Conformity>()
             .ActivateOnEnter<ConformityAdds>()
             .ActivateOnEnter<BedrockUplift>();
-            //.ActivateOnEnter<Debug>();
     }
 }
 
@@ -343,8 +324,7 @@ sealed class CE215WebofTerrorStates : StateMachineBuilder
     NameID = 55u,
     SortOrder = 7,
     PlanLevel = 0)]
-[SkipLocalsInit]
 public sealed class CE215WebofTerror(WorldState ws, Actor primary) : BossModule(ws, primary, new(170f, -136f), new ArenaBoundsCircle(20f))
 {
-    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 25f);
+    protected override bool CheckPull() => base.CheckPull() && Raid.Player() is Actor player && player.Position.InCircle(Arena.Center, 25f);
 }

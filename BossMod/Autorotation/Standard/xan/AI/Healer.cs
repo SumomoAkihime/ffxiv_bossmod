@@ -150,7 +150,7 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase<Heal
         if (esuna.IsEnabled())
             foreach (var st in Health.PartyMemberStates)
                 if (st.EsunableStatusRemaining > GCD + 1.14f && esuna.Check(Hints.ShouldCleanse[st.Slot]))
-                    UseGCD(BossMod.WHM.AID.Esuna, World.Party[st.Slot]);
+                    UseGCD(BossMod.WHM.AID.Esuna, World.Party[st.Slot], 50);
 
         switch (Player.Class)
         {
@@ -692,6 +692,10 @@ public class HealerAI(RotationModuleManager manager, Actor player) : AIBase<Heal
                     healFun(babysit, HealRatio(targetSlot) - ThresholdShift(babysit, targetSlot));
                 return;
             case HealMode.Enabled:
+                // banner of noble ends
+                // spirit of the profane
+                if (Player.Statuses.Any(s => s.ID is 2320 or 2326))
+                    return;
                 break;
             default:
                 return;

@@ -186,12 +186,13 @@ sealed class RaisedTribute(BossModule module) : Components.GenericWildCharge(mod
         if (iconID == (uint)IconID.RaisedTribute)
         {
             Source = actor;
-            var party = Raid.WithoutSlot(true, true, true);
+            var party = Raid.WithSlot(true, true, true);
             var len = party.Length;
             for (var i = 0; i < len; ++i)
             {
-                ref var member = ref party[i];
-                PlayerRoles[i] = member.InstanceID == targetID ? PlayerRole.Target : member.Tether.ID != 0 ? PlayerRole.Avoid : PlayerRole.Share;
+                ref readonly var p = ref party[i];
+                var member = p.Item2;
+                PlayerRoles[p.Item1] = member.InstanceID == targetID ? PlayerRole.Target : member.Tether.ID != 0 ? PlayerRole.Avoid : PlayerRole.Share;
             }
         }
     }

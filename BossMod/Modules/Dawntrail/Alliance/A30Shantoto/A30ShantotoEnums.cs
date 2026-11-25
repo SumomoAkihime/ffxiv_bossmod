@@ -22,6 +22,7 @@ public enum OID : uint
 
 public enum AID : uint
 {
+    FinalExam2 = 50212, // Helper->players, no cast, range 6 circle
     // Helpful NPC action set - keeping so that we don't keep rediscovering them
     SavageBlade = 50389, // Alxaal->ShantottoTheDemon, no cast, single-target
     Attack1 = 50721, // Alxaal->ShantottoTheDemon, no cast, single-target

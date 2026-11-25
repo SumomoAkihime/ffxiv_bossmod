@@ -1,0 +1,311 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-25",
+  "status": "界面迁移代码及Release与完整离线验收完成，实机视觉和重载待验证",
+  "upstreamCommit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
+  "materialPackageCommit": "0c74204ecfd6785c27ac53213950c3ad08337e63",
+  "dependencies": {
+    "RebornMaterial": "7.5.8.4",
+    "TerraFX.Interop.Windows": "10.0.28000"
+  },
+  "changes": [
+    {
+      "path": "BossMod.SourceGen/ConfigGenerator.cs",
+      "beforeSHA256": "e3e9377c8418fa16e2697604034a23cfff405cb86ca242a95aa6112b7502453f",
+      "afterSHA256": "1c0034c14220931fd2a6c6830c510f11094744e280bffa3804209f81de26f759"
+    },
+    {
+      "path": "BossMod/Autorotation/UIRotationWindow.cs",
+      "beforeSHA256": "64f70b1fbe9e0861d502e70015e31c7a474fd2faecadcedde0f630395fb0ed3b",
+      "afterSHA256": "8b429ffefeaab0596f164b83fb272b1bfdfc3775ada39f4f9e05098bee97e548"
+    },
+    {
+      "path": "BossMod/BossMod.csproj",
+      "beforeSHA256": "5e650aba526fb028d7c2e227acff860c3b7ccbec89045ce4b4200b005fe4f2c1",
+      "afterSHA256": "ca7a597e38cf95d4b1f2cbeb8358ef2c7d51c261ef677347c38f3115057c23de"
+    },
+    {
+      "path": "BossMod/BossModule/BossModuleConfigWindow.cs",
+      "beforeSHA256": "e739f2cd23fb5f80fafe7f7e33d984eb38b31c14a46f0d72569e110d031703de",
+      "afterSHA256": "533b1237411df0d3ae043185c58f09c904bf54874d9b988c9cd76f44ad4046fd"
+    },
+    {
+      "path": "BossMod/BossModule/BossModuleMainWindow.cs",
+      "beforeSHA256": "da80839c059494aec3fa812049121e45f2137b3c9394b5000c51171b63761b99",
+      "afterSHA256": "fc1c1aa4d5a149992d861720de25132931a93c4bf0edddc6eadca1c97156411a"
+    },
+    {
+      "path": "BossMod/Config/GeneratedConfigMetadata.cs",
+      "beforeSHA256": "8e31ffa1d838360fadb1a280dd762c45f6ea03bef7a329fcc1573fc38b264bb7",
+      "afterSHA256": "29bfd636adb8a70512b0cf7475dde73ac27db2df3aae78ff36330cd746f752f5"
+    },
+    {
+      "path": "BossMod/Config/ModuleViewer.cs",
+      "beforeSHA256": "7cff93f040088127b3e1ca63ff620c448a746a363b4f531ea8b1359263c505a2",
+      "afterSHA256": "bc4eff64dfe52b8a5bf1faa5df1b73259e0a29a1ba16a9c9109b97d005f1c3b5"
+    },
+    {
+      "path": "BossMod/Framework/Plugin.cs",
+      "beforeSHA256": "8cec10258efb426151fa979d4478d066b6b1b66fc37674fd052f0c0d8e94da53",
+      "afterSHA256": "52bbff7c701c789e3314cb3f5e83de056fa1f8f9ea3ab5a8f4cb6ce09cdfe5f1"
+    },
+    {
+      "path": "BossMod/Localization/zh-CN.json",
+      "beforeSHA256": "a07b6011420b10778dd6f9cc33b4cb5ba0b11ee34542f4713cf66e826c026658",
+      "afterSHA256": "b799767190f579cbd4fd46577903ddb9f8c9565289122be193d2bbfbb42c0ae2"
+    },
+    {
+      "path": "BossMod/RebornUI/Images/Logo.png",
+      "beforeSHA256": null,
+      "afterSHA256": "0370a21b0dacec9635b1601526b7bc5e3f70fd0fbc28ef0bfa4d4ae1fafb6fac"
+    },
+    {
+      "path": "BossMod/RebornUI/InterfaceConfig.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "ed90eb101c9a4d5da00e95b2e33b3cdab903622b8616bfecd2cb08b4e0700e27"
+    },
+    {
+      "path": "BossMod/RebornUI/MaterialUI.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "e215928c86ecc05dd893cd1fdca5b8d1a99c11fd5e92715385b8f87188f980c9"
+    },
+    {
+      "path": "BossMod/RebornUI/Settings/EncounterSettingsWindow.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "ef86dac05f5733f58d560d307d0e9f81c97ee0bf38a63b9b5a457d16cf9c63af"
+    },
+    {
+      "path": "BossMod/RebornUI/Settings/HomePage.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "0c30ea2fb4af0b46b33ed3457d297408cbc151e66b6760578e1bf5ff50ed8ac2"
+    },
+    {
+      "path": "BossMod/RebornUI/Settings/PartyRolesPanel.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "0aec59362f3f01f10c46a22e5cb4c8e46e161aa20dc447f124f06c78a1ba3d22"
+    },
+    {
+      "path": "BossMod/RebornUI/Settings/SettingsLayout.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "f30c5e0d8cab0b03da490ee8f17b79bba5b3cc41e0ca707544351b55e7f7de10"
+    },
+    {
+      "path": "BossMod/RebornUI/Settings/SettingsRenderer.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "5f8f329e33eb353868805aa7dfe3e75958e624270e1d1146baef2a624f95c68a"
+    },
+    {
+      "path": "BossMod/RebornUI/Settings/SettingsWindow.Commands.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "81caf5bf05340416ed3e75f9fc02a965d20f496c557b894a576de5403e2e71d2"
+    },
+    {
+      "path": "BossMod/RebornUI/Settings/SettingsWindow.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "ed0f6e3a5eeb3379c4e39155cf570897b4eb0a5db6beead51de36b574b0113c4"
+    },
+    {
+      "path": "BossMod/RebornUI/Settings/SupportedFights.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "2891f4a950c1e890094d09428ebc180ed96c21cd3ba843bc5ba05323b15c7420"
+    },
+    {
+      "path": "BossMod/RebornUI/Windows/FoldHost.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "5fe353c19178bd72a93d44f3e488561a8fd8b588f7eb83b7c2ca1e4641ac1023"
+    },
+    {
+      "path": "BossMod/RebornUI/Windows/RebornFoldWindow.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "26c4d10e1047aeacb0b6ff5f752fea8c9e8c83e23b8f015a6ea54b6b4fae01d5"
+    },
+    {
+      "path": "BossMod/RebornUI/Windows/RebornWindow.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "ca75f79747aabc2030a1592159ac321a1f97dc44e65ba8c5e7831654e1f155b6"
+    },
+    {
+      "path": "BossMod/packages.lock.json",
+      "beforeSHA256": "8fc92de4de89240afb635051f21d8bd41f867f11b40d98839b3f8ae91543ef87",
+      "afterSHA256": "74904d0efe3c1e5f2fee8082bc5fb000512767c7735d592f3f8bc0bde6783e55"
+    },
+    {
+      "path": "Tests/PolygonQueries/PolygonQueries.csproj",
+      "beforeSHA256": "efb232956b00031b43aea1242ebe657fed3c30cbb727de36d28c9ba588f35435",
+      "afterSHA256": "fe528ca73e5d975ab249ec9ec3becd7aa644616b3b2ae13592d79928efed553b"
+    },
+    {
+      "path": "Tests/RotationMovement/Program.cs",
+      "beforeSHA256": "344e787598cffa1625dddd1d31cfffe851a642539e576a3ade858b22e1902002",
+      "afterSHA256": "57f7915b0a1afb3afcac69728b764755d3a18d7c72f45edc1cff2a14a97adbbf"
+    },
+    {
+      "path": "Tests/RotationMovement/RotationMovement.csproj",
+      "beforeSHA256": "10afc574a2b4aa6747fb7bd0eed12c2ca30d64d89501910fefa18b7a29e62d89",
+      "afterSHA256": "da8690a942f27da75316f2c082512760336f5c26c27910071d4e4a3bb186ad8e"
+    },
+    {
+      "path": "Tests/RotationMovement/UIMigration20261125Tests.cs",
+      "beforeSHA256": null,
+      "afterSHA256": "afe1d5a6ed2a6431efd4ed3fa0dbc499d3dd3e97a110a7827040b63a0e2578a9"
+    },
+    {
+      "path": "Tests/SupportJobs/SupportJobs.csproj",
+      "beforeSHA256": "10afc574a2b4aa6747fb7bd0eed12c2ca30d64d89501910fefa18b7a29e62d89",
+      "afterSHA256": "da8690a942f27da75316f2c082512760336f5c26c27910071d4e4a3bb186ad8e"
+    }
+  ],
+  "decisions": [
+    "复用上游RebornUI设置、导航、搜索、主题和折叠窗口，按本地元数据与四级成熟度枚举适配。",
+    "循环与移动窗口包装现有实例，多预设读写使用本地入口。",
+    "新界面配置复用ConfigRoot保存，旧配置键与中文资源原值保留。",
+    "M3帧更新由现有DrawUI调用，窗口资源在框架线程释放，主UI入口使用可解除的命名回调。",
+    "部分构造失败、重复Dispose与框架回退按实际窗口注册状态处理。",
+    "运行时打包清理显式保留RebornMaterial与TerraFX两个DLL。"
+  ],
+  "validation": {
+    "date": "2026-11-25",
+    "phase": "ui-migration",
+    "baseCommit": "e9d2d5cd97cc92ae90b879433b5ad640e1a8168c",
+    "sourceState": "未提交工作区，包含先前上游整合与本批界面迁移。",
+    "version": "7.5.7.401",
+    "sourceManifestSHA256": "cf3a6ad9e0fa2d4b6dc2d0d094164fd24a3eb16b3efe2ec0ee12286968c85d60",
+    "sourceManifest": "D:\\mod-source\\outputs\\ui-migration-20261125\\源码清单.json",
+    "releaseBuild": "零警告、零错误",
+    "releaseDLLSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+    "runtimeDependencies": {
+      "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+      "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+      "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+    },
+    "compiled": true,
+    "offlineTestsRun": true,
+    "movementAndIPCAssertions": 2280,
+    "registeredIPCInterfaces": 73,
+    "uiMigrationAssertions": 455,
+    "supportJobsAssertions": 331,
+    "polygonDefaultAssertions": 33959,
+    "polygonDistanceFirstAssertions": 33963,
+    "totalOfflineAssertions": 70533,
+    "checks": [
+      {
+        "exitCode": 0,
+        "command": [
+          "dotnet",
+          "run",
+          "--project",
+          "Tests/RotationMovement",
+          "-c",
+          "Release",
+          "--",
+          "--sqpack",
+          "D:/最终幻想XIV/game/sqpack"
+        ],
+        "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+        "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\rotation-3.log",
+        "assertions": 2280,
+        "runtimeDependencies": {
+          "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+          "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+          "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+        }
+      },
+      {
+        "exitCode": 0,
+        "command": [
+          "dotnet",
+          "run",
+          "--project",
+          "Tests/SupportJobs",
+          "-c",
+          "Release",
+          "--",
+          "--sqpack",
+          "D:/最终幻想XIV/game/sqpack"
+        ],
+        "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+        "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\support-3.log",
+        "assertions": 331,
+        "runtimeDependencies": {
+          "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+          "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+          "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+        }
+      },
+      {
+        "exitCode": 0,
+        "command": [
+          "dotnet",
+          "run",
+          "--project",
+          "Tests/PolygonQueries",
+          "-c",
+          "Release"
+        ],
+        "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+        "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\polygon-3.log",
+        "assertions": 33959,
+        "runtimeDependencies": {
+          "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+          "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+          "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+        }
+      },
+      {
+        "exitCode": 0,
+        "command": [
+          "dotnet",
+          "run",
+          "--project",
+          "Tests/PolygonQueries",
+          "-c",
+          "Release",
+          "--no-build",
+          "--",
+          "--distance-first"
+        ],
+        "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+        "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\polygon-distance-3.log",
+        "assertions": 33963,
+        "runtimeDependencies": {
+          "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+          "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+          "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+        }
+      }
+    ],
+    "protectedSourceFilesUnchanged": 40,
+    "priorWorktreeFilesPreserved": 793,
+    "newChineseKeys": 188,
+    "oldChineseValuesPreserved": true,
+    "gameTestRun": false,
+    "visualTestRun": false,
+    "reloadTestRun": false,
+    "actualPluginIntegrationTestRun": false,
+    "committed": false,
+    "pushed": false,
+    "published": false,
+    "staticChecks": {
+      "projectRules": 0,
+      "changedCSharpFiles": 779,
+      "protectedComparison": 0,
+      "gitDiffCheck": 0,
+      "localizationPlaceholders": true
+    },
+    "package": {
+      "path": "D:\\mod-source\\ffxiv_bossmod\\BossMod\\bin\\Release\\BossMod\\latest.zip",
+      "sha256": "70923e4fc3bc57e693ec4f313272a8d4fadadc940d475de123878ce2298b0085",
+      "files": {
+        "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+        "BossMod.json": "b587c9f5cfa207d38c7a4ed820e7c22a1bb0c3fd16a5fae14e5f92b07f70ac57",
+        "BossMod.pdb": "7cf0d711b1517cd6225deeffee0867720c12d3ab38dc2d568ef35920cd16267c",
+        "DefaultRotationPresets.json": "57068b5eebe229221e45a72168ad82c4cf175885d6d08756bba2ee78830988b6",
+        "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+        "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+      },
+      "version": "7.5.7.401",
+      "author": "veyn&Sumomo"
+    },
+    "validationEvidence": "D:\\mod-source\\outputs\\ui-migration-20261125"
+  }
+}

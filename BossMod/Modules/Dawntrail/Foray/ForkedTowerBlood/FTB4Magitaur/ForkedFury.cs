@@ -6,9 +6,13 @@ sealed class ForkedFury(BossModule module) : Components.GenericAOEs(module)
     private bool active;
     private DateTime activation;
     private AOEInstance[] _aoe = [];
+    private readonly WPos[] squarePositions = FTB4Magitaur.SquarePositions;
+    private readonly WDir[] squareDirs = FTB4Magitaur.SquareDirs;
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
+    private readonly List<Actor> _playersBuffer = [];
+    private readonly List<Actor>[] _squareActors = [new(16), new(16), new(16)];
     public override void Update()
     {
         if (!active)
@@ -16,8 +20,11 @@ sealed class ForkedFury(BossModule module) : Components.GenericAOEs(module)
             return;
         }
         targets.Clear();
-        List<Actor>[] squareActors = [new(16), new(16), new(16)];
-        var players = new List<Actor>(48);
+        var squareActors = _squareActors;
+        for (var j = 0; j < 3; ++j)
+            squareActors[j].Clear();
+        var players = _playersBuffer;
+        players.Clear();
         var primaryPos = Module.PrimaryActor.Position;
 
         // note: this is problematic because player culling messes this up and leads to incorrect results (eg not finding the actual bait target)
@@ -37,7 +44,7 @@ sealed class ForkedFury(BossModule module) : Components.GenericAOEs(module)
             var a = players[i];
             for (var j = 0; j < 3; ++j)
             {
-                if (a.Position.InSquare(FTB4Magitaur.SquarePositions[j], 10f, FTB4Magitaur.SquareDirs[j]))
+                if (a.Position.InSquare(squarePositions[j], 10f, squareDirs[j]))
                 {
                     squareActors[j].Add(a);
                     break;
@@ -50,7 +57,9 @@ sealed class ForkedFury(BossModule module) : Components.GenericAOEs(module)
             var square = squareActors[i];
             var countS = square.Count;
             if (countS == 0)
+            {
                 continue;
+            }
 
             (Actor actor, float distSq)[] distances = new (Actor, float)[countS];
             for (var j = 0; j < countS; ++j)
@@ -65,14 +74,20 @@ sealed class ForkedFury(BossModule module) : Components.GenericAOEs(module)
             {
                 ref readonly var dist = ref distances[j].distSq;
                 if (dist < distances[minIdx].distSq)
+                {
                     minIdx = j;
+                }
                 if (dist > distances[maxIdx].distSq)
+                {
                     maxIdx = j;
+                }
             }
 
             targets.Add(distances[minIdx].actor);
             if (maxIdx != minIdx)
+            {
                 targets.Add(distances[maxIdx].actor);
+            }
         }
     }
 
@@ -81,7 +96,9 @@ sealed class ForkedFury(BossModule module) : Components.GenericAOEs(module)
         if (spell.Action.ID == (uint)AID.ForkedFuryVisual)
         {
             activation = Module.CastFinishAt(spell, 0.6d);
-            _aoe = [new(FTB4Magitaur.CircleMinusSquares, Arena.Center, default, activation)];
+            var center = Arena.Center;
+            var shape = FTB4Magitaur.CircleMinusSquares;
+            _aoe = [new(shape, center, default, activation, shapeDistance: shape.Distance(center, default))];
             active = true;
         }
     }
@@ -94,7 +111,7 @@ sealed class ForkedFury(BossModule module) : Components.GenericAOEs(module)
         }
     }
 
-    public override void AddGlobalHints(GlobalHints hints)
+    public override void AddGlobalHints(Actor actor, GlobalHints hints)
     {
         if (active)
         {
@@ -104,7 +121,7 @@ sealed class ForkedFury(BossModule module) : Components.GenericAOEs(module)
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
-        Arena.Actors(targets, Colors.Vulnerable);
+        Arena.Actors(targets, Colors.Vulnerable, drawWorld: true);
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -116,7 +133,7 @@ sealed class ForkedFury(BossModule module) : Components.GenericAOEs(module)
             var inSquare = -1;
             for (var i = 0; i < 3; ++i)
             {
-                if (actor.Position.InSquare(FTB4Magitaur.SquarePositions[i], 10f, FTB4Magitaur.SquareDirs[i]))
+                if (actor.Position.InSquare(squarePositions[i], 10f, squareDirs[i]))
                 {
                     inSquare = i;
                     break;
@@ -127,7 +144,8 @@ sealed class ForkedFury(BossModule module) : Components.GenericAOEs(module)
                 return;
             }
 
-            var players = new List<Actor>(48);
+            var players = _playersBuffer;
+            players.Clear();
             // note: this is problematic because player culling messes this up and leads to incorrect results (eg not finding the actual bait target)
             // in any frame players can be removed or added to the object table and will likely never contain all 48 players at the same time
             // caching removed players is also pointless since the player position no longer gets updated when this happens
@@ -139,13 +157,14 @@ sealed class ForkedFury(BossModule module) : Components.GenericAOEs(module)
                 }
             }
 
-            List<Actor> squareActors = new(16);
+            var squareActors = _squareActors[0];
+            squareActors.Clear();
             var primaryPos = Module.PrimaryActor.Position;
             var count = players.Count;
             for (var i = 0; i < count; ++i)
             {
                 var a = players[i];
-                if (a.Position.InSquare(FTB4Magitaur.SquarePositions[inSquare], 10f, FTB4Magitaur.SquareDirs[inSquare]))
+                if (a.Position.InSquare(squarePositions[inSquare], 10f, squareDirs[inSquare]))
                 {
                     squareActors.Add(a);
                 }

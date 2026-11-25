@@ -1,12 +1,12 @@
 ﻿{
   "schemaVersion": 1,
-  "updated": "2026-11-05",
+  "updated": "2026-11-25",
   "source": {
     "repository": "https://github.com/FFXIV-CombatReborn/BossmodReborn",
-    "commit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
-    "releaseTag": "7.5.7.4",
-    "releaseCommit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
-    "status": "选择性整合 Reborn 7.5.7.4 与 awgil v7.5.7.20 功能增量；保留现有界面、超魔之塔、本地接口与已验证安全修正；逐路径取舍见 upstream-20261105.json，不表示整树一致。"
+    "commit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
+    "releaseTag": "7.5.8.10",
+    "releaseCommit": "05bdf3abd1963c84105784273a8c171bb7cf0b7c",
+    "status": "已检查至固定目标并选择性整合到未提交工作区；本批证据见workingTreeIntegration与workingTreeValidation，已提交和发布历史仍按原记录解释。"
   },
   "forkBaseline": "787148f34",
   "purpose": "以 Reborn 雷达与共享支撑为主体，融合 awgil 职业循环及移动、保留多预设与外部插件联动、自建雷达和已验证修复。",
@@ -36,39 +36,39 @@
       "scope": "明确移动负责方、跟随目标接入、异步旧路径失效；视线开关与正确距离过滤；队伍排序/分组实现；原版外部联动 IPC 与导航状态适配"
     },
     {
-      "commit": "包含本清单的提交",
+      "commit": "90c3f5d21615b9c35731921fd9b07ba5815feeba",
       "scope": "Reborn 20b8092f4 辅助职业：盗窃、忍者、白魔法师、黑魔法师、召唤师、青魔法师、赤魔法师及动作/状态依赖；保留辅助龙骑士保护"
     },
     {
-      "commit": "包含本清单的提交",
+      "commit": "e9aec0dada0deeb8400fbc2687f4dde16987fa3e",
       "sourceCommit": "0a54e01c4808f7151deb4d4e2ee0ce101024efcb",
       "awgilCommit": "f102023df08f809880314e1e97b7ea8256c6f4db",
       "scope": "第一棋盘六个 Contributed 模块；绝巴哈天堂陨落、连线、分散与坦克朝向；普通坦克定距朝向；模块分级开关、待加载实例恢复、100码加载下限、模块浏览与战前提示设置；青魔斗场仅迁移战前提示，战中机制保留本地实现。原版来源仅选择性整合，不表示整体追平。"
     },
     {
-      "commit": "包含本清单的提交",
+      "commit": "7acd2a4161efb6bdaf82bb1c21f7207a95f0481a",
       "sourceCommit": "1bb36741f8504b721ffd77563a5197bf07b21201",
       "scope": "Reborn 0a54e01c4..1bb36741f：录制开始时写入非零物品数量快照；新手战术训练连续半场按时间排序和陨石站位修正；第一棋盘独舞双心中点提前预警。保留本地实际伤害读条并按双心实体独立清理；修复本地/上游共有的博兹雅初始物品ID索引错误。"
     },
     {
-      "commit": "包含本清单的提交",
+      "commit": "e2dc631b6456b0338fd411238b24ca9589ccabfc",
       "sourceCommit": "653bef79adfe0b6567d9ebc016f1aa44b53d4a29",
       "scope": "Reborn 1bb36741f..653bef79a：第三棋盘七个Contributed模块（Cavalier、Ymir、Zu、Lakhamu、Siren、Guttler、Campeador）及其AI提示；堡垒D053彗星击退落点检查改用正确扇形列表；模块颜色/成熟度悬停说明及帮助文本，补中文翻译与配对调用。另修复上游Lakhamu诱导清理时间残留。目标主线含7.5.6.6标签后七个提交，不代表整树追平。"
     },
     {
-      "commit": "包含本清单的提交",
+      "commit": "ab5b44338af5bf679ede66958baee5fc392f2207",
       "sourceCommit": "1d1fff5e1f28efb744aa83e05967c2f1f8e5cc76",
       "awgilCommit": "0d922f7ab1149a10b091993124c7a165928175b3",
       "scope": "第二大师棋盘七个成熟模块；原版普通伊甸E01/E02/E03及多变亚罗亚罗岛五首领；绝巴哈机制、预站位和旋风更新；机制禁位移动作保护；治疗/NPC统计、学者/白魔/武僧循环；副本列表延迟初始化及枚举缓存。适配本地Reborn API、多预设和IPC，保留中文与本地机制修正；高难魔之塔按用户要求排除。"
     },
     {
-      "commit": "包含本清单的提交",
+      "commit": "dd767737f5867042b3a01a5b07f17d545845c032",
       "sourceCommit": "615b38b5438a75fe4010b853423324dd983e43f9",
       "awgilCommit": "11d8147cc9650f12a5b200b2ce6180edc2a3c261",
       "scope": "Drake成熟雷达；Bone Bishop黑色爆发、Guttler范围；法系LB地面动作/目标、禁疗及治疗覆盖算法；绝巴哈旋风禁读条、俯冲清理/回位、击退后踩塔、P5集合及分摊，火圈避让障碍与中心集合；动作取消读条即时释放移动及非GCD读条预判、不可移动敌人判定。另随发布包含本地提坦主场绕序修复。"
     },
     {
-      "commit": "包含本清单的提交",
+      "commit": "8d7fff0d1f9216b8bfef23c3145e99104014b478",
       "sourceCommit": "33456ced5bd96ef37ea62adf98a560f403b241cf",
       "awgilCommit": "40b0abdd35e81517409bdc81446910f943a75a49",
       "awgilTestingCommit": "86921949410123d9fd5c193ba4ce7c83e094ab11",
@@ -77,7 +77,7 @@
       "scope": "Reborn 615b38b54..33456ced5：14个新成熟棋盘、9个既有棋盘、极永恒女王转场/同高分层/冰桥/合法武力、死宫50月环及必要Adds/Bait/Cleave和4类复合击退支撑。原版11d8147cc..40b0abdd/869219494：萨斯塔沙麦迪逊两次战斗、暗之世界7模块、普通伊甸4～6，庄园既有二号提示增强/身份修正，绝巴哈旋风/火圈/预站位/剧情死亡/阶段结束、联盟字母回放链、赤魔/武僧/插入/GNB范围、拉怪/棋盘敌人行为/副本加载/目标计划导入。逐文件适配本地API，保留多预设、AutoDuty、自建及高难魔之塔；不整树覆盖。"
     },
     {
-      "commit": "包含本清单的提交",
+      "commit": "6984c7bf24a224bc21fc8abb7e0fec665a7d3449",
       "sourceCommit": "be8ff771cc545f8f8b5b548b5dd7271d80460f89",
       "awgilCommit": "fff7f6e98541fcd6b23d7c2ccbac88e1fa4c9c75",
       "awgilTestingCommit": "f12f01be030ed87bfcfd34701ed62a16c88b50d5",
@@ -609,6 +609,8 @@
       "gameTest": "离线验证通过，尚未实机验证；仅同步测试分支，版本仍7.5.6.3301，未发布或更新release ZIP。",
       "validationEvidence": "D:/mod-source/outputs/sync-20261015",
       "scope": "完整RotationMovement及70个IPC流程，包含真实施法与移动抢占/停步恢复、同文件保存和UI编辑/清理及已进入IPC/卸载交错、伊甸7～12与苍穹普通3讨伐的注册/激活/生命周期、俾斯麦世界边界切换、伊甸12重叠分摊、托尔丹重击缓存、旋风冲刺轨迹、时间轴/减伤、计划Guid替换、倒计时及4个ROG/旧任务钩子；8个Kage职业走真实生成策略转换的低等级无目标/单体/多目标执行及BLM强制爆发边界。辅助职业与两种多边形套件独立通过；测试及构建ZIP DLL一致。",
+      "sourceCodeCommit": "6984c7bf24a224bc21fc8abb7e0fec665a7d3449",
+      "validationLevel": "Release构建与离线回归，未实机",
       "localCommit": "6984c7bf24a224bc21fc8abb7e0fec665a7d3449"
     },
     {
@@ -617,7 +619,14 @@
       "awgilCommit": "21555358de458a56afd0dc361327f8b3b62ebc43",
       "awgilStableTag": "v7.5.7.3",
       "awgilStableCommit": "e56bbdc16",
-      "scope": "Reborn 7.5.6.35 无新增；选择性同步原版普通欧米茄 O1/O2/O4～O12、绝神兵 P1/P2/P4/P5 机制与 Auto-UWU、普通移动多敌人坦克目标、击退空范围/撞墙语义、Healer 队形策略和 Presets.ListAll IPC。逐文件适配本地 Reborn 构造器、ReadOnlySpan AOE/击退、SD 形状、成熟度、多预设与自动循环接口；O1 旧 WIP 骨架已由完整实现替换，O3 保持本地，O8 保留本地 Verified 并吸收脱逃范围更新。"
+      "scope": "Reborn 7.5.6.35 无新增；选择性同步原版普通欧米茄 O1/O2/O4～O12、绝神兵 P1/P2/P4/P5 机制与 Auto-UWU、普通移动多敌人坦克目标、击退空范围/撞墙语义、Healer 队形策略和 Presets.ListAll IPC。逐文件适配本地 Reborn 构造器、ReadOnlySpan AOE/击退、SD 形状、成熟度、多预设与自动循环接口；O1 旧 WIP 骨架已由完整实现替换，O3 保持本地，O8 保留本地 Verified 并吸收脱逃范围更新。",
+      "localCommit": "83b6239dc72a2950fe2b45665e8b2f027b4a3e61",
+      "validationLevel": "仅静态验收",
+      "compiled": false,
+      "offlineTestsRun": false,
+      "gameTestRun": false,
+      "published": false,
+      "validationEvidence": "D:/mod-source/outputs/sync-20261021/同步结果.md"
     },
     {
       "date": "2026-10-24",
@@ -841,6 +850,381 @@
       "validationEvidence": "D:/mod-source/outputs/release-7.5.7.201",
       "scope": "发布欧米茄/绝神兵修复及Reborn 7.5.7.2最终树增量；DMU整体按上游Contributed同步，新增幻神龙和CastShadow末段修复。超魔之塔保持本地。两仓使用同一ZIP；默认发布分支与测试分支均包含代码及制品。",
       "sourceCommitMeaning": "sourceRepositoryCommit为包含版本与发布ZIP的提交；后续仅发布证明的元数据提交不改变制品。"
+    }
+  ],
+  "workingTreeIntegration": {
+    "date": "2026-11-25",
+    "baseCommit": "e9d2d5cd97cc92ae90b879433b5ad640e1a8168c",
+    "rebornCommit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
+    "awgilCommit": "02a16b4425ceed2b63994468da406adddefcd57b",
+    "sourceManifestSHA256": "cf3a6ad9e0fa2d4b6dc2d0d094164fd24a3eb16b3efe2ec0ee12286968c85d60",
+    "audit": "upstream-20261125.json",
+    "committed": false,
+    "pushed": false,
+    "published": false,
+    "uiMigration": {
+      "date": "2026-11-25",
+      "upstreamCommit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
+      "audit": "ui-migration-20261125.json",
+      "validationEvidence": "D:\\mod-source\\outputs\\ui-migration-20261125",
+      "materialPackageVersion": "7.5.8.4",
+      "terraFXVersion": "10.0.28000",
+      "committed": false
+    }
+  },
+  "workingTreeValidation": {
+    "date": "2026-11-25",
+    "phase": "ui-migration",
+    "baseCommit": "e9d2d5cd97cc92ae90b879433b5ad640e1a8168c",
+    "sourceState": "未提交工作区，包含先前上游整合与本批界面迁移。",
+    "version": "7.5.7.401",
+    "sourceManifestSHA256": "cf3a6ad9e0fa2d4b6dc2d0d094164fd24a3eb16b3efe2ec0ee12286968c85d60",
+    "sourceManifest": "D:\\mod-source\\outputs\\ui-migration-20261125\\源码清单.json",
+    "releaseBuild": "零警告、零错误",
+    "releaseDLLSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+    "runtimeDependencies": {
+      "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+      "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+      "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+    },
+    "compiled": true,
+    "offlineTestsRun": true,
+    "movementAndIPCAssertions": 2280,
+    "registeredIPCInterfaces": 73,
+    "uiMigrationAssertions": 455,
+    "supportJobsAssertions": 331,
+    "polygonDefaultAssertions": 33959,
+    "polygonDistanceFirstAssertions": 33963,
+    "totalOfflineAssertions": 70533,
+    "checks": [
+      {
+        "exitCode": 0,
+        "command": [
+          "dotnet",
+          "run",
+          "--project",
+          "Tests/RotationMovement",
+          "-c",
+          "Release",
+          "--",
+          "--sqpack",
+          "D:/最终幻想XIV/game/sqpack"
+        ],
+        "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+        "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\rotation-3.log",
+        "assertions": 2280,
+        "runtimeDependencies": {
+          "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+          "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+          "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+        }
+      },
+      {
+        "exitCode": 0,
+        "command": [
+          "dotnet",
+          "run",
+          "--project",
+          "Tests/SupportJobs",
+          "-c",
+          "Release",
+          "--",
+          "--sqpack",
+          "D:/最终幻想XIV/game/sqpack"
+        ],
+        "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+        "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\support-3.log",
+        "assertions": 331,
+        "runtimeDependencies": {
+          "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+          "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+          "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+        }
+      },
+      {
+        "exitCode": 0,
+        "command": [
+          "dotnet",
+          "run",
+          "--project",
+          "Tests/PolygonQueries",
+          "-c",
+          "Release"
+        ],
+        "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+        "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\polygon-3.log",
+        "assertions": 33959,
+        "runtimeDependencies": {
+          "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+          "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+          "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+        }
+      },
+      {
+        "exitCode": 0,
+        "command": [
+          "dotnet",
+          "run",
+          "--project",
+          "Tests/PolygonQueries",
+          "-c",
+          "Release",
+          "--no-build",
+          "--",
+          "--distance-first"
+        ],
+        "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+        "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\polygon-distance-3.log",
+        "assertions": 33963,
+        "runtimeDependencies": {
+          "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+          "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+          "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+        }
+      }
+    ],
+    "protectedSourceFilesUnchanged": 40,
+    "priorWorktreeFilesPreserved": 793,
+    "newChineseKeys": 188,
+    "oldChineseValuesPreserved": true,
+    "gameTestRun": false,
+    "visualTestRun": false,
+    "reloadTestRun": false,
+    "actualPluginIntegrationTestRun": false,
+    "committed": false,
+    "pushed": false,
+    "published": false,
+    "staticChecks": {
+      "projectRules": 0,
+      "changedCSharpFiles": 779,
+      "protectedComparison": 0,
+      "gitDiffCheck": 0,
+      "localizationPlaceholders": true
+    },
+    "package": {
+      "path": "D:\\mod-source\\ffxiv_bossmod\\BossMod\\bin\\Release\\BossMod\\latest.zip",
+      "sha256": "70923e4fc3bc57e693ec4f313272a8d4fadadc940d475de123878ce2298b0085",
+      "files": {
+        "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+        "BossMod.json": "b587c9f5cfa207d38c7a4ed820e7c22a1bb0c3fd16a5fae14e5f92b07f70ac57",
+        "BossMod.pdb": "7cf0d711b1517cd6225deeffee0867720c12d3ab38dc2d568ef35920cd16267c",
+        "DefaultRotationPresets.json": "57068b5eebe229221e45a72168ad82c4cf175885d6d08756bba2ee78830988b6",
+        "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+        "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+      },
+      "version": "7.5.7.401",
+      "author": "veyn&Sumomo"
+    },
+    "validationEvidence": "D:\\mod-source\\outputs\\ui-migration-20261125"
+  },
+  "stateMeaning": "source记录本次已检查上游目标；workingTreeIntegration/workingTreeValidation记录未提交工作区整合与最终验收。integrated、lastIntegration、lastValidation及lastRelease保留已提交历史。",
+  "workingTreeValidationHistory": [
+    {
+      "date": "2026-11-25",
+      "baseCommit": "e9d2d5cd97cc92ae90b879433b5ad640e1a8168c",
+      "sourceState": "未提交工作区；基线提交本身不包含本批整合。",
+      "sourceManifestSHA256": "bbb5d9a7a938fb37d8affd4fe991d4563c9df6ce8a3ec7f86d567b17c11de887",
+      "sourceManifest": "D:\\mod-source\\outputs\\sync-20261125\\源码清单.json",
+      "rebornTarget": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
+      "awgilTarget": "02a16b4425ceed2b63994468da406adddefcd57b",
+      "version": "7.5.7.401",
+      "releaseBuild": "零警告、零错误",
+      "releaseDLLSHA256": "80aa82022885d07e2ce05eb129e3cbfe20c5f6491a00366fa15b9187cf682201",
+      "compiled": true,
+      "offlineTestsRun": true,
+      "movementAndIPCAssertions": 1825,
+      "registeredIPCInterfaces": 73,
+      "supportJobsAssertions": 331,
+      "polygonDefaultAssertions": 33959,
+      "polygonDistanceFirstAssertions": 33963,
+      "totalOfflineAssertions": 70078,
+      "checks": [
+        {
+          "exitCode": 0,
+          "command": [
+            "dotnet",
+            "run",
+            "--project",
+            "Tests/RotationMovement",
+            "-c",
+            "Release",
+            "--",
+            "--sqpack",
+            "D:/最终幻想XIV/game/sqpack"
+          ],
+          "dllSHA256": "80aa82022885d07e2ce05eb129e3cbfe20c5f6491a00366fa15b9187cf682201",
+          "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\sync-20261125\\rotation-7.log",
+          "assertions": 1825
+        },
+        {
+          "exitCode": 0,
+          "command": [
+            "dotnet",
+            "run",
+            "--project",
+            "Tests/SupportJobs",
+            "-c",
+            "Release",
+            "--",
+            "--sqpack",
+            "D:/最终幻想XIV/game/sqpack"
+          ],
+          "dllSHA256": "80aa82022885d07e2ce05eb129e3cbfe20c5f6491a00366fa15b9187cf682201",
+          "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\sync-20261125\\support-6.log",
+          "assertions": 331
+        },
+        {
+          "exitCode": 0,
+          "command": [
+            "dotnet",
+            "run",
+            "--project",
+            "Tests/PolygonQueries",
+            "-c",
+            "Release"
+          ],
+          "dllSHA256": "80aa82022885d07e2ce05eb129e3cbfe20c5f6491a00366fa15b9187cf682201",
+          "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\sync-20261125\\polygon-6.log",
+          "assertions": 33959
+        },
+        {
+          "exitCode": 0,
+          "command": [
+            "dotnet",
+            "run",
+            "--project",
+            "Tests/PolygonQueries",
+            "-c",
+            "Release",
+            "--no-build",
+            "--",
+            "--distance-first"
+          ],
+          "dllSHA256": "80aa82022885d07e2ce05eb129e3cbfe20c5f6491a00366fa15b9187cf682201",
+          "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\sync-20261125\\polygon-distance-6.log",
+          "assertions": 33963
+        }
+      ],
+      "gameTestRun": false,
+      "realBattleReplayRun": false,
+      "syntheticReplayRoundtripRun": true,
+      "committed": false,
+      "pushed": false,
+      "published": false,
+      "validationEvidence": "D:\\mod-source\\outputs\\sync-20261125",
+      "protection": {
+        "protectedPathsUnchanged": true,
+        "beforeFileCount": 40,
+        "afterFileCount": 40,
+        "unchangedFileCount": 31,
+        "authorizedChanges": [
+          {
+            "path": "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE201ABeastUnleashed.cs",
+            "reason": "按上游CE身份和主要机制同步，保留双段击退联合安全及旧模块类名。",
+            "beforeSHA256": "9cae955fb6a333521d53c72c43dd7c7bde2c6d4188eff81de656f2abb1affcb1",
+            "afterSHA256": "c2197ea08d60739f92fb235ac7e34e65c5f34ca5844add3fabc46c397f90d5e6"
+          },
+          {
+            "path": "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE203AheadoftheCompetition.cs",
+            "reason": "按上游更新19.5米32边形场地与空玩家保护，保留毒圈成长及雷球ActorID清理。",
+            "beforeSHA256": "a45fce9fdaa5986582bf3fc0782874622bd3bcbd51c9e91750c71328c15f4f51",
+            "afterSHA256": "ff2bc1b0b4c28574c6aec7eccb412b333fc5b13928854f8bd425487202ff8186"
+          },
+          {
+            "path": "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE211LostontheWind.cs",
+            "reason": "仅合入空玩家保护。",
+            "beforeSHA256": "473b0842bc1bf22609a3617cba6589d4a6fce638594c8a324b6cf5f184f5436b",
+            "afterSHA256": "3211c80847c83e90333336514a951ef08ef509a038cd0b78e4b75a03559e6664"
+          },
+          {
+            "path": "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE213QuarriedAway.cs",
+            "reason": "合入空玩家保护和列表缓冲，保留转向阈值及组合方向修正。",
+            "beforeSHA256": "2f1153d7df0f82bfea7d12f11defe80d533e86a6ef2e4dd2d55c113e8f7fe7b7",
+            "afterSHA256": "8a876bc979766010523ccb1fe740acaa8e2bf72017a88e56b38b1789f7bb8b55"
+          },
+          {
+            "path": "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE214TinyTerror.cs",
+            "reason": "合入空玩家保护与查询写法，保留连续球体/击退联合安全。",
+            "beforeSHA256": "33e10d7b9589b8e15b87364bd8d1077d5527334dc723883fed83478bc93a3fca",
+            "afterSHA256": "53e5103cb80bb08bacdbe7fc7aa8483caab02081e67b83544a88dd410c70f774"
+          },
+          {
+            "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN1TwoHeadedAevis/FTMN1TwoHeadedAevis.cs",
+            "reason": "仅合入空玩家保护。",
+            "beforeSHA256": "ae378009a627bf37071bee062c821ff81fe29944693b90656675a21f28576346",
+            "afterSHA256": "cbfd49d2a7ed4491b2a195f7cb3fd5f74215e123545424e96db051cbc172a24a"
+          },
+          {
+            "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN2SwordDancer/FTMN2SwordDancer.cs",
+            "reason": "仅合入空玩家保护，保留逐段击退与冲锋线安全。",
+            "beforeSHA256": "5c2d7357dfe309e49ca2a12ca61df72ab24395addfc4a0f67f94225a871de3bc",
+            "afterSHA256": "9c949d986ab6c56b429013a989350feccddd9de7d80516da43f6d2b7065dbf7e"
+          },
+          {
+            "path": "BossMod/Modules/Dawntrail/Foray/ForkedTowerMagic/Normal/FTMN3Necrophobia/FTMN3Necrophobia.cs",
+            "reason": "仅合入空玩家保护。",
+            "beforeSHA256": "45c08f9c60d86f47695dfb2086ded8aec289f8de6e1eff12a9ec77ae0d87a946",
+            "afterSHA256": "94c34e45b2c69eb1d45a996830e6a8ceba61b8e8c0159207af768095581a25ce"
+          },
+          {
+            "path": "BossMod/Modules/Stormblood/Alliance/A31Mustadio/A31Mustadio.cs",
+            "reason": "按用户要求修复机器人居中方形及来源独立生命周期。",
+            "beforeSHA256": "3f1be93407a0c6266013239c9c9e108d298f15fb11b7c75169ea1b6eec90f08e",
+            "afterSHA256": "2e36341d370aca84ee70835e0e57877eb95097580ceb7fe86ea7e47cb06cc25d"
+          }
+        ],
+        "extremeFilesByteIdentical": 8,
+        "indexArenaBoundsByteIdentical": true,
+        "obstacleMapsByteIdentical": true,
+        "originalUserFilesUnchanged": [
+          ".github/workflows/build.yml",
+          ".github/workflows/publish.yml",
+          "CONTRIBUTING.md",
+          "README.md",
+          "docs/上游同步.md",
+          "AGENTS.md",
+          "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE203雪石膏之剑雷达制作记录.md",
+          "BossMod/Modules/Shadowbringers/Raid/E04Titan/雷达制作记录.md",
+          "docs/历史经验/其他插件.md",
+          "docs/历史经验/其他雷达与同步.md",
+          "docs/历史经验/同步与发布历史.md",
+          "docs/历史经验/新月岛CE.md",
+          "docs/历史经验/核心与接口.md",
+          "docs/历史经验/环境与工具.md",
+          "docs/历史经验/魔之塔Boss1.md",
+          "docs/历史经验/魔之塔Boss2.md",
+          "docs/历史经验/魔之塔Boss3.md",
+          "docs/历史经验/魔之塔Boss4.md",
+          "docs/历史经验/魔之塔综合.md",
+          "docs/发布.md",
+          "docs/环境与接口.md",
+          "docs/规则归档/2026-10-23/发布仓AGENTS原文.md",
+          "docs/规则归档/2026-10-23/工作区AGENTS原文.md",
+          "docs/规则归档/2026-10-23/清单.json",
+          "docs/规则归档/2026-10-23/说明.md",
+          "docs/规则整理SPEC.md",
+          "docs/规则整理结果.md",
+          "docs/规则维护.md",
+          "docs/雷达证据索引.md",
+          "docs/验收.md",
+          "tools/check_project_rules.py"
+        ],
+        "metadataEdits": [
+          "sync/local-radars.json",
+          "sync/reborn.json"
+        ]
+      },
+      "staticChecks": {
+        "gitDiffCheckExitCode": 0,
+        "protectedComparatorExitCode": 1,
+        "protectedComparatorMeaning": "9个本轮授权变化，逐项审核结果见保护核对.json；原摘要和保护范围保留。",
+        "sourceManifestMatches": true,
+        "projectRulesExitCode": 0,
+        "changedCSharpFilesChecked": 759,
+        "activeDocumentsChecked": 10,
+        "archivedEntriesChecked": 448,
+        "encodingCheck": "UTF-8、BOM保持、CRLF、NUL/重复BOM检查通过"
+      }
     }
   ]
 }

@@ -59,7 +59,7 @@ class BedrockUplift(BossModule module) : Components.ConcentricAOEs(module, _shap
 }
 
 //single-target piercing thrust : Using tankbuster hint to signal to use a shield or other mitigation
-sealed class DeadlyThrust(BossModule module) : Components.BaitAwayCast(module, (uint)AID.DeadlyThrust, 2f, tankbuster: true);
+sealed class DeadlyThrust(BossModule module) : Components.SingleTargetCast(module, (uint)AID.DeadlyThrust, "Tankbuster + poison");
 
 // Aoe circles that drop on center then around the outside and explode one after another
 sealed class VenomWeb(BossModule module) : Components.SimpleAOEs(module, (uint)AID.VenomWeb1, 9f, 6);
@@ -92,4 +92,5 @@ sealed class BanemitePieceStates : StateMachineBuilder
     NameID = 14536u,
     SortOrder = 2)]
 
+[PreferredKinship(BST.Kinship.Ash, "Cleanse Poison from Deadly Thrust and Venom Web")]
 public sealed class BanemitePiece(WorldState ws, Actor primary) : BossModule(ws, primary, new(120f, -420f), new ArenaBoundsCircle(20f));

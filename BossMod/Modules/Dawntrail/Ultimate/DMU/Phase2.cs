@@ -1266,3 +1266,13 @@ sealed class Trine(BossModule module) : Components.GenericAOEs(module, (uint)AID
         }
     }
 }
+
+static class DMUShapes
+{
+    public static readonly AOEShapeCircle Circle15 = new(15.0f);
+    public static readonly AOEShapeCircle Circle5 = new(5.0f);
+    public static readonly AOEShapeCircle Circle6 = new(6.0f);
+    public static readonly AOEShapeCircle Circle8 = new(8.0f);
+    public static readonly AOEShapeDonut Donut4_10 = new(4.0f, 10.0f);
+    public static readonly AOEShapeDonut Donut6_40 = new(6.0f, 40.0f);
+}

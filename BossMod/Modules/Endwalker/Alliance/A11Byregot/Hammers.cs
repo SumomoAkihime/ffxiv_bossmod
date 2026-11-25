@@ -9,12 +9,14 @@ class HammersCells(BossModule module) : Components.GenericAOEs(module, (uint)AID
     private static readonly AOEShapeRect _shape = new(5f, 5f, 5f);
     private DateTime activation;
 
+    private readonly List<AOEInstance> _aoesBuffer = [];
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
         if (!MovementPending)
             return [];
 
-        var aoes = new List<AOEInstance>();
+        var aoes = _aoesBuffer;
+        aoes.Clear();
         for (var z = -2; z <= 2; ++z)
         {
             for (var x = -2; x <= 2; ++x)
@@ -105,13 +107,15 @@ class HammersSpire(BossModule module) : Components.SimpleAOEs(module, (uint)AID.
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _safespot != null ? [] : CollectionsMarshal.AsSpan(Casters);
 
+    private readonly List<WPos> _safespotsBuffer = [];
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
         base.OnCastStarted(caster, spell);
         if (spell.Action.ID == WatchedAction)
         {
             ref var aoe = ref CollectionsMarshal.AsSpan(Casters)[0];
-            var safespots = new List<WPos>();
+            var safespots = _safespotsBuffer;
+            safespots.Clear();
             {
                 for (var z = -2; z <= 2; ++z)
                 {

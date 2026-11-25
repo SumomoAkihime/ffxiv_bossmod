@@ -42,7 +42,8 @@ public sealed class DMUConfig : ConfigNode {
     [PropertyDisplay("P1 Graven Image 1 strategy")]
     public P1GravenImage1Strategy P1GravenImage1 = P1GravenImage1Strategy.GravenImage1LPDU;
 
-    public enum P1GravenImage1Strategy {
+    public enum P1GravenImage1Strategy
+    {
         [PropertyDisplay("None")]
         GravenImage1None,
 
@@ -58,7 +59,8 @@ public sealed class DMUConfig : ConfigNode {
     [PropertyDisplay("P1 Wave Cannon safe spot hints", tooltip: "Will display roughly where to stand for your bait")]
     public bool P1WaveCannonHints = false;
 
-    public enum P1DoubleTroubleStrategy {
+    public enum P1DoubleTroubleStrategy
+    {
         [PropertyDisplay("None")]
         DoubleTroubleNone,
 
@@ -75,7 +77,8 @@ public sealed class DMUConfig : ConfigNode {
     [PropertyDisplay("P1 DoubleTrouble Knockback safe spot hints", tooltip: "Will display roughly where to stand for the stack, but you may still need to adjust")]
     public bool P1DoubleTroubleKnockbackHints = false;
 
-    public enum P1GravenImage2Strategy {
+    public enum P1GravenImage2Strategy
+    {
         [PropertyDisplay("None")]
         GravenImage2None,
 
@@ -89,7 +92,8 @@ public sealed class DMUConfig : ConfigNode {
     [PropertyDisplay("P1 Graven Image 2 strategy")]
     public P1GravenImage2Strategy P1GravenImage2 = P1GravenImage2Strategy.GravenImage2LPDUUptime;
 
-    public enum P1TeleTrouncingStrategy {
+    public enum P1TeleTrouncingStrategy
+    {
         [PropertyDisplay("None")]
         TeleTrouncingNone,
 
@@ -109,7 +113,8 @@ public sealed class DMUConfig : ConfigNode {
     [PropertyDisplay("P1 Graven Image 3 strategy")]
     public P1GravenImage3Strategy P1GravenImage3 = P1GravenImage3Strategy.GravenImage3LPDU;
 
-    public enum P1GravenImage3Strategy {
+    public enum P1GravenImage3Strategy
+    {
         [PropertyDisplay("None")]
         GravenImage3None,
 
@@ -120,7 +125,8 @@ public sealed class DMUConfig : ConfigNode {
         GravenImage3KefkaBin,
     }
 
-    public enum P2ForsakenStrategy {
+    public enum P2ForsakenStrategy
+    {
         [PropertyDisplay("EU meow braindead strategy using markerless")]
         Meow_Markerless,
 

@@ -217,6 +217,10 @@ class Program
             Reborn20261024Tests.Run(Check);
             Console.WriteLine("验证：Upstream20261105Tests");
             Upstream20261105Tests.Run(manager, player, hints, Check);
+            Console.WriteLine("验证：Upstream20261125Tests");
+            Upstream20261125Tests.Run(Check);
+            Console.WriteLine("验证：UIMigration20261125Tests");
+            UIMigration20261125Tests.Run(manager, Check);
             Console.WriteLine($"完整循环与移动回归通过：{checks} 项断言。");
         }
         finally { ImGui.DestroyContext(imgui); }

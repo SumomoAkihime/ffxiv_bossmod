@@ -148,7 +148,6 @@ public sealed class KageVPR(RotationModuleManager manager, Actor player) : KageS
     private float ReawakenReady;
     private float Reawakened;
 
-    private bool AllowAoE;
     private bool AOEMode;
 
     private OpenerStrategy OpenerMode;
@@ -189,14 +188,14 @@ public sealed class KageVPR(RotationModuleManager manager, Actor player) : KageS
         };
 
         var gauge = World.Client.GetGauge<ViperGauge>();
-        Dread = forceST && gauge.DreadCombo is DreadCombo.PitOfDread or DreadCombo.HuntersDen or DreadCombo.SwiftskinsDen ? default : gauge.DreadCombo;
+        Dread = ForceST && gauge.DreadCombo is DreadCombo.PitOfDread or DreadCombo.HuntersDen or DreadCombo.SwiftskinsDen ? default : gauge.DreadCombo;
         Coil = gauge.RattlingCoilStacks;
         Offering = gauge.SerpentOffering;
         Anguine = gauge.AnguineTribute;
         CurSerpentsTail = gauge.SerpentCombo switch
         {
             SerpentCombo.DeathRattle => AID.DeathRattle,
-            SerpentCombo.LastLash when !forceST => AID.LastLash,
+            SerpentCombo.LastLash when !ForceST => AID.LastLash,
             SerpentCombo.FirstLegacy => AID.FirstLegacy,
             SerpentCombo.SecondLegacy => AID.SecondLegacy,
             SerpentCombo.ThirdLegacy => AID.ThirdLegacy,
@@ -215,14 +214,13 @@ public sealed class KageVPR(RotationModuleManager manager, Actor player) : KageS
         GrimskinsVenom = SelfStatusLeft(SID.GrimskinsVenom);
         HuntersVenom = SelfStatusLeft(SID.HuntersVenom);
         SwiftskinsVenom = SelfStatusLeft(SID.SwiftskinsVenom);
-        FellhuntersVenom = forceST ? 0 : SelfStatusLeft(SID.FellhuntersVenom);
-        FellskinsVenom = forceST ? 0 : SelfStatusLeft(SID.FellskinsVenom);
+        FellhuntersVenom = ForceST ? 0 : SelfStatusLeft(SID.FellhuntersVenom);
+        FellskinsVenom = ForceST ? 0 : SelfStatusLeft(SID.FellskinsVenom);
         PoisedForTwinfang = SelfStatusLeft(SID.PoisedForTwinfang);
         PoisedForTwinblood = SelfStatusLeft(SID.PoisedForTwinblood);
         ReawakenReady = SelfStatusLeft(SID.ReawakenReady);
         Reawakened = SelfStatusLeft(SID.Reawakened);
 
-        AllowAoE = strategy.AOE.Value is AOEStrategy.AOE or AOEStrategy.ForceAOE;
         AOEMode = Unlocked(AID.SteelMaw) && UseAOE(strategy.AOE.Value, Hints.NumPriorityTargetsInAOECircle(Player.Position, 5), 3);
 
         if (UsePotion(strategy))
@@ -246,7 +244,8 @@ public sealed class KageVPR(RotationModuleManager manager, Actor player) : KageS
         };
 
         GCDs(strategy, target);
-        UpdatePositionals(strategy, target);
+        var (pos, imminent) = NextPositional(target.Actor);
+        RecommendPositional(target, pos, imminent, strategy.TrueNorth.Value, InMelee);
         AddGoalZone(target);
 
         if (Player.InCombat)
@@ -260,21 +259,14 @@ public sealed class KageVPR(RotationModuleManager manager, Actor player) : KageS
         switch (engage)
         {
             case EngageStrategy.Slither:
-                if (InMelee && countdown < 1.16f)
-                    PushGCD(first, target.Actor, 10);
-                // Engage picks Slither on its own; the Slither track's "Do not use" is for combat
-                else if (!InMelee && countdown < 0.7f)
-                    PushAction(ActionID.MakeSpell(AID.Slither), target.Actor, ActionQueue.Priority.High + 10, ignoreDisabled: true);
+            case EngageStrategy.Manual:
+                DashPull(target, first, AID.Slither, countdown, engage == EngageStrategy.Slither);
                 break;
             case EngageStrategy.Sprint:
                 SprintPull(target, first, countdown);
                 break;
             case EngageStrategy.Facepull:
                 Facepull(target, first, countdown);
-                break;
-            case EngageStrategy.Manual:
-                if (InMelee && countdown < 1.16f)
-                    PushGCD(first, target.Actor, 10);
                 break;
         }
     }
@@ -310,7 +302,7 @@ public sealed class KageVPR(RotationModuleManager manager, Actor player) : KageS
         if (Anguine > 0)
             PushGCD(NextGeneration(), BestSplash(target, 3), 35);
 
-        if (ShouldReawaken(strategy, dying, target.Actor))
+        if (ShouldReawaken(dying, target.Actor))
             PushGCD(AID.Reawaken, target.Actor, 30);
 
         if (strategy.Uncoiled.Value != UncoiledStrategy.Delay && Coil >= CoilMax && Dread == 0 && Reawakened == 0 && !TwinWeavesPending && (IreIn <= GCDLength * 3 || GCDReady(AID.Vicewinder)))
@@ -332,7 +324,7 @@ public sealed class KageVPR(RotationModuleManager manager, Actor player) : KageS
         }
 
         if (AOEMode)
-            DualWieldAoE(target);
+            DualWieldAoE();
         else
             DualWieldST(target);
     }
@@ -397,7 +389,7 @@ public sealed class KageVPR(RotationModuleManager manager, Actor player) : KageS
         PushGCD(Unlocked(AID.ReavingFangs) && (HonedReavers > 0 || HonedSteel == 0) ? AID.ReavingFangs : AID.SteelFangs, target.Actor, 1);
     }
 
-    private void DualWieldAoE(Enemy target)
+    private void DualWieldAoE()
     {
         if (ComboLeft > 0)
         {
@@ -436,7 +428,7 @@ public sealed class KageVPR(RotationModuleManager manager, Actor player) : KageS
 
         if (HoldForIre || aid == AID.Vicewinder && !InMelee)
             return false;
-        if (!Unlocked(AID.Reawaken) && InBossFight && HasRaidBuffJobs && RaidBuffsLeft <= GCD && MaxChargesIn(aid) > GCD + GCDLength * 3 && RaidBuffsIn < MaxChargesIn(aid))
+        if (!Unlocked(AID.Reawaken) && HasRaidBuffJobs && RaidBuffsLeft <= GCD && MaxChargesIn(aid) > GCD + GCDLength * 3 && RaidBuffsIn < MaxChargesIn(aid))
             return false;
         if (OpenerMode == OpenerStrategy.Standard && CombatTime < 10 && ComboLastMove != AID.SwiftskinsSting)
             return false;
@@ -466,7 +458,7 @@ public sealed class KageVPR(RotationModuleManager manager, Actor player) : KageS
         return !IsExpiring(ComboLeft, GCDLength * 2) && !BuffsExpiring(GCDLength * 2);
     }
 
-    private bool ShouldReawaken(in Strategy strategy, bool dying, Actor target)
+    private bool ShouldReawaken(bool dying, Actor target)
     {
         if (!Unlocked(AID.Reawaken) || Reawakened > 0 || ReawakenReady == 0 && Offering < 50 || Dread != 0 || TwinWeavesPending)
             return false;
@@ -498,10 +490,7 @@ public sealed class KageVPR(RotationModuleManager manager, Actor player) : KageS
         if (DowntimeIn < windowLength)
             return false;
 
-        if (ReawakenReady > 0 || Offering >= 100)
-            return true;
-
-        if (RaidBuffsLeft > windowLength)
+        if (ReawakenReady > 0 || Offering >= 100 || RaidBuffsLeft > windowLength)
             return true;
 
         return IreIn is >= 50 and <= 62;
@@ -538,12 +527,6 @@ public sealed class KageVPR(RotationModuleManager manager, Actor player) : KageS
             PushOGCD(AID.Slither, ResolveTarget(strategy.Slither) ?? target.Actor, 30);
         if (strategy.Slither.Value is SlitherStrategy.Knockback or SlitherStrategy.Both)
             CancelKnockback(AID.Slither, ResolveTarget(strategy.Slither) ?? target.Actor);
-    }
-
-    private void UpdatePositionals(in Strategy strategy, Enemy target)
-    {
-        var (pos, imminent) = NextPositional(target.Actor);
-        RecommendPositional(target, pos, imminent, strategy.TrueNorth.Value, InMelee);
     }
 
     private void AddGoalZone(Enemy target)

@@ -9,9 +9,22 @@ sealed class SeaShackles(BossModule module) : Components.StretchTetherDuo(module
         var (player, target) = DetermineTetherSides(source, tether);
         if (player != null && target != null)
         {
-            if (!ActivationDelayOnActor.Any(x => x.Item1 == target))
-                ActivationDelayOnActor.Add((target, WorldState.FutureTime(ActivationDelay)));
-            CurrentBaits.Add(new(player, target, Shape ?? new AOEShapeCircle(default), ActivationDelayOnActor.FirstOrDefault(x => x.Item1 == target).Item2));
+            var activation = default(DateTime);
+            var count = ActivationDelayOnActor.Count;
+            for (var i = 0; i < count; ++i)
+            {
+                if (ActivationDelayOnActor[i].Item1 == target)
+                {
+                    activation = ActivationDelayOnActor[i].Item2;
+                    break;
+                }
+            }
+            if (activation == default)
+            {
+                activation = WorldState.FutureTime(ActivationDelay);
+                ActivationDelayOnActor.Add((target, activation));
+            }
+            CurrentBaits.Add(new(player, target, Shape ?? new AOEShapeCircle(default), activation));
             TetherOnActor.Add((target, tether.ID));
         }
     }
@@ -21,8 +34,18 @@ sealed class SeaShackles(BossModule module) : Components.StretchTetherDuo(module
         var (player, target) = DetermineTetherSides(source, tether);
         if (player != null && target != null)
         {
-            var removing = CurrentBaits.RemoveAll(b => b.Source == player && b.Target == target);
-            var removed = TetherOnActor.Remove((WorldState.Actors.Find(tether.Target)!, tether.ID));
+            for (var i = CurrentBaits.Count - 1; i >= 0; --i)
+            {
+                var b = CurrentBaits[i];
+                if (b.Source == player && b.Target == target)
+                {
+                    CurrentBaits.RemoveAt(i);
+                }
+            }
+            if (WorldState.Actors.Find(tether.Target) is Actor tetherTarget)
+            {
+                TetherOnActor.Remove((tetherTarget, tether.ID));
+            }
         }
     }
 }
@@ -61,13 +84,15 @@ sealed class TidalWave(BossModule module) : Components.SimpleKnockbacks(module, 
             _puddles.Add(caster.Position);
         }
     }
-    public override void OnActorDeath(Actor actor)
+
+    public override void OnActorDestroyed(Actor actor)
     {
         if (actor.OID == (uint)OID.AquaSpearVoidzone)
         {
             _puddles.Clear();
         }
     }
+
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         // want to avoid getting knocked back into and knocked back over puddles
@@ -83,7 +108,7 @@ sealed class TidalWave(BossModule module) : Components.SimpleKnockbacks(module, 
         var kb = ActiveKnockbacks(slot, actor)[0];
         var origin = kb.Origin;
         var dir = (origin - Arena.Center).Normalized();
-        for (var i = 0; i < len; i++)
+        for (var i = 0; i < len; ++i)
         {
             var puddle = puddles[i];
             hints.AddForbiddenZone(new SDRect(puddle, dir, 30f, 4f, 4f));

@@ -17,6 +17,7 @@ public enum OID : uint
 
 public enum AID : uint
 {
+    DeadlyRebirthCast = 50694, // Promathia->self, 8.0+2.0s cast, single-target
     SavageBlade = 50389, // Alxaal->Promathia, no cast, single-target
     VorpalBlade = 50390, // Alxaal->Promathia, no cast, single-target
     AutoAttack2 = 50721, // Alxaal->Promathia, no cast, single-target
@@ -82,8 +83,8 @@ public enum SID : uint
 
 public enum IconID : uint
 {
-    Icon_m1001_lockon_c0w = 687, // Promathia->self
-    Icon_m1001_lockon_c1w = 688, // Promathia->self
+    WheelOfImpregnability = 687, // Promathia->self
+    BastionOfTwilight = 688, // Promathia->self
     Comet = 344, // player->self
     WindsLeft = 690, // EmptyThinker1->self
     WindsRight = 689, // EmptyThinker1->self

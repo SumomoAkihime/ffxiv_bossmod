@@ -22,6 +22,9 @@ public sealed class ReplayManagementConfig : ConfigNode
     [PropertyDisplay("Record and store server packets in the replay")]
     public bool RecordServerPackets = false;
 
+    [PropertyDisplay("Filter noisy server packets (movement, HP/MP, inventory) when recording", depends: nameof(RecordServerPackets))]
+    public bool FilterNoisyServerPackets = false;
+
     [PropertyDisplay("Dump server packets into dalamud.log")]
     public bool DumpServerPackets = false;
 

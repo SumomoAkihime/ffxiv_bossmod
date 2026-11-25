@@ -62,10 +62,19 @@ abstract class MaintenanceAOE(BossModule module, uint oid, uint tetherID, uint a
             _aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
     }
 
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == WatchedAction && !spell.EventHappened && spell.RemainingTime > 0.1f)
+            _aoes.RemoveAll(aoe => aoe.ActorID == caster.InstanceID);
+    }
+
+    public override void Update() => _aoes.RemoveAll(aoe => WorldState.CurrentTime > aoe.Activation.AddSeconds(1d));
+
     public override void OnActorDestroyed(Actor actor) => _aoes.RemoveAll(aoe => aoe.ActorID == actor.InstanceID);
 }
 
-class SatelliteBeam(BossModule module) : MaintenanceAOE(module, (uint)OID.EarlyTurret, (uint)TetherID.Tether88, (uint)AID.SatelliteBeam, new AOEShapeRect(30f, 15f));
+// The turret is the center of the 30y square; the cast target is its rear edge.
+class SatelliteBeam(BossModule module) : MaintenanceAOE(module, (uint)OID.EarlyTurret, (uint)TetherID.Tether88, (uint)AID.SatelliteBeam, new AOEShapeRect(15f, 15f, 15f));
 class Compress(BossModule module) : MaintenanceAOE(module, (uint)OID.IronConstruct, (uint)TetherID.Tether86, (uint)AID.Compress, new AOEShapeRect(100f, 7.5f));
 
 class BallisticSpread(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.BallisticImpact1, 6);

@@ -81,11 +81,11 @@ sealed class TinyQuake(BossModule module) : Components.GenericAOEs(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        AOEShape? shape = (AID)spell.Action.ID switch
+        AOEShape? shape = spell.Action.ID switch
         {
-            AID.TinyQuakeIIIInner => new AOEShapeCircle(10.0f),
-            AID.TinyQuakeIIIMiddle => new AOEShapeDonut(10.0f, 20.0f),
-            AID.TinyQuakeIIIOuter => new AOEShapeDonut(20.0f, 30.0f),
+            (uint)AID.TinyQuakeIIIInner => new AOEShapeCircle(10.0f),
+            (uint)AID.TinyQuakeIIIMiddle => new AOEShapeDonut(10.0f, 20.0f),
+            (uint)AID.TinyQuakeIIIOuter => new AOEShapeDonut(20.0f, 30.0f),
             _ => null
         };
 
@@ -280,6 +280,19 @@ sealed class Comet(BossModule module) : BossComponent(module)
         }
     }
 
+    private ArcaneSphere? MostMages()
+    {
+        ArcaneSphere? best = null;
+        var count = arcaneSpheres.Count;
+        for (var i = 0; i < count; ++i)
+        {
+            var sphere = arcaneSpheres[i];
+            if (best == null || sphere.mages > best.mages)
+                best = sphere;
+        }
+        return best;
+    }
+
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         if (arcaneSpheres.Count == 0)
@@ -287,7 +300,7 @@ sealed class Comet(BossModule module) : BossComponent(module)
             return;
         }
 
-        var firstArcaneSphere = arcaneSpheres.MaxBy(a => a.mages);
+        var firstArcaneSphere = MostMages();
         if (firstArcaneSphere != null)
         {
             Arena.ZoneCircleOutline(firstArcaneSphere.arcaneSphere.Position, 2.0f, Colors.Safe, 2.0f);
@@ -750,5 +763,5 @@ public sealed class CE214TinyTerror(WorldState ws, Actor primary) : BossModule(w
         Arena.Actors(Enemies((uint)OID.ArcaneSphereBig));
     }
 
-    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 20f);
+    protected override bool CheckPull() => base.CheckPull() && Raid.Player() is Actor player && player.Position.InCircle(Arena.Center, 20f);
 }

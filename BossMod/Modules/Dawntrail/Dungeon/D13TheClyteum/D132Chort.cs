@@ -61,6 +61,7 @@ sealed class BodyWeightExorcism1(BossModule module) : Components.SimpleKnockback
     }
 }
 
+sealed class RipplesOfGloom(BossModule module) : Components.RaidwideCast(module, (uint)AID.RipplesOfGloom1);
 sealed class BasicVomit(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BasicVomit, new AOEShapeCone(50f, 60f.Degrees()));
 
 sealed class BodyweightTower(BossModule module) : Components.CastTowers(module, (uint)AID.BodyweightExorcismTower, 4f, 4, 4)
@@ -82,7 +83,7 @@ sealed class BodyweightTower(BossModule module) : Components.CastTowers(module, 
     }
 }
 
-sealed class EvilEmission(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.EvilEmissionSpread, (uint)AID.EvilEmission1, 4, 5);
+sealed class EvilEmission(BossModule module) : Components.SpreadFromIcon(module, (uint)IconID.EvilEmissionSpread, (uint)AID.EvilEmission1, 5f, 5d);
 
 sealed class ProfanePressure(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.ProfanePressure1, 6f, 4);
 
@@ -96,6 +97,7 @@ sealed class D132ChortStates : StateMachineBuilder
             .ActivateOnEnter<MortifyingFleshAOEs>()
             .ActivateOnEnter<BodyWeightExorcism1>()
             .ActivateOnEnter<BasicVomit>()
+            .ActivateOnEnter<RipplesOfGloom>()
             .ActivateOnEnter<BodyweightTower>()
             .ActivateOnEnter<ProfanePressure>()
             .ActivateOnEnter<EvilEmission>();

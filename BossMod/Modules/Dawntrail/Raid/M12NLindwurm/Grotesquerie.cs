@@ -52,7 +52,11 @@ sealed class DirectedGrotesquerie(BossModule module) : Components.GenericBaitAwa
                 return;
             }
 
-            _direction[Raid.FindSlot(actor.InstanceID)] = status.Extra;
+            var slot = Raid.FindSlot(actor.InstanceID);
+            if (slot >= 0)
+            {
+                _direction[slot] = status.Extra;
+            }
         }
     }
 
@@ -61,6 +65,10 @@ sealed class DirectedGrotesquerie(BossModule module) : Components.GenericBaitAwa
         if (iconID == (uint)IconID.Countdown)
         {
             var slot = Raid.FindSlot(actor.InstanceID);
+            if (slot < 0)
+            {
+                return;
+            }
             var extra = _direction[slot];
             if (extra == 0)
             {
@@ -69,7 +77,8 @@ sealed class DirectedGrotesquerie(BossModule module) : Components.GenericBaitAwa
 
             var rotation = ((extra - 0x408) * -90f).Degrees();
             AOEShapeCone cone = new(60f, 15f.Degrees(), rotation);
-            CurrentBaits.Add(new(actor, actor, cone, WorldState.FutureTime(5.5d)));
+            var activation = actor.FindStatus((uint)SID.DirectedGrotesquerie) is ActorStatus s ? s.ExpireAt : WorldState.FutureTime(5.5d);
+            CurrentBaits.Add(new(actor, actor, cone, activation));
         }
     }
 
@@ -109,7 +118,12 @@ sealed class DirectedGrotesquerie(BossModule module) : Components.GenericBaitAwa
             var act = b.Activation;
             for (var j = 0; j < lenP; ++j)
             {
-                hints.ForbiddenDirections.Add((Angle.FromDirection(party[j].Position - pos) - offset, angle, act));
+                var p = party[j];
+                if (p == actor)
+                {
+                    continue;
+                }
+                hints.ForbiddenDirections.Add((Angle.FromDirection(p.Position - pos) - offset, angle, act));
             }
         }
     }

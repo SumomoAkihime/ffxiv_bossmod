@@ -158,7 +158,7 @@ public class DeepDungeonAI(RotationModuleManager manager, Actor player) : AIBase
         Hints.GoalZones.Add(pos =>
         {
             var dist = (pos - primaryPos).Length();
-            return dist <= total && dist >= totalKite ? goalFactor : 0;
+            return dist <= total && dist >= totalKite ? goalFactor : 0f;
         });
     }
 

@@ -47,7 +47,19 @@ sealed class ClassDefinitions
         public bool OnSource;
         public bool OnTarget;
 
-        public string AppliedByString() => string.Join(", ", Actions.Select(aid => aid.Name()));
+        public string AppliedByString()
+        {
+            if (Actions.Count == 0)
+                return "";
+            var sb = new System.Text.StringBuilder();
+            foreach (var aid in Actions)
+            {
+                if (sb.Length > 0)
+                    sb.Append(", ");
+                sb.Append(aid.Name());
+            }
+            return sb.ToString();
+        }
         public string AppliedToString() => OnSource ? (OnTarget ? "self/target" : "self") : "target";
     }
 
@@ -59,10 +71,88 @@ sealed class ClassDefinitions
         public readonly Dictionary<uint, StatusData> Statuses = [];
     }
 
+    class Mean
+    {
+        public readonly List<double> Values = [];
+        public double Average { get; private set; }
+        private double _sum;
+
+        public void Add(List<Replay.ActionTarget> targets, DateTime actionTimestamp)
+        {
+            var found = false;
+            var min = 0.0;
+            for (int i = 0; i < targets.Count; ++i)
+            {
+                var ct = targets[i].ConfirmationTarget;
+                if (ct != default)
+                {
+                    var d = (ct - actionTimestamp).TotalSeconds;
+                    if (!found || d < min)
+                    {
+                        min = d;
+                        found = true;
+                    }
+                }
+            }
+            if (found)
+            {
+                Values.Add(min);
+                _sum += min;
+                Average = _sum / Values.Count;
+            }
+        }
+    }
+
+    private static string FormatClassMask(BitMask mask, char separator)
+    {
+        if (mask.None())
+            return "";
+        var sb = new System.Text.StringBuilder();
+        foreach (var bit in mask.SetBits())
+        {
+            if (sb.Length > 0)
+                sb.Append(separator);
+            sb.Append((Class)bit);
+        }
+        return sb.ToString();
+    }
+
+    private List<ActionData> CollectMiscSharedActions()
+    {
+        List<ActionData> list = [];
+        foreach (var a in _actionData.Values)
+            if (!a.IsRoleAction && a.LimitBreakLevel == 0 && a.OwningClasses.NumSetBits() > 1)
+                list.Add(a);
+        return list;
+    }
+
+    private static List<ActionData> CollectActionsByOwnedCount(IEnumerable<ActionData> actions, bool multiClass)
+    {
+        List<ActionData> list = [];
+        foreach (var a in actions)
+            if (multiClass ? a.OwningClasses.NumSetBits() > 1 : a.OwningClasses.NumSetBits() == 1)
+                list.Add(a);
+        return list;
+    }
+
+    private static string FormatAnimLockKeys(Dictionary<int, List<Entry>> dict, int defaultKey)
+    {
+        if (dict.Count == 0 || (dict.Count == 1 && dict.ContainsKey(defaultKey)))
+            return "";
+        var parts = new string[dict.Count];
+        int idx = 0;
+        foreach (var k in dict.Keys)
+            parts[idx++] = (k * 0.001f).ToString("f3");
+        if (parts.Length > 1)
+            Array.Sort(parts, StringComparer.Ordinal);
+        return string.Join('/', parts);
+    }
+
     private readonly Dictionary<ActionID, ActionData> _actionData = [];
     private readonly Dictionary<Class, ClassData> _classData = [];
     private readonly SortedDictionary<string, List<ActionData>> _byCategory = [];
     private readonly Dictionary<int, Dictionary<ActionID, List<Entry>>> _byLock = [];
+    private readonly Dictionary<ActionID, Mean> _appDelay = [];
     private readonly SortedDictionary<int, List<ActionData>> _byCDGroup = [];
     private readonly BitMask[] _classPerCategory = new BitMask[(int)ClassCategory.Limited + 1];
 
@@ -87,18 +177,21 @@ sealed class ClassDefinitions
             var baseClass = curClass == Class.SCH ? Class.SCH : (Class)row.ClassJobParent.RowId; // both SCH and SMN are based on ACN, but SMN is closer
             var classData = _classData[curClass] = new(curClass, baseClass);
 
-            bool actionIsInteresting(Lumina.Excel.Sheets.Action a) => !a.IsPvP && ((int)a.ClassJob.RowId != -1 || a.IsRoleAction) && a.ClassJobLevel > 0 && cjcSheet.GetRow(a.ClassJobCategory.RowId).ReadBoolColumn((int)i + 1);
-            foreach (var a in actionSheet.Where(actionIsInteresting))
+            foreach (var a in actionSheet)
             {
-                RegisterAction(new ActionID(ActionType.Spell, a.RowId), a, classData, out _);
+                if (!a.IsPvP && ((int)a.ClassJob.RowId != -1 || a.IsRoleAction) && a.ClassJobLevel > 0 && cjcSheet.GetRow(a.ClassJobCategory.RowId).ReadBoolColumn((int)i + 1))
+                    RegisterAction(new ActionID(ActionType.Spell, a.RowId), a, classData, out _);
             }
 
             RegisterLimitBreak(row.LimitBreak1.RowId, classData, 1);
             RegisterLimitBreak(row.LimitBreak2.RowId, classData, 2);
             RegisterLimitBreak(row.LimitBreak3.RowId, classData, 3);
 
-            bool traitIsInteresting(Lumina.Excel.Sheets.Trait t) => cjcSheet.GetRow(t.ClassJobCategory.RowId).ReadBoolColumn((int)i + 1);
-            classData.Traits.AddRange(traitSheet.Where(traitIsInteresting));
+            foreach (var t in traitSheet)
+            {
+                if (cjcSheet.GetRow(t.ClassJobCategory.RowId).ReadBoolColumn((int)i + 1))
+                    classData.Traits.Add(t);
+            }
             classData.Traits.Sort(static (a, b) => a.Level.CompareTo(b.Level));
         }
         var nullOwner = _classData[Class.None] = new(Class.None, Class.None);
@@ -115,10 +208,15 @@ sealed class ClassDefinitions
         // add any actions observed in replays
         foreach (var r in replays)
         {
-            foreach (var a in r.Actions.Where(a => a.SourceSequence != 0))
+            for (int idx = 0; idx < r.Actions.Count; ++idx)
             {
+                var a = r.Actions[idx];
+                if (a.SourceSequence == 0)
+                    continue;
                 var alock = (int)MathF.Round(a.AnimationLock * 1000);
                 _byLock.GetOrAdd(alock).GetOrAdd(a.ID).Add(new(r, a));
+
+                _appDelay.GetOrAdd(a.ID).Add(a.Targets, a.Timestamp);
 
                 if (RegisterAction(a.ID, a.ID.Type == ActionType.Spell ? actionSheet?.GetRow(a.ID.ID) : null, nullOwner, out var data))
                 {
@@ -184,7 +282,7 @@ sealed class ClassDefinitions
                         : data.LimitBreakLevel > 0 && data.OwningClasses.NumSetBits() > 1 ? GroupLimitBreaks
                         : data.IsBozjaHolster ? "Bozja action"
                         : data.IsPhantomAction ? "Phantom action"
-                        : data.OwningClasses.Any() ? $"Class: {string.Join(" ", data.OwningClasses.SetBits().Select(i => (Class)i))}"
+                        : data.OwningClasses.Any() ? $"Class: {FormatClassMask(data.OwningClasses, ' ')}"
                         : "???",
                     ActionType.Item => "Item",
                     ActionType.General => "General actions",
@@ -341,6 +439,8 @@ sealed class ClassDefinitions
             {
                 DrawEntries(tree, nl.Value);
             }
+            if (_appDelay.TryGetValue(na.ID, out var m))
+                tree.LeafNode($"Application delay: {m.Average:f3} ({m.Values.Count} samples)", m.Values.Count < 10 ? 0xFF00FFFF : 0xFFFFFFFF);
             foreach (var ns in tree.Node("Statuses applied to self", na.AppliedStatusesToSource.Count == 0))
             {
                 tree.LeafNodes(na.AppliedStatusesToSource, Utils.StatusString);
@@ -380,7 +480,7 @@ sealed class ClassDefinitions
             writer.Group(GroupRoleActions, _byCategory.GetOrAdd(GroupRoleActions), true);
             writer.Group(GroupLimitBreaks, _byCategory.GetOrAdd(GroupLimitBreaks), true);
             // TODO: bozja...
-            writer.Group("Misc", _actionData.Values.Where(a => !a.IsRoleAction && a.LimitBreakLevel == 0 && a.OwningClasses.NumSetBits() > 1), true);
+            writer.Group("Misc", CollectMiscSharedActions(), true);
             ImGui.SetClipboardText(writer.Result());
         }
 
@@ -396,7 +496,7 @@ sealed class ClassDefinitions
             writer.Group(GroupRoleActions, _byCategory.GetOrAdd(GroupRoleActions));
             writer.Group(GroupLimitBreaks, _byCategory.GetOrAdd(GroupLimitBreaks));
             // TODO: bozja...
-            writer.Group("Misc", _actionData.Values.Where(a => !a.IsRoleAction && a.LimitBreakLevel == 0 && a.OwningClasses.NumSetBits() > 1));
+            writer.Group("Misc", CollectMiscSharedActions());
             ImGui.SetClipboardText(writer.Result());
         }
     }
@@ -462,8 +562,8 @@ sealed class ClassDefinitions
         var writer = new AIDWriter(cd.ID.ToString());
         writer.Add("None", 0);
         writer.Add("Sprint", "ClassShared.AID.Sprint");
-        writer.Group("", cd.Actions.Where(a => a.OwningClasses.NumSetBits() == 1), false);
-        writer.Group("Shared", cd.Actions.Where(a => a.OwningClasses.NumSetBits() > 1), false, true);
+        writer.Group("", CollectActionsByOwnedCount(cd.Actions, false), false);
+        writer.Group("Shared", CollectActionsByOwnedCount(cd.Actions, true), false, true);
         return writer.Result();
     }
 
@@ -494,9 +594,10 @@ sealed class ClassDefinitions
     private string GenerateClassRegistration(ClassData cd)
     {
         var writer = new DefinitionWriter(cd.ID.ToString());
-        foreach (var a in cd.Actions.Where(a => a.OwningClasses.NumSetBits() == 1))
+        foreach (var a in cd.Actions)
         {
-            writer.Add(a);
+            if (a.OwningClasses.NumSetBits() == 1)
+                writer.Add(a);
         }
 
         return writer.Result();
@@ -549,7 +650,7 @@ sealed class ClassDefinitions
         private string LevelString(ActionData action, bool allowClasses)
         {
             var level = action.LimitBreakLevel > 0 ? $"LB{action.LimitBreakLevel}" : action.Row?.ClassJobLevel > 0 ? $"L{action.Row?.ClassJobLevel}" : "";
-            var classes = !allowClasses || action.OwningClasses.NumSetBits() <= 1 ? "" : action.SharedCategory != ClassCategory.Undefined ? action.SharedCategory.ToString() : string.Join("/", action.OwningClasses.SetBits().Select(i => (Class)i));
+            var classes = !allowClasses || action.OwningClasses.NumSetBits() <= 1 ? "" : action.SharedCategory != ClassCategory.Undefined ? action.SharedCategory.ToString() : FormatClassMask(action.OwningClasses, '/');
             return level.Length > 0 ? (classes.Length > 0 ? $"{level} {classes}" : level) : classes;
         }
 
@@ -687,12 +788,17 @@ sealed class ClassDefinitions
             return _sb.ToString();
         }
 
-        private float AnimLock(Dictionary<int, List<Entry>> entries, int expected, float usual) => entries.Count switch
+        private float AnimLock(Dictionary<int, List<Entry>> entries, int expected, float usual)
         {
-            0 => expected != 0 ? expected * 0.001f : usual,
-            1 => entries.First().Key * 0.001f,
-            _ => usual,
-        };
+            if (entries.Count == 0)
+                return expected != 0 ? expected * 0.001f : usual;
+            if (entries.Count == 1)
+            {
+                foreach (var k in entries.Keys)
+                    return k * 0.001f;
+            }
+            return usual;
+        }
     }
 
     private sealed record class UnlockWriter(string EnumName)
@@ -733,10 +839,7 @@ sealed class ClassDefinitions
         var resInst = "";
         if (action.SeenInstant)
         {
-            if (action.InstantByAnimLock.Count > 1 || action.InstantByAnimLock.First().Key != 600)
-            {
-                resInst = string.Join('/', action.InstantByAnimLock.Keys.Select(k => (k * 0.001f).ToString("f3")).Order());
-            }
+            resInst = FormatAnimLockKeys(action.InstantByAnimLock, 600);
         }
         else if (action.Definition != null && action.Definition.InstantAnimLock != 0.6f)
         {
@@ -750,10 +853,7 @@ sealed class ClassDefinitions
         var resCast = "";
         if (action.SeenCast)
         {
-            if (action.CastByAnimLock.Count > 1 || action.CastByAnimLock.First().Key != 100)
-            {
-                resCast = string.Join('/', action.CastByAnimLock.Keys.Select(k => (k * 0.001f).ToString("f3")).Order());
-            }
+            resCast = FormatAnimLockKeys(action.CastByAnimLock, 100);
         }
         else if (action.Definition != null && action.Definition.CastAnimLock != 0.1f)
         {

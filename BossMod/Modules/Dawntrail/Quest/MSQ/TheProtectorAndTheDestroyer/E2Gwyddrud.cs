@@ -1,4 +1,4 @@
-﻿using BossMod.Dawntrail.Quest.MSQ.TheProtectorAndTheDestroyer.Otis;
+﻿using BossMod.Dawntrail.Quest.MSQ.TheProtectorAndTheDestroyer.Gwyddrud;
 
 namespace BossMod.Dawntrail.Quest.MSQ.TheProtectorAndTheDestroyer.Gwyddrud;
 
@@ -130,7 +130,7 @@ sealed class RoaringBoltKB(BossModule module) : Components.SimpleKnockbacks(modu
             {
                 ref var aoe = ref aoes[i];
                 var origin = aoe.Origin;
-                hints.AddForbiddenZone(new SDCone(pos, 100f, Angle.FromDirection(origin - pos), Angle.Asin(6f / (origin - pos).Length())), act);
+                hints.AddForbiddenZone(new SDCone(pos, 100f, Angle.FromDirection(origin - pos), Angle.Asin(Math.Min(1f, 6f / (origin - pos).Length()))), act);
             }
         }
     }
@@ -167,7 +167,7 @@ sealed class GwyddrudStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.Quest, GroupID = 70478, NameID = 13170)]
-public sealed class Gwyddrud(WorldState ws, Actor primary) : BossModule(ws, primary, OtisOathbroken.ArenaCenter, OtisOathbroken.ArenaBounds)
+public sealed class Gwyddrud(WorldState ws, Actor primary) : BossModule(ws, primary, Otis.OtisOathbroken.ArenaCenter, Otis.OtisOathbroken.ArenaBounds)
 {
     private static readonly uint[] all = [(uint)OID.Boss, (uint)OID.SuperchargedLevin, (uint)OID.BallOfLevin];
 

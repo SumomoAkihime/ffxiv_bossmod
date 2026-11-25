@@ -76,7 +76,29 @@ sealed class TongueOfFlame(BossModule module) : Components.SimpleAOEs(module, (u
 sealed class DarkDealing(BossModule module) : Components.SingleTargetCast(module, (uint)AID.DarkDealing);
 sealed class CyclonicRing(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CyclonicRing, new AOEShapeDonut(10.0f, 30.0f));
 sealed class CycloneCrossing(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CycloneCrossing1, new AOEShapeCross(60.0f, 8.0f));
-sealed class WindSphere(BossModule module) : Components.Voidzone(module, 17.5f, module => module.Enemies((uint)OID.WindSphere).Where(z => z.EventState != 7));
+sealed class WindSphere(BossModule module) : Components.Voidzone(module, 17.5f, GetVoidzones)
+{
+    private static Actor[] GetVoidzones(BossModule module)
+    {
+        var enemies = module.Enemies((uint)OID.WindSphere);
+        var count = enemies.Count;
+        if (count == 0)
+        {
+            return [];
+        }
+        var voidzones = new Actor[count];
+        var index = 0;
+        for (var i = 0; i < count; ++i)
+        {
+            var z = enemies[i];
+            if (z.EventState != 7)
+            {
+                voidzones[index++] = z;
+            }
+        }
+        return voidzones[..index];
+    }
+}
 
 sealed class HellfireFetch : Components.SimpleAOEs
 {
@@ -251,12 +273,12 @@ sealed class ShapeshiftingSupercellRings(BossModule module) : Components.Generic
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        AOEShape? shape = (AID)spell.Action.ID switch
+        AOEShape? shape = spell.Action.ID switch
         {
-            AID.ShapeshiftingSupercellInner => new AOEShapeCircle(8.0f),
-            AID.ShapeshiftingSupercellInner1 => new AOEShapeCircle(8.0f),
-            AID.ShapeshiftingSupercellMiddle => new AOEShapeDonut(8.0f, 16.0f),
-            AID.ShapeshiftingSupercellOuter => new AOEShapeDonut(16.0f, 30.0f),
+            (uint)AID.ShapeshiftingSupercellInner => new AOEShapeCircle(8.0f),
+            (uint)AID.ShapeshiftingSupercellInner1 => new AOEShapeCircle(8.0f),
+            (uint)AID.ShapeshiftingSupercellMiddle => new AOEShapeDonut(8.0f, 16.0f),
+            (uint)AID.ShapeshiftingSupercellOuter => new AOEShapeDonut(16.0f, 30.0f),
             _ => null
         };
 
@@ -400,5 +422,5 @@ sealed class CE202AcceptNoImitatorsStates : StateMachineBuilder
 [SkipLocalsInit]
 public sealed class CE202AcceptNoImitators(WorldState ws, Actor primary) : BossModule(ws, primary, new(500.000f, -310.000f), new ArenaBoundsCircle(25f))
 {
-    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 25f);
+    protected override bool CheckPull() => base.CheckPull() && Raid.Player() is Actor player && player.Position.InCircle(Arena.Center, 25f);
 }

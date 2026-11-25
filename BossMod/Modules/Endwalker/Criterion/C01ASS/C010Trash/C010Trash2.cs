@@ -95,7 +95,7 @@ public abstract class Trash2Arena(WorldState ws, Actor primary, bool savage) : B
     new Rectangle(new(-30.02f, -221.1f), 1.526f, 2.172f)]);
 
     public static readonly uint[] TrashNormal = [(uint)OID.NDullahan, (uint)OID.NArmor];
-    public static readonly uint[] TrashSavage = [(uint)OID.NArmor, (uint)OID.SArmor];
+    public static readonly uint[] TrashSavage = [(uint)OID.SDullahan, (uint)OID.SArmor];
 
     protected override bool CheckPull() => IsAnyActorInCombat(savage ? TrashSavage : TrashNormal);
 

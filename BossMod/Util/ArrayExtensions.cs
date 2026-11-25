@@ -9,4 +9,10 @@ public static class ArrayExtensions
         Array.Reverse(copy);
         return copy;
     }
+
+    public static T[] Single<T>(this T[] buffer, T value)
+    {
+        buffer[0] = value;
+        return buffer;
+    }
 }

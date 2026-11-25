@@ -1,8 +1,8 @@
 ﻿namespace BossMod.Global.CrucibleOfTheUnbroken.SecondMasterBoard.SphinxPiece;
 
-public enum OID : uint {
+public enum OID : uint
+{
     SphinxPiece = 0x4CFE,
-    Helper = 0x233C,
     SquareNumber1 = 0x1EC105, // R0.500, x0 (spawn during fight), EventObj type
     SquareNumber2 = 0x1EC106, // R0.500, x0 (spawn during fight), EventObj type
     SquareNumber3 = 0x1EC107, // R0.500, x0 (spawn during fight), EventObj type
@@ -17,9 +17,11 @@ public enum OID : uint {
     PukPiece = 0x4D02, // R0.600-1.500, x0 (spawn during fight)
     OpoOpoPiece = 0x4D01, // R0.600-1.400, x0 (spawn during fight)
     ThisBeast = 0x1EC0E3, // R0.500, x0 (spawn during fight), EventObj type
+    Helper = 0x233C
 }
 
-public enum AID : uint {
+public enum AID : uint
+{
     AutoAttack = 49356, // SphinxPiece->player, no cast, single-target
     Teleport = 49357, // SphinxPiece->location, no cast, single-target
     BanishDonutBoss = 49334, // SphinxPiece->self, 5.0s cast, single-target
@@ -52,30 +54,32 @@ public enum AID : uint {
     RiddleFailed1 = 49355, // Helper->player, no cast, single-target
 }
 
-public enum SID : uint {
+public enum SID : uint
+{
     VulnerabilityDown = 2198, // SphinxPiece->SphinxPiece, extra=0x0
     Transfiguration = 1433, // none->4D01/4CFF/4D00/4D02, extra=0x172
     TemporaryMisdirection = 3909, // SphinxPiece->player, extra=0x2D0
-    AllPrime = 5150, // none->player, extra=0x0
-    AllThree = 5151, // none->player, extra=0x0
     AllEvens = 5148, // none->player, extra=0x0
     AllOdds = 5149, // none->player, extra=0x0
+    AllPrime = 5150, // none->player, extra=0x0
+    AllThree = 5151, // none->player, extra=0x0
     DamageUp = 5147, // Helper->player, extra=0x0
     Bleeding = 3077, // none->player, extra=0x0
 }
 
-public enum IconID : uint {
+public enum IconID : uint
+{
     RiddleCountDown = 718, // player->self
     Unknown = 504, // player->self - most likely misdirection
     Unknown1 = 503, // player->self - most likely misdirection as well
 }
 
-sealed class BanishDonut(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BanishDonut, new AOEShapeDonut(10.0f, 60.0f));
+sealed class BanishDonut(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BanishDonut, new AOEShapeDonut(10f, 60f));
 sealed class BanishCone(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BanishCone, (uint)AID.BanishCone2],
-    new AOEShapeCone(60.0f, 90.0f.Degrees()));
-sealed class BanishCircle(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BanishCircle, 18.0f);
+    new AOEShapeCone(60f, 90f.Degrees()));
+sealed class BanishCircle(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BanishCircle, 18f);
 sealed class NumericRiddle(BossModule module) : Components.RaidwideCast(module, (uint)AID.NumericRiddle);
-
+sealed class MnemonicRiddleRaidwide(BossModule module) : Components.RaidwideCast(module, (uint)AID.MnemonicRiddle1);
 sealed class LostHope(BossModule module) : Components.TemporaryMisdirection(module, (uint)AID.LostHope);
 
 sealed class Assignment : Components.GenericAOEs {
@@ -180,85 +184,98 @@ sealed class Assignment : Components.GenericAOEs {
     }
 }
 
-sealed class MnemonicRiddle(BossModule module) : BossComponent(module) {
+sealed class MnemonicRiddle(BossModule module) : BossComponent(module)
+{
     private OID? animal;
     private bool active = false;
 
-    public override void OnEventDirectorUpdate(uint updateID, uint param1, uint param2, uint param3, uint param4) {
-        if (updateID != 2147483687) {
+    public override void OnEventDirectorUpdate(uint updateID, uint param1, uint param2, uint param3, uint param4)
+    {
+        if (updateID != 0x80000027u)
+        {
             return;
         }
 
-        if (param1 == 3) { // CLOUD: director update: 2147483687 param1: 3 param2: 2 param3: 14665 param4: 1073884536
-            animal = OID.DodoPiece;
-        }
-
-        if (param1 == 4) { // SCALES: director update: 2147483687 param1: 4 param2: 2 param3: 14665 param4: 1073952921
-            animal = OID.PukPiece;
-        }
-
-        if (param1 == 5) { // BEAST: director update: 2147483687 param1: 5 param2: 2 param3: 14665 param4: 1073761111
-            animal = OID.OpoOpoPiece;
-        }
-
-        if (param1 == 6) { // WATER: director update: 2147483687 param1: 6 param2: 2 param3: 14665 param4: 1073885145
-            animal = OID.PugilPiece;
-        }
-
-        if (param1 == 32) { // PICK TARGET: director update: 2147483687 param1: 32 param2: 2 param3: 14665 param4: 1073933173
-            active = true;
-        }
-
-        // SUCCESS: director update: 2147483687 param1: 7 param2: 2 param3: 14665 param4: 1073952921
-        // FAIL: director update: 2147483687 param1: 8 param2: 2 param3: 14665 param4: 1073761111
-        if (param1 == 7 || param1 == 8) {
-            active = false;
+        switch (param1)
+        {
+            case 3u:
+                animal = OID.DodoPiece; // CLOUD: director update: 2147483687 param1: 3 param2: 2 param3: 14665 param4: 1073884536
+                break;
+            case 4u:
+                animal = OID.PukPiece; // SCALES: director update: 2147483687 param1: 4 param2: 2 param3: 14665 param4: 1073952921
+                break;
+            case 5u:
+                animal = OID.OpoOpoPiece; // BEAST: director update: 2147483687 param1: 5 param2: 2 param3: 14665 param4: 1073761111
+                break;
+            case 6u:
+                animal = OID.PugilPiece; // WATER: director update: 2147483687 param1: 6 param2: 2 param3: 14665 param4: 1073885145
+                break;
+            case 7u: // SUCCESS: director update: 2147483687 param1: 7 param2: 2 param3: 14665 param4: 1073952921
+            case 8u: // FAIL: director update: 2147483687 param1: 8 param2: 2 param3: 14665 param4: 1073761111
+                active = false;
+                break;
+            case 32u:
+                active = true; // PICK TARGET: director update: 2147483687 param1: 32 param2: 2 param3: 14665 param4: 1073933173
+                break;
         }
     }
 
-    public override void DrawArenaForeground(int pcSlot, Actor pc) {
-        if (animal == null || !active) {
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        if (animal == null || !active)
+        {
             return;
         }
 
         var target = Module.Enemies((uint)animal).FirstOrDefault();
-        if (target != null) {
-            Arena.ZoneCircleOutline(target.Position, 1.0f, Colors.Safe);
+        if (target != null)
+        {
+            Arena.ZoneCircleOutline(target.Position, 1f, Colors.Safe);
         }
     }
 
-    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
-        if (animal == null || !active) {
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (animal == null || !active)
+        {
             return;
         }
 
-        var target = Module.Enemies((uint)animal).FirstOrDefault();
-        if (target == null) {
+        var targets = Module.Enemies((uint)animal);
+        if (targets.Count == 0)
+        {
             return;
         }
+        var target = targets[0];
 
         Actor? closest = null;
         var bestDistance = float.MaxValue;
-        foreach (var beast in Module.Enemies((uint)OID.ThisBeast)) {
-            if (!beast.IsTargetable) {
+        foreach (var beast in Module.Enemies((uint)OID.ThisBeast))
+        {
+            if (!beast.IsTargetable)
+            {
                 continue;
             }
 
             var distance = (beast.Position - target.Position).LengthSq();
-            if (distance < bestDistance) {
+            if (distance < bestDistance)
+            {
                 bestDistance = distance;
                 closest = beast;
             }
         }
 
-        if (closest != null) {
+        if (closest != null)
+        {
             hints.InteractWithTarget = closest;
-            hints.GoalZones.Add(AIHints.GoalSingleTarget(closest.Position, 1.0f, 5f));
+            hints.GoalZones.Add(AIHints.GoalSingleTarget(closest.Position, 1f, 5f));
         }
     }
 
-    public override void AddHints(int slot, Actor actor, TextHints hints) {
-        if (animal == null || !active) {
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (animal == null || !active)
+        {
             return;
         }
 
@@ -266,13 +283,16 @@ sealed class MnemonicRiddle(BossModule module) : BossComponent(module) {
     }
 }
 
-sealed class SphinxPieceStates : StateMachineBuilder {
-    public SphinxPieceStates(BossModule module) : base(module) {
+sealed class SphinxPieceStates : StateMachineBuilder
+{
+    public SphinxPieceStates(BossModule module) : base(module)
+    {
         TrivialPhase()
             .ActivateOnEnter<BanishDonut>()
             .ActivateOnEnter<BanishCone>()
             .ActivateOnEnter<BanishCircle>()
             .ActivateOnEnter<NumericRiddle>()
+            .ActivateOnEnter<MnemonicRiddleRaidwide>()
             .ActivateOnEnter<Assignment>()
             .ActivateOnEnter<LostHope>()
             .ActivateOnEnter<MnemonicRiddle>();
@@ -280,23 +300,28 @@ sealed class SphinxPieceStates : StateMachineBuilder {
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed, PrimaryActorOID = (uint)OID.SphinxPiece, Contributors = "Equilius", Expansion = BossModuleInfo.Expansion.Global, Category = BossModuleInfo.Category.CrucibleOfTheUnbroken, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1092u, NameID = 14665u, SortOrder = 9)]
-public sealed class SphinxPiece(WorldState ws, Actor primary) : BossModule(ws, primary, new(120f, 0f), new ArenaBoundsRect(20f, 20f)) {
-    protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints) {
+public sealed class SphinxPiece(WorldState ws, Actor primary) : BossModule(ws, primary, new(120f, 0f), new ArenaBoundsRect(20f, 20f))
+{
+    protected override void CalculateModuleAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
         var count = hints.PotentialTargets.Count;
-        for (var i = 0; i < count; ++i) {
+        for (var i = 0; i < count; ++i)
+        {
             var e = hints.PotentialTargets[i];
-            e.Priority = e.Actor.OID switch {
+            e.Priority = e.Actor.OID switch
+            {
                 (uint)OID.DodoPiece => 2,
                 (uint)OID.PugilPiece => 2,
                 (uint)OID.PukPiece => 2,
                 (uint)OID.OpoOpoPiece => 2,
-                (uint)OID.SphinxPiece => 1,
+                (uint)OID.SphinxPiece => e.Actor.FindStatus((uint)SID.VulnerabilityDown) != null ? AIHints.Enemy.PriorityPointless : 1,
                 _ => 0
             };
         }
     }
 
-    protected override void DrawEnemies(int pcSlot, Actor pc) {
+    protected override void DrawEnemies(int pcSlot, Actor pc)
+    {
         Arena.Actor(PrimaryActor);
         Arena.Actors(Enemies((uint)OID.DodoPiece));
         Arena.Actors(Enemies((uint)OID.PugilPiece));

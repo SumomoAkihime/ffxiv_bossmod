@@ -148,3 +148,16 @@ public sealed class Definitions : Defs
 
     }
 }
+
+public enum Kinship : byte
+{
+    None,
+    Beast,
+    Vile,
+    Cloud,
+    Seed,
+    Wave,
+    Scale,
+    Soul,
+    Ash
+}

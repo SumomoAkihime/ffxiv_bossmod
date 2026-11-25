@@ -1,11 +1,5 @@
 ﻿namespace BossMod.Endwalker.Variant.V03Aloalo.V033TheLala;
 
-abstract class LegacyAOEs(BossModule module, uint aid = default) : Components.GenericAOEs(module, aid)
-{
-    protected abstract IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor);
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => EnumerateAOEs(slot, actor).ToArray();
-}
-
 public enum OID : uint
 {
     Boss = 0x4039, // R4.500, x1
@@ -81,20 +75,28 @@ public enum TetherID : uint
     TargetedLight = 17, // player->Boss
 }
 
-class InfernoTheorem(BossModule module) : Components.RaidwideCast(module, (uint)AID.InfernoTheorem);
-class StrategicStrike(BossModule module) : Components.SingleTargetCast(module, (uint)AID.StrategicStrike);
-class ArcaneBlight(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ArcaneBlight, new AOEShapeCone(60, 135.Degrees()));
+sealed class InfernoTheorem(BossModule module) : Components.RaidwideCast(module, (uint)AID.InfernoTheorem);
+sealed class StrategicStrike(BossModule module) : Components.SingleTargetCast(module, (uint)AID.StrategicStrike);
+sealed class ArcaneBlight(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ArcaneBlight, new AOEShapeCone(60, 135.Degrees()));
 
-class ArcanePlot(BossModule module) : LegacyAOEs(module)
+sealed class ArcanePlot(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<AOEInstance> _aoes = [];
     public readonly List<WPos> SafeZoneCenters = [];
     public static readonly AOEShapeRect Shape = new(4, 4, 4);
     private DateTime _expire;
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor) => _aoes;
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
-    public bool IsTileUnsafe(WPos pos) => _aoes.Any(a => a.Check(pos));
+    public bool IsTileUnsafe(WPos pos)
+    {
+        for (var i = 0; i < _aoes.Count; ++i)
+        {
+            if (_aoes[i].Check(pos))
+                return true;
+        }
+        return false;
+    }
 
     public IEnumerable<WPos> ActiveTileOrigins => _aoes.Select(a => a.Origin);
 
@@ -108,12 +110,22 @@ class ArcanePlot(BossModule module) : LegacyAOEs(module)
         foreach (var c in _aoes)
         {
             if (c.Risky && c.Activation <= horizon)
-                hints.AddForbiddenZone(c.ShapeDistance ?? c.Shape.Distance(c.Origin, c.Rotation), c.Activation);
+                hints.AddForbiddenZone(c.Shape, c.Origin, c.Rotation, c.Activation);
         }
 
         if (SafeZoneCenters.Count > 0)
         {
-            var safe = SafeZoneCenters.MinBy(s => (s - actor.Position).LengthSq());
+            var safe = SafeZoneCenters[0];
+            var bestDistSq = float.MaxValue;
+            foreach (var s in SafeZoneCenters)
+            {
+                var distSq = (s - actor.Position).LengthSq();
+                if (distSq < bestDistSq)
+                {
+                    bestDistSq = distSq;
+                    safe = s;
+                }
+            }
             hints.GoalZones.Add(AIHints.GoalProximity(safe, 2, 40));
         }
     }
@@ -129,7 +141,7 @@ class ArcanePlot(BossModule module) : LegacyAOEs(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.ArcanePlot or AID.ArcanePlotAlt)
+        if (spell.Action.ID is (uint)AID.ArcanePlot or (uint)AID.ArcanePlotAlt)
         {
             _aoes.Clear();
             _expire = default;
@@ -147,12 +159,12 @@ class ArcanePlot(BossModule module) : LegacyAOEs(module)
 
     public override void OnActorCreated(Actor actor)
     {
-        switch ((OID)actor.OID)
+        switch (actor.OID)
         {
-            case OID.ArrowBright:
+            case (uint)OID.ArrowBright:
                 AddLine(actor, FirstPulseActivation(actor.Position) ?? WorldState.FutureTime(11.5f), false);
                 break;
-            case OID.ArrowDim:
+            case (uint)OID.ArrowDim:
                 AddLine(actor, WorldState.FutureTime(8.2f), true);
                 break;
         }
@@ -160,14 +172,14 @@ class ArcanePlot(BossModule module) : LegacyAOEs(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.BrightPulseFirst:
-            case AID.BrightPulseRest:
+            case (uint)AID.BrightPulseFirst:
+            case (uint)AID.BrightPulseRest:
                 ++NumCasts;
                 RefreshExpiry();
                 break;
-            case AID.InfernoTheorem:
+            case (uint)AID.InfernoTheorem:
                 _expire = WorldState.CurrentTime.AddSeconds(2f) > _expire ? WorldState.CurrentTime.AddSeconds(2f) : _expire;
                 break;
         }
@@ -183,7 +195,7 @@ class ArcanePlot(BossModule module) : LegacyAOEs(module)
     private DateTime? FirstPulseActivation(WPos origin)
     {
         foreach (var a in WorldState.Actors)
-            if (a.CastInfo != null && (AID)a.CastInfo.Action.ID == AID.BrightPulseFirst && a.Position.AlmostEqual(origin, 1))
+            if (a.CastInfo != null && a.CastInfo.Action.ID == (uint)AID.BrightPulseFirst && a.Position.AlmostEqual(origin, 1))
                 return Module.CastFinishAt(a.CastInfo);
         return null;
     }
@@ -202,32 +214,32 @@ class ArcanePlot(BossModule module) : LegacyAOEs(module)
             activation = activation.AddSeconds(1.2f);
             pos += offset;
         }
-        _aoes.SortBy(aoe => aoe.Activation);
+        _aoes.Sort(static (a, b) => a.Activation.CompareTo(b.Activation));
         RefreshExpiry();
     }
 }
 
-class Analysis(BossModule module) : BossComponent(module)
+sealed class Analysis(BossModule module) : BossComponent(module)
 {
     public Angle[] SafeDir = new Angle[PartyState.MaxPartySize];
 
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        Angle? offset = (SID)status.ID switch
+        Angle? offset = status.ID switch
         {
-            SID.FrontUnseen => 0.Degrees(),
-            SID.BackUnseen => 180.Degrees(),
-            SID.LeftUnseen => 90.Degrees(),
-            SID.RightUnseen => -90.Degrees(),
+            (uint)SID.FrontUnseen => 0.Degrees(),
+            (uint)SID.BackUnseen => 180.Degrees(),
+            (uint)SID.LeftUnseen => 90.Degrees(),
+            (uint)SID.RightUnseen => -90.Degrees(),
             _ => null
         };
-        if (offset != null && Raid.TryFindSlot(actor.InstanceID, out var slot) && slot < SafeDir.Length)
+        if (offset != null && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0 && slot < SafeDir.Length)
             SafeDir[slot] = offset.Value;
     }
 }
 
 // I bastardised this from criterion
-class TargetedLight(BossModule module) : Components.GenericGaze(module)
+sealed class TargetedLight(BossModule module) : Components.GenericGaze(module)
 {
     public bool Active;
     private bool _showEye;
@@ -237,7 +249,14 @@ class TargetedLight(BossModule module) : Components.GenericGaze(module)
     private readonly int[] _rotationCount = new int[PartyState.MaxPartySize];
     private DateTime _activation;
 
-    public override ReadOnlySpan<Eye> ActiveEyes(int slot, Actor actor) => _showEye || Active ? new Eye[] { new(Module.PrimaryActor.Position, _activation, _safeDir[slot], inverted: true) } : [];
+    private readonly List<Eye> _eyesBuffer = [];
+    public override ReadOnlySpan<Eye> ActiveEyes(int slot, Actor actor)
+    {
+        _eyesBuffer.Clear();
+        if (_showEye || Active)
+            _eyesBuffer.Add(new(Module.PrimaryActor.Position, _activation, _safeDir[slot], inverted: true)); // players must face the eye
+        return CollectionsMarshal.AsSpan(_eyesBuffer);
+    }
 
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
@@ -257,25 +276,25 @@ class TargetedLight(BossModule module) : Components.GenericGaze(module)
 
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        var count = (SID)status.ID switch
+        var count = status.ID switch
         {
-            SID.TimesThreePlayer => -1,
-            SID.TimesFivePlayer => 1,
+            (uint)SID.TimesThreePlayer => -1,
+            (uint)SID.TimesFivePlayer => 1,
             _ => 0
         };
-        if (count != 0 && Raid.TryFindSlot(actor.InstanceID, out var slot) && slot < _rotationCount.Length)
+        if (count != 0 && Raid.FindSlot(actor.InstanceID) is var slot && slot >= 0 && slot < _rotationCount.Length)
             _rotationCount[slot] = count;
     }
 
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
     {
-        var rot = (IconID)iconID switch
+        var rot = iconID switch
         {
-            IconID.PlayerRotateCW => -90.Degrees(),
-            IconID.PlayerRotateCCW => 90.Degrees(),
+            (uint)IconID.PlayerRotateCW => -90.Degrees(),
+            (uint)IconID.PlayerRotateCCW => 90.Degrees(),
             _ => default
         };
-        if (rot == default || !Raid.TryFindSlot(actor.InstanceID, out var slot) || slot >= _rotation.Length)
+        if (rot == default || Raid.FindSlot(actor.InstanceID) is var slot && slot < 0 || slot >= _rotation.Length)
             return;
 
         var count = _rotationCount[slot] == 0 ? 1 : _rotationCount[slot];
@@ -286,7 +305,7 @@ class TargetedLight(BossModule module) : Components.GenericGaze(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID != AID.TargetedLightAOE)
+        if (spell.Action.ID != (uint)AID.TargetedLightAOE)
             return;
 
         _showEye = true;
@@ -299,11 +318,11 @@ class TargetedLight(BossModule module) : Components.GenericGaze(module)
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.TargetedLight:
+            case (uint)AID.TargetedLight:
                 Active = true;
-                _activation = WorldState.Actors.FirstOrDefault(a => a.CastInfo != null && (AID)a.CastInfo.Action.ID == AID.TargetedLightAOE) is Actor helper
+                _activation = WorldState.Actors.FirstOrDefault(a => a.CastInfo != null && a.CastInfo.Action.ID == (uint)AID.TargetedLightAOE) is Actor helper
                     ? Module.CastFinishAt(helper.CastInfo)
                     : WorldState.FutureTime(0.5f);
                 if (_analysis != null)
@@ -311,7 +330,7 @@ class TargetedLight(BossModule module) : Components.GenericGaze(module)
                         if (_rotation[i] == default)
                             _safeDir[i] = _analysis.SafeDir[i];
                 break;
-            case AID.TargetedLightAOE:
+            case (uint)AID.TargetedLightAOE:
                 ++NumCasts;
                 Active = false;
                 _showEye = false;
@@ -322,13 +341,8 @@ class TargetedLight(BossModule module) : Components.GenericGaze(module)
     }
 }
 
-class CalculatedTrajectory : Components.GenericForcedMarch
+sealed class CalculatedTrajectory : Components.GenericForcedMarch
 {
-    private sealed class PredictedDestinationDistance(Func<WPos, float> distance) : ShapeDistance
-    {
-        public override float Distance(in WPos p) => distance(p);
-    }
-
     private readonly int[] _rotationCount = new int[PartyState.MaxPartySize];
     private readonly Angle[] _rotation = new Angle[PartyState.MaxPartySize];
     private DateTime _activation;
@@ -354,6 +368,8 @@ class CalculatedTrajectory : Components.GenericForcedMarch
 
     public override bool DestinationUnsafe(int slot, Actor actor, WPos pos) => !Arena.InBounds(pos) || (Module.FindComponent<ArcanePlot>()?.IsTileUnsafe(pos) ?? false);
 
+    /*
+    // fix, this is disgusting
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         if (!_armed)
@@ -372,7 +388,7 @@ class CalculatedTrajectory : Components.GenericForcedMarch
         var bound = Module.Bounds.Radius;
         var tileOrigins = Module.FindComponent<ArcanePlot>()?.ActiveTileOrigins ?? [];
 
-        hints.AddForbiddenZone(new PredictedDestinationDistance(pos =>
+        hints.AddForbiddenZone(Sdf.DiscreteSingle(pos =>
         {
             var p = pos;
             var dir = startRot;
@@ -387,19 +403,20 @@ class CalculatedTrajectory : Components.GenericForcedMarch
                 p += speed * move.duration * dir.ToDirection();
             }
             if (Math.Abs(p.X - center.X) > bound || Math.Abs(p.Z - center.Z) > bound)
-                return -1f;
+                return true;
             foreach (var origin in tileOrigins)
             {
                 if (ArcanePlot.Shape.Check(p, origin, default))
-                    return -1f;
+                    return true;
             }
-            return 1f;
+            return false;
         }));
     }
+    */
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.CalculatedTrajectory)
+        if (spell.Action.ID == (uint)AID.CalculatedTrajectory)
             _armed = true;
     }
 
@@ -408,19 +425,19 @@ class CalculatedTrajectory : Components.GenericForcedMarch
         if (!_armed)
             return;
 
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.TimesThreePlayer:
+            case (uint)SID.TimesThreePlayer:
                 _activation = status.ExpireAt;
-                if (Raid.TryFindSlot(actor.InstanceID, out var slot1) && slot1 < _rotationCount.Length)
+                if (Raid.FindSlot(actor.InstanceID) is var slot1 && slot1 >= 0 && slot1 < _rotationCount.Length)
                     _rotationCount[slot1] = -1;
                 break;
-            case SID.TimesFivePlayer:
+            case (uint)SID.TimesFivePlayer:
                 _activation = status.ExpireAt;
-                if (Raid.TryFindSlot(actor.InstanceID, out var slot2) && slot2 < _rotationCount.Length)
+                if (Raid.FindSlot(actor.InstanceID) is var slot2 && slot2 >= 0 && slot2 < _rotationCount.Length)
                     _rotationCount[slot2] = 1;
                 break;
-            case SID.ForcedMarch:
+            case (uint)SID.ForcedMarch:
                 State.GetOrAdd(actor.InstanceID).PendingMoves.Clear();
                 ActivateForcedMovement(actor, status.ExpireAt);
                 break;
@@ -429,7 +446,7 @@ class CalculatedTrajectory : Components.GenericForcedMarch
 
     public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        if ((SID)status.ID == SID.ForcedMarch)
+        if (status.ID == (uint)SID.ForcedMarch)
         {
             DeactivateForcedMovement(actor);
             if (NumActiveForcedMarches == 0)
@@ -442,13 +459,13 @@ class CalculatedTrajectory : Components.GenericForcedMarch
         if (!_armed)
             return;
 
-        var rot = (IconID)iconID switch
+        var rot = iconID switch
         {
-            IconID.PlayerRotateCW => -90.Degrees(),
-            IconID.PlayerRotateCCW => 90.Degrees(),
+            (uint)IconID.PlayerRotateCW => -90.Degrees(),
+            (uint)IconID.PlayerRotateCCW => 90.Degrees(),
             _ => default
         };
-        if (rot == default || !Raid.TryFindSlot(actor.InstanceID, out var slot) || slot >= _rotationCount.Length)
+        if (rot == default || Raid.FindSlot(actor.InstanceID) is var slot && slot < 0 || slot >= _rotationCount.Length)
             return;
 
         var count = _rotationCount[slot] == 0 ? 1 : _rotationCount[slot];
@@ -457,13 +474,13 @@ class CalculatedTrajectory : Components.GenericForcedMarch
     }
 }
 
-class FlailSmash(BossModule module) : Components.ProximityAOEs(module, (uint)AID.FlailSmash, 25);
-class FlailSmashLong(BossModule module) : Components.ProximityAOEs(module, (uint)AID.FlailSmashLong, 25);
-class RollingSpout(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RollingSpout, new AOEShapeDonut(4, 12));
-class AeroII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.AeroII, new AOEShapeRect(50, 4));
-class VolcanicCoordinates(BossModule module) : Components.SimpleAOEs(module, (uint)AID.VolcanicCoordinatesAOE, 6);
+sealed class FlailSmash(BossModule module) : Components.ProximityAOEs(module, (uint)AID.FlailSmash, 25);
+sealed class FlailSmashLong(BossModule module) : Components.ProximityAOEs(module, (uint)AID.FlailSmashLong, 25);
+sealed class RollingSpout(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RollingSpout, new AOEShapeDonut(4, 12));
+sealed class AeroII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.AeroII, new AOEShapeRect(50, 4));
+sealed class VolcanicCoordinates(BossModule module) : Components.SimpleAOEs(module, (uint)AID.VolcanicCoordinatesAOE, 6);
 
-class V033TheLalaStates : StateMachineBuilder
+sealed class V033TheLalaStates : StateMachineBuilder
 {
     public V033TheLalaStates(BossModule module) : base(module)
     {
@@ -483,5 +500,5 @@ class V033TheLalaStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 961, NameID = 12639, Contributors = "croizat")]
-public class V033TheLala(WorldState ws, Actor primary) : BossModule(ws, primary, new(135, -870), new ArenaBoundsSquare(20));
+[ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 961, NameID = 12639, Contributors = "croizat (ported from upstream by LTS)")]
+public sealed class V033TheLala(WorldState ws, Actor primary) : BossModule(ws, primary, new(135, -870), new ArenaBoundsSquare(20));

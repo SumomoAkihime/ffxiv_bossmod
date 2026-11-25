@@ -83,11 +83,12 @@
     },
     {
       "path": "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE201ABeastUnleashed.cs",
-      "identity": "GroupType=CFC; GroupID=1093; NameID=14791 (源码 ModuleInfo); PrimaryActorOID=0x4C4F",
-      "reason": "保留黄宝石时间线落位预警、墙线 EAnim 的旋转/镜像与碰撞筛选、整块封闭区反射、两次击退轴及前后/后前攻击方向处理。连续击退须提供两段联合落点的 AI 禁区，首段实际伤害后转为立即生效的次段约束，不能只绘制箭头或读条结束就撤销。 移动安全增强：联合结算附近 AOE 快照，并在连段准备期关闭输出位置评分。",
+      "identity": "GroupType=CriticalEngagement; GroupID=1093; NameID=56 (DynamicEvent 行，2026-11-25 按固定 Reborn 更新); PrimaryActorOID=0x4C4F",
+      "reason": "2026-11-25 按用户授权采用上游 CE 身份及黄宝石/墙线/反射和连击组件，替代旧 CFC 身份与对应预测实现。保留原 ABeastUnleashed 类名兼容、本地双段击退联合落点与同期 AOE 安全约束、首段结算后的次段即时约束及准备期停止追敌。",
       "evidence": [
         "BossMod/Modules/Dawntrail/Foray/CriticalEngagement/CE201ABeastUnleashed.cs",
-        "../AGENTS.md"
+        "../AGENTS.md",
+        "docs/同步记录/2026-11-25.md"
       ]
     },
     {
@@ -133,11 +134,12 @@
     {
       "path": "BossMod/Modules/Stormblood/Alliance/A31Mustadio",
       "identity": "GroupType=CFC; GroupID=636; NameID=7919 (2026-09-12 修道院回放确认); PrimaryActorOID=0x25B7",
-      "reason": "保留当前本地模块与机制实现；主 OID 0x25B7 的 NameID 已由最新回放确认为 7919。卫星射线14145必须使用机械兵实体坐标，不能用后移约15米的读条目标位置。",
+      "reason": "主 OID 0x25B7、NameID7919 已有回放确认。2026-11-25 按用户反馈与 awgil 测试树修正卫星射线14145为机械兵居中的30×30方形，前后各15米；读条目标点对应方形后边缘。来源按ActorID去重和独立结算/销毁清理，正常读条结束保留至伤害事件，提前取消及超时清理。该结论替代旧前伸30米的几何解释。",
       "evidence": [
         "BossMod/Modules/Stormblood/Alliance/A31Mustadio/A31Mustadio.cs",
         "BossMod/Modules/Stormblood/Alliance/A31Mustadio/A31MustadioEnums.cs",
-        "../AGENTS.md"
+        "../AGENTS.md",
+        "docs/同步记录/2026-11-25.md"
       ]
     },
     {

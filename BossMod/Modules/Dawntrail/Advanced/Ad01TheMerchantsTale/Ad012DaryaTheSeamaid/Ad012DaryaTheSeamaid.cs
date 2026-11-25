@@ -35,7 +35,7 @@ sealed class TidalSpout(BossModule module) : Components.StackWithCastTargets(mod
             if (len == 0)
                 return;
 
-            for (var i = 0; i < Stacks.Count; i++)
+            for (var i = 0; i < Stacks.Count; ++i)
             {
                 ref var s = ref stacks[i];
                 s.ForbiddenPlayers = _spreads;
@@ -76,7 +76,7 @@ sealed class Hydrobullet(BossModule module) : Components.SpreadFromCastTargets(m
 
         var partyWS = Raid.WithSlot(false, true, true);
         var partylen = partyWS.Length;
-        for (var i = 0; i < partylen; i++)
+        for (var i = 0; i < partylen; ++i)
         {
             var playerSlot = partyWS[i].Item1;
             if (!_targets[playerSlot] || slot == playerSlot)
@@ -98,7 +98,7 @@ sealed class Hydrobullet(BossModule module) : Components.SpreadFromCastTargets(m
 
         var partyWS = Raid.WithSlot(false, true, true);
         var partylen = partyWS.Length;
-        for (var i = 0; i < partylen; i++)
+        for (var i = 0; i < partylen; ++i)
         {
             var playerSlot = partyWS[i].Item1;
             if (!_targets[playerSlot] || slot == playerSlot)
@@ -259,18 +259,14 @@ sealed class EchoedSerenade(BossModule module) : Components.GenericAOEs(module)
         if (len == 0)
             return [];
 
-        List<AOEInstance> upcoming = [];
         var firstAct = aoes[0].Activation;
-
-        for (var i = 0; i < len; i++)
+        var count = 1;
+        while (count < len && aoes[count].Activation == firstAct)
         {
-            if (aoes[i].Activation == firstAct)
-            {
-                upcoming.Add(aoes[i]);
-            }
+            ++count;
         }
 
-        return CollectionsMarshal.AsSpan(upcoming);
+        return aoes[..count];
     }
 
     public override void OnEventVFX(Actor actor, uint vfxID, ulong targetID)
@@ -299,7 +295,7 @@ sealed class EchoedSerenade(BossModule module) : Components.GenericAOEs(module)
             if (actorlen == 0)
                 return;
 
-            for (var i = 0; i < actorlen; i++)
+            for (var i = 0; i < actorlen; ++i)
             {
                 _aoes.Add(new(_shape, actors[i].Position, actors[i].Rotation, activation));
             }
@@ -383,18 +379,14 @@ sealed class SunkenTreasure(BossModule module) : Components.GenericAOEs(module)
         if (len == 0)
             return [];
 
-        List<AOEInstance> upcoming = [];
         var firstAct = aoes[0].Activation;
-
-        for (var i = 0; i < len; i++)
+        var count = 1;
+        while (count < len && aoes[count].Activation == firstAct)
         {
-            if (aoes[i].Activation == firstAct)
-            {
-                upcoming.Add(aoes[i]);
-            }
+            ++count;
         }
 
-        return CollectionsMarshal.AsSpan(upcoming);
+        return aoes[..count];
     }
     public override void OnActorEAnim(Actor actor, uint state)
     {
@@ -439,5 +431,4 @@ GroupID = 1084u,
 NameID = 14291u,
 SortOrder = 2,
 PlanLevel = 0)]
-[SkipLocalsInit]
-public sealed class DaryaTheSeaMaid(WorldState ws, Actor primary) : BossModule(ws, primary, new(375f, 530f), new ArenaBoundsSquare(20f));
+public sealed class Ad012DaryaTheSeamaid(WorldState ws, Actor primary) : BossModule(ws, primary, new(375f, 530f), new ArenaBoundsSquare(20f));

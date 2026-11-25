@@ -8,7 +8,7 @@ sealed class TidalGuillotine(BossModule module) : Components.SimpleAOEs(module, 
 sealed class SwallowedSea(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SwallowedSea, new AOEShapeCone(50f, 60f.Degrees())); // could draw earlier by checking action timeline 0x11D1
 sealed class UnfathomableHorror(BossModule module) : Components.ConcentricAOEs(module, _shapes)
 {
-    private static readonly AOEShape[] _shapes = [new AOEShapeCircle(8f), new AOEShapeDonut(8f, 16f), new AOEShapeDonut(16f, 24f), new AOEShapeDonut(24f, 32f)];
+    private static readonly AOEShape[] _shapes = [new AOEShapeCircle(8f), new AOEShapeDonut(8f, 16f), new AOEShapeDonut(16f, 24f), new AOEShapeDonut(24f, 36f)];
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
@@ -90,7 +90,7 @@ sealed class Devour(BossModule module) : Components.GenericAOEs(module)
             var endAngle = startAngle + (isBackwards ? secondAngle * -1 : secondAngle);
             var endDir = endAngle.ToDirection().Normalized();
             var endDist = Intersect.RayCircle(midPos, endDir, Arena.Center, 30f);
-            var endPos = midPos + endDir * endDist;
+            // var endPos = midPos + endDir * endDist;
 
             _aoes.Add(new(new AOEShapeRect(midDist, 10f), startPos, dir.ToAngle()));
             _aoes.Add(new(new AOEShapeRect(endDist, 10f), midPos, endDir.ToAngle()));
@@ -112,6 +112,7 @@ sealed class Devour(BossModule module) : Components.GenericAOEs(module)
 
 sealed class StingingTentacle(BossModule module) : Components.GenericAOEs(module)
 {
+    private readonly List<AOEInstance> _aoesBuffer = [];
     // initial tentacle rotation random
     // relative to boss rotation, roughly 10 deg outwards and 57 deg inwards
     // slows down slightly at max in/out rotation before moving back opposite way
@@ -129,8 +130,9 @@ sealed class StingingTentacle(BossModule module) : Components.GenericAOEs(module
         if (len == 0)
             return [];
 
-        List<AOEInstance> aoes = [];
-        for (var i = 0; i < len; i++)
+        var aoes = _aoesBuffer;
+        aoes.Clear();
+        for (var i = 0; i < len; ++i)
         {
             aoes.Add(new(new AOEShapeRect(50f, 7f), tentacles[i].Position, tentacles[i].Rotation, _activation));
         }

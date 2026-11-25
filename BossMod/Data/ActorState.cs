@@ -316,7 +316,7 @@ public sealed class ActorState : IEnumerable<Actor>
            .Emit(OID, "X")
            .Emit(SpawnIndex)
            .Emit(LayoutID, "X")
-           .Emit(Name)
+           .EmitActorName(InstanceID, Name, Type, Class, Level)
            .Emit(NameID)
            .Emit((ushort)Type, "X4")
            .Emit(Class)
@@ -371,7 +371,7 @@ public sealed class ActorState : IEnumerable<Actor>
             wsactors.Removed.Fire(actor);
             wsactors.Actors.Remove(InstanceID);
         }
-        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("ACT-"u8).Emit(InstanceID, "X8");
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("ACT-"u8).EmitActor(InstanceID);
     }
 
     public Event<Actor> Renamed = new();
@@ -386,7 +386,7 @@ public sealed class ActorState : IEnumerable<Actor>
             actor.NameID = NameID;
             ws.Actors.Renamed.Fire(actor);
         }
-        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("NAME"u8).Emit(InstanceID, "X8").Emit(Name).Emit(NameID);
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("NAME"u8).Emit(InstanceID, "X8").EmitRename(InstanceID, Name).Emit(NameID);
     }
 
     public Event<Actor> ClassChanged = new();
@@ -430,9 +430,9 @@ public sealed class ActorState : IEnumerable<Actor>
         public override void Write(ReplayRecorder.Output output)
         {
             if (Rotation is { } rot)
-                output.EmitFourCC("ARO+"u8).Emit(InstanceID, "X8").Emit(rot);
+                output.EmitFourCC("ARO+"u8).EmitActor(InstanceID).Emit(rot);
             else
-                output.EmitFourCC("ARO-"u8).Emit(InstanceID, "X8");
+                output.EmitFourCC("ARO-"u8).EmitActor(InstanceID);
         }
     }
 
@@ -619,13 +619,13 @@ public sealed class ActorState : IEnumerable<Actor>
 
         protected override void ExecActor(WorldState ws, Actor actor)
         {
-            if (actor.Tether.Target != default)
+            if (actor.Tether.Target is not (0ul or 0xE0000000))
             {
                 ws.Actors.Untethered.Fire(actor);
             }
 
             actor.Tether = Value;
-            if (Value.Target != default)
+            if (Value.Target is not (0ul or 0xE0000000))
             {
                 ws.Actors.Tethered.Fire(actor);
             }
@@ -829,7 +829,8 @@ public sealed class ActorState : IEnumerable<Actor>
             {
                 var effects = prev.Effects.ValidEffects();
                 var lenE = effects.Length;
-                for (var i = 0; i < lenE; ++i)
+                var removed = false;
+                for (var i = 0; i < lenE && !removed; ++i)
                 {
                     ref readonly var e = ref effects[i];
                     if (e.Type is >= ActionEffectType.Knockback and <= ActionEffectType.AttractCustom3)
@@ -842,12 +843,12 @@ public sealed class ActorState : IEnumerable<Actor>
                             if (p.GlobalSequence == prevSeq && p.TargetIndex == prevIdx && !p.RequiresEffectResult)
                             {
                                 actor.PendingKnockbacks.RemoveAt(j);
-                                goto done;
+                                removed = true;
+                                break;
                             }
                         }
                     }
                 }
-            done:
                 ws.Actors.IncomingEffectRemove.Fire(actor, Index);
             }
             actor.IncomingEffects[Index] = v;

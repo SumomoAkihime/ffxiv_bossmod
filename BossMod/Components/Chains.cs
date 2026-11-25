@@ -2,13 +2,15 @@
 
 // component for breakable chains - Note that chainLength for AI considers the minimum distance needed for a chain-pair to be broken (assuming perfectly stacked at cast)
 
-public class Chains(BossModule module, uint tetherID, uint aid = default, float chainLength = default, bool spreadChains = true, int? arenaProjectionLayer = null, bool? restrictToArenaProjectionLayer = false) : CastCounter(module, aid)
+public class Chains(BossModule module, uint tetherID, uint aid = default, float chainLength = default, bool spreadChains = true, int? arenaProjectionLayer = null, bool? restrictToArenaProjectionLayer = false, double? activationDelay = null, bool useInitialDistance = false) : CastCounter(module, aid)
 {
     public int? ArenaProjectionLayer = arenaProjectionLayer;
     public bool? RestrictToArenaProjectionLayer = restrictToArenaProjectionLayer;
     public readonly uint TID = tetherID;
     public bool TethersAssigned;
     private readonly Actor?[] _partner = new Actor?[PartyState.MaxAllies];
+    private readonly float[] _initialDistance = new float[PartyState.MaxAllies];
+    private DateTime _activation;
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
@@ -28,8 +30,14 @@ public class Chains(BossModule module, uint tetherID, uint aid = default, float 
             var target = WorldState.Actors.Find(tether.Target);
             if (target != null)
             {
+                _activation = WorldState.FutureTime(activationDelay ?? 10d);
                 SetPartner(source.InstanceID, target);
                 SetPartner(target.InstanceID, source);
+                var distance = (source.Position - target.Position).Length();
+                if (Raid.FindSlot(source.InstanceID) is var sourceSlot && sourceSlot >= 0)
+                    _initialDistance[sourceSlot] = distance;
+                if (Raid.FindSlot(target.InstanceID) is var targetSlot && targetSlot >= 0)
+                    _initialDistance[targetSlot] = distance;
             }
         }
     }
@@ -65,7 +73,7 @@ public class Chains(BossModule module, uint tetherID, uint aid = default, float 
     {
         if (_partner[slot] is Actor partner && ArenaProjectionLayerParticipantApplies(actor, ArenaProjectionLayer, RestrictToArenaProjectionLayer) && ArenaProjectionLayerParticipantApplies(partner, ArenaProjectionLayer, RestrictToArenaProjectionLayer))
         {
-            hints.AddForbiddenZone(spreadChains ? new SDCircle(partner.Position, (partner.Position - actor.Position).Length() + 1f) : new SDInvertedCircle(partner.Position, chainLength), WorldState.FutureTime(10d), arenaProjectionLayer: ArenaProjectionLayerForAI(ArenaProjectionLayer, RestrictToArenaProjectionLayer));
+            hints.AddForbiddenZone(spreadChains ? new SDCircle(partner.Position, useInitialDistance ? _initialDistance[slot] + chainLength : (partner.Position - actor.Position).Length() + 1f) : new SDInvertedCircle(partner.Position, chainLength), activationDelay.HasValue ? _activation : WorldState.FutureTime(10d), arenaProjectionLayer: ArenaProjectionLayerForAI(ArenaProjectionLayer, RestrictToArenaProjectionLayer));
         }
     }
 }

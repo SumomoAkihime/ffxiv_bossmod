@@ -1,11 +1,5 @@
 ﻿namespace BossMod.Endwalker.Variant.V03Aloalo.V031Quaqua;
 
-abstract class LegacyAOEs(BossModule module, uint aid = default) : Components.GenericAOEs(module, aid)
-{
-    protected abstract IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor);
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => EnumerateAOEs(slot, actor).ToArray();
-}
-
 public enum OID : uint
 {
     Boss = 0x40BA, // R5.250, x1
@@ -84,36 +78,52 @@ public enum IconID : uint
     TurnLeft = 236, // Helper->self, Flowing Lance CCW (+15 degrees)
 }
 
-class MadeMagic(BossModule module) : Components.RaidwideCast(module, (uint)AID.MadeMagic);
-class VioletStorm(BossModule module) : Components.SimpleAOEs(module, (uint)AID.VioletStorm, new AOEShapeCone(32, 60.Degrees()));
-class ElementalImpact(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ElementalImpact, 14);
+sealed class MadeMagic(BossModule module) : Components.RaidwideCast(module, (uint)AID.MadeMagic);
+sealed class VioletStorm(BossModule module) : Components.SimpleAOEs(module, (uint)AID.VioletStorm, new AOEShapeCone(32, 60.Degrees()));
+sealed class ElementalImpact(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ElementalImpact, 14);
 
-class ArcaneIntervention(BossModule module) : Components.CastGaze(module, (uint)AID.ArcaneIntervention);
+sealed class ArcaneIntervention(BossModule module) : Components.CastGaze(module, (uint)AID.ArcaneIntervention);
 
-class ArcanePursuit(BossModule module) : LegacyAOEs(module)
+sealed class ArcanePursuit(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<Actor> _lasers = [];
     private static readonly AOEShapeRect _laser = new(50, 3);
     private const float KeepAway = 3.5f;
 
-    private IEnumerable<Actor> Charges => Module.Enemies((uint)OID.PursuitCharge).Where(c => !c.IsDead);
+    private readonly List<Actor> _charges = [];
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor)
+    // note: returns a shared buffer, which is overwritten by the next access
+    private List<Actor> Charges
     {
+        get
+        {
+            _charges.Clear();
+            foreach (var c in Module.Enemies((uint)OID.PursuitCharge))
+                if (!c.IsDead)
+                    _charges.Add(c);
+            return _charges;
+        }
+    }
+
+    private readonly List<AOEInstance> _aoesBuffer = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        _aoesBuffer.Clear();
         foreach (var c in Charges)
-            yield return new(new AOEShapeCircle(KeepAway), c.Position);
+            _aoesBuffer.Add(new(new AOEShapeCircle(KeepAway), c.Position));
         // safe zones
         foreach (var l in _lasers)
             if (l.CastInfo != null)
-                yield return new(_laser, l.Position, l.CastInfo.Rotation, Module.CastFinishAt(l.CastInfo), Colors.SafeFromAOE, risky: false);
+                _aoesBuffer.Add(new(_laser, l.Position, l.CastInfo.Rotation, Module.CastFinishAt(l.CastInfo), Colors.SafeFromAOE, risky: false));
+        return CollectionsMarshal.AsSpan(_aoesBuffer);
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        var near = Charges.FirstOrDefault(c => actor.Position.InCircle(c.Position, KeepAway));
-        if (near != null)
+        var charges = Charges;
+        if (charges.AnyInRadius(actor.Position, KeepAway))
             hints.Add("Away from orb!");
-        else if (_lasers.Count > 0 && Charges.Any())
+        else if (_lasers.Count > 0 && charges.Count != 0)
             hints.Add("Lead orb into statue laser!", false);
     }
 
@@ -143,8 +153,6 @@ class ArcanePursuit(BossModule module) : LegacyAOEs(module)
             var target = WorldState.Actors.Find(c.TargetID);
             if (target != null)
             {
-                if (MiniArena.Config.ShowOutlinesAndShadows)
-                    Arena.AddLine(c.Position, target.Position, 0xFF000000, 2);
                 Arena.AddLine(c.Position, target.Position, target == pc ? Colors.Danger : Colors.PlayerGeneric);
             }
         }
@@ -152,18 +160,18 @@ class ArcanePursuit(BossModule module) : LegacyAOEs(module)
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.ArcanePursuitLaser or AID.ArcanePursuitLaserSecond)
+        if (spell.Action.ID is (uint)AID.ArcanePursuitLaser or (uint)AID.ArcanePursuitLaserSecond)
             _lasers.Add(caster);
     }
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID is AID.ArcanePursuitLaser or AID.ArcanePursuitLaserSecond)
+        if (spell.Action.ID is (uint)AID.ArcanePursuitLaser or (uint)AID.ArcanePursuitLaserSecond)
             _lasers.Remove(caster);
     }
 }
 
-class ArcaneArmamentsPoison(BossModule module) : LegacyAOEs(module)
+sealed class ArcaneArmamentsPoison(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<(Actor Actor, DateTime Spawn)> _puddles = [];
     private bool _armamentsActive;
@@ -172,21 +180,24 @@ class ArcaneArmamentsPoison(BossModule module) : LegacyAOEs(module)
     private const float PuddleMaxRadius = 16;
     private const float GrowSeconds = 14;
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor)
+    private readonly List<AOEInstance> _aoesBuffer = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
+        _aoesBuffer.Clear();
         foreach (var (puddle, spawn) in _puddles)
         {
             var t = (float)(WorldState.CurrentTime - spawn).TotalSeconds;
             var radius = Math.Clamp(PuddleStartRadius + (PuddleMaxRadius - PuddleStartRadius) * (t / GrowSeconds), PuddleStartRadius, PuddleMaxRadius);
-            yield return new(new AOEShapeCircle(radius), puddle.Position, default, spawn);
+            _aoesBuffer.Add(new(new AOEShapeCircle(radius), puddle.Position, default, spawn));
             if (radius < PuddleMaxRadius - 0.5f)
-                yield return new(new AOEShapeCircle(PuddleMaxRadius), puddle.Position, default, spawn.AddSeconds(GrowSeconds), Colors.AOE, risky: false);
+                _aoesBuffer.Add(new(new AOEShapeCircle(PuddleMaxRadius), puddle.Position, default, spawn.AddSeconds(GrowSeconds), Colors.AOE, risky: false));
         }
+        return CollectionsMarshal.AsSpan(_aoesBuffer);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.ArcaneArmamentsPoisonSpears)
+        if (spell.Action.ID == (uint)AID.ArcaneArmamentsPoisonSpears)
         {
             _armamentsActive = true;
             _puddles.Clear();
@@ -195,13 +206,13 @@ class ArcaneArmamentsPoison(BossModule module) : LegacyAOEs(module)
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.ArcaneArmamentsPoisonSpears)
+        if (spell.Action.ID == (uint)AID.ArcaneArmamentsPoisonSpears)
             _armamentsActive = true; // puddles still inbound briefly after cast
     }
 
     public override void OnActorCreated(Actor actor)
     {
-        if ((OID)actor.OID == OID.PoisonPuddle)
+        if (actor.OID == (uint)OID.PoisonPuddle)
         {
             _puddles.Add((actor, WorldState.CurrentTime));
             _armamentsActive = false;
@@ -215,7 +226,7 @@ class ArcaneArmamentsPoison(BossModule module) : LegacyAOEs(module)
 
     public override void OnActorEState(Actor actor, ushort state)
     {
-        if ((OID)actor.OID == OID.PoisonPuddle)
+        if (actor.OID == (uint)OID.PoisonPuddle)
             _puddles.RemoveAll(p => p.Actor == actor);
     }
 
@@ -223,9 +234,19 @@ class ArcaneArmamentsPoison(BossModule module) : LegacyAOEs(module)
     {
         base.AddAIHints(slot, actor, assignment, hints);
 
-        var origins = _puddles.Count > 0
-            ? [.. _puddles.Select(p => p.Actor.Position)]
-            : _armamentsActive ? ActiveSpears().Select(s => s.Position).ToList() : [];
+        var origins = _originsBuffer;
+        origins.Clear();
+        if (_puddles.Count > 0)
+        {
+            foreach (var p in _puddles)
+                origins.Add(p.Actor.Position);
+        }
+        else if (_armamentsActive)
+        {
+            foreach (var s in Module.Enemies((uint)OID.SpearMarker))
+                if (!s.IsDead && s.Tether.ID == (uint)TetherID.WaterSpear)
+                    origins.Add(s.Position);
+        }
         if (origins.Count < 2)
             return;
 
@@ -254,11 +275,10 @@ class ArcaneArmamentsPoison(BossModule module) : LegacyAOEs(module)
         hints.GoalZones.Add(AIHints.GoalProximity(safe, 3, 40));
     }
 
-    private IEnumerable<Actor> ActiveSpears()
-        => Module.Enemies((uint)OID.SpearMarker).Where(s => !s.IsDead && s.Tether.ID == (uint)TetherID.WaterSpear);
+    private readonly List<WPos> _originsBuffer = [];
 }
 
-class ScaldingWaves(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ScaldingWaves, new AOEShapeRect(40, 5))
+sealed class ScaldingWaves(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ScaldingWaves, new AOEShapeRect(40, 5))
 {
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
         => Module.FindComponent<Rout>()?.Active == true ? [] : base.ActiveAOEs(slot, actor);
@@ -270,7 +290,7 @@ class ScaldingWaves(BossModule module) : Components.SimpleAOEs(module, (uint)AID
     }
 }
 
-class ScaldingWavesFairSkies(BossModule module) : Components.Exaflare(module, new AOEShapeRect(25, 2, 25))
+sealed class ScaldingWavesFairSkies(BossModule module) : Components.Exaflare(module, new AOEShapeRect(25, 2, 25))
 {
     private readonly List<Actor> _initialCasters = [];
     private static readonly AOEShapeRect _initialShape = new(50, 4);
@@ -279,22 +299,23 @@ class ScaldingWavesFairSkies(BossModule module) : Components.Exaflare(module, ne
     private const float FirstDelay = 2.8f;
     private const float Step = 2.1f;
 
+    private readonly List<AOEInstance> _aoesBuffer = [];
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        List<AOEInstance> aoes = [];
+        _aoesBuffer.Clear();
         foreach (var caster in _initialCasters)
             if (caster.CastInfo is { } cast)
-                aoes.Add(new(_initialShape, cast.LocXZ, cast.Rotation, Module.CastFinishAt(cast)));
+                _aoesBuffer.Add(new(_initialShape, cast.LocXZ, cast.Rotation, Module.CastFinishAt(cast)));
         foreach (var aoe in base.ActiveAOEs(slot, actor))
-            aoes.Add(aoe);
-        return aoes.ToArray();
+            _aoesBuffer.Add(aoe);
+        return CollectionsMarshal.AsSpan(_aoesBuffer);
     }
 
     public override void OnActorDestroyed(Actor actor) => _initialCasters.Remove(actor);
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.ScaldingWavesFairSkies)
+        if (spell.Action.ID == (uint)AID.ScaldingWavesFairSkies)
         {
             if (_initialCasters.Count == 0)
             {
@@ -310,13 +331,13 @@ class ScaldingWavesFairSkies(BossModule module) : Components.Exaflare(module, ne
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID == AID.ScaldingWavesFairSkies)
+        if (spell.Action.ID == (uint)AID.ScaldingWavesFairSkies)
             _initialCasters.Remove(caster);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID == AID.ScaldingWavesFairSkiesRepeat)
+        if (spell.Action.ID == (uint)AID.ScaldingWavesFairSkiesRepeat)
         {
             ++NumCasts;
             var line = Lines.MinBy(l => (l.Next - caster.Position).LengthSq());
@@ -338,7 +359,7 @@ class ScaldingWavesFairSkies(BossModule module) : Components.Exaflare(module, ne
     }
 }
 
-class ArcaneArmaments(BossModule module) : LegacyAOEs(module)
+sealed class ArcaneArmaments(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<(ulong InstanceID, AOEInstance AOE)> _aoes = [];
     private DateTime _activation;
@@ -347,23 +368,32 @@ class ArcaneArmaments(BossModule module) : LegacyAOEs(module)
     private static readonly AOEShapeCircle _axe = new(14);
     private static readonly AOEShapeDonut _quoit = new(5, 18);
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor) => _aoes.Select(a => a.AOE);
+    private readonly List<AOEInstance> _aoesBuffer = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        _aoesBuffer.Clear();
+        var count = _aoes.Count;
+        for (var i = 0; i < count; ++i)
+            _aoesBuffer.Add(_aoes[i].AOE);
+        return CollectionsMarshal.AsSpan(_aoesBuffer);
+    }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.ArcaneArmamentsAxeQuoit:
+            case (uint)AID.ArcaneArmamentsAxeQuoit:
                 _aoes.Clear();
                 _active = true;
                 _activation = Module.CastFinishAt(spell, 5);
-                foreach (var orb in Module.Enemies((uint)OID.AethericCharge).Where(o => !o.IsDead && o.Tether.ID != 0))
-                    TryAdd(orb, orb.Tether.ID, _activation);
+                foreach (var orb in Module.Enemies((uint)OID.AethericCharge))
+                    if (!orb.IsDead && orb.Tether.ID != 0)
+                        TryAdd(orb, orb.Tether.ID, _activation);
                 break;
-            case AID.RavagingAxe:
+            case (uint)AID.RavagingAxe:
                 Upsert(caster.InstanceID, caster.Position, _axe, Module.CastFinishAt(spell));
                 break;
-            case AID.RingingQuoits:
+            case (uint)AID.RingingQuoits:
                 Upsert(caster.InstanceID, caster.Position, _quoit, Module.CastFinishAt(spell));
                 break;
         }
@@ -374,15 +404,15 @@ class ArcaneArmaments(BossModule module) : LegacyAOEs(module)
         if (!_active || tether.ID == 0)
             return;
 
-        if ((OID)source.OID == OID.AethericCharge)
+        if (source.OID == (uint)OID.AethericCharge)
             TryAdd(source, tether.ID, _activation);
-        else if (source == Module.PrimaryActor && WorldState.Actors.Find(tether.Target) is { } target && (OID)target.OID == OID.AethericCharge)
+        else if (source == Module.PrimaryActor && WorldState.Actors.Find(tether.Target) is { } target && target.OID == (uint)OID.AethericCharge)
             TryAdd(target, tether.ID, _activation);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is not (AID.RavagingAxe or AID.RingingQuoits))
+        if (spell.Action.ID is not ((uint)AID.RavagingAxe or (uint)AID.RingingQuoits))
             return;
 
         _aoes.RemoveAll(a => a.InstanceID == caster.InstanceID);
@@ -419,7 +449,7 @@ class ArcaneArmaments(BossModule module) : LegacyAOEs(module)
     }
 }
 
-class Rout(BossModule module) : LegacyAOEs(module)
+sealed class Rout(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<(WPos From, WPos To, DateTime Activation)> _charges = [];
     private bool _armed;
@@ -428,21 +458,24 @@ class Rout(BossModule module) : LegacyAOEs(module)
 
     private const float HalfWidth = 8;
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor)
+    private readonly List<AOEInstance> _aoesBuffer = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
+        _aoesBuffer.Clear();
         foreach (var c in _charges)
-            yield return new(new AOEShapeRect((c.To - c.From).Length(), HalfWidth), c.From, (c.To - c.From).ToAngle(), c.Activation);
+            _aoesBuffer.Add(new(new AOEShapeRect((c.To - c.From).Length(), HalfWidth), c.From, (c.To - c.From).ToAngle(), c.Activation));
+        return CollectionsMarshal.AsSpan(_aoesBuffer);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.ArcaneArmamentsSpearHammer:
+            case (uint)AID.ArcaneArmamentsSpearHammer:
                 _armed = true;
                 _charges.Clear();
                 break;
-            case AID.ScaldingWaves:
+            case (uint)AID.ScaldingWaves:
                 if (!_armed)
                     break;
                 var from = spell.LocXZ;
@@ -455,7 +488,7 @@ class Rout(BossModule module) : LegacyAOEs(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is not (AID.Rout or AID.RoutRepeat))
+        if (spell.Action.ID is not ((uint)AID.Rout or (uint)AID.RoutRepeat))
             return;
 
         ++NumCasts;
@@ -466,7 +499,7 @@ class Rout(BossModule module) : LegacyAOEs(module)
     }
 }
 
-class HammerLanding(BossModule module) : Components.GenericKnockback(module, default, maxCasts: 3)
+sealed class HammerLanding(BossModule module) : Components.GenericKnockback(module, default, maxCasts: 3)
 {
     private readonly List<WPos> _landings = [];
     private DateTime _firstActivation;
@@ -475,12 +508,13 @@ class HammerLanding(BossModule module) : Components.GenericKnockback(module, def
     private const float BeaconMinRadius = 13;
     private static readonly AOEShapeCircle _shape = new(40);
 
+    private readonly List<Knockback> _kbBuffer = [];
     public override ReadOnlySpan<Knockback> ActiveKnockbacks(int slot, Actor actor)
     {
-        List<Knockback> knockbacks = [];
+        _kbBuffer.Clear();
         for (var i = NumCasts; i < _landings.Count; ++i)
-            knockbacks.Add(new(_landings[i], Distance, _firstActivation.AddSeconds(2.1f * i), _shape));
-        return knockbacks.ToArray();
+            _kbBuffer.Add(new(_landings[i], Distance, _firstActivation.AddSeconds(2.1f * i), _shape));
+        return CollectionsMarshal.AsSpan(_kbBuffer);
     }
 
     public override void Update()
@@ -492,7 +526,7 @@ class HammerLanding(BossModule module) : Components.GenericKnockback(module, def
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if ((AID)spell.Action.ID != AID.HammerLanding)
+        if (spell.Action.ID != (uint)AID.HammerLanding)
             return;
 
         _landings.Clear();
@@ -504,7 +538,7 @@ class HammerLanding(BossModule module) : Components.GenericKnockback(module, def
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is not (AID.HammerLanding or AID.HammerLandingRepeat))
+        if (spell.Action.ID is not ((uint)AID.HammerLanding or (uint)AID.HammerLandingRepeat))
             return;
 
         ++NumCasts;
@@ -562,7 +596,7 @@ class HammerLanding(BossModule module) : Components.GenericKnockback(module, def
     }
 }
 
-class FlowingLance(BossModule module) : LegacyAOEs(module)
+sealed class FlowingLance(BossModule module) : Components.GenericAOEs(module)
 {
     private class Lance(WPos origin, Angle baseRot, Angle increment, DateTime firstActivation)
     {
@@ -580,8 +614,10 @@ class FlowingLance(BossModule module) : LegacyAOEs(module)
     private const int MaxShown = 2;
     private const float Step = 2.1f;
 
-    protected override IEnumerable<AOEInstance> EnumerateAOEs(int slot, Actor actor)
+    private readonly List<AOEInstance> _aoesBuffer = [];
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
+        _aoesBuffer.Clear();
         foreach (var l in _lances)
         {
             var remaining = TotalCasts - l.NumFinished;
@@ -594,22 +630,23 @@ class FlowingLance(BossModule module) : LegacyAOEs(module)
                 var idx = l.NumFinished + i;
                 var rot = l.BaseRot + idx * l.Increment;
                 var time = i == 0 && l.ImminentOverride is { } im ? im : l.FirstActivation.AddSeconds(Step * idx);
-                yield return new(_shape, l.Origin, rot, time, i == 0 ? Colors.Danger : Colors.AOE);
+                _aoesBuffer.Add(new(_shape, l.Origin, rot, time, i == 0 ? Colors.Danger : Colors.AOE));
             }
         }
+        return CollectionsMarshal.AsSpan(_aoesBuffer);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        switch ((AID)spell.Action.ID)
+        switch (spell.Action.ID)
         {
-            case AID.FlowingLanceCW:
+            case (uint)AID.FlowingLanceCW:
                 _lances.Add(new(caster.Position, spell.Rotation, -15.Degrees(), Module.CastFinishAt(spell)));
                 break;
-            case AID.FlowingLanceCCW:
+            case (uint)AID.FlowingLanceCCW:
                 _lances.Add(new(caster.Position, spell.Rotation, 15.Degrees(), Module.CastFinishAt(spell)));
                 break;
-            case AID.FlowingLanceRest:
+            case (uint)AID.FlowingLanceRest:
                 if (FindLance(caster.Position, spell.LocXZ) is { } l)
                 {
                     l.BaseRot = spell.Rotation - l.NumFinished * l.Increment;
@@ -621,7 +658,7 @@ class FlowingLance(BossModule module) : LegacyAOEs(module)
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is not (AID.FlowingLanceCW or AID.FlowingLanceCCW or AID.FlowingLanceRest))
+        if (spell.Action.ID is not ((uint)AID.FlowingLanceCW or (uint)AID.FlowingLanceCCW or (uint)AID.FlowingLanceRest))
             return;
 
         if (FindLance(caster.Position, spell.TargetXZ) is not { } l)
@@ -640,7 +677,7 @@ class FlowingLance(BossModule module) : LegacyAOEs(module)
     private Lance? FindLance(WPos casterPos, WPos locXZ) => _lances.FirstOrDefault(l => l.Origin.AlmostEqual(casterPos, 1)) ?? _lances.FirstOrDefault(l => l.Origin.AlmostEqual(locXZ, 1));
 }
 
-class CloudToGround(BossModule module) : Components.Exaflare(module, 6, (uint)AID.CloudToGroundFirst)
+sealed class CloudToGround(BossModule module) : Components.Exaflare(module, 6, (uint)AID.CloudToGroundFirst)
 {
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
@@ -648,13 +685,13 @@ class CloudToGround(BossModule module) : Components.Exaflare(module, 6, (uint)AI
         {
             var advance = 6 * spell.Rotation.ToDirection();
             var max = Math.Clamp((int)(Module.Bounds.Radius * 2 / 6) + 1, 1, 8);
-            Lines.Add(new(caster.Position, advance, Module.CastFinishAt(spell), 1, max, 4));
+            Lines.Add(new(caster.Position, advance, Module.CastFinishAt(spell), 1d, max, 4));
         }
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
-        if ((AID)spell.Action.ID is not (AID.CloudToGroundFirst or AID.CloudToGroundRest))
+        if (spell.Action.ID is not ((uint)AID.CloudToGroundFirst or (uint)AID.CloudToGroundRest))
             return;
 
         ++NumCasts;
@@ -691,7 +728,7 @@ class CloudToGround(BossModule module) : Components.Exaflare(module, 6, (uint)AI
     }
 }
 
-class V031QuaquaStates : StateMachineBuilder
+sealed class V031QuaquaStates : StateMachineBuilder
 {
     public V031QuaquaStates(BossModule module) : base(module)
     {
@@ -712,5 +749,5 @@ class V031QuaquaStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 961, NameID = 12527, Contributors = "croizat")]
-public class V031Quaqua(WorldState ws, Actor primary) : BossModule(ws, primary, new(primary.Position.X, primary.Position.Z), new ArenaBoundsCircle(20f));
+[ModuleInfo(BossModuleInfo.Maturity.Contributed, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 961, NameID = 12527, Contributors = "croizat (ported from upstream by LTS)")]
+public sealed class V031Quaqua(WorldState ws, Actor primary) : BossModule(ws, primary, new(primary.Position.X, primary.Position.Z), new ArenaBoundsCircle(20f));
