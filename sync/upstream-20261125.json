@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "date": "2026-11-25",
-  "status": "工作区已整合并通过Release与完整离线回归",
+  "status": "阶段整合已验收并随7.5.8.1001双仓发布，阶段DLL与正式版本验收分别记录，实机验证待完成。",
   "localBase": "e9d2d5cd97cc92ae90b879433b5ad640e1a8168c",
   "reborn": {
     "base": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
@@ -14817,5 +14817,9 @@
       "operation": "add",
       "reason": "补回放格式及失败路径、模块几何与Chains兼容的专项回归。"
     }
-  ]
+  ],
+  "releasedInVersion": "7.5.8.1001",
+  "sourceCodeCommit": "349f4553a3619600488cb8fa325d52466f334cad",
+  "releaseValidation": "D:\\mod-source\\outputs\\release-7.5.8.1001\\validation.json",
+  "publicationCommit": "f1ed8e66cbf112555c60531061685891db38ed41"
 }

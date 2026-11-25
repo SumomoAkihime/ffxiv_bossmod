@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "date": "2026-11-25",
-  "status": "界面迁移代码及Release与完整离线验收完成，实机视觉和重载待验证",
+  "status": "阶段整合已验收并随7.5.8.1001双仓发布，阶段DLL与正式版本验收分别记录，实机验证待完成。",
   "upstreamCommit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
   "materialPackageCommit": "0c74204ecfd6785c27ac53213950c3ad08337e63",
   "dependencies": {
@@ -307,5 +307,9 @@
       "author": "veyn&Sumomo"
     },
     "validationEvidence": "D:\\mod-source\\outputs\\ui-migration-20261125"
-  }
+  },
+  "releasedInVersion": "7.5.8.1001",
+  "sourceCodeCommit": "349f4553a3619600488cb8fa325d52466f334cad",
+  "releaseValidation": "D:\\mod-source\\outputs\\release-7.5.8.1001\\validation.json",
+  "publicationCommit": "f1ed8e66cbf112555c60531061685891db38ed41"
 }

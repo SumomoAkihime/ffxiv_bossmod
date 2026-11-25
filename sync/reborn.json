@@ -1,12 +1,12 @@
 ﻿{
   "schemaVersion": 1,
-  "updated": "2026-11-25",
+  "updated": "2026-11-26",
   "source": {
     "repository": "https://github.com/FFXIV-CombatReborn/BossmodReborn",
     "commit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
     "releaseTag": "7.5.8.10",
     "releaseCommit": "05bdf3abd1963c84105784273a8c171bb7cf0b7c",
-    "status": "已检查至固定目标并选择性整合到未提交工作区；本批证据见workingTreeIntegration与workingTreeValidation，已提交和发布历史仍按原记录解释。"
+    "status": "Reborn 7.5.8.10标签后目标及awgil v7.5.8.5的选择性整合已随7.5.8.1001发布，包含Reborn界面迁移；具体范围见本批审计与lastRelease。"
   },
   "forkBaseline": "787148f34",
   "purpose": "以 Reborn 雷达与共享支撑为主体，融合 awgil 职业循环及移动、保留多预设与外部插件联动、自建雷达和已验证修复。",
@@ -108,6 +108,17 @@
       "scope": "DMU NA策略与RSR；循环/治疗及位置锁定、多段预测；普通雷达与任务、绝巴哈和绝神兵状态机/组件；深层迷宫目标与房间导航；朝向/RTT快照与回放。保留旧预设控制、精确治疗覆盖、安全清理、现有界面与超魔之塔。仅本地提交，未推送、未升版发布。",
       "audit": "upstream-20261105.json",
       "releasedInVersion": "7.5.7.401"
+    },
+    {
+      "commit": "349f4553a3619600488cb8fa325d52466f334cad",
+      "sourceCommit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
+      "sourceTag": "7.5.8.10",
+      "awgilCommit": "02a16b4425ceed2b63994468da406adddefcd57b",
+      "awgilTag": "v7.5.8.5",
+      "scope": "普通雷达/CE/魔之塔及循环、回放增量，穆斯塔迪奥居中方形修复，极神龙及RebornMaterial界面迁移。保留超魔之塔、多预设与已验证安全修正。",
+      "audit": "upstream-20261125.json",
+      "uiAudit": "ui-migration-20261125.json",
+      "releasedInVersion": "7.5.8.1001"
     }
   ],
   "requiredPatches": [
@@ -697,90 +708,291 @@
       "releaseSourceCommit": "49466ef3013281b885b0f9bcabaca04cdb088ead",
       "releasePackageCommit": "00491b55ec303f8fcd304190cb9cde845d58eb51",
       "releaseValidationEvidence": "D:/mod-source/outputs/release-7.5.7.401"
+    },
+    {
+      "date": "2026-11-26",
+      "version": "7.5.8.1001",
+      "sourceCodeCommit": "349f4553a3619600488cb8fa325d52466f334cad",
+      "buildGitHead": "349f4553a3619600488cb8fa325d52466f334cad",
+      "releaseBuild": "零警告、零错误",
+      "compiled": true,
+      "offlineTestsRun": true,
+      "validationLevel": "Release构建与完整离线回归，未实机",
+      "sourceCommit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
+      "sourceTag": "7.5.8.10",
+      "awgilCommit": "02a16b4425ceed2b63994468da406adddefcd57b",
+      "awgilTag": "v7.5.8.5",
+      "movementAndIPCAssertions": 2280,
+      "uiMigrationAssertions": 455,
+      "registeredIPCInterfaces": 73,
+      "supportJobsRun": true,
+      "supportJobsAssertions": 331,
+      "polygonDefaultAssertions": 33959,
+      "polygonDistanceFirstAssertions": 33963,
+      "polygonAssertions": 67922,
+      "totalOfflineAssertions": 70533,
+      "gameTestRun": false,
+      "visualTestRun": false,
+      "replayTestRun": false,
+      "gameTest": "界面中文字形、缩放、DX11绘图及卸载重载待实机；DMU上游P5仍有未完成内容。",
+      "protectedSourceFilesUnchanged": 40,
+      "protectedBaseline": "D:/mod-source/ffxiv_bossmod/temp/ui-migration-20261125/local-radars-before.json",
+      "userRecordsUnchanged": true,
+      "releaseDLLSHA256": "d4f01058f4babf8c9a375e931067b5a4707051838571a6cd236733e666c1f7f7",
+      "zipSHA256": "e91fa6ab37567b934b88805f7a89b64a33b35d62f22f9346d985938e3b8cc47f",
+      "runtimeDependencies": {
+        "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+        "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+      },
+      "checks": [
+        {
+          "exitCode": 0,
+          "command": [
+            "dotnet",
+            "run",
+            "--project",
+            "Tests/RotationMovement",
+            "-c",
+            "Release",
+            "--",
+            "--sqpack",
+            "D:/最终幻想XIV/game/sqpack"
+          ],
+          "dllSHA256": "d4f01058f4babf8c9a375e931067b5a4707051838571a6cd236733e666c1f7f7",
+          "gitHead": "349f4553a3619600488cb8fa325d52466f334cad",
+          "log": "D:\\mod-source\\outputs\\release-7.5.8.1001\\rotation.log",
+          "assertions": 2280
+        },
+        {
+          "exitCode": 0,
+          "command": [
+            "dotnet",
+            "run",
+            "--project",
+            "Tests/SupportJobs",
+            "-c",
+            "Release",
+            "--",
+            "--sqpack",
+            "D:/最终幻想XIV/game/sqpack"
+          ],
+          "dllSHA256": "d4f01058f4babf8c9a375e931067b5a4707051838571a6cd236733e666c1f7f7",
+          "gitHead": "349f4553a3619600488cb8fa325d52466f334cad",
+          "log": "D:\\mod-source\\outputs\\release-7.5.8.1001\\support.log",
+          "assertions": 331
+        },
+        {
+          "exitCode": 0,
+          "command": [
+            "dotnet",
+            "run",
+            "--project",
+            "Tests/PolygonQueries",
+            "-c",
+            "Release"
+          ],
+          "dllSHA256": "d4f01058f4babf8c9a375e931067b5a4707051838571a6cd236733e666c1f7f7",
+          "gitHead": "349f4553a3619600488cb8fa325d52466f334cad",
+          "log": "D:\\mod-source\\outputs\\release-7.5.8.1001\\polygon.log",
+          "assertions": 33959
+        },
+        {
+          "exitCode": 0,
+          "command": [
+            "dotnet",
+            "run",
+            "--project",
+            "Tests/PolygonQueries",
+            "-c",
+            "Release",
+            "--no-build",
+            "--",
+            "--distance-first"
+          ],
+          "dllSHA256": "d4f01058f4babf8c9a375e931067b5a4707051838571a6cd236733e666c1f7f7",
+          "gitHead": "349f4553a3619600488cb8fa325d52466f334cad",
+          "log": "D:\\mod-source\\outputs\\release-7.5.8.1001\\polygon-distance.log",
+          "assertions": 33963
+        }
+      ],
+      "validationEvidence": "D:\\mod-source\\outputs\\release-7.5.8.1001",
+      "scope": "Reborn与awgil功能整合、普通魔之塔/CE更新、穆斯塔迪奥修复及Reborn界面迁移。",
+      "sourceState": "正式版本从已提交的源码349f4553a3619600488cb8fa325d52466f334cad构建，后续制品与证明提交仅更新ZIP和同步记录。",
+      "committed": true,
+      "pushed": true,
+      "localCommit": "349f4553a3619600488cb8fa325d52466f334cad"
     }
   ],
   "lastValidation": {
-    "date": "2026-11-05",
-    "sourceCodeCommit": "49466ef3013281b885b0f9bcabaca04cdb088ead",
-    "sourceCommit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
-    "sourceTag": "7.5.7.4",
-    "awgilCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
-    "validationLevel": "Release构建与完整离线回归，未实机",
+    "date": "2026-11-26",
+    "version": "7.5.8.1001",
+    "sourceCodeCommit": "349f4553a3619600488cb8fa325d52466f334cad",
+    "buildGitHead": "349f4553a3619600488cb8fa325d52466f334cad",
     "releaseBuild": "零警告、零错误",
     "compiled": true,
     "offlineTestsRun": true,
-    "gameTestRun": false,
-    "replayTestRun": false,
-    "movementAndIPCAssertions": 1695,
-    "registeredIPCInterfaces": 71,
+    "validationLevel": "Release构建与完整离线回归，未实机",
+    "sourceCommit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
+    "sourceTag": "7.5.8.10",
+    "awgilCommit": "02a16b4425ceed2b63994468da406adddefcd57b",
+    "awgilTag": "v7.5.8.5",
+    "movementAndIPCAssertions": 2280,
+    "uiMigrationAssertions": 455,
+    "registeredIPCInterfaces": 73,
     "supportJobsRun": true,
     "supportJobsAssertions": 331,
-    "polygonAssertions": 67922,
     "polygonDefaultAssertions": 33959,
     "polygonDistanceFirstAssertions": 33963,
-    "totalOfflineAssertions": 69948,
+    "polygonAssertions": 67922,
+    "totalOfflineAssertions": 70533,
+    "gameTestRun": false,
+    "visualTestRun": false,
+    "replayTestRun": false,
+    "gameTest": "界面中文字形、缩放、DX11绘图及卸载重载待实机；DMU上游P5仍有未完成内容。",
     "protectedSourceFilesUnchanged": 40,
+    "protectedBaseline": "D:/mod-source/ffxiv_bossmod/temp/ui-migration-20261125/local-radars-before.json",
     "userRecordsUnchanged": true,
-    "releaseDLLSHA256": "BD6126958807125447AA4B8A45BF10B39EA71F2BD50A11F5CB127C3A92C0F4C0",
-    "version": "7.5.7.401",
-    "buildGitHead": "49466ef3013281b885b0f9bcabaca04cdb088ead",
-    "sourceState": "本次正式版本从已提交的 49466ef3013281b885b0f9bcabaca04cdb088ead 构建；功能源码与已验收的 19542fa9a919928cca2db680c60b884af5810c53 一致，仅递增项目与清单版本。全部离线入口重新运行并使用正式包同一DLL。",
-    "scope": "正式发布候选：完整RotationMovement、SupportJobs、PolygonQueries两种顺序及包内清单/程序集/身份/作者核对。实机与新战斗回放未执行。",
-    "validationEvidence": "D:/mod-source/outputs/release-7.5.7.401",
-    "buildLog": "D:/mod-source/outputs/release-7.5.7.401/build.log",
-    "buildInputManifestSHA256": "FDD0EDA3CB17B246368C23CEE11F1C8C0B40A3D72A677EE53CD801FA5F5B83BF",
-    "testInputManifestSHA256": "cadbd5f693d341461092090ca10ac8c568ec26ca17a553503176959f72219089",
-    "packageZIPHash": "344560B0D15149EAEA63218FBF581A225E6D6AA883C8C988E764071A4F15F41E"
+    "releaseDLLSHA256": "d4f01058f4babf8c9a375e931067b5a4707051838571a6cd236733e666c1f7f7",
+    "zipSHA256": "e91fa6ab37567b934b88805f7a89b64a33b35d62f22f9346d985938e3b8cc47f",
+    "runtimeDependencies": {
+      "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+      "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+    },
+    "checks": [
+      {
+        "exitCode": 0,
+        "command": [
+          "dotnet",
+          "run",
+          "--project",
+          "Tests/RotationMovement",
+          "-c",
+          "Release",
+          "--",
+          "--sqpack",
+          "D:/最终幻想XIV/game/sqpack"
+        ],
+        "dllSHA256": "d4f01058f4babf8c9a375e931067b5a4707051838571a6cd236733e666c1f7f7",
+        "gitHead": "349f4553a3619600488cb8fa325d52466f334cad",
+        "log": "D:\\mod-source\\outputs\\release-7.5.8.1001\\rotation.log",
+        "assertions": 2280
+      },
+      {
+        "exitCode": 0,
+        "command": [
+          "dotnet",
+          "run",
+          "--project",
+          "Tests/SupportJobs",
+          "-c",
+          "Release",
+          "--",
+          "--sqpack",
+          "D:/最终幻想XIV/game/sqpack"
+        ],
+        "dllSHA256": "d4f01058f4babf8c9a375e931067b5a4707051838571a6cd236733e666c1f7f7",
+        "gitHead": "349f4553a3619600488cb8fa325d52466f334cad",
+        "log": "D:\\mod-source\\outputs\\release-7.5.8.1001\\support.log",
+        "assertions": 331
+      },
+      {
+        "exitCode": 0,
+        "command": [
+          "dotnet",
+          "run",
+          "--project",
+          "Tests/PolygonQueries",
+          "-c",
+          "Release"
+        ],
+        "dllSHA256": "d4f01058f4babf8c9a375e931067b5a4707051838571a6cd236733e666c1f7f7",
+        "gitHead": "349f4553a3619600488cb8fa325d52466f334cad",
+        "log": "D:\\mod-source\\outputs\\release-7.5.8.1001\\polygon.log",
+        "assertions": 33959
+      },
+      {
+        "exitCode": 0,
+        "command": [
+          "dotnet",
+          "run",
+          "--project",
+          "Tests/PolygonQueries",
+          "-c",
+          "Release",
+          "--no-build",
+          "--",
+          "--distance-first"
+        ],
+        "dllSHA256": "d4f01058f4babf8c9a375e931067b5a4707051838571a6cd236733e666c1f7f7",
+        "gitHead": "349f4553a3619600488cb8fa325d52466f334cad",
+        "log": "D:\\mod-source\\outputs\\release-7.5.8.1001\\polygon-distance.log",
+        "assertions": 33963
+      }
+    ],
+    "validationEvidence": "D:\\mod-source\\outputs\\release-7.5.8.1001",
+    "scope": "Reborn与awgil功能整合、普通魔之塔/CE更新、穆斯塔迪奥修复及Reborn界面迁移。",
+    "sourceState": "正式版本从已提交的源码349f4553a3619600488cb8fa325d52466f334cad构建，后续制品与证明提交仅更新ZIP和同步记录。",
+    "committed": true,
+    "pushed": true
   },
   "lastRelease": {
-    "date": "2026-11-05",
-    "version": "7.5.7.401",
+    "date": "2026-11-26",
+    "version": "7.5.8.1001",
     "author": "veyn&Sumomo",
-    "sourceCodeCommit": "49466ef3013281b885b0f9bcabaca04cdb088ead",
-    "rebornTag": "7.5.7.4",
-    "rebornCommit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
-    "awgilTag": "v7.5.7.20",
-    "awgilCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
-    "sourceRepositoryCommit": "00491b55ec303f8fcd304190cb9cde845d58eb51",
-    "distributionRepositoryCommit": "4fef305faf57ea711e6d330ee1a941bc54d512a4",
+    "sourceCodeCommit": "349f4553a3619600488cb8fa325d52466f334cad",
+    "sourceRepositoryCommit": "f1ed8e66cbf112555c60531061685891db38ed41",
+    "distributionRepositoryCommit": "461f35638cd4a2f4adeca40941e28c94b28a6201",
+    "rebornTag": "7.5.8.10",
+    "rebornCommit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
+    "rebornReleaseCommit": "05bdf3abd1963c84105784273a8c171bb7cf0b7c",
+    "awgilTag": "v7.5.8.5",
+    "awgilCommit": "02a16b4425ceed2b63994468da406adddefcd57b",
     "releaseBuild": "零警告、零错误",
-    "releaseDLLSHA256": "BD6126958807125447AA4B8A45BF10B39EA71F2BD50A11F5CB127C3A92C0F4C0",
-    "zipSHA256": "344560B0D15149EAEA63218FBF581A225E6D6AA883C8C988E764071A4F15F41E",
-    "movementAndIPCAssertions": 1695,
-    "registeredIPCInterfaces": 71,
+    "releaseDLLSHA256": "d4f01058f4babf8c9a375e931067b5a4707051838571a6cd236733e666c1f7f7",
+    "zipSHA256": "e91fa6ab37567b934b88805f7a89b64a33b35d62f22f9346d985938e3b8cc47f",
+    "runtimeDependencies": {
+      "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+      "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+    },
+    "movementAndIPCAssertions": 2280,
+    "uiMigrationAssertions": 455,
+    "registeredIPCInterfaces": 73,
     "supportJobsRun": true,
     "supportJobsAssertions": 331,
-    "polygonAssertions": 67922,
     "polygonDefaultAssertions": 33959,
     "polygonDistanceFirstAssertions": 33963,
-    "totalOfflineAssertions": 69948,
+    "polygonAssertions": 67922,
+    "totalOfflineAssertions": 70533,
     "gameTestRun": false,
     "replayTestRun": false,
-    "gameTest": "尚未实机或新战斗回放验证；DMU上游仍注明P5未完成。",
+    "visualTestRun": false,
+    "gameTest": "界面中文字形、缩放、DX11绘图及卸载重载待实机；DMU上游P5仍有未完成内容。",
     "protectedSourceFilesUnchanged": 40,
+    "protectedBaseline": "D:/mod-source/ffxiv_bossmod/temp/ui-migration-20261125/local-radars-before.json",
     "userRecordsUnchanged": true,
     "published": true,
     "pushed": true,
-    "rawIndexVersion": "7.5.7.401",
-    "rawIndexLastUpdate": 1793887545,
-    "rawCheckedUTC": "2026-11-05T14:09:46.471865+00:00",
-    "validationEvidence": "D:/mod-source/outputs/release-7.5.7.401",
-    "versionRule": "Reborn 7.5.7.4 → 7.5.7.401（尾段4×100+1）",
-    "scope": "发布已验收的Reborn 7.5.7.4与awgil v7.5.7.20功能整合。保留超魔之塔、现有界面与用户原记录；同一ZIP进入源码默认/测试发布分支及独立插件仓。",
-    "sourceCommitMeaning": "sourceRepositoryCommit是包含版本和ZIP的发布提交；后续发布证明提交只更新元数据，不改变制品。"
+    "rawIndexVersion": "7.5.8.1001",
+    "rawIndexLastUpdate": 1795622947,
+    "rawCheckedUTC": "2026-11-25T16:11:00.680657+00:00",
+    "validationEvidence": "D:\\mod-source\\outputs\\release-7.5.8.1001",
+    "versionRule": "Reborn 7.5.8.10 → 7.5.8.1001（尾段10×100+1）",
+    "scope": "Reborn与awgil功能整合、普通魔之塔/CE更新、穆斯塔迪奥修复及Reborn界面迁移。",
+    "sourceCommitMeaning": "sourceCodeCommit是正式DLL的构建源码提交；sourceRepositoryCommit是包含该源码及相同ZIP的发布提交；之后的发布证明提交仅更新元数据。"
   },
   "lastIntegration": {
-    "date": "2026-11-05",
-    "commit": "19542fa9a919928cca2db680c60b884af5810c53",
-    "sourceCommit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
-    "awgilCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
+    "date": "2026-11-26",
+    "commit": "349f4553a3619600488cb8fa325d52466f334cad",
+    "sourceCommit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
+    "awgilCommit": "02a16b4425ceed2b63994468da406adddefcd57b",
     "validationLevel": "Release构建与完整离线回归，未实机",
-    "validationEvidence": "D:/mod-source/outputs/sync-20261105",
-    "note": "方案A功能整合完成后，按用户2026-11-05新增的发布指令进入7.5.7.401双仓发布。新授权不改变此前保留界面、超魔之塔与安全/配置兼容的范围。",
+    "validationEvidence": "D:\\mod-source\\outputs\\release-7.5.8.1001",
     "published": true,
     "pushed": true,
-    "releaseVersion": "7.5.7.401",
-    "publicationCommit": "00491b55ec303f8fcd304190cb9cde845d58eb51"
+    "releaseVersion": "7.5.8.1001",
+    "publicationCommit": "f1ed8e66cbf112555c60531061685891db38ed41",
+    "audit": "upstream-20261125.json",
+    "uiAudit": "ui-migration-20261125.json"
   },
   "worktreeRepair": {
     "date": "2026-10-24",
@@ -850,174 +1062,46 @@
       "validationEvidence": "D:/mod-source/outputs/release-7.5.7.201",
       "scope": "发布欧米茄/绝神兵修复及Reborn 7.5.7.2最终树增量；DMU整体按上游Contributed同步，新增幻神龙和CastShadow末段修复。超魔之塔保持本地。两仓使用同一ZIP；默认发布分支与测试分支均包含代码及制品。",
       "sourceCommitMeaning": "sourceRepositoryCommit为包含版本与发布ZIP的提交；后续仅发布证明的元数据提交不改变制品。"
+    },
+    {
+      "date": "2026-11-05",
+      "version": "7.5.7.401",
+      "author": "veyn&Sumomo",
+      "sourceCodeCommit": "49466ef3013281b885b0f9bcabaca04cdb088ead",
+      "rebornTag": "7.5.7.4",
+      "rebornCommit": "97595f07cb2bd5e1f466e3e49a6ce567e24e8ed0",
+      "awgilTag": "v7.5.7.20",
+      "awgilCommit": "6e410ef8bb912fc70e3c1f97eedfb77a7dc4dfc0",
+      "sourceRepositoryCommit": "00491b55ec303f8fcd304190cb9cde845d58eb51",
+      "distributionRepositoryCommit": "4fef305faf57ea711e6d330ee1a941bc54d512a4",
+      "releaseBuild": "零警告、零错误",
+      "releaseDLLSHA256": "BD6126958807125447AA4B8A45BF10B39EA71F2BD50A11F5CB127C3A92C0F4C0",
+      "zipSHA256": "344560B0D15149EAEA63218FBF581A225E6D6AA883C8C988E764071A4F15F41E",
+      "movementAndIPCAssertions": 1695,
+      "registeredIPCInterfaces": 71,
+      "supportJobsRun": true,
+      "supportJobsAssertions": 331,
+      "polygonAssertions": 67922,
+      "polygonDefaultAssertions": 33959,
+      "polygonDistanceFirstAssertions": 33963,
+      "totalOfflineAssertions": 69948,
+      "gameTestRun": false,
+      "replayTestRun": false,
+      "gameTest": "尚未实机或新战斗回放验证；DMU上游仍注明P5未完成。",
+      "protectedSourceFilesUnchanged": 40,
+      "userRecordsUnchanged": true,
+      "published": true,
+      "pushed": true,
+      "rawIndexVersion": "7.5.7.401",
+      "rawIndexLastUpdate": 1793887545,
+      "rawCheckedUTC": "2026-11-05T14:09:46.471865+00:00",
+      "validationEvidence": "D:/mod-source/outputs/release-7.5.7.401",
+      "versionRule": "Reborn 7.5.7.4 → 7.5.7.401（尾段4×100+1）",
+      "scope": "发布已验收的Reborn 7.5.7.4与awgil v7.5.7.20功能整合。保留超魔之塔、现有界面与用户原记录；同一ZIP进入源码默认/测试发布分支及独立插件仓。",
+      "sourceCommitMeaning": "sourceRepositoryCommit是包含版本和ZIP的发布提交；后续发布证明提交只更新元数据，不改变制品。"
     }
   ],
-  "workingTreeIntegration": {
-    "date": "2026-11-25",
-    "baseCommit": "e9d2d5cd97cc92ae90b879433b5ad640e1a8168c",
-    "rebornCommit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
-    "awgilCommit": "02a16b4425ceed2b63994468da406adddefcd57b",
-    "sourceManifestSHA256": "cf3a6ad9e0fa2d4b6dc2d0d094164fd24a3eb16b3efe2ec0ee12286968c85d60",
-    "audit": "upstream-20261125.json",
-    "committed": false,
-    "pushed": false,
-    "published": false,
-    "uiMigration": {
-      "date": "2026-11-25",
-      "upstreamCommit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
-      "audit": "ui-migration-20261125.json",
-      "validationEvidence": "D:\\mod-source\\outputs\\ui-migration-20261125",
-      "materialPackageVersion": "7.5.8.4",
-      "terraFXVersion": "10.0.28000",
-      "committed": false
-    }
-  },
-  "workingTreeValidation": {
-    "date": "2026-11-25",
-    "phase": "ui-migration",
-    "baseCommit": "e9d2d5cd97cc92ae90b879433b5ad640e1a8168c",
-    "sourceState": "未提交工作区，包含先前上游整合与本批界面迁移。",
-    "version": "7.5.7.401",
-    "sourceManifestSHA256": "cf3a6ad9e0fa2d4b6dc2d0d094164fd24a3eb16b3efe2ec0ee12286968c85d60",
-    "sourceManifest": "D:\\mod-source\\outputs\\ui-migration-20261125\\源码清单.json",
-    "releaseBuild": "零警告、零错误",
-    "releaseDLLSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
-    "runtimeDependencies": {
-      "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
-      "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
-      "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
-    },
-    "compiled": true,
-    "offlineTestsRun": true,
-    "movementAndIPCAssertions": 2280,
-    "registeredIPCInterfaces": 73,
-    "uiMigrationAssertions": 455,
-    "supportJobsAssertions": 331,
-    "polygonDefaultAssertions": 33959,
-    "polygonDistanceFirstAssertions": 33963,
-    "totalOfflineAssertions": 70533,
-    "checks": [
-      {
-        "exitCode": 0,
-        "command": [
-          "dotnet",
-          "run",
-          "--project",
-          "Tests/RotationMovement",
-          "-c",
-          "Release",
-          "--",
-          "--sqpack",
-          "D:/最终幻想XIV/game/sqpack"
-        ],
-        "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
-        "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\rotation-3.log",
-        "assertions": 2280,
-        "runtimeDependencies": {
-          "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
-          "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
-          "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
-        }
-      },
-      {
-        "exitCode": 0,
-        "command": [
-          "dotnet",
-          "run",
-          "--project",
-          "Tests/SupportJobs",
-          "-c",
-          "Release",
-          "--",
-          "--sqpack",
-          "D:/最终幻想XIV/game/sqpack"
-        ],
-        "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
-        "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\support-3.log",
-        "assertions": 331,
-        "runtimeDependencies": {
-          "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
-          "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
-          "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
-        }
-      },
-      {
-        "exitCode": 0,
-        "command": [
-          "dotnet",
-          "run",
-          "--project",
-          "Tests/PolygonQueries",
-          "-c",
-          "Release"
-        ],
-        "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
-        "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\polygon-3.log",
-        "assertions": 33959,
-        "runtimeDependencies": {
-          "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
-          "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
-          "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
-        }
-      },
-      {
-        "exitCode": 0,
-        "command": [
-          "dotnet",
-          "run",
-          "--project",
-          "Tests/PolygonQueries",
-          "-c",
-          "Release",
-          "--no-build",
-          "--",
-          "--distance-first"
-        ],
-        "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
-        "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\polygon-distance-3.log",
-        "assertions": 33963,
-        "runtimeDependencies": {
-          "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
-          "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
-          "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
-        }
-      }
-    ],
-    "protectedSourceFilesUnchanged": 40,
-    "priorWorktreeFilesPreserved": 793,
-    "newChineseKeys": 188,
-    "oldChineseValuesPreserved": true,
-    "gameTestRun": false,
-    "visualTestRun": false,
-    "reloadTestRun": false,
-    "actualPluginIntegrationTestRun": false,
-    "committed": false,
-    "pushed": false,
-    "published": false,
-    "staticChecks": {
-      "projectRules": 0,
-      "changedCSharpFiles": 779,
-      "protectedComparison": 0,
-      "gitDiffCheck": 0,
-      "localizationPlaceholders": true
-    },
-    "package": {
-      "path": "D:\\mod-source\\ffxiv_bossmod\\BossMod\\bin\\Release\\BossMod\\latest.zip",
-      "sha256": "70923e4fc3bc57e693ec4f313272a8d4fadadc940d475de123878ce2298b0085",
-      "files": {
-        "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
-        "BossMod.json": "b587c9f5cfa207d38c7a4ed820e7c22a1bb0c3fd16a5fae14e5f92b07f70ac57",
-        "BossMod.pdb": "7cf0d711b1517cd6225deeffee0867720c12d3ab38dc2d568ef35920cd16267c",
-        "DefaultRotationPresets.json": "57068b5eebe229221e45a72168ad82c4cf175885d6d08756bba2ee78830988b6",
-        "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
-        "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
-      },
-      "version": "7.5.7.401",
-      "author": "veyn&Sumomo"
-    },
-    "validationEvidence": "D:\\mod-source\\outputs\\ui-migration-20261125"
-  },
-  "stateMeaning": "source记录本次已检查上游目标；workingTreeIntegration/workingTreeValidation记录未提交工作区整合与最终验收。integrated、lastIntegration、lastValidation及lastRelease保留已提交历史。",
+  "stateMeaning": "source固定已检查上游目标；integrated与lastIntegration记录已提交整合；lastValidation绑定正式构建源码和DLL；lastRelease记录双仓制品发布。workingTreeIntegrationHistory与workingTreeValidationHistory保留提交前各阶段证据。",
   "workingTreeValidationHistory": [
     {
       "date": "2026-11-25",
@@ -1224,6 +1308,173 @@
         "activeDocumentsChecked": 10,
         "archivedEntriesChecked": 448,
         "encodingCheck": "UTF-8、BOM保持、CRLF、NUL/重复BOM检查通过"
+      }
+    },
+    {
+      "date": "2026-11-25",
+      "phase": "ui-migration",
+      "baseCommit": "e9d2d5cd97cc92ae90b879433b5ad640e1a8168c",
+      "sourceState": "未提交工作区，包含先前上游整合与本批界面迁移。",
+      "version": "7.5.7.401",
+      "sourceManifestSHA256": "cf3a6ad9e0fa2d4b6dc2d0d094164fd24a3eb16b3efe2ec0ee12286968c85d60",
+      "sourceManifest": "D:\\mod-source\\outputs\\ui-migration-20261125\\源码清单.json",
+      "releaseBuild": "零警告、零错误",
+      "releaseDLLSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+      "runtimeDependencies": {
+        "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+        "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+        "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+      },
+      "compiled": true,
+      "offlineTestsRun": true,
+      "movementAndIPCAssertions": 2280,
+      "registeredIPCInterfaces": 73,
+      "uiMigrationAssertions": 455,
+      "supportJobsAssertions": 331,
+      "polygonDefaultAssertions": 33959,
+      "polygonDistanceFirstAssertions": 33963,
+      "totalOfflineAssertions": 70533,
+      "checks": [
+        {
+          "exitCode": 0,
+          "command": [
+            "dotnet",
+            "run",
+            "--project",
+            "Tests/RotationMovement",
+            "-c",
+            "Release",
+            "--",
+            "--sqpack",
+            "D:/最终幻想XIV/game/sqpack"
+          ],
+          "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+          "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\rotation-3.log",
+          "assertions": 2280,
+          "runtimeDependencies": {
+            "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+            "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+            "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+          }
+        },
+        {
+          "exitCode": 0,
+          "command": [
+            "dotnet",
+            "run",
+            "--project",
+            "Tests/SupportJobs",
+            "-c",
+            "Release",
+            "--",
+            "--sqpack",
+            "D:/最终幻想XIV/game/sqpack"
+          ],
+          "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+          "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\support-3.log",
+          "assertions": 331,
+          "runtimeDependencies": {
+            "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+            "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+            "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+          }
+        },
+        {
+          "exitCode": 0,
+          "command": [
+            "dotnet",
+            "run",
+            "--project",
+            "Tests/PolygonQueries",
+            "-c",
+            "Release"
+          ],
+          "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+          "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\polygon-3.log",
+          "assertions": 33959,
+          "runtimeDependencies": {
+            "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+            "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+            "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+          }
+        },
+        {
+          "exitCode": 0,
+          "command": [
+            "dotnet",
+            "run",
+            "--project",
+            "Tests/PolygonQueries",
+            "-c",
+            "Release",
+            "--no-build",
+            "--",
+            "--distance-first"
+          ],
+          "dllSHA256": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+          "log": "D:\\mod-source\\ffxiv_bossmod\\temp\\ui-migration-20261125\\polygon-distance-3.log",
+          "assertions": 33963,
+          "runtimeDependencies": {
+            "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+            "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+            "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+          }
+        }
+      ],
+      "protectedSourceFilesUnchanged": 40,
+      "priorWorktreeFilesPreserved": 793,
+      "newChineseKeys": 188,
+      "oldChineseValuesPreserved": true,
+      "gameTestRun": false,
+      "visualTestRun": false,
+      "reloadTestRun": false,
+      "actualPluginIntegrationTestRun": false,
+      "committed": false,
+      "pushed": false,
+      "published": false,
+      "staticChecks": {
+        "projectRules": 0,
+        "changedCSharpFiles": 779,
+        "protectedComparison": 0,
+        "gitDiffCheck": 0,
+        "localizationPlaceholders": true
+      },
+      "package": {
+        "path": "D:\\mod-source\\ffxiv_bossmod\\BossMod\\bin\\Release\\BossMod\\latest.zip",
+        "sha256": "70923e4fc3bc57e693ec4f313272a8d4fadadc940d475de123878ce2298b0085",
+        "files": {
+          "BossMod.dll": "556eeed81c11d6e818cfe654479f641628061ba2fc1ed0e9a3b24bdead3af172",
+          "BossMod.json": "b587c9f5cfa207d38c7a4ed820e7c22a1bb0c3fd16a5fae14e5f92b07f70ac57",
+          "BossMod.pdb": "7cf0d711b1517cd6225deeffee0867720c12d3ab38dc2d568ef35920cd16267c",
+          "DefaultRotationPresets.json": "57068b5eebe229221e45a72168ad82c4cf175885d6d08756bba2ee78830988b6",
+          "RebornMaterial.dll": "17397dcb38af120fb7fbfc7fd2a6a199a204d2bc8a66c858ae229f04ff2eaa67",
+          "TerraFX.Interop.Windows.dll": "150847982bdbd0c673951462a441f7bd3dba0623a729e06084c1699c9c81d7fe"
+        },
+        "version": "7.5.7.401",
+        "author": "veyn&Sumomo"
+      },
+      "validationEvidence": "D:\\mod-source\\outputs\\ui-migration-20261125"
+    }
+  ],
+  "workingTreeIntegrationHistory": [
+    {
+      "date": "2026-11-25",
+      "baseCommit": "e9d2d5cd97cc92ae90b879433b5ad640e1a8168c",
+      "rebornCommit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
+      "awgilCommit": "02a16b4425ceed2b63994468da406adddefcd57b",
+      "sourceManifestSHA256": "cf3a6ad9e0fa2d4b6dc2d0d094164fd24a3eb16b3efe2ec0ee12286968c85d60",
+      "audit": "upstream-20261125.json",
+      "committed": false,
+      "pushed": false,
+      "published": false,
+      "uiMigration": {
+        "date": "2026-11-25",
+        "upstreamCommit": "1aa85181088a2f4f12c694f6ade96e14b6ce7d64",
+        "audit": "ui-migration-20261125.json",
+        "validationEvidence": "D:\\mod-source\\outputs\\ui-migration-20261125",
+        "materialPackageVersion": "7.5.8.4",
+        "terraFXVersion": "10.0.28000",
+        "committed": false
       }
     }
   ]
